@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客户盈亏分析 - 原型设计</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #60a5fa;
+            --accent-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --light-bg: #f0f9ff;
+            --card-bg: #ffffff;
+            --border-color: #e0f2fe;
+            --text-primary: #1e3a8a;
+            --text-secondary: #64748b;
+            
+            /* 盈亏颜色定义 */
+            --profit-color: #ef4444; /* 盈利 - 红色 */
+            --loss-color: #10b981;   /* 亏损 - 绿色 */
+            --neutral-color: #3b82f6; /* 持平 - 蓝色 */
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(224, 242, 254, 0.6);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.1);
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.15);
+        }
+        
+        .metric-card.active {
+            border-left: 4px solid var(--profit-color);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .chart-container {
+            height: 300px;
+            width: 100%;
+        }
+        
+        .large-chart {
+            height: 400px;
+        }
+        
+        .filter-badge {
+            transition: all 0.2s ease;
+        }
+        
+        .filter-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .sidebar {
+            background: rgba(240, 249, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border-color);
+        }
+        
+        .table-row:hover {
+            background-color: rgba(224, 242, 254, 0.5);
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-active { background-color: var(--profit-color); }
+        .status-warning { background-color: var(--warning-color); }
+        .status-danger { background-color: var(--danger-color); }
+        
+        /* 移动端适配 */
+        @media (max-width: 1024px) {
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                z-index: 40;
+                transform: translateX(-100%);
+            }
+            
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+                display: none;
+            }
+            
+            .overlay.active {
+                display: block;
+            }
+            
+            header {
+                padding-top: 60px !important;
+            }
+            
+            .mobile-grid-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+            
+            @media (max-width: 640px) {
+                .mobile-grid-2 {
+                    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+                }
+            }
+            
+            @media (max-width: 1024px) {
+                .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+                
+                .lg\:grid-cols-2 {
+                    grid-template-columns: 1fr !important;
+                }
+                
+                .lg\:grid-cols-3 {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+            
+            .chart-row {
+                grid-column: 1 / -1;
+            }
+            
+            .filter-container {
+                white-space: nowrap;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            
+            .filter-container::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .more-filters-btn {
+                flex-shrink: 0;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-grid-2 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .mobile-grid-3 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .large-chart {
+                height: 300px;
+            }
+            
+            .mobile-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            
+            /* 移动端表格优化 */
+            .mobile-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+        
+        .more-filters-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+                border: 1px solid #e0f2fe;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+                z-index: 50;
+                display: none;
+                min-width: 200px;
+            }
+            
+            .more-filters-dropdown.active {
+                display: block;
+            }
+            
+            .filter-item {
+                padding: 8px 12px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+            
+            .filter-item:hover {
+                background-color: #e0f2fe;
+            }
+            
+            /* 盈亏分析专用样式 */
+            .profit-card {
+                border-left: 4px solid var(--profit-color);
+            }
+            
+            .loss-card {
+                border-left: 4px solid var(--loss-color);
+            }
+            
+            .neutral-card {
+                border-left: 4px solid var(--neutral-color);
+            }
+            
+            .stock-list-container {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            
+            /* 移动端优化 */
+            @media (max-width: 768px) {
+                .p-6 {
+                    padding: 1rem;
+                }
+                
+                .p-5 {
+                    padding: 0.75rem;
+                }
+                
+                .p-4 {
+                    padding: 0.5rem;
+                }
+                
+                .text-lg {
+                    font-size: 1.125rem;
+                }
+                
+                .text-2xl {
+                    font-size: 1.5rem;
+                }
+                
+                .mobile-scroll {
+                    overflow-x: auto;
+                }
+                
+                /* 移动端按钮优化 */
+                .mobile-btn-group {
+                    flex-wrap: wrap;
+                    gap: 0.25rem;
+                }
+                
+                .mobile-btn {
+                    padding: 0.25rem 0.5rem;
+                    font-size: 0.75rem;
+                }
+            }
+            
+            /* 动画效果 */
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            /* 悬停效果 */
+            .hover-lift {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .hover-lift:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+            }
+            
+            /* 文本颜色 */
+            .text-profit {
+                color: var(--profit-color);
+            }
+            
+            .text-loss {
+                color: var(--loss-color);
+            }
+            
+            .text-neutral {
+                color: var(--neutral-color);
+            }
+            
+            .bg-profit-light {
+                background-color: rgba(239, 68, 68, 0.1);
+            }
+            
+            .bg-loss-light {
+                background-color: rgba(16, 185, 129, 0.1);
+            }
+            
+            .bg-neutral-light {
+                background-color: rgba(59, 130, 246, 0.1);
+            }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 移动端菜单按钮 - 已移动到标题栏 -->
+    
+    <div class="flex h-screen">
+        <!-- 遮罩层 -->
+        <div id="overlay" class="overlay"></div>
+        
+        <!-- 侧边栏 -->
+        <div id="sidebar" class="sidebar w-64 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-blue-500"></i>
+                        客户盈亏分析
+                    </h1>
+                    <p class="text-xs text-gray-500 mt-1">证券行业客户盈亏分析平台</p>
+                </div>
+                <button id="close-sidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <nav class="flex-1 p-4 overflow-y-auto">
+                <div class="mb-6">
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">核心分析</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all active text-gray-700"><i class="fas fa-chart-pie mr-3 text-red-500"></i> 盈亏总览</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-coins mr-3 text-green-500"></i> 个股盈亏</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-exchange-alt mr-3 text-purple-500"></i> 交易分析</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-chart-line mr-3 text-blue-500"></i> 回撤分析</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-percentage mr-3 text-orange-500"></i> 归因分析</a></li>
+                    </ul>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">高级分析</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-brain mr-3 text-pink-500"></i> 智能诊断</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-project-diagram mr-3 text-indigo-500"></i> 组合优化</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-clock mr-3 text-teal-500"></i> 时间序列</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">系统设置</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-cog mr-3 text-gray-500"></i> 参数配置</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-user-shield mr-3 text-gray-500"></i> 权限管理</a></li>
+                    </ul>
+                </div>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex items-center">
+                    <img src="https://via.placeholder.com/32" alt="用户头像" class="w-8 h-8 rounded-full">
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">分析专员</p>
+                        <p class="text-xs text-gray-400">张伟</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航 - 移动端优化布局 -->
+            <header class="bg-white bg-opacity-90 backdrop-filter backdrop-blur-lg border-b border-gray-200">
+                <!-- 第一排：标题 + 按钮 -->
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center">
+                        <h2 class="text-xl font-semibold text-gray-800">客户盈亏分析总览</h2>
+                        <span class="ml-3 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">实时数据</span>
+                    </div>
+                    
+                    <!-- 右侧按钮组 - 横向排列 -->
+                    <div class="flex items-center space-x-2">
+                        <!-- 用户按钮 -->
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap">
+                            <i class="fas fa-user mr-1"></i> 用户
+                        </button>
+                        
+                        <!-- 移动端菜单按钮 -->
+                        <button id="menu-toggle" class="lg:hidden bg-blue-500 text-white p-2 rounded-full shadow-md transition-all duration-200 hover:shadow-lg">
+                            <i class="fas fa-bars text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 第二排：搜索和其他功能 -->
+                <div class="flex items-center px-4 pb-4">
+                    <!-- 搜索框 -->
+                    <div class="relative flex-grow mr-4">
+                        <input type="text" placeholder="搜索客户..." class="bg-blue-50 text-gray-800 rounded-lg pl-10 pr-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm border border-blue-100">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-blue-500"></i>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex items-center space-x-2 mobile-btn-group">
+                        <!-- 导出按钮 -->
+                        <button class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap mobile-btn">
+                            <i class="fas fa-download mr-1"></i> 导出
+                        </button>
+                        
+                        <!-- 筛选按钮 -->
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap mobile-btn">
+                            <i class="fas fa-filter mr-1"></i> 筛选
+                        </button>
+                        
+                        <!-- 更多操作按钮 -->
+                        <div class="relative">
+                            <button id="more-actions-btn" class="bg-slate-500 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg mobile-btn">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            
+                            <!-- 更多操作下拉菜单 -->
+                            <div id="more-actions-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-blue-100 z-50 hidden">
+                                <div class="py-1">
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">添加客户</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">批量操作</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">设置</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- 筛选条件（移动端优化） -->
+            <div class="p-4 border-b border-blue-100 bg-white bg-opacity-50">
+                <div class="flex items-center">
+                    <span class="text-sm text-blue-600 mr-2 flex-shrink-0">筛选:</span>
+                    <div class="filter-container flex items-center space-x-2 overflow-x-auto flex-grow">
+                        <span class="filter-badge bg-profit-light text-profit px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-red-200 transition-colors">
+                            盈利客户 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-loss-light text-loss px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-green-200 transition-colors">
+                            亏损客户 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-neutral-light text-neutral px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-blue-200 transition-colors">
+                            持平客户 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-purple-200 transition-colors">
+                            >100万 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-yellow-200 transition-colors">
+                            高换手 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 hover:bg-orange-200 transition-colors">
+                            高回撤 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <button class="text-blue-600 hover:text-blue-800 text-sm flex items-center flex-shrink-0 hover:bg-blue-50 px-2 py-1 rounded-full transition-colors">
+                            <i class="fas fa-plus mr-1"></i> 添加
+                        </button>
+                        <button id="more-filters-btn" class="more-filters-btn bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0 transition-colors">
+                            <i class="fas fa-ellipsis-h mr-1"></i> 更多
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 更多筛选下拉菜单 -->
+                <div id="more-filters-dropdown" class="more-filters-dropdown">
+                    <div class="filter-item">按时间段筛选</div>
+                    <div class="filter-item">按盈亏比例</div>
+                    <div class="filter-item">按换手率</div>
+                    <div class="filter-item">按回撤率</div>
+                    <div class="filter-item">按客户经理</div>
+                    <div class="filter-item">清除所有筛选</div>
+                </div>
+            </div>
+            
+            <!-- 主要内容 -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- 关键盈亏指标卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 mobile-grid-2" style="grid-template-columns: repeat(2, minmax(0, 1fr)) !important;">
+                    <div class="glass-card metric-card profit-card p-5 cursor-pointer active hover-lift fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-600 text-sm font-medium">盈利客户数</p>
+                                <h3 class="text-3xl font-bold mt-1 text-gray-800">8,432</h3>
+                                <p class="text-profit text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 8.5% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-red-500 p-3 rounded-xl shadow-md">
+                                <i class="fas fa-arrow-up text-white text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card loss-card p-5 cursor-pointer hover-lift fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-600 text-sm font-medium">亏损客户数</p>
+                                <h3 class="text-3xl font-bold mt-1 text-gray-800">3,026</h3>
+                                <p class="text-loss text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-down mr-1"></i> 3.2% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-green-500 p-3 rounded-xl shadow-md">
+                                <i class="fas fa-arrow-down text-white text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card neutral-card p-5 cursor-pointer hover-lift fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-600 text-sm font-medium">平均盈利率</p>
+                                <h3 class="text-3xl font-bold mt-1 text-gray-800">12.8%</h3>
+                                <p class="text-profit text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 2.1% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-blue-500 p-3 rounded-xl shadow-md">
+                                <i class="fas fa-percentage text-white text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card p-5 cursor-pointer hover-lift fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-blue-600 text-sm font-medium">平均回撤率</p>
+                                <h3 class="text-3xl font-bold mt-1 text-gray-800">8.4%</h3>
+                                <p class="text-loss text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-down mr-1"></i> 1.3% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-purple-500 p-3 rounded-xl shadow-md">
+                                <i class="fas fa-chart-line text-white text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 - 盈亏趋势分析 -->
+                <div class="grid grid-cols-1 lg:grid-cols-1 gap-4 mb-6" style="grid-template-columns: 1fr !important;">
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">客户盈亏趋势分析</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">日</button>
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">周</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">月</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">季</button>
+                            </div>
+                        </div>
+                        <div id="profitTrendChart" class="chart-container large-chart"></div>
+                    </div>
+                </div>
+                
+                <!-- 盈亏分布与个股分析 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- 盈亏分布 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">盈亏分布</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">按盈亏比例</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">按资产规模</button>
+                            </div>
+                        </div>
+                        <div id="profitDistributionChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 个股盈亏排行 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">个股盈亏排行</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">按盈利率</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">按亏损率</button>
+                            </div>
+                        </div>
+                        <div class="stock-list-container">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-blue-100">
+                                        <th class="text-left py-2 px-3 text-blue-700">股票代码</th>
+                                        <th class="text-left py-2 px-3 text-blue-700">股票名称</th>
+                                        <th class="text-left py-2 px-3 text-blue-700">盈亏率</th>
+                                        <th class="text-left py-2 px-3 text-blue-700">持仓客户</th>
+                                        <th class="text-left py-2 px-3 text-blue-700">平均持仓</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="table-row border-b border-blue-50">
+                                        <td class="py-2 px-3 text-blue-700">600519</td>
+                                        <td class="py-2 px-3 text-blue-700">贵州茅台</td>
+                                        <td class="py-2 px-3 text-profit font-medium">+15.8%</td>
+                                        <td class="py-2 px-3 text-blue-700">1,245</td>
+                                        <td class="py-2 px-3 text-blue-700">¥85,420</td>
+                                    </tr>
+                                    <tr class="table-row border-b border-blue-50">
+                                        <td class="py-2 px-3 text-blue-700">000858</td>
+                                        <td class="py-2 px-3 text-blue-700">五粮液</td>
+                                        <td class="py-2 px-3 text-profit font-medium">+12.3%</td>
+                                        <td class="py-2 px-3 text-blue-700">987</td>
+                                        <td class="py-2 px-3 text-blue-700">¥62,150</td>
+                                    </tr>
+                                    <tr class="table-row border-b border-blue-50">
+                                        <td class="py-2 px-3 text-blue-700">300750</td>
+                                        <td class="py-2 px-3 text-blue-700">宁德时代</td>
+                                        <td class="py-2 px-3 text-loss font-medium">-8.7%</td>
+                                        <td class="py-2 px-3 text-blue-700">1,567</td>
+                                        <td class="py-2 px-3 text-blue-700">¥45,320</td>
+                                    </tr>
+                                    <tr class="table-row border-b border-blue-50">
+                                        <td class="py-2 px-3 text-blue-700">000001</td>
+                                        <td class="py-2 px-3 text-blue-700">平安银行</td>
+                                        <td class="py-2 px-3 text-profit font-medium">+5.2%</td>
+                                        <td class="py-2 px-3 text-blue-700">2,134</td>
+                                        <td class="py-2 px-3 text-blue-700">¥32,450</td>
+                                    </tr>
+                                    <tr class="table-row border-b border-blue-50">
+                                        <td class="py-2 px-3 text-blue-700">002415</td>
+                                        <td class="py-2 px-3 text-blue-700">海康威视</td>
+                                        <td class="py-2 px-3 text-loss font-medium">-12.4%</td>
+                                        <td class="py-2 px-3 text-blue-700">876</td>
+                                        <td class="py-2 px-3 text-blue-700">¥38,920</td>
+                                    </tr>
+                                    <tr class="table-row">
+                                        <td class="py-2 px-3 text-blue-700">601318</td>
+                                        <td class="py-2 px-3 text-blue-700">中国平安</td>
+                                        <td class="py-2 px-3 text-loss font-medium">-6.8%</td>
+                                        <td class="py-2 px-3 text-blue-700">1,432</td>
+                                        <td class="py-2 px-3 text-blue-700">¥28,750</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 交易分析与回撤分析 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- 换手率分析 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">换手率分析</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">按客户</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">按股票</button>
+                            </div>
+                        </div>
+                        <div id="turnoverChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 回撤率分析 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">回撤率分析</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">最大回撤</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">平均回撤</button>
+                            </div>
+                        </div>
+                        <div id="drawdownChart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <!-- 归因分析与智能诊断 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- 归因分析 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">盈亏归因分析</h3>
+                            <div class="flex space-x-2 mobile-btn-group">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">行业归因</button>
+                                <button class="px-3 py-1 bg-blue-100 rounded text-sm hover:bg-blue-200 text-blue-800 mobile-btn transition-colors">个股归因</button>
+                            </div>
+                        </div>
+                        <div id="attributionChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 智能诊断 -->
+                    <div class="glass-card p-5 hover-lift fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-blue-800">客户投资诊断</h3>
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn hover:bg-blue-600 transition-all">一键诊断</button>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                                <div class="flex items-center">
+                                    <div class="bg-red-500 p-2 rounded-lg mr-3">
+                                        <i class="fas fa-lightbulb text-white"></i>
+                                    </div>
+                                    <span class="font-medium text-red-800">诊断建议</span>
+                                </div>
+                                <p class="text-sm text-red-700 mt-2">建议客户降低单只股票集中度，分散投资风险</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                                <div class="flex items-center">
+                                    <div class="bg-green-500 p-2 rounded-lg mr-3">
+                                        <i class="fas fa-exclamation-triangle text-white"></i>
+                                    </div>
+                                    <span class="font-medium text-green-800">风险提示</span>
+                                </div>
+                                <p class="text-sm text-green-700 mt-2">部分客户换手率过高，可能增加交易成本</p>
+                            </div>
+                            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <div class="flex items-center">
+                                    <div class="bg-blue-500 p-2 rounded-lg mr-3">
+                                        <i class="fas fa-thumbs-up text-white"></i>
+                                    </div>
+                                    <span class="font-medium text-blue-800">优势分析</span>
+                                </div>
+                                <p class="text-sm text-blue-700 mt-2">多数客户持仓结构合理，长期投资价值明显</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 客户盈亏明细表格 -->
+                <div class="glass-card p-5 mb-6 hover-lift fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-blue-800">客户盈亏明细</h3>
+                        <div class="flex space-x-2 mobile-btn-group">
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">
+                                <i class="fas fa-sort-amount-down mr-1"></i> 排序
+                            </button>
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">
+                                <i class="fas fa-columns mr-1"></i> 列设置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mobile-table">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-blue-100">
+                                    <th class="text-left py-3 px-4 text-blue-700">客户ID</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">姓名</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">总资产</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">总盈亏</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">盈亏率</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">换手率</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">最大回撤</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">风险等级</th>
+                                    <th class="text-left py-3 px-4 text-blue-700">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-row border-b border-blue-50">
+                                    <td class="py-3 px-4 text-blue-700">C10001</td>
+                                    <td class="py-3 px-4 text-blue-700">李明</td>
+                                    <td class="py-3 px-4 text-blue-700">¥2,450,000</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+¥186,500</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+8.2%</td>
+                                    <td class="py-3 px-4 text-blue-700">45.6%</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-5.8%</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-profit-light text-profit rounded-full text-xs">保守型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-blue-50">
+                                    <td class="py-3 px-4 text-blue-700">C10002</td>
+                                    <td class="py-3 px-4 text-blue-700">王芳</td>
+                                    <td class="py-3 px-4 text-blue-700">¥5,120,000</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-¥128,600</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-2.5%</td>
+                                    <td class="py-3 px-4 text-blue-700">156.8%</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-18.4%</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-neutral-light text-neutral rounded-full text-xs">稳健型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-blue-50">
+                                    <td class="py-3 px-4 text-blue-700">C10003</td>
+                                    <td class="py-3 px-4 text-blue-700">张伟</td>
+                                    <td class="py-3 px-4 text-blue-700">¥1,850,000</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+¥312,500</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+16.9%</td>
+                                    <td class="py-3 px-4 text-blue-700">89.2%</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-7.3%</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-loss-light text-loss rounded-full text-xs">激进型</span>
+                                    </td>
+                                    <td class="py-3 px-4>
+                                        <button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-blue-50">
+                                    <td class="py-3 px-4 text-blue-700">C10004</td>
+                                    <td class="py-3 px-4 text-blue-700">刘洋</td>
+                                    <td class="py-3 px-4 text-blue-700">¥8,750,000</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+¥1,246,300</td>
+                                    <td class="py-3 px-4 text-profit font-medium">+14.2%</td>
+                                    <td class="py-3 px-4 text-blue-700">32.5%</td>
+                                    <td class="py-3 px-4 text-profit font-medium">-3.1%</td>
+                                    <td class="py-3 px-4>
+                                        <span class="px-2 py-1 bg-neutral-light text-neutral rounded-full text-xs">平衡型</span>
+                                    </td>
+                                    <td class="py-3 px-4>
+                                        <button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="py-3 px-4 text-blue-700">C10005</td>
+                                    <td class="py-3 px-4 text-blue-700">陈静</td>
+                                    <td class="py-3 px-4 text-blue-700">¥3,200,000</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-¥89,300</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-2.8%</td>
+                                    <td class="py-3 px-4 text-blue-700">67.4%</td>
+                                    <td class="py-3 px-4 text-loss font-medium">-12.7%</td>
+                                    <td class="py-3 px-4>
+                                        <span class="px-2 py-1 bg-profit-light text-profit rounded-full text-xs">保守型</span>
+                                    </td>
+                                    <td class="py-3 px-4>
+                                        <button class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mt-4 mobile-scroll">
+                        <p class="text-sm text-blue-600">显示 1-5 条，共 11,458 条记录</p>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">上一页</button>
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded text-sm mobile-btn">1</button>
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">2</button>
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">3</button>
+                            <button class="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm text-blue-800 mobile-btn transition-colors">下一页</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // 移动端菜单切换
+        document.getElementById('menu-toggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.add('open');
+            document.getElementById('overlay').classList.add('active');
+        });
+
+        document.getElementById('close-sidebar').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('overlay').classList.remove('active');
+        });
+
+        document.getElementById('overlay').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('overlay').classList.remove('active');
+        });
+
+        // 更多操作下拉菜单
+        document.getElementById('more-actions-btn').addEventListener('click', function() {
+            const dropdown = document.getElementById('more-actions-dropdown');
+            dropdown.classList.toggle('hidden');
+        });
+
+        // 更多筛选下拉菜单
+        document.getElementById('more-filters-btn').addEventListener('click', function() {
+            const dropdown = document.getElementById('more-filters-dropdown');
+            dropdown.classList.toggle('active');
+        });
+
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('#more-actions-btn')) {
+                document.getElementById('more-actions-dropdown').classList.add('hidden');
+            }
+            if (!event.target.closest('#more-filters-btn')) {
+                document.getElementById('more-filters-dropdown').classList.remove('active');
+            }
+        });
+
+        // 指标卡片点击效果
+        document.querySelectorAll('.metric-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // 初始化图表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 盈亏趋势图表 - 参考多维分析配色
+            const profitTrendChart = echarts.init(document.getElementById('profitTrendChart'));
+            const profitTrendOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e0f2fe',
+                    textStyle: {
+                        color: '#1e3a8a'
+                    },
+                    formatter: function(params) {
+                        let result = params[0].name + '<br/>';
+                        params.forEach(param => {
+                            const value = param.value;
+                            const color = value >= 0 ? '#ef4444' : '#10b981';
+                            result += `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${param.color};"></span>`;
+                            result += `${param.seriesName}: <span style="color:${color};font-weight:bold">${value > 0 ? '+' : ''}${value}%</span><br/>`;
+                        });
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['盈利客户占比', '平均盈利率'],
+                    bottom: 0,
+                    textStyle: {
+                        color: '#64748b'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b'
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '占比(%)',
+                        position: 'left',
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e0f2fe'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#64748b',
+                            formatter: '{value}%'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#f0f9ff'
+                            }
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: '盈利率(%)',
+                        position: 'right',
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e0f2fe'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#64748b',
+                            formatter: '{value}%'
+                        },
+                        splitLine: {
+                            show: false
+                        }
+                    }
+                ],
+                series: [
+                    {
+                        name: '盈利客户占比',
+                        type: 'bar',
+                        data: [68, 72, 69, 75, 78, 82, 79, 76, 81, 85, 83, 87],
+                        itemStyle: {
+                            color: '#ef4444'
+                        }
+                    },
+                    {
+                        name: '平均盈利率',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: [8.2, 9.5, 7.8, 11.2, 12.6, 14.3, 13.1, 10.8, 12.9, 15.2, 14.7, 16.8],
+                        smooth: true,
+                        itemStyle: {
+                            color: '#ef4444'
+                        },
+                        lineStyle: {
+                            width: 3
+                        }
+                    }
+                ]
+            };
+            profitTrendChart.setOption(profitTrendOption);
+
+            // 盈亏分布图表 - 完全按照多维分析的样式重新设计
+            const profitDistributionChart = echarts.init(document.getElementById('profitDistributionChart'));
+            const profitDistributionOption = {
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e0f2fe',
+                    textStyle: {
+                        color: '#1e3a8a'
+                    },
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                legend: {
+                    orient: 'vertical',
+                    right: 10,
+                    top: 'center',
+                    textStyle: {
+                        color: '#64748b'
+                    }
+                },
+                series: [
+                    {
+                        name: '盈亏分布',
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['40%', '50%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: {
+                            borderRadius: 0, // 移除圆角
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        label: {
+                            show: true,
+                            formatter: '{b}: {d}%',
+                            color: '#64748b'
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: '14',
+                                fontWeight: 'bold'
+                            }
+                        },
+                        labelLine: {
+                            show: true
+                        },
+                        data: [
+                            { value: 8432, name: '盈利客户', itemStyle: { color: '#ef4444' } },
+                            { value: 3026, name: '亏损客户', itemStyle: { color: '#10b981' } },
+                            { value: 1000, name: '持平客户', itemStyle: { color: '#3b82f6' } }
+                        ]
+                    }
+                ]
+            };
+            profitDistributionChart.setOption(profitDistributionOption);
+
+            // 换手率分析图表
+            const turnoverChart = echarts.init(document.getElementById('turnoverChart'));
+            const turnoverOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e0f2fe',
+                    textStyle: {
+                        color: '#1e3a8a'
+                    }
+                },
+                legend: {
+                    data: ['客户数', '平均盈利率'],
+                    bottom: 0,
+                    textStyle: {
+                        color: '#64748b'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['0-50%', '50-100%', '100-200%', '200-300%', '300%+'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b'
+                    }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '客户数',
+                        position: 'left',
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e0f2fe'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#64748b'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#f0f9ff'
+                            }
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: '平均盈利率(%)',
+                        position: 'right',
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e0f2fe'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#64748b',
+                            formatter: '{value}%'
+                        },
+                        splitLine: {
+                            show: false
+                        }
+                    }
+                ],
+                series: [
+                    {
+                        name: '客户数',
+                        type: 'bar',
+                        data: [3200, 4500, 3800, 2100, 858],
+                        itemStyle: {
+                            color: '#3b82f6'
+                        }
+                    },
+                    {
+                        name: '平均盈利率',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: [12.5, 8.3, 5.2, 2.1, -3.8],
+                        smooth: true,
+                        itemStyle: {
+                            color: '#ef4444'
+                        },
+                        lineStyle: {
+                            width: 3
+                        }
+                    }
+                ]
+            };
+            turnoverChart.setOption(turnoverOption);
+
+            // 回撤率分析图表
+            const drawdownChart = echarts.init(document.getElementById('drawdownChart'));
+            const drawdownOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e0f2fe',
+                    textStyle: {
+                        color: '#1e3a8a'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['0-5%', '5-10%', '10-15%', '15-20%', '20%+'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b'
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '客户数',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#f0f9ff'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '客户数',
+                        type: 'bar',
+                        data: [2800, 4200, 3500, 1800, 1158],
+                        itemStyle: {
+                            color: function(params) {
+                                const colorList = [
+                                    '#ef4444', // 盈利 - 红色
+                                    '#3b82f6', // 蓝色
+                                    '#f59e0b', // 黄色
+                                    '#10b981', // 亏损 - 绿色
+                                    '#10b981'  // 亏损 - 绿色
+                                ];
+                                return colorList[params.dataIndex];
+                            }
+                        },
+                        label: {
+                            show: true,
+                            position: 'top',
+                            color: '#64748b'
+                        }
+                    }
+                ]
+            };
+            drawdownChart.setOption(drawdownOption);
+
+            // 归因分析图表
+            const attributionChart = echarts.init(document.getElementById('attributionChart'));
+            const attributionOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e0f2fe',
+                    textStyle: {
+                        color: '#1e3a8a'
+                    },
+                    formatter: function(params) {
+                        const param = params[0];
+                        return `${param.name}<br/>贡献度: ${param.value > 0 ? '+' : ''}${param.value}%`;
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b',
+                        formatter: '{value}%'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#f0f9ff'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: ['白酒', '新能源', '医药', '科技', '金融', '消费', '地产', '其他'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e0f2fe'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#64748b'
+                    }
+                },
+                series: [
+                    {
+                        name: '贡献度',
+                        type: 'bar',
+                        data: [5.2, -3.8, 2.1, 4.7, -1.2, 3.5, -2.8, 1.9],
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value >= 0 ? '#ef4444' : '#10b981';
+                            }
+                        },
+                        label: {
+                            show: true,
+                            position: 'right',
+                            formatter: '{c}%',
+                            color: '#64748b'
+                        }
+                    }
+                ]
+            };
+            attributionChart.setOption(attributionOption);
+
+            // 窗口大小改变时重新调整图表大小
+            window.addEventListener('resize', function() {
+                profitTrendChart.resize();
+                profitDistributionChart.resize();
+                turnoverChart.resize();
+                drawdownChart.resize();
+                attributionChart.resize();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LiveMuse 服务详情演示页</title>
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.3.2/echarts.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;background:#f6f9ff;color:#18233b}.topbar{height:64px;background:#fff;border-bottom:1px solid #e8eef9;display:flex;align-items:center;padding:0 32px;gap:34px;position:sticky;top:0;z-index:5}.brand{display:flex;align-items:center;gap:8px;font-weight:800;color:#25345f}.logo{width:20px;height:20px;background:linear-gradient(135deg,#185cff,#17d5c0);border-radius:6px;position:relative}.logo:after{content:"";position:absolute;right:-4px;top:5px;width:8px;height:8px;background:#7b61ff;border-radius:50%}.nav{display:flex;gap:28px;height:64px;align-items:center}.nav a{height:64px;display:flex;align-items:center;text-decoration:none;color:#21304e;font-weight:700;font-size:14px;border-bottom:3px solid transparent}.nav a.active{color:#165dff;border-bottom-color:#165dff}.icons{margin-left:auto;display:flex;align-items:center;gap:22px;color:#142144}.bell{position:relative}.badge{position:absolute;top:-9px;right:-10px;min-width:16px;height:16px;background:#ff2d2d;color:#fff;border-radius:8px;font-size:10px;line-height:16px;text-align:center}.user{font-size:12px;font-weight:700}.wrap{padding:22px 34px 36px}.crumb{font-size:12px;color:#7a89aa;margin-bottom:14px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px}.card{background:#fff;border:1px solid #e5edf8;border-radius:12px;box-shadow:0 10px 26px rgba(30,66,130,.04)}.hero{padding:22px}.hero-main{display:grid;grid-template-columns:76px 1fr 150px;gap:18px}.app-icon{width:72px;height:72px;border-radius:14px;background:linear-gradient(135deg,#004cff,#904dff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px}.title{display:flex;align-items:center;gap:10px}.title h1{margin:0;font-size:24px;letter-spacing:.2px}.score{color:#ff8a00;font-weight:800}.status{background:#e8fff4;color:#0aa56b;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700}.desc{font-size:13px;line-height:1.75;color:#5d6b8b;margin:9px 0 10px}.tags{display:flex;gap:8px;flex-wrap:wrap}.tag{background:#eef5ff;color:#1764ff;border:1px solid #cfdefb;border-radius:5px;padding:4px 9px;font-size:12px;font-weight:700}.actions{display:flex;flex-direction:column;gap:10px}.btn{height:36px;border-radius:7px;border:1px solid #dbe6f5;background:#fff;color:#24507f;font-weight:800;cursor:pointer}.btn.primary{background:#165dff;border-color:#165dff;color:#fff}.btn:hover{filter:brightness(.98)}.meta-row{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid #eef3fb;margin-top:20px;padding-top:16px;color:#556585}.meta-row div{border-right:1px solid #e6edf7;padding:0 14px}.meta-row div:last-child{border-right:0}.meta-row b{display:block;color:#17233f;margin-top:5px;font-size:13px}.tabs{height:48px;border-top:1px solid #edf3fb;display:flex;gap:34px;padding:0 22px}.tab{display:flex;align-items:center;font-weight:800;color:#586783;font-size:13px;border-bottom:3px solid transparent}.tab.active{color:#165dff;border-bottom-color:#165dff}.section{padding:20px 22px}.section h3{margin:0 0 12px;font-size:16px}.section p{font-size:13px;color:#586783;line-height:1.8;margin:0}.value-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.value{display:flex;gap:12px;align-items:center;border:1px solid #e5edf8;background:#fbfdff;border-radius:10px;padding:14px}.vicon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}.green{background:#16c784}.blue{background:#3478f6}.orange{background:#ff8a00}.cyan{background:#14b8c6}.value b{font-size:13px}.value span{display:block;color:#71809c;font-size:12px;margin-top:4px}.info-table{width:100%;border-collapse:collapse;font-size:13px;overflow:hidden;border:1px solid #e7eef8;border-radius:10px}.info-table td{padding:12px 14px;border-bottom:1px solid #edf2fa}.info-table tr:last-child td{border-bottom:0}.info-table td:nth-child(odd){background:#f8fbff;color:#697893;width:16%;font-weight:700}.info-table td:nth-child(even){color:#23304a;width:34%}.side{display:flex;flex-direction:column;gap:16px}.side-card{padding:18px}.side-card h3{font-size:16px;margin:0 0 14px}.service-info{display:grid;grid-template-columns:90px 1fr;gap:12px 8px;font-size:12px}.service-info span{color:#7887a4;font-weight:700}.service-info b{color:#24314d;font-weight:800;text-align:right}.ok{color:#14a46b!important}.recommend{display:flex;flex-direction:column;gap:12px}.rec{display:grid;grid-template-columns:36px 1fr 54px;gap:10px;align-items:center}.rec-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff}.rec h4{margin:0;font-size:13px}.rec p{margin:3px 0 0;color:#7b88a4;font-size:11px}.rec .smallbtn{height:26px;border:1px solid #d9e6ff;background:#f6f9ff;color:#165dff;border-radius:6px;font-size:12px;font-weight:800}.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quick a{text-decoration:none;color:#253452;background:#f8fbff;border:1px solid #e5eefb;border-radius:9px;padding:12px;font-size:12px;font-weight:800;display:flex;gap:8px;align-items:center}.quick i{font-style:normal;color:#165dff}.muted{color:#8290ad;font-size:11px;display:block;margin-top:3px}.mini-head{display:flex;justify-content:space-between;align-items:center}.dots{letter-spacing:2px;color:#98a6be}.chart-box{height:150px;margin-top:12px;border:1px solid #edf3fb;border-radius:10px;background:#fbfdff} @media(max-width:1100px){.layout{grid-template-columns:1fr}.hero-main{grid-template-columns:76px 1fr}.actions{grid-column:1/-1;flex-direction:row}.value-grid{grid-template-columns:1fr 1fr}.meta-row{grid-template-columns:repeat(2,1fr);gap:10px}.meta-row div{border:0;background:#f8fbff;border-radius:8px;padding:10px}} 
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo"></span><span>灵感数据工坊<br><small style="font-weight:600;color:#8896b2">LiveMuse</small></span></div>
+  <nav class="nav"><a class="active" href="#">服务中心</a><a href="#">我的工作台</a></nav>
+  <div class="icons"><span>⌕</span><span class="bell">🔔<em class="badge">6</em></span><span class="bell">✉<em class="badge">58</em></span><span class="bell">💬<em class="badge">9</em></span><span class="user">业务人员⌄</span></div>
+</header>
+<main class="wrap">
+  <div class="crumb">首页 / 服务中心 / 服务详情 / 客户画像与经营分析</div>
+  <div class="layout">
+    <section>
+      <div class="card hero">
+        <div class="hero-main">
+          <div class="app-icon">♟</div>
+          <div>
+            <div class="title"><h1>客户画像与经营服务</h1><span class="score">★ 4.8</span><span class="status">已开通</span></div>
+            <p class="desc">基于客户行为、资产、交易与服务数据，形成客户经营视图，支持客户分层、营销触达、交易偏好分析和服务策略优化。</p>
+            <div class="tags"><span class="tag">客户经营</span><span class="tag">客户画像</span><span class="tag">精准营销</span><span class="tag">分析服务</span></div>
+          </div>
+          <div class="actions"><button class="btn primary">立即使用</button><button class="btn">查看API文档</button><button class="btn">☆ 取消收藏</button></div>
+        </div>
+        <div class="meta-row">
+          <div>使用人数<b>128 人在用</b></div><div>本月调用<b>3,482 次</b></div><div>累计申请<b>256 次</b></div><div>服务负责人<b>数据运营组</b></div><div>更新时间<b>2024-05-20</b></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="tabs"><div class="tab active">服务介绍</div><div class="tab">使用说明</div><div class="tab">输入输出</div><div class="tab">质量报告</div><div class="tab">调用示例</div><div class="tab">服务API（12）</div><div class="tab">变更记录</div></div>
+        <div class="section">
+          <h3>服务概述</h3>
+          <p>该服务面向证券业务部门的客户经营场景，聚合客户基础资料、交易行为、资产结构与服务触达数据，帮助业务人员快速识别高价值客户、潜在流失客户和可营销客户群。</p>
+        </div>
+        <div class="section">
+          <h3>服务优势</h3>
+          <div class="value-grid">
+            <div class="value"><div class="vicon blue">▣</div><div><b>经营全景</b><span>整合360°客户经营信息</span></div></div>
+            <div class="value"><div class="vicon green">◎</div><div><b>实时更新</b><span>关键指标准实时同步</span></div></div>
+            <div class="value"><div class="vicon orange">◆</div><div><b>精准推荐</b><span>识别客群与营销机会</span></div></div>
+            <div class="value"><div class="vicon cyan">⇄</div><div><b>灵活调用</b><span>支持页面/API两种方式</span></div></div>
+          </div>
+        </div>
+        <div class="section">
+          <h3>基本信息</h3>
+          <table class="info-table"><tr><td>服务名称</td><td>客户画像与经营服务</td><td>创建时间</td><td>2023-05-15</td></tr><tr><td>服务编号</td><td>DM-CUST-TAG-001</td><td>更新日期</td><td>2024-05-20</td></tr><tr><td>所属分类</td><td>客户经营 / 客户画像</td><td>版本号</td><td>v2.1.0</td></tr><tr><td>服务状态</td><td>已开通</td><td>数据级别</td><td>T+1</td></tr></table>
+        </div>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="card side-card"><h3>服务信息</h3><div class="service-info"><span>服务状态</span><b class="ok">已开通</b><span>开通时间</span><b>2024-03-10</b><span>访问权限</span><b>权限审批</b><span>服务范围</span><b>部门内 12 人可用</b><span>服务等级</span><b>L2（标准服务）</b><span>计费方式</span><b>按调用次数计量</b><span>负责人</span><b>数据运营组</b><span>联系方式</span><b>dataops@company.com</b></div></div>
+      <div class="card side-card"><div class="mini-head"><h3>相关服务推荐</h3><span class="dots">● ▬</span></div><div class="recommend"><div class="rec"><div class="rec-icon blue">▣</div><div><h4>客户分层服务 <span class="score">★ 4.7</span></h4><p>基于客户价值进行分层管理</p></div><button class="smallbtn">查看</button></div><div class="rec"><div class="rec-icon green">✦</div><div><h4>客户行为标签服务 <span class="score">★ 4.8</span></h4><p>沉淀客户行为特征标签</p></div><button class="smallbtn">查看</button></div><div class="rec"><div class="rec-icon blue">♙</div><div><h4>客户价值评分服务 <span class="score">★ 4.6</span></h4><p>输出客户价值评分</p></div><button class="smallbtn">查看</button></div></div></div>
+      <div class="card side-card"><h3>快捷入口</h3><div class="quick"><a href="#"><i>▣</i><span>申请使用<small class="muted">提交服务申请</small></span></a><a href="#"><i>◆</i><span>查看文档<small class="muted">服务说明文档</small></span></a><a href="#"><i>◇</i><span>问题反馈<small class="muted">反馈使用问题</small></span></a><a href="#"><i>▤</i><span>我的工作台<small class="muted">查看已用服务</small></span></a></div></div>
+    </aside>
+  </div>
+</main>
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active')}));
+document.querySelectorAll('.btn,.smallbtn').forEach(b=>b.addEventListener('click',()=>{b.style.transform='scale(.98)';setTimeout(()=>b.style.transform='',120)}));
+</script>
+</body>
+</html>

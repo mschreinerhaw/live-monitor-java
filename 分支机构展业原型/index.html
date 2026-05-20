@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分支机构展业提报系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        /* ====== 头部导航 ====== */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-tabs button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .nav-tabs button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .nav-tabs button.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* ====== 主容器 ====== */
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ====== 新增展业记录页面 ====== */
+        .form-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+        }
+
+        .form-section h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group label .required {
+            color: #e74c3c;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="date"],
+        .form-group input[type="email"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="date"]:focus,
+        .form-group input[type="email"]:focus,
+        .form-group input[type="number"]:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* ====== 文件上传 ====== */
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 4px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2f5;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8eef7;
+        }
+
+        .upload-area p {
+            font-size: 14px;
+            color: #666;
+            margin: 10px 0;
+        }
+
+        .upload-area .icon {
+            font-size: 32px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .file-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f0f2f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .file-item .remove {
+            color: #e74c3c;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* ====== 按钮 ====== */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* ====== 查询列表页面 ====== */
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        table th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        table td {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+
+        table tbody tr:hover {
+            background: #fafafa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-new {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-updating {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status-completed {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .action-btn {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            padding: 0;
+            font-size: 13px;
+            margin-right: 10px;
+        }
+
+        .action-btn:hover {
+            color: #764ba2;
+        }
+
+        /* ====== 详情模态框 ====== */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 90%;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f5f5f5;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .detail-item {
+            margin-bottom: 20px;
+        }
+
+        .detail-item label {
+            font-weight: 600;
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .detail-item p {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+
+        /* ====== 留痕日志 ====== */
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 40px;
+            width: 2px;
+            height: calc(100% + 20px);
+            background: #e0e0e0;
+        }
+
+        .timeline-item:last-child::before {
+            display: none;
+        }
+
+        .timeline-dot {
+            width: 28px;
+            height: 28px;
+            background: #667eea;
+            border-radius: 50%;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .timeline-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .timeline-type {
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .timeline-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* ====== 统计汇总页面 ====== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card.green {
+            border-left-color: #27ae60;
+        }
+
+        .stat-card.orange {
+            border-left-color: #f39c12;
+        }
+
+        .stat-card.red {
+            border-left-color: #e74c3c;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        /* ====== 汇总表格 ====== */
+        .summary-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+        }
+
+        .summary-table h3 {
+            background: #f5f5f5;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .summary-table table {
+            width: 100%;
+        }
+
+        /* ====== 页签样式 ====== */
+        .tab-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            background: #f9f9f9;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 16px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .tab-btn:hover {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-content table {
+            width: 100%;
+            margin-top: 0;
+        }
+
+        /* ====== 空状态 ====== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* ====== 消息提示 ====== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            background: #27ae60;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 2000;
+            animation: slideIn 0.3s;
+        }
+
+        .toast.error {
+            background: #e74c3c;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ====== 响应式 ====== */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .filters {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            table th,
+            table td {
+                padding: 12px 8px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tab-header {
+                flex-wrap: wrap;
+            }
+
+            .tab-btn {
+                flex: 0 0 50%;
+                padding: 12px 10px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header>
+        <h1>📊 分支机构展业提报系统</h1>
+        <nav class="nav-tabs">
+            <button class="nav-btn active" data-page="create">新增展业记录</button>
+            <button class="nav-btn" data-page="query">展业查询</button>
+            <button class="nav-btn" data-page="company">企业信息</button>
+            <button class="nav-btn" data-page="summary">汇总统计</button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- 新增展业记录页面 -->
+        <div id="create" class="page active">
+            <!-- 基本信息 -->
+            <div class="form-section">
+                <h2>📝 展业基本信息</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>展业日期 <span class="required">*</span></label>
+                        <input type="date" id="businessDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>分支机构 <span class="required">*</span></label>
+                        <select id="branch" required>
+                            <option value="">请选择</option>
+                            <option value="总部">总部</option>
+                            <option value="北京分部">北京分部</option>
+                            <option value="上海分部">上海分部</option>
+                            <option value="深圳分部">深圳分部</option>
+                            <option value="杭州分部">杭州分部</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>负责人员 <span class="required">*</span></label>
+                        <input type="text" id="personName" placeholder="输入人员名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>联系方式</label>
+                        <input type="text" id="personPhone" placeholder="输入电话号码">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 展业对象与事项 -->
+            <div class="form-section">
+                <h2>🏢 展业对象与事项</h2>
+                <div class="form-group">
+                    <label>展业企业名称 <span class="required">*</span></label>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="companyName" required style="flex: 1;">
+                            <option value="">请选择企业或输入新企业</option>
+                        </select>
+                        <button class="btn-secondary" type="button" style="width: 120px;" onclick="openCompanyModal()">管理企业</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>企业所属行业 <span class="required">*</span></label>
+                        <select id="industry" required>
+                            <option value="">请选择</option>
+                            <option value="科技">科技</option>
+                            <option value="金融">金融</option>
+                            <option value="制造">制造</option>
+                            <option value="零售">零售</option>
+                            <option value="能源">能源</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>企业发展阶段</label>
+                        <select id="stage">
+                            <option value="">请选择</option>
+                            <option value="种子期">种子期</option>
+                            <option value="成长期">成长期</option>
+                            <option value="扩张期">扩张期</option>
+                            <option value="上市筹备期">上市筹备期</option>
+                            <option value="已上市">已上市</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>展业项目/事项说明 <span class="required">*</span></label>
+                    <textarea id="projectDesc" placeholder="详细描述展业项目内容、项目进展情况等，例如：拟推介财富管理产品、了解企业融资需求等" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>推进阶段状态</label>
+                    <select id="status">
+                        <option value="跟进中">跟进中</option>
+                        <option value="已联系">已联系</option>
+                        <option value="推进中">推进中</option>
+                        <option value="待决策">待决策</option>
+                        <option value="已完成">已完成</option>
+                        <option value="暂缓">暂缓</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 留痕材料 -->
+            <div class="form-section">
+                <h2>📸 留痕材料（照片/附件）</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="icon">📁</div>
+                    <p><strong>点击选择文件或拖拽文件到此</strong></p>
+                    <p style="color: #999; font-size: 12px;">支持jpg、png、pdf等格式，最多10个文件</p>
+                </div>
+                <div class="file-list" id="fileList"></div>
+                <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+            </div>
+
+            <!-- 备注 -->
+            <div class="form-section">
+                <h2>📝 备注说明</h2>
+                <div class="form-group">
+                    <label>其他备注</label>
+                    <textarea id="remark" placeholder="补充说明、特殊情况记录等"></textarea>
+                </div>
+            </div>
+
+            <!-- 按钮 -->
+            <div class="form-section">
+                <div class="button-group">
+                    <button class="btn-primary" id="submitBtn">提交保存</button>
+                    <button class="btn-secondary" onclick="resetForm()">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 展业查询页面 -->
+        <div id="query" class="page">
+            <div class="form-section">
+                <h2>🔍 查询条件</h2>
+                <div class="filters">
+                    <div class="form-group">
+                        <label>日期范围</label>
+                        <input type="date" id="queryStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>至</label>
+                        <input type="date" id="queryEndDate">
+                    </div>
+                    <div class="form-group">
+                        <label>分支机构</label>
+                        <select id="queryBranch">
+                            <option value="">全部</option>
+                            <option value="总部">总部</option>
+                            <option value="北京分部">北京分部</option>
+                            <option value="上海分部">上海分部</option>
+                            <option value="深圳分部">深圳分部</option>
+                            <option value="杭州分部">杭州分部</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>负责人员</label>
+                        <input type="text" id="queryPerson" placeholder="输入人员名称">
+                    </div>
+                    <div class="form-group">
+                        <label>企业名称</label>
+                        <input type="text" id="queryCompany" placeholder="输入企业名称">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn-primary" onclick="queryRecords()" style="width: 100%; margin-top: 22px;">查询</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="recordsTable">
+                    <thead>
+                        <tr>
+                            <th>展业日期</th>
+                            <th>分支机构</th>
+                            <th>负责人员</th>
+                            <th>企业名称</th>
+                            <th>事项摘要</th>
+                            <th>状态</th>
+                            <th>最近更新</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="icon">📭</div>
+                <p>暂无数据</p>
+            </div>
+        </div>
+
+        <!-- 企业信息维护页面 -->
+        <div id="company" class="page">
+            <!-- 企业列表 -->
+            <div class="form-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0; padding-bottom: 0; border: none;">🏢 企业信息库</h2>
+                    <button class="btn-primary" onclick="openAddCompanyModal()">➕ 新增企业</button>
+                </div>
+
+                <div class="filters">
+                    <div class="form-group">
+                        <label>分支机构</label>
+                        <select id="companyQueryBranch" onchange="queryCompanies()">
+                            <option value="">全部分支</option>
+                            <option value="总部">总部</option>
+                            <option value="北京分部">北京分部</option>
+                            <option value="上海分部">上海分部</option>
+                            <option value="深圳分部">深圳分部</option>
+                            <option value="杭州分部">杭州分部</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>企业名称</label>
+                        <input type="text" id="companyQueryName" placeholder="搜索企业名称" onkeyup="queryCompanies()">
+                    </div>
+                    <div class="form-group">
+                        <label>所属行业</label>
+                        <select id="companyQueryIndustry" onchange="queryCompanies()">
+                            <option value="">全部行业</option>
+                            <option value="科技">科技</option>
+                            <option value="金融">金融</option>
+                            <option value="制造">制造</option>
+                            <option value="零售">零售</option>
+                            <option value="能源">能源</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="companyTable">
+                    <thead>
+                        <tr>
+                            <th>企业名称</th>
+                            <th>所属行业</th>
+                            <th>发展阶段</th>
+                            <th>注册资本</th>
+                            <th>维护分支</th>
+                            <th>维护人员</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="companyTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="companyEmptyState" class="empty-state" style="display: none;">
+                <div class="icon">📭</div>
+                <p>暂无企业信息</p>
+            </div>
+        </div>
+
+        <!-- 汇总统计页面 -->
+        <div id="summary" class="page">
+            <div class="form-section">
+                <h2>📊 统计范围</h2>
+                <div class="filters">
+                    <div class="form-group">
+                        <label>统计日期</label>
+                        <input type="date" id="summaryDate">
+                    </div>
+                    <div class="form-group">
+                        <label>分支机构</label>
+                        <select id="summaryBranch">
+                            <option value="">全部分支</option>
+                            <option value="总部">总部</option>
+                            <option value="北京分部">北京分部</option>
+                            <option value="上海分部">上海分部</option>
+                            <option value="深圳分部">深圳分部</option>
+                            <option value="杭州分部">杭州分部</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn-primary" onclick="loadSummary()" style="width: 100%; margin-top: 22px;">加载统计</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计卡片 -->
+<!--            <div class="stats-grid" id="statsGrid">-->
+<!--                <div class="stat-card">-->
+<!--                    <div class="stat-label">当日新增展业记录</div>-->
+<!--                    <div class="stat-value" id="statNewCount">0</div>-->
+<!--                </div>-->
+<!--                <div class="stat-card green">-->
+<!--                    <div class="stat-label">当日已完成项目</div>-->
+<!--                    <div class="stat-value" id="statCompletedCount">0</div>-->
+<!--                </div>-->
+<!--                <div class="stat-card orange">-->
+<!--                    <div class="stat-label">推进中项目数</div>-->
+<!--                    <div class="stat-value" id="statProgressingCount">0</div>-->
+<!--                </div>-->
+<!--                <div class="stat-card red">-->
+<!--                    <div class="stat-label">待决策项目数</div>-->
+<!--                    <div class="stat-value" id="statPendingCount">0</div>-->
+<!--                </div>-->
+<!--            </div>-->
+
+            <!-- 汇总表格 - 使用页签组合方式 -->
+            <div class="tab-container">
+                <div class="tab-header">
+                    <button class="tab-btn active" data-tab="branch-summary" onclick="switchSummaryTab('branch-summary')">📊 分支机构汇总</button>
+                    <button class="tab-btn" data-tab="person-summary" onclick="switchSummaryTab('person-summary')">👥 负责人员汇总</button>
+                </div>
+
+                <!-- 按分支汇总页签 -->
+                <div id="branch-summary" class="tab-content active">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>分支机构</th>
+                                <th>展业记录数</th>
+                                <th>已完成</th>
+                                <th>推进中</th>
+                                <th>跟进中</th>
+                                <th>完成率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchSummaryBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 按人员汇总页签 -->
+                <div id="person-summary" class="tab-content">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>负责人员</th>
+                                <th>分支机构</th>
+                                <th>展业记录数</th>
+                                <th>已完成</th>
+                                <th>推进中</th>
+                                <th>完成率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="personSummaryBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情模态框 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>展业记录详情</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 基本信息 -->
+                <div id="detailContent"></div>
+
+                <!-- 留痕日志 -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <h3 style="font-size: 16px; margin-bottom: 20px; color: #333;">📜 变更历史</h3>
+                    <div class="timeline" id="timelineContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 企业信息编辑模态框 -->
+    <div id="companyModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="companyModalTitle">新增企业信息</h3>
+                <button class="modal-close" onclick="closeCompanyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-section" style="padding: 0;">
+                    <h2 style="margin-bottom: 20px;">基本信息</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>企业名称 <span class="required">*</span></label>
+                            <input type="text" id="companyEditName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>所属行业 <span class="required">*</span></label>
+                            <select id="companyEditIndustry" required>
+                                <option value="">请选择</option>
+                                <option value="科技">科技</option>
+                                <option value="金融">金融</option>
+                                <option value="制造">制造</option>
+                                <option value="零售">零售</option>
+                                <option value="能源">能源</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>维护分支 <span class="required">*</span></label>
+                            <select id="companyEditBranch" required>
+                                <option value="">请选择</option>
+                                <option value="总部">总部</option>
+                                <option value="北京分部">北京分部</option>
+                                <option value="上海分部">上海分部</option>
+                                <option value="深圳分部">深圳分部</option>
+                                <option value="杭州分部">杭州分部</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>维护人员 <span class="required">*</span></label>
+                            <input type="text" id="companyEditPerson" required>
+                        </div>
+                    </div>
+
+                    <h2 style="margin: 30px 0 20px 0;">企业详细信息</h2>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>注册地址</label>
+                            <input type="text" id="companyEditAddress">
+                        </div>
+                        <div class="form-group">
+                            <label>成立时间</label>
+                            <input type="date" id="companyEditFoundDate">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>注册资本（万元）</label>
+                            <input type="number" id="companyEditCapital">
+                        </div>
+                        <div class="form-group">
+                            <label>发展阶段</label>
+                            <select id="companyEditStage">
+                                <option value="">请选择</option>
+                                <option value="种子期">种子期</option>
+                                <option value="成长期">成长期</option>
+                                <option value="扩张期">扩张期</option>
+                                <option value="上市筹备期">上市筹备期</option>
+                                <option value="已上市">已上市</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>法人代表</label>
+                        <input type="text" id="companyEditLegalPerson">
+                    </div>
+
+                    <div class="form-group">
+                        <label>企业资质</label>
+                        <textarea id="companyEditQualification" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>专利情况</label>
+                        <textarea id="companyEditPatent" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>核心团队简介</label>
+                        <textarea id="companyEditTeam" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>行业地位/市场竞争力</label>
+                        <textarea id="companyEditMarketPosition" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>核心产品及水平简介</label>
+                        <textarea id="companyEditProduct" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>业务需求</label>
+                        <textarea id="companyEditNeed" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>已开展业务</label>
+                        <textarea id="companyEditBusiness" style="min-height: 80px;"></textarea>
+                    </div>
+
+                    <h2 style="margin: 30px 0 20px 0;">📊 财务概况（单位：万元）</h2>
+
+                    <!-- 财务数据表格展示 -->
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f5f5f5;">
+                                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;">年度</th>
+                                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;">主营业务收入</th>
+                                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;">净利润</th>
+                                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;">总资产</th>
+                                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: 600;">净资产</th>
+                                        <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: 600; width: 80px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="financeTableBody">
+                                    <!-- 动态填充财务行 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 新增财务行 -->
+                    <div style="margin-bottom: 30px; padding: 20px; background: #f9f9f9; border-radius: 4px; border-left: 4px solid #667eea;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #333;">➕ 新增财务数据</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>年度 <span class="required">*</span></label>
+                                <select id="financeYear" required>
+                                    <option value="">请选择年度</option>
+                                    <option value="2023">2023</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                    <option value="2026">2026</option>
+                                    <option value="2027">2027</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>主营业务收入（万元）</label>
+                                <input type="number" id="financeRevenue" placeholder="输入金额">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>净利润（万元）</label>
+                                <input type="number" id="financeProfit" placeholder="输入金额">
+                            </div>
+                            <div class="form-group">
+                                <label>总资产（万元）</label>
+                                <input type="number" id="financeAsset" placeholder="输入金额">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>净资产（万元）</label>
+                                <input type="number" id="financeEquity" placeholder="输入金额">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn-secondary" onclick="addFinanceRow()" style="width: 100%; margin-top: 22px;">添加此行</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-group" style="margin-top: 30px;">
+                        <button class="btn-primary" id="companySubmitBtn" onclick="submitCompany()">提交保存</button>
+                        <button class="btn-secondary" onclick="closeCompanyModal()">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 数据存储 ==========
+        let records = [];
+        let companies = [];
+        let currentRecordId = null;
+        let currentCompanyId = null;
+        let currentUserBranch = '北京分部'; // 当前登录用户所属分支，实际应从登录系统获取
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置今天的日期为默认值
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('businessDate').value = today;
+            document.getElementById('summaryDate').value = today;
+
+            // 导航事件
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    switchPage(this.dataset.page);
+                });
+            });
+
+            // 文件上传
+            setupFileUpload();
+
+            // 提交按钮
+            document.getElementById('submitBtn').addEventListener('click', submitForm);
+
+            // 加载示例数据
+            loadSampleData();
+
+            // 初始化企业下拉列表
+            updateCompanySelect();
+
+            // 关闭模态框事件
+            document.getElementById('detailModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+
+            document.getElementById('companyModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeCompanyModal();
+                }
+            });
+        });
+
+        // ========== 页面切换 ==========
+        function switchPage(pageName) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+
+            // 移除所有导航按钮的active状态
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 显示选中的页面
+            document.getElementById(pageName).classList.add('active');
+            event.target.classList.add('active');
+
+            // 查询页面时自动加载记录
+            if (pageName === 'query') {
+                queryRecords();
+            }
+
+            // 企业信息页面时加载企业列表
+            if (pageName === 'company') {
+                queryCompanies();
+            }
+        }
+
+        // ========== 文件上传 ==========
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+        }
+
+        function handleFiles(files) {
+            const fileList = document.getElementById('fileList');
+            const currentFiles = fileList.querySelectorAll('.file-item').length;
+
+            if (currentFiles + files.length > 10) {
+                showToast('最多只能上传10个文件', 'error');
+                return;
+            }
+
+            Array.from(files).forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    📎 ${file.name}
+                    <span class="remove" onclick="this.parentElement.remove()">✕</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        // ========== 表单提交 ==========
+        function submitForm() {
+            // 验证必填字段
+            const businessDate = document.getElementById('businessDate').value;
+            const branch = document.getElementById('branch').value;
+            const personName = document.getElementById('personName').value;
+            const companyName = document.getElementById('companyName').value;
+            const industry = document.getElementById('industry').value;
+            const projectDesc = document.getElementById('projectDesc').value;
+            const fileList = document.getElementById('fileList');
+            const fileCount = fileList.querySelectorAll('.file-item').length;
+
+            if (!businessDate || !branch || !personName || !companyName || !industry || !projectDesc) {
+                showToast('请填写所有必填字段', 'error');
+                return;
+            }
+
+            if (fileCount === 0) {
+                showToast('请上传至少一个留痕材料', 'error');
+                return;
+            }
+
+            // 创建记录
+            const record = {
+                id: 'REC' + Date.now(),
+                businessDate: businessDate,
+                branch: branch,
+                personName: personName,
+                personPhone: document.getElementById('personPhone').value,
+                companyName: companyName,
+                industry: industry,
+                stage: document.getElementById('stage').value,
+                projectDesc: projectDesc,
+                status: document.getElementById('status').value,
+                remark: document.getElementById('remark').value,
+                files: Array.from(fileList.querySelectorAll('.file-item')).map(item => item.textContent.trim().replace('✕', '').trim()),
+                createTime: new Date().toLocaleString('zh-CN'),
+                updateTime: new Date().toLocaleString('zh-CN'),
+                changes: [
+                    {
+                        type: '新增',
+                        time: new Date().toLocaleString('zh-CN'),
+                        operator: personName,
+                        content: '创建新的展业记录'
+                    }
+                ]
+            };
+
+            records.push(record);
+            localStorage.setItem('records', JSON.stringify(records));
+
+            showToast('展业记录已提交成功！');
+            resetForm();
+
+            // 切换到查询页面
+            setTimeout(() => switchPage('query'), 500);
+        }
+
+        function resetForm() {
+            document.getElementById('businessDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('branch').value = '';
+            document.getElementById('personName').value = '';
+            document.getElementById('personPhone').value = '';
+            document.getElementById('companyName').value = '';
+            document.getElementById('industry').value = '';
+            document.getElementById('stage').value = '';
+            document.getElementById('projectDesc').value = '';
+            document.getElementById('status').value = '跟进中';
+            document.getElementById('remark').value = '';
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('fileInput').value = '';
+        }
+
+        // ========== 查询功能 ==========
+        function queryRecords() {
+            const startDate = document.getElementById('queryStartDate').value;
+            const endDate = document.getElementById('queryEndDate').value;
+            const branch = document.getElementById('queryBranch').value;
+            const person = document.getElementById('queryPerson').value.toLowerCase();
+            const company = document.getElementById('queryCompany').value.toLowerCase();
+
+            let filtered = records;
+
+            if (startDate) {
+                filtered = filtered.filter(r => r.businessDate >= startDate);
+            }
+            if (endDate) {
+                filtered = filtered.filter(r => r.businessDate <= endDate);
+            }
+            if (branch) {
+                filtered = filtered.filter(r => r.branch === branch);
+            }
+            if (person) {
+                filtered = filtered.filter(r => r.personName.toLowerCase().includes(person));
+            }
+            if (company) {
+                filtered = filtered.filter(r => r.companyName.toLowerCase().includes(company));
+            }
+
+            // 按日期倒序排列
+            filtered.sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate));
+
+            renderQueryTable(filtered);
+        }
+
+        function renderQueryTable(data) {
+            const tbody = document.getElementById('recordsBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (data.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            tbody.innerHTML = data.map(record => {
+                const summary = record.projectDesc.substring(0, 30) + (record.projectDesc.length > 30 ? '...' : '');
+                const statusClass = getStatusClass(record.status);
+                return `
+                    <tr>
+                        <td>${record.businessDate}</td>
+                        <td>${record.branch}</td>
+                        <td>${record.personName}</td>
+                        <td>${record.companyName}</td>
+                        <td>${summary}</td>
+                        <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                        <td>${record.updateTime}</td>
+                        <td>
+                            <button class="action-btn" onclick="viewDetail('${record.id}')">查看</button>
+                            <button class="action-btn" onclick="editRecord('${record.id}')">编辑</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case '已完成': return 'status-completed';
+                case '推进中': return 'status-updating';
+                default: return 'status-new';
+            }
+        }
+
+        // ========== 详情查看 ==========
+        function viewDetail(recordId) {
+            const record = records.find(r => r.id === recordId);
+            if (!record) return;
+
+            currentRecordId = recordId;
+            const detailContent = document.getElementById('detailContent');
+            const timelineContent = document.getElementById('timelineContent');
+
+            // 渲染基本信息
+            detailContent.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="detail-item">
+                        <label>展业日期</label>
+                        <p>${record.businessDate}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>分支机构</label>
+                        <p>${record.branch}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>负责人员</label>
+                        <p>${record.personName}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>联系方式</label>
+                        <p>${record.personPhone || '-'}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>企业名称</label>
+                        <p>${record.companyName}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>企业行业</label>
+                        <p>${record.industry}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>企业阶段</label>
+                        <p>${record.stage || '-'}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>推进状态</label>
+                        <p><span class="status-badge ${getStatusClass(record.status)}">${record.status}</span></p>
+                    </div>
+                </div>
+
+                <div class="detail-item" style="margin-top: 20px;">
+                    <label>项目/事项说明</label>
+                    <p>${record.projectDesc}</p>
+                </div>
+
+                <div class="detail-item">
+                    <label>备注说明</label>
+                    <p>${record.remark || '-'}</p>
+                </div>
+
+                <div class="detail-item">
+                    <label>留痕材料</label>
+                    <p>${record.files.map(f => `📎 ${f}`).join('<br>')}</p>
+                </div>
+            `;
+
+            // 渲染变更历史
+            timelineContent.innerHTML = record.changes.map(change => `
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">${change.time}</div>
+                        <div class="timeline-type">${change.type}</div>
+                        <div class="timeline-desc">${change.operator} - ${change.content}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // 打开模态框
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+            currentRecordId = null;
+        }
+
+        function editRecord(recordId) {
+            const record = records.find(r => r.id === recordId);
+            if (!record) return;
+
+            // 填充表单
+            document.getElementById('businessDate').value = record.businessDate;
+            document.getElementById('branch').value = record.branch;
+            document.getElementById('personName').value = record.personName;
+            document.getElementById('personPhone').value = record.personPhone;
+            document.getElementById('companyName').value = record.companyName;
+            document.getElementById('industry').value = record.industry;
+            document.getElementById('stage').value = record.stage || '';
+            document.getElementById('projectDesc').value = record.projectDesc;
+            document.getElementById('status').value = record.status;
+            document.getElementById('remark').value = record.remark;
+
+            // 填充文件
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            record.files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    📎 ${file}
+                    <span class="remove" onclick="this.parentElement.remove()">✕</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            currentRecordId = recordId;
+
+            // 修改按钮逻辑
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.textContent = '更新保存';
+            submitBtn.onclick = updateRecord;
+
+            closeModal();
+            switchPage('create');
+        }
+
+        function updateRecord() {
+            const record = records.find(r => r.id === currentRecordId);
+            if (!record) return;
+
+            // 更新字段
+            const newStatus = document.getElementById('status').value;
+            const newProjectDesc = document.getElementById('projectDesc').value;
+            const newRemark = document.getElementById('remark').value;
+            const newPersonPhone = document.getElementById('personPhone').value;
+            const newStage = document.getElementById('stage').value;
+
+            // 记录变更
+            const changes = [];
+            if (newStatus !== record.status) {
+                changes.push({
+                    field: '推进状态',
+                    oldValue: record.status,
+                    newValue: newStatus
+                });
+                record.status = newStatus;
+            }
+            if (newProjectDesc !== record.projectDesc) {
+                changes.push({
+                    field: '项目说明',
+                    oldValue: record.projectDesc.substring(0, 20) + '...',
+                    newValue: newProjectDesc.substring(0, 20) + '...'
+                });
+                record.projectDesc = newProjectDesc;
+            }
+            if (newRemark !== record.remark) {
+                changes.push({
+                    field: '备注说明',
+                    oldValue: record.remark || '(空)',
+                    newValue: newRemark || '(空)'
+                });
+                record.remark = newRemark;
+            }
+
+            if (newPersonPhone !== record.personPhone) {
+                record.personPhone = newPersonPhone;
+            }
+            if (newStage !== record.stage) {
+                record.stage = newStage;
+            }
+
+            // 更新文件
+            const fileList = document.getElementById('fileList');
+            record.files = Array.from(fileList.querySelectorAll('.file-item')).map(item => item.textContent.trim().replace('✕', '').trim());
+
+            // 添加到变更日志
+            record.updateTime = new Date().toLocaleString('zh-CN');
+            const personName = document.getElementById('personName').value;
+            record.changes.push({
+                type: '修改',
+                time: new Date().toLocaleString('zh-CN'),
+                operator: personName,
+                content: changes.map(c => `${c.field}: ${c.oldValue} → ${c.newValue}`).join('; ') || '更新记录'
+            });
+
+            localStorage.setItem('records', JSON.stringify(records));
+            showToast('展业记录已更新成功！');
+
+            // 重置按钮
+            document.getElementById('submitBtn').textContent = '提交保存';
+            document.getElementById('submitBtn').onclick = submitForm;
+
+            resetForm();
+            currentRecordId = null;
+            switchPage('query');
+        }
+
+        // ========== 汇总统计 ==========
+        function switchSummaryTab(tabName) {
+            // 隐藏所有tab内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // 移除所有tab按钮的active状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 显示选中的tab
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        }
+
+        function loadSummary() {
+            const summaryDate = document.getElementById('summaryDate').value;
+            const summaryBranch = document.getElementById('summaryBranch').value;
+
+            let filtered = records;
+
+            if (summaryDate) {
+                filtered = filtered.filter(r => r.businessDate === summaryDate);
+            }
+
+            if (summaryBranch) {
+                filtered = filtered.filter(r => r.branch === summaryBranch);
+            }
+
+            // 计算统计数据
+            const newCount = filtered.length;
+            const completedCount = filtered.filter(r => r.status === '已完成').length;
+            const progressingCount = filtered.filter(r => ['推进中', '已联系', '待决策'].includes(r.status)).length;
+            const pendingCount = filtered.filter(r => r.status === '待决策').length;
+
+            document.getElementById('statNewCount').textContent = newCount;
+            document.getElementById('statCompletedCount').textContent = completedCount;
+            document.getElementById('statProgressingCount').textContent = progressingCount;
+            document.getElementById('statPendingCount').textContent = pendingCount;
+
+            // 按分支统计
+            const branchStats = {};
+            filtered.forEach(record => {
+                if (!branchStats[record.branch]) {
+                    branchStats[record.branch] = {
+                        total: 0,
+                        completed: 0,
+                        progressing: 0,
+                        following: 0
+                    };
+                }
+                branchStats[record.branch].total++;
+                if (record.status === '已完成') branchStats[record.branch].completed++;
+                if (record.status === '推进中') branchStats[record.branch].progressing++;
+                if (record.status === '跟进中') branchStats[record.branch].following++;
+            });
+
+            const branchBody = document.getElementById('branchSummaryBody');
+            branchBody.innerHTML = Object.keys(branchStats).map(branch => {
+                const stats = branchStats[branch];
+                const completionRate = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : 0;
+                return `
+                    <tr>
+                        <td>${branch}</td>
+                        <td>${stats.total}</td>
+                        <td>${stats.completed}</td>
+                        <td>${stats.progressing}</td>
+                        <td>${stats.following}</td>
+                        <td>${completionRate}%</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 按人员统计
+            const personStats = {};
+            filtered.forEach(record => {
+                const key = record.personName;
+                if (!personStats[key]) {
+                    personStats[key] = {
+                        branch: record.branch,
+                        total: 0,
+                        completed: 0,
+                        progressing: 0
+                    };
+                }
+                personStats[key].total++;
+                if (record.status === '已完成') personStats[key].completed++;
+                if (record.status === '推进中') personStats[key].progressing++;
+            });
+
+            const personBody = document.getElementById('personSummaryBody');
+            personBody.innerHTML = Object.keys(personStats).map(person => {
+                const stats = personStats[person];
+                const completionRate = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : 0;
+                return `
+                    <tr>
+                        <td>${person}</td>
+                        <td>${stats.branch}</td>
+                        <td>${stats.total}</td>
+                        <td>${stats.completed}</td>
+                        <td>${stats.progressing}</td>
+                        <td>${completionRate}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ========== 工具函数 ==========
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        }
+
+        // ========== 企业信息管理函数 ==========
+        // 初始化全局财务数据存储
+        window.currentFinanceData = [];
+
+        // 添加财务行
+        function addFinanceRow() {
+            const year = document.getElementById('financeYear').value;
+            const revenue = document.getElementById('financeRevenue').value;
+            const profit = document.getElementById('financeProfit').value;
+            const asset = document.getElementById('financeAsset').value;
+            const equity = document.getElementById('financeEquity').value;
+
+            if (!year) {
+                showToast('请选择年度', 'error');
+                return;
+            }
+
+            // 检查该年度是否已存在
+            if (window.currentFinanceData.some(f => f.year === year)) {
+                showToast(`${year}年的数据已存在，请先删除后重新添加`, 'error');
+                return;
+            }
+
+            // 添加新行
+            window.currentFinanceData.push({
+                year: year,
+                revenue: revenue || '',
+                profit: profit || '',
+                asset: asset || '',
+                equity: equity || ''
+            });
+
+            // 按年度排序
+            window.currentFinanceData.sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
+            // 重新渲染表格
+            renderFinanceTable();
+
+            // 清空输入框
+            document.getElementById('financeYear').value = '';
+            document.getElementById('financeRevenue').value = '';
+            document.getElementById('financeProfit').value = '';
+            document.getElementById('financeAsset').value = '';
+            document.getElementById('financeEquity').value = '';
+
+            showToast(`已添加${year}年财务数据`);
+        }
+
+        // 删除财务行
+        function removeFinanceRow(year) {
+            if (confirm(`确定要删除${year}年的财务数据吗？`)) {
+                window.currentFinanceData = window.currentFinanceData.filter(f => f.year !== year);
+                renderFinanceTable();
+                showToast(`已删除${year}年的财务数据`);
+            }
+        }
+
+        // 渲染财务表格
+        function renderFinanceTable() {
+            const tbody = document.getElementById('financeTableBody');
+
+            if (!window.currentFinanceData || window.currentFinanceData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">暂无财务数据，请点击"添加此行"添加数据</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = window.currentFinanceData.map(record => `
+                <tr>
+                    <td style="padding: 12px; border: 1px solid #ddd; font-weight: 600;">${record.year}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">${record.revenue || '-'}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">${record.profit || '-'}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">${record.asset || '-'}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">${record.equity || '-'}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
+                        <button class="action-btn" onclick="removeFinanceRow('${record.year}')" style="color: #e74c3c;">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openAddCompanyModal() {
+            currentCompanyId = null;
+            document.getElementById('companyModalTitle').textContent = '新增企业信息';
+            clearCompanyForm();
+            document.getElementById('companyEditBranch').value = currentUserBranch;
+            document.getElementById('companyModal').classList.add('active');
+        }
+
+        function openCompanyModal() {
+            openAddCompanyModal();
+        }
+
+        function closeCompanyModal() {
+            document.getElementById('companyModal').classList.remove('active');
+            currentCompanyId = null;
+        }
+
+        function clearCompanyForm() {
+            document.getElementById('companyEditName').value = '';
+            document.getElementById('companyEditIndustry').value = '';
+            document.getElementById('companyEditBranch').value = '';
+            document.getElementById('companyEditPerson').value = '';
+            document.getElementById('companyEditAddress').value = '';
+            document.getElementById('companyEditFoundDate').value = '';
+            document.getElementById('companyEditCapital').value = '';
+            document.getElementById('companyEditStage').value = '';
+            document.getElementById('companyEditLegalPerson').value = '';
+            document.getElementById('companyEditQualification').value = '';
+            document.getElementById('companyEditPatent').value = '';
+            document.getElementById('companyEditTeam').value = '';
+            document.getElementById('companyEditMarketPosition').value = '';
+            document.getElementById('companyEditProduct').value = '';
+            document.getElementById('companyEditNeed').value = '';
+            document.getElementById('companyEditBusiness').value = '';
+
+            // 清空财务编辑表单
+            document.getElementById('financeYear').value = '';
+            document.getElementById('financeRevenue').value = '';
+            document.getElementById('financeProfit').value = '';
+            document.getElementById('financeAsset').value = '';
+            document.getElementById('financeEquity').value = '';
+
+            // 清空财务数据数组（作为编辑时的临时存储）
+            window.currentFinanceData = [];
+            renderFinanceTable();
+        }
+
+        function submitCompany() {
+            const name = document.getElementById('companyEditName').value.trim();
+            const industry = document.getElementById('companyEditIndustry').value;
+            const branch = document.getElementById('companyEditBranch').value;
+            const person = document.getElementById('companyEditPerson').value.trim();
+
+            if (!name || !industry || !branch || !person) {
+                showToast('请填写必填字段', 'error');
+                return;
+            }
+
+            // 检查企业名称是否重复（同分支内）
+            const duplicateCheck = companies.find(c => c.name === name && c.branch === branch && c.id !== currentCompanyId);
+            if (duplicateCheck) {
+                showToast('该分支已存在同名企业', 'error');
+                return;
+            }
+
+            const company = {
+                id: currentCompanyId || 'COM' + Date.now(),
+                name: name,
+                industry: industry,
+                branch: branch,
+                person: person,
+                address: document.getElementById('companyEditAddress').value,
+                foundDate: document.getElementById('companyEditFoundDate').value,
+                capital: document.getElementById('companyEditCapital').value,
+                stage: document.getElementById('companyEditStage').value,
+                legalPerson: document.getElementById('companyEditLegalPerson').value,
+                qualification: document.getElementById('companyEditQualification').value,
+                patent: document.getElementById('companyEditPatent').value,
+                team: document.getElementById('companyEditTeam').value,
+                marketPosition: document.getElementById('companyEditMarketPosition').value,
+                product: document.getElementById('companyEditProduct').value,
+                need: document.getElementById('companyEditNeed').value,
+                business: document.getElementById('companyEditBusiness').value,
+                // 使用新的财务行数据结构
+                financialRecords: window.currentFinanceData || [],
+                createTime: currentCompanyId ? undefined : new Date().toLocaleString('zh-CN'),
+                updateTime: new Date().toLocaleString('zh-CN')
+            };
+
+            if (currentCompanyId) {
+                // 更新现有企业
+                const index = companies.findIndex(c => c.id === currentCompanyId);
+                if (index !== -1) {
+                    company.createTime = companies[index].createTime;
+                    companies[index] = company;
+                }
+            } else {
+                // 新增企业
+                companies.push(company);
+            }
+
+            localStorage.setItem('companies', JSON.stringify(companies));
+            showToast(currentCompanyId ? '企业信息已更新' : '企业信息已新增');
+
+            // 更新企业下拉列表
+            updateCompanySelect();
+
+            closeCompanyModal();
+            queryCompanies();
+        }
+
+        function queryCompanies() {
+            const branch = document.getElementById('companyQueryBranch').value;
+            const name = document.getElementById('companyQueryName').value.toLowerCase();
+            const industry = document.getElementById('companyQueryIndustry').value;
+
+            let filtered = companies;
+
+            // "谁维护谁查看"原则：只能看到自己分支维护的企业
+            filtered = filtered.filter(c => c.branch === currentUserBranch);
+
+            if (branch && branch !== currentUserBranch) {
+                // 如果选择的分支不是自己的分支，仍然只显示自己分支的企业
+                filtered = filtered.filter(c => c.branch === currentUserBranch);
+            }
+
+            if (name) {
+                filtered = filtered.filter(c => c.name.toLowerCase().includes(name));
+            }
+
+            if (industry) {
+                filtered = filtered.filter(c => c.industry === industry);
+            }
+
+            renderCompanyTable(filtered);
+        }
+
+        function renderCompanyTable(data) {
+            const tbody = document.getElementById('companyTableBody');
+            const emptyState = document.getElementById('companyEmptyState');
+
+            if (data.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            tbody.innerHTML = data.map(company => `
+                <tr>
+                    <td>${company.name}</td>
+                    <td>${company.industry}</td>
+                    <td>${company.stage || '-'}</td>
+                    <td>${company.capital ? company.capital + '万元' : '-'}</td>
+                    <td>${company.branch}</td>
+                    <td>${company.person}</td>
+                    <td>${company.createTime || '-'}</td>
+                    <td>
+                        <button class="action-btn" onclick="editCompany('${company.id}')">编辑</button>
+                        <button class="action-btn" onclick="deleteCompany('${company.id}')" style="color: #e74c3c;">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function editCompany(companyId) {
+            const company = companies.find(c => c.id === companyId);
+            if (!company) return;
+
+            // 检查权限：只能编辑自己分支的企业
+            if (company.branch !== currentUserBranch) {
+                showToast('您只能编辑自己分支的企业信息', 'error');
+                return;
+            }
+
+            currentCompanyId = companyId;
+            document.getElementById('companyModalTitle').textContent = '编辑企业信息';
+
+            document.getElementById('companyEditName').value = company.name;
+            document.getElementById('companyEditIndustry').value = company.industry;
+            document.getElementById('companyEditBranch').value = company.branch;
+            document.getElementById('companyEditPerson').value = company.person;
+            document.getElementById('companyEditAddress').value = company.address || '';
+            document.getElementById('companyEditFoundDate').value = company.foundDate || '';
+            document.getElementById('companyEditCapital').value = company.capital || '';
+            document.getElementById('companyEditStage').value = company.stage || '';
+            document.getElementById('companyEditLegalPerson').value = company.legalPerson || '';
+            document.getElementById('companyEditQualification').value = company.qualification || '';
+            document.getElementById('companyEditPatent').value = company.patent || '';
+            document.getElementById('companyEditTeam').value = company.team || '';
+            document.getElementById('companyEditMarketPosition').value = company.marketPosition || '';
+            document.getElementById('companyEditProduct').value = company.product || '';
+            document.getElementById('companyEditNeed').value = company.need || '';
+            document.getElementById('companyEditBusiness').value = company.business || '';
+
+            // 加载财务数据 - 支持新旧两种格式
+            window.currentFinanceData = [];
+            if (company.financialRecords && Array.isArray(company.financialRecords)) {
+                // 新格式：财务行数据数组
+                window.currentFinanceData = JSON.parse(JSON.stringify(company.financialRecords));
+            } else if (company.finance) {
+                // 旧格式：按年份的财务对象，转换为新格式
+                ['2023', '2024', '2025'].forEach(year => {
+                    const yearData = company.finance[year];
+                    if (yearData && (yearData.revenue || yearData.profit || yearData.asset || yearData.equity)) {
+                        window.currentFinanceData.push({
+                            year: year,
+                            revenue: yearData.revenue || '',
+                            profit: yearData.profit || '',
+                            asset: yearData.asset || '',
+                            equity: yearData.equity || ''
+                        });
+                    }
+                });
+            }
+            renderFinanceTable();
+
+            document.getElementById('companyModal').classList.add('active');
+        }
+
+        function deleteCompany(companyId) {
+            const company = companies.find(c => c.id === companyId);
+            if (!company) return;
+
+            // 检查权限
+            if (company.branch !== currentUserBranch) {
+                showToast('您只能删除自己分支的企业信息', 'error');
+                return;
+            }
+
+            if (confirm(`确定要删除企业 "${company.name}" 吗？`)) {
+                companies = companies.filter(c => c.id !== companyId);
+                localStorage.setItem('companies', JSON.stringify(companies));
+                showToast('企业信息已删除');
+                updateCompanySelect();
+                queryCompanies();
+            }
+        }
+
+        function updateCompanySelect() {
+            const select = document.getElementById('companyName');
+            const currentValue = select.value;
+
+            // 获取当前用户分支的企业列表
+            const branchCompanies = companies.filter(c => c.branch === currentUserBranch);
+
+            select.innerHTML = '<option value="">-- 请选择企业 --</option>';
+            branchCompanies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.name;
+                option.textContent = company.name;
+                select.appendChild(option);
+            });
+
+            // 恢复之前的选择
+            if (currentValue && branchCompanies.some(c => c.name === currentValue)) {
+                select.value = currentValue;
+            }
+        }
+
+        // ========== 工具函数 ==========
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        }
+
+        // ========== 示例数据 ==========
+        function loadSampleData() {
+            // 从localStorage读取企业信息或初始化
+            const storedCompanies = localStorage.getItem('companies');
+            if (storedCompanies) {
+                companies = JSON.parse(storedCompanies);
+            } else {
+                // 初始化示例企业数据
+                companies = [
+                    {
+                        id: 'COM202501001',
+                        name: 'AI科技有限公司',
+                        industry: '科技',
+                        branch: '北京分部',
+                        person: '张小明',
+                        address: '北京市朝阳区高科技园区A座',
+                        foundDate: '2018-03-15',
+                        capital: '5000',
+                        stage: '成长期',
+                        legalPerson: '王某',
+                        qualification: '高新技术企业认证、ISO9001',
+                        patent: '发明专利5项，实用新型专利12项',
+                        team: '核心团队均来自BAT，平均工作经验10年以上',
+                        marketPosition: '业界领先的AI解决方案提供商，市场占有率15%',
+                        product: '智能数据分析平台、人工智能决策系统',
+                        need: '融资1000万用于产品研发和市场拓展',
+                        business: '已与5家头部企业达成合作',
+                        financialRecords: [
+                            { year: '2023', revenue: '2500', profit: '300', asset: '8000', equity: '5500' },
+                            { year: '2024', revenue: '4200', profit: '580', asset: '12000', equity: '7200' }
+                        ],
+                        createTime: '2026-01-15 10:30:00',
+                        updateTime: '2026-01-20 14:30:00'
+                    },
+                    {
+                        id: 'COM202501002',
+                        name: '新能源电池公司',
+                        industry: '制造',
+                        branch: '上海分部',
+                        person: '王女士',
+                        address: '上海市浦东新区产业园',
+                        foundDate: '2015-06-20',
+                        capital: '15000',
+                        stage: '扩张期',
+                        legalPerson: '李某',
+                        qualification: '国家高新技术企业，新能源行业认证',
+                        patent: '发明专利28项',
+                        team: '拥有50名研发人员，技术水平国内领先',
+                        marketPosition: '国内新能源电池龙头企业，市场占有率22%',
+                        product: '三元锂电池、磷酸铁锂电池',
+                        need: 'B轮融资5000万，用于产能扩充',
+                        business: '已供应国内20家新能源车企',
+                        financialRecords: [
+                            { year: '2023', revenue: '28000', profit: '3500', asset: '45000', equity: '28000' },
+                            { year: '2024', revenue: '42000', profit: '5800', asset: '68000', equity: '40000' }
+                        ],
+                        createTime: '2026-01-10 09:00:00',
+                        updateTime: '2026-01-18 16:45:00'
+                    },
+                    {
+                        id: 'COM202501003',
+                        name: '云计算平台有限公司',
+                        industry: '科技',
+                        branch: '深圳分部',
+                        person: '李建',
+                        address: '深圳市南山区科技园',
+                        foundDate: '2016-09-10',
+                        capital: '8000',
+                        stage: '上市筹备期',
+                        legalPerson: '刘某',
+                        qualification: '云计算服务资质、数据中心认证',
+                        patent: '发明专利18项',
+                        team: '技术团队60人，包含多名IEEE Fellow',
+                        marketPosition: '国内领先的云计算平台，服务客户3000+',
+                        product: '云计算基础设施、企业云应用平台',
+                        need: 'IPO前融资2000万，完善财务体系',
+                        business: '已获得A、B轮融资共计8000万',
+                        financialRecords: [
+                            { year: '2023', revenue: '12000', profit: '1200', asset: '25000', equity: '15000' },
+                            { year: '2024', revenue: '18500', profit: '2100', asset: '38000', equity: '22000' }
+                        ],
+                        createTime: '2026-01-12 11:20:00',
+                        updateTime: '2026-01-21 15:00:00'
+                    },
+                    {
+                        id: 'COM202501004',
+                        name: '生物医药研发公司',
+                        industry: '科技',
+                        branch: '杭州分部',
+                        person: '陈医生',
+                        address: '杭州市滨江区科技园',
+                        foundDate: '2017-02-28',
+                        capital: '6000',
+                        stage: '成长期',
+                        legalPerson: '张某',
+                        qualification: 'GMP认证、新药临床试验资质',
+                        patent: '发明专利15项，核心产品3项',
+                        team: '博士10名，硕士25名，平均博士后经验5年',
+                        marketPosition: '生物医药领域新兴企业，有2个在研新药',
+                        product: '肿瘤治疗药物、生物标志物诊断试剂',
+                        need: '融资3000万用于临床试验',
+                        business: '已与三甲医院建立合作关系',
+                        financialRecords: [
+                            { year: '2023', revenue: '1500', profit: '-500', asset: '12000', equity: '6000' },
+                            { year: '2024', revenue: '2800', profit: '-200', asset: '15000', equity: '6500' }
+                        ],
+                        createTime: '2026-01-14 13:45:00',
+                        updateTime: '2026-01-20 10:15:00'
+                    }
+                ];
+                localStorage.setItem('companies', JSON.stringify(companies));
+            }
+
+            // 从localStorage读取或初始化展业记录
+            const stored = localStorage.getItem('records');
+            if (stored) {
+                records = JSON.parse(stored);
+                return;
+            }
+
+            // 初始化示例数据
+            records = [
+                {
+                    id: 'REC202501001',
+                    businessDate: '2026-01-20',
+                    branch: '北京分部',
+                    personName: '张小明',
+                    personPhone: '13800138000',
+                    companyName: 'AI科技有限公司',
+                    industry: '科技',
+                    stage: '成长期',
+                    projectDesc: '推介财富管理产品，了解企业融资需求。与企业负责人进行了初步沟通，企业对我们的产品表示兴趣。',
+                    status: '推进中',
+                    remark: '下周二安排正式洽谈',
+                    files: ['会议照片1.jpg', '名片扫描.pdf'],
+                    createTime: '2026-01-20 14:30:00',
+                    updateTime: '2026-01-21 10:15:00',
+                    changes: [
+                        {
+                            type: '新增',
+                            time: '2026-01-20 14:30:00',
+                            operator: '张小明',
+                            content: '创建新的展业记录'
+                        },
+                        {
+                            type: '修改',
+                            time: '2026-01-21 10:15:00',
+                            operator: '张小明',
+                            content: '推进状态: 跟进中 → 推进中; 备注说明: (空) → 下周二安排正式洽谈'
+                        }
+                    ]
+                },
+                {
+                    id: 'REC202501002',
+                    businessDate: '2026-01-19',
+                    branch: '上海分部',
+                    personName: '王女士',
+                    personPhone: '13900139000',
+                    companyName: '新能源电池公司',
+                    industry: '制造',
+                    stage: '扩张期',
+                    projectDesc: '介绍集团融资产品，了解企业国际融资需求。企业计划进行B轮融资，融资规模预计5000万以上。',
+                    status: '已完成',
+                    remark: '已提交融资方案，等待企业反馈',
+                    files: ['融资方案.pdf', '企业财报2024.xlsx', '现场照片.jpg'],
+                    createTime: '2026-01-19 09:20:00',
+                    updateTime: '2026-01-21 16:45:00',
+                    changes: [
+                        {
+                            type: '新增',
+                            time: '2026-01-19 09:20:00',
+                            operator: '王女士',
+                            content: '创建新的展业记录'
+                        },
+                        {
+                            type: '修改',
+                            time: '2026-01-21 16:45:00',
+                            operator: '王女士',
+                            content: '推进状态: 推进中 → 已完成; 项目说明: 介绍集团融资产品 → 已提交融资方案'
+                        }
+                    ]
+                },
+                {
+                    id: 'REC202501003',
+                    businessDate: '2026-01-21',
+                    branch: '深圳分部',
+                    personName: '李建',
+                    personPhone: '13700137000',
+                    companyName: '云计算平台有限公司',
+                    industry: '科技',
+                    stage: '上市筹备期',
+                    projectDesc: '上市前融资咨询和财务顾问服务推介。企业正在为IPO做准备，需要融资顾问支持。',
+                    status: '跟进中',
+                    remark: '',
+                    files: ['企业简介.pdf', '初次接触记录.docx'],
+                    createTime: '2026-01-21 15:00:00',
+                    updateTime: '2026-01-21 15:00:00',
+                    changes: [
+                        {
+                            type: '新增',
+                            time: '2026-01-21 15:00:00',
+                            operator: '李建',
+                            content: '创建新的展业记录'
+                        }
+                    ]
+                }
+            ];
+
+            localStorage.setItem('records', JSON.stringify(records));
+        }
+    </script>
+</body>
+</html>
+

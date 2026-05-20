@@ -1,0 +1,2333 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>领导驾驶舱</title>
+  <style>
+    :root {
+      --line: rgba(88, 186, 255, 0.58);
+      --line-soft: rgba(91, 182, 255, 0.34);
+      --panel-bg: linear-gradient(180deg, rgba(16, 45, 113, 0.64) 0%, rgba(9, 26, 80, 0.72) 100%);
+      --text: #cde9ff;
+      --text-soft: #8cb8de;
+      --green: #66f7b0;
+      --red: #ff7198;
+      --gold: #ffd166;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 50% 45%, #182968 0%, #0a123f 40%, #050921 80%, #030515 100%);
+      overflow: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    body::before {
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(95, 223, 255, 0.34) 0 1px, transparent 2px),
+        radial-gradient(circle at 84% 14%, rgba(95, 223, 255, 0.28) 0 1px, transparent 2px),
+        radial-gradient(circle at 38% 80%, rgba(95, 223, 255, 0.2) 0 1px, transparent 2px);
+      background-size: 320px 240px, 380px 270px, 420px 300px;
+      opacity: 0.64;
+      animation: twinkle 6s linear infinite;
+    }
+
+    body::after {
+      background:
+        radial-gradient(circle at 52% 58%, rgba(33, 138, 255, 0.24), transparent 62%),
+        linear-gradient(180deg, rgba(10, 18, 58, 0.35), rgba(4, 8, 28, 0.78));
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.48; }
+      50% { opacity: 0.7; }
+    }
+
+    .screen {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100vh;
+      min-height: 0;
+      padding: clamp(8px, 0.7vw, 14px);
+      display: grid;
+      gap: clamp(8px, 0.65vw, 14px);
+      grid-template-columns: minmax(300px, 1fr) minmax(620px, 2fr) minmax(300px, 1fr);
+      align-items: stretch;
+    }
+
+    .column {
+      min-height: 0;
+      display: grid;
+      gap: clamp(8px, 0.65vw, 14px);
+      align-content: stretch;
+    }
+
+    .column > * {
+      min-height: 0;
+      height: 100%;
+    }
+
+    .left-col {
+      grid-template-rows: minmax(0, 32fr) minmax(0, 28fr) minmax(0, 40fr);
+    }
+
+    .center-col {
+      grid-template-rows: minmax(0, 10fr) minmax(0, 18fr) minmax(0, 72fr);
+    }
+
+    .right-col {
+      grid-template-rows: minmax(0, 57fr) minmax(0, 43fr);
+    }
+
+    .panel {
+      position: relative;
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: clamp(8px, 0.5vw, 12px);
+      background: var(--panel-bg);
+      box-shadow: inset 0 0 28px rgba(29, 134, 255, 0.22), 0 0 14px rgba(0, 144, 255, 0.16);
+      padding: clamp(10px, 0.7vw, 14px);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .panel:fullscreen,
+    .panel:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      border-radius: 0;
+      padding: clamp(14px, 1vw, 22px);
+      overflow: hidden;
+    }
+
+    .panel:fullscreen .map-stage,
+    .panel:-webkit-full-screen .map-stage {
+      height: 100%;
+      min-height: 0;
+    }
+
+    .top-banner:fullscreen .top-banner-inner,
+    .top-banner:-webkit-full-screen .top-banner-inner {
+      min-height: 100%;
+    }
+
+    .panel::before,
+    .panel::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-top: 2px solid rgba(77, 208, 255, 0.92);
+      border-left: 2px solid rgba(77, 208, 255, 0.92);
+      filter: drop-shadow(0 0 6px rgba(77, 208, 255, 0.7));
+      opacity: 0.9;
+    }
+
+    .panel::before {
+      left: 0;
+      top: 0;
+    }
+
+    .panel::after {
+      right: 0;
+      bottom: 0;
+      transform: rotate(180deg);
+    }
+
+    .panel-loadable {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .panel-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+      opacity: 0;
+      border-radius: inherit;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 10px;
+      background: linear-gradient(180deg, rgba(8, 28, 74, 0.12), rgba(4, 16, 52, 0.44));
+      transition: opacity 0.35s ease;
+      overflow: hidden;
+    }
+
+    .panel-loader::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        110deg,
+        rgba(255, 255, 255, 0) 24%,
+        rgba(117, 221, 255, 0.24) 48%,
+        rgba(255, 255, 255, 0) 72%
+      );
+      transform: translateX(-120%);
+    }
+
+    .panel-loadable.is-loading .panel-loader {
+      opacity: 1;
+    }
+
+    .panel-loadable.is-loading .panel-loader::before {
+      animation: loaderSweep 1.2s linear infinite;
+    }
+
+    .panel-loader-box {
+      width: min(260px, 82%);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel-loader-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(94, 196, 255, 0.55);
+      background: rgba(16, 54, 130, 0.46);
+      overflow: hidden;
+    }
+
+    .panel-loader-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #5ac6ff, #7df5c8);
+      box-shadow: 0 0 8px rgba(111, 233, 255, 0.62);
+    }
+
+    .panel-loader-text {
+      font-size: clamp(10px, 0.62vw, 12px);
+      font-weight: 700;
+      color: #c7ecff;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    @keyframes loaderSweep {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(120%); }
+    }
+
+    .panel-head {
+      min-height: 24px;
+      margin-bottom: clamp(8px, 0.5vw, 12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sub-title {
+      margin: 0;
+      font-size: clamp(20px, 1.75vw, 38px);
+      font-weight: 700;
+      color: #c6ecff;
+      text-shadow: 0 0 12px rgba(72, 218, 255, 0.52);
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .panel-icons {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .icon-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(93, 214, 255, 0.8);
+      color: rgba(148, 233, 255, 0.95);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      box-shadow: inset 0 0 8px rgba(74, 210, 255, 0.38), 0 0 8px rgba(39, 149, 255, 0.28);
+    }
+
+    .top-banner {
+      display: block;
+      padding: clamp(8px, 0.65vw, 14px) clamp(12px, 0.85vw, 18px);
+    }
+
+    .top-banner-inner {
+      position: relative;
+      height: 100%;
+      min-height: clamp(56px, 4.2vw, 92px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: clamp(14px, 1vw, 24px);
+    }
+
+    .top-banner-date,
+    .top-banner-clock {
+      position: absolute;
+      bottom: 0;
+      font-size: clamp(10px, 0.68vw, 13px);
+      font-weight: 600;
+      color: rgba(151, 168, 186, 0.92);
+      letter-spacing: 0.2px;
+      text-shadow: none;
+      line-height: 1.15;
+      white-space: nowrap;
+      max-width: 45%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-banner-date {
+      left: 0;
+      text-align: left;
+    }
+
+    .top-banner-clock {
+      right: 0;
+      text-align: right;
+    }
+
+    .top-banner-main {
+      font-size: clamp(30px, 2.4vw, 66px);
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #ddf6ff;
+      text-shadow: 0 0 14px rgba(85, 224, 255, 0.58);
+      line-height: 1;
+      white-space: nowrap;
+      text-align: center;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #dealTrend {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #dealTrend .panel-head {
+      flex: 0 0 auto;
+      margin-bottom: clamp(4px, 0.35vw, 8px);
+    }
+
+    .line-legend {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      color: #94c6eb;
+      font-size: clamp(10px, 0.56vw, 12px);
+      font-weight: 700;
+      margin-bottom: clamp(2px, 0.2vw, 5px);
+      flex: 0 0 auto;
+    }
+
+    .line-legend .legend-item {
+      opacity: 0.32;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .line-legend .legend-item.is-active {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      box-shadow: 0 0 7px currentColor;
+    }
+
+    .line-wrap {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+    }
+
+    #lineChart {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .overview-grid {
+      height: calc(100% - 34px);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      gap: clamp(6px, 0.4vw, 10px);
+    }
+
+    .overview-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(15, 44, 107, 0.54) 0%, rgba(8, 24, 74, 0.66) 100%);
+      box-shadow: inset 0 0 16px rgba(40, 146, 255, 0.22);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: center;
+      text-align: left;
+      padding: 6px 4px;
+      gap: 2px;
+      min-height: 0;
+    }
+
+    .overview-name {
+      color: #9ccbea;
+      font-size: clamp(11px, 0.72vw, 14px);
+      font-weight: 700;
+      line-height: 1.2;
+      width: 100%;
+      text-align: left;
+      padding-left: 2px;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .overview-metric-row {
+      width: 100%;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: clamp(4px, 0.3vw, 8px);
+      min-width: 0;
+    }
+
+    .overview-value {
+      font-size: clamp(18px, 1.35vw, 30px);
+      font-weight: 900;
+      line-height: 1.05;
+      color: #d7f2ff;
+      text-shadow: 0 0 10px rgba(76, 216, 255, 0.46);
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .overview-trend {
+      font-size: clamp(10px, 0.62vw, 12px);
+      font-weight: 700;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .up { color: var(--red); }
+    .down { color: var(--green); }
+
+    .ranking-wrap {
+      height: calc(100% - 34px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(6px, 0.5vw, 10px);
+    }
+
+    #feeRankingPanel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #feeRankingPanel .panel-head {
+      flex: 0 0 auto;
+    }
+
+    #feeRankingPanel .ranking-wrap {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+    }
+
+    .fee-line-fullscreen {
+      display: none;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding-top: clamp(4px, 0.35vw, 8px);
+    }
+
+    .fee-line-inner {
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(95, 186, 255, 0.38);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(10, 34, 92, 0.58), rgba(7, 22, 63, 0.54));
+      box-shadow: inset 0 0 16px rgba(70, 175, 255, 0.2);
+      padding: clamp(8px, 0.7vw, 14px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(6px, 0.45vw, 10px);
+      min-height: 0;
+    }
+
+    .fee-line-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #9ec9ea;
+      font-size: clamp(10px, 0.65vw, 13px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .fee-line-title {
+      color: #cdeaff;
+      font-size: clamp(12px, 0.88vw, 16px);
+      text-shadow: 0 0 8px rgba(92, 211, 255, 0.32);
+    }
+
+    .fee-line-unit {
+      color: #7ea8cb;
+      font-size: clamp(10px, 0.6vw, 12px);
+    }
+
+    .fee-line-canvas-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+    }
+
+    #feeLineChart {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #feeRankingPanel:fullscreen .ranking-wrap,
+    #feeRankingPanel:-webkit-full-screen .ranking-wrap {
+      display: none;
+    }
+
+    #feeRankingPanel:fullscreen .fee-line-fullscreen,
+    #feeRankingPanel:-webkit-full-screen .fee-line-fullscreen {
+      display: flex;
+    }
+
+    #feeRankingPanel.is-fullscreen-fee .ranking-wrap {
+      display: none;
+    }
+
+    #feeRankingPanel.is-fullscreen-fee .fee-line-fullscreen {
+      display: flex;
+    }
+
+    .ranking-legend {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: 18px;
+      font-size: clamp(11px, 0.62vw, 13px);
+      color: #9acbe9;
+      font-weight: 700;
+    }
+
+    .ranking-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(6px, 0.55vw, 11px);
+      padding-top: 3px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(82px, 110px) 1fr 40px;
+      align-items: center;
+      gap: clamp(6px, 0.42vw, 10px);
+    }
+
+    .bar-name {
+      color: #9ccbe8;
+      font-size: clamp(12px, 0.72vw, 14px);
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-track {
+      position: relative;
+      height: clamp(10px, 0.75vw, 14px);
+      border-radius: 999px;
+      background: rgba(30, 88, 156, 0.44);
+      border: 1px solid rgba(80, 166, 255, 0.2);
+      overflow: hidden;
+    }
+
+    .bar-fill-a,
+    .bar-fill-b {
+      position: absolute;
+      left: 0;
+      border-radius: inherit;
+      transition: width 0.95s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .bar-fill-a {
+      top: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, #38bbff, #63e9ff);
+      box-shadow: 0 0 8px rgba(67, 214, 255, 0.44);
+      opacity: 0.92;
+    }
+
+    .bar-fill-b {
+      top: 2px;
+      bottom: 2px;
+      background: linear-gradient(90deg, rgba(255, 241, 166, 0.95), rgba(255, 188, 67, 0.95));
+      box-shadow: 0 0 8px rgba(255, 204, 107, 0.45);
+      opacity: 0.88;
+    }
+
+    .bar-rank {
+      width: 34px;
+      height: 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(95, 214, 255, 0.52);
+      background: rgba(49, 182, 255, 0.22);
+      color: #b1efff;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .bar-axis {
+      margin-left: min(116px, 28%);
+      margin-right: 34px;
+      display: flex;
+      justify-content: space-between;
+      color: #7faed1;
+      font-size: clamp(11px, 0.62vw, 13px);
+    }
+
+    .dual-panel-wrap {
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: clamp(8px, 0.65vw, 12px);
+      min-height: 0;
+      align-items: stretch;
+    }
+
+    .stat-block {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(13, 42, 107, 0.56), rgba(8, 24, 73, 0.64));
+      box-shadow: inset 0 0 20px rgba(43, 151, 255, 0.18);
+      padding: clamp(8px, 0.58vw, 12px);
+      min-height: 0;
+      height: 100%;
+      grid-column: span 2;
+    }
+
+    .stat-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: clamp(6px, 0.5vw, 10px);
+    }
+
+    .stat-title {
+      margin: 0;
+      font-size: clamp(26px, 2.1vw, 52px);
+      color: #c2ebff;
+      font-weight: 700;
+      text-shadow: 0 0 10px rgba(78, 217, 255, 0.35);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .mini-grid {
+      height: calc(100% - 44px);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(6px, 0.45vw, 10px);
+      min-height: 0;
+      align-items: stretch;
+    }
+
+    .mini-card {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(12, 38, 97, 0.54), rgba(8, 24, 70, 0.62));
+      padding: clamp(6px, 0.36vw, 9px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: clamp(3px, 0.24vw, 6px);
+      box-shadow: inset 0 0 16px rgba(40, 140, 255, 0.14);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .mini-name {
+      font-size: clamp(11px, 0.72vw, 16px);
+      color: #8fbedf;
+      font-weight: 700;
+      line-height: 1.12;
+      min-height: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mini-value {
+      font-size: clamp(18px, 1.55vw, 34px);
+      font-weight: 900;
+      color: #d8f4ff;
+      line-height: 1.02;
+      letter-spacing: 0.2px;
+      text-shadow: 0 0 10px rgba(78, 217, 255, 0.42);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mini-value small {
+      font-size: clamp(10px, 0.62vw, 14px);
+      font-weight: 700;
+      color: #93c5e5;
+      margin-left: 2px;
+    }
+
+    .mini-trend {
+      align-self: flex-start;
+      font-size: clamp(9px, 0.56vw, 11px);
+      font-weight: 700;
+      line-height: 1.1;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(84, 179, 255, 0.34);
+      background: rgba(17, 61, 136, 0.42);
+      white-space: nowrap;
+    }
+
+    .map-panel {
+      padding-top: clamp(8px, 0.6vw, 12px);
+    }
+
+    .map-stage {
+      height: 100%;
+      position: relative;
+      min-height: 0;
+    }
+
+    .map-status {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      z-index: 7;
+      font-size: clamp(11px, 0.72vw, 14px);
+      font-weight: 700;
+      color: #c8edff;
+      border: 1px solid rgba(89, 194, 255, 0.58);
+      border-radius: 999px;
+      background: rgba(8, 41, 104, 0.68);
+      box-shadow: 0 0 12px rgba(39, 164, 255, 0.25);
+      padding: 4px 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .map-status.show {
+      opacity: 1;
+    }
+
+    .map-glow {
+      position: absolute;
+      inset: 5% 8% 8% 6%;
+      background: radial-gradient(circle at 50% 52%, rgba(31, 145, 255, 0.38), rgba(13, 60, 164, 0.14) 36%, transparent 72%);
+      filter: blur(8px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .china-map-chart {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .focus-card {
+      position: absolute;
+      left: 62%;
+      top: 48%;
+      width: clamp(220px, 24vw, 320px);
+      border: 1px solid rgba(83, 192, 255, 0.66);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(12, 46, 110, 0.76), rgba(7, 23, 67, 0.84));
+      box-shadow: 0 0 20px rgba(41, 173, 255, 0.24);
+      color: #caebff;
+      font-size: clamp(12px, 0.78vw, 16px);
+      line-height: 1.7;
+      padding: clamp(8px, 0.65vw, 14px);
+      z-index: 5;
+      transition: left 0.55s ease, top 0.55s ease, opacity 0.45s ease;
+      pointer-events: none;
+    }
+
+    .focus-title {
+      font-size: clamp(18px, 1.38vw, 30px);
+      font-weight: 700;
+      color: #ecfaff;
+      margin-bottom: 2px;
+    }
+
+    .focus-card b {
+      color: #ecfaff;
+      font-weight: 700;
+    }
+
+    .south-box {
+      position: absolute;
+      right: 20%;
+      bottom: 25%;
+      width: 58px;
+      height: 80px;
+      border: 1px solid rgba(92, 203, 255, 0.56);
+      border-radius: 2px;
+      display: grid;
+      place-items: center;
+      color: #8fd7f8;
+      font-size: 11px;
+      background: rgba(11, 40, 101, 0.3);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .bottom-kpi {
+      position: absolute;
+      bottom: 8px;
+      width: clamp(160px, 18vw, 240px);
+      text-align: center;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .bottom-kpi.left { left: 17%; }
+    .bottom-kpi.right { right: 17%; }
+
+    .kpi-label {
+      font-size: clamp(18px, 1.55vw, 42px);
+      color: #9dccea;
+      font-weight: 700;
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+
+    .kpi-value {
+      font-size: clamp(32px, 2.8vw, 68px);
+      font-weight: 900;
+      color: #8ff3ff;
+      line-height: 1;
+      text-shadow: 0 0 16px rgba(68, 225, 255, 0.68);
+      white-space: nowrap;
+    }
+
+    .kpi-value small {
+      font-size: clamp(14px, 1.08vw, 27px);
+      color: #92c4e4;
+      margin-left: 2px;
+      font-weight: 700;
+    }
+
+    .kpi-base {
+      width: clamp(120px, 10vw, 188px);
+      height: clamp(14px, 1.25vw, 24px);
+      margin: 8px auto 0;
+      border: 1px solid rgba(84, 193, 255, 0.42);
+      border-top: none;
+      clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+      background: linear-gradient(180deg, rgba(45, 166, 255, 0.34), rgba(16, 77, 181, 0.24));
+    }
+
+    .donut-box {
+      height: calc(100% - 34px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .donut-legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 10px;
+      font-size: clamp(11px, 0.62vw, 13px);
+    }
+
+    .legend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #9ecdea;
+      font-weight: 700;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .legend-pill em {
+      font-style: normal;
+      color: #def7ff;
+      margin-left: auto;
+      font-weight: 700;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+      flex: 0 0 auto;
+    }
+
+    .donut-zone {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      position: relative;
+      margin-top: 2px;
+      min-height: 0;
+    }
+
+    .donut-ring {
+      width: clamp(150px, 14vw, 252px);
+      height: clamp(150px, 14vw, 252px);
+      border-radius: 50%;
+      background:
+        conic-gradient(
+          #50f1ff 0deg 307.8deg,
+          #f6cd49 307.8deg 330.12deg,
+          #ff8d67 330.12deg 345.6deg,
+          #3fc5ff 345.6deg 360deg
+        );
+      box-shadow: 0 0 18px rgba(58, 216, 255, 0.36);
+      position: relative;
+      animation: rotateRing 14s linear infinite;
+    }
+
+    .donut-ring::before {
+      content: "";
+      position: absolute;
+      inset: clamp(34px, 3.2vw, 58px);
+      border-radius: 50%;
+      background: radial-gradient(circle at 46% 36%, rgba(26, 82, 154, 0.62), rgba(6, 16, 49, 0.96));
+      border: 1px solid rgba(92, 188, 255, 0.45);
+      box-shadow: inset 0 0 22px rgba(24, 102, 188, 0.42);
+    }
+
+    @keyframes rotateRing {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .donut-label {
+      position: absolute;
+      color: #e2f7ff;
+      font-size: clamp(22px, 1.6vw, 34px);
+      font-weight: 800;
+      text-shadow: 0 0 10px rgba(79, 223, 255, 0.55);
+    }
+
+    .donut-tip {
+      position: absolute;
+      color: #a7d8f3;
+      font-size: clamp(11px, 0.62vw, 13px);
+      font-weight: 700;
+    }
+
+    .t1 { top: 22%; right: 17%; }
+    .t2 { top: 26%; left: 13%; }
+    .t3 { top: 14%; left: 39%; }
+    .t4 { bottom: 14%; right: 9%; font-size: clamp(12px, 0.7vw, 14px); }
+
+    .table-panel .panel-head {
+      margin-bottom: 8px;
+    }
+
+    .table-wrap {
+      height: calc(100% - 32px);
+      border: 1px solid rgba(85, 174, 255, 0.34);
+      border-radius: 8px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 36, 92, 0.52), rgba(7, 21, 66, 0.62));
+      display: flex;
+      flex-direction: column;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    thead tr {
+      background: rgba(49, 137, 224, 0.3);
+    }
+
+    th,
+    td {
+      padding: clamp(6px, 0.45vw, 10px) 6px;
+      text-align: center;
+      border-bottom: 1px solid rgba(80, 163, 245, 0.2);
+      color: #b9dff6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      color: #dbf6ff;
+      font-weight: 700;
+      font-size: clamp(12px, 0.78vw, 16px);
+    }
+
+    td {
+      font-size: clamp(12px, 0.82vw, 16px);
+    }
+
+    tbody tr {
+      transition: background 0.25s ease;
+    }
+
+    tbody tr.active {
+      background: rgba(68, 202, 255, 0.2);
+    }
+
+    .rank-tag {
+      display: inline-grid;
+      place-items: center;
+      width: clamp(18px, 1.3vw, 26px);
+      height: clamp(18px, 1.3vw, 26px);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(89, 220, 255, 0.95), rgba(20, 156, 226, 0.9));
+      color: #042137;
+      font-weight: 800;
+      font-size: clamp(11px, 0.72vw, 16px);
+      box-shadow: 0 0 8px rgba(94, 229, 255, 0.4);
+      margin: 0 auto;
+    }
+
+    .yield {
+      color: #90f7c6;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1500px) {
+      .screen {
+        grid-template-columns: minmax(260px, 0.95fr) minmax(540px, 2fr) minmax(260px, 0.95fr);
+      }
+
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dual-panel-wrap {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat-block {
+        grid-column: auto;
+      }
+    }
+
+    @media (max-width: 1200px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .screen {
+        height: auto;
+        min-height: 100%;
+        grid-template-columns: 1fr;
+      }
+
+      .column {
+        grid-template-rows: auto;
+      }
+
+      .left-col,
+      .center-col,
+      .right-col {
+        grid-template-rows: auto;
+      }
+
+      .panel {
+        min-height: 300px;
+      }
+
+      .dual-panel-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .map-stage {
+        min-height: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <aside class="column left-col">
+      <section class="panel" id="dealTrend">
+        <div class="panel-head">
+          <h2 class="sub-title">交易量趋势</h2>
+          <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+        </div>
+        <div class="line-legend">
+          <span class="legend-item" data-line-key="total" style="color:#72dbff"><span class="dot" style="background:#72dbff"></span>交易量</span>
+          <span class="legend-item" data-line-key="normal" style="color:#7df5c8"><span class="dot" style="background:#7df5c8"></span>普通交易量</span>
+          <span class="legend-item" data-line-key="treasury" style="color:#ffd166"><span class="dot" style="background:#ffd166"></span>金库产品交易量</span>
+          <span class="legend-item" data-line-key="credit" style="color:#8ab4ff"><span class="dot" style="background:#8ab4ff"></span>信用交易量</span>
+        </div>
+        <div class="line-wrap">
+          <canvas id="lineChart" data-no-fullscreen></canvas>
+        </div>
+      </section>
+
+      <section class="panel panel-loadable" id="customerOverviewPanel">
+        <div class="panel-head">
+          <h2 class="sub-title">客户概况</h2>
+          <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+        </div>
+        <div class="overview-grid">
+          <article class="overview-card">
+            <div class="overview-name">客户开户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="khkh" data-decimals="0">352</div>
+              <div class="overview-trend down">9.77%▼</div>
+            </div>
+          </article>
+          <article class="overview-card">
+            <div class="overview-name">客户销户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="khxh" data-decimals="0">23</div>
+              <div class="overview-trend up">27.78%▲</div>
+            </div>
+          </article>
+          <article class="overview-card">
+            <div class="overview-name">股东开户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="gdhk" data-decimals="0">0</div>
+              <div class="overview-trend up">0.00%▲</div>
+            </div>
+          </article>
+          <article class="overview-card">
+            <div class="overview-name">股东销户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="gdxh" data-decimals="0">0</div>
+              <div class="overview-trend up">0.00%▲</div>
+            </div>
+          </article>
+          <article class="overview-card">
+            <div class="overview-name">两融开户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="lrhk" data-decimals="0">0</div>
+              <div class="overview-trend up">0.00%▲</div>
+            </div>
+          </article>
+          <article class="overview-card">
+            <div class="overview-name">两融销户数</div>
+            <div class="overview-metric-row">
+              <div class="overview-value" data-kpi="lrxh" data-decimals="0">0</div>
+              <div class="overview-trend up">0.00%▲</div>
+            </div>
+          </article>
+        </div>
+        <div class="panel-loader" aria-hidden="true">
+          <div class="panel-loader-box">
+            <div class="panel-loader-track"><div class="panel-loader-bar"></div></div>
+            <div class="panel-loader-text">加载中 0%</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-loadable" id="feeRankingPanel">
+        <div class="panel-head">
+          <h2 class="sub-title">佣金/净值收入 TOP10</h2>
+          <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+        </div>
+        <div class="ranking-wrap" id="barRanking">
+          <div class="ranking-legend">
+            <span class="legend-item" style="color:#58ceff"><span class="dot" style="background:#58ceff"></span>佣金</span>
+            <span class="legend-item" style="color:#ffd166"><span class="dot" style="background:#ffd166"></span>净值收入</span>
+          </div>
+          <div class="ranking-body"></div>
+          <div class="bar-axis"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>万元</span></div>
+        </div>
+        <div class="fee-line-fullscreen" data-no-fullscreen>
+          <div class="fee-line-inner" data-no-fullscreen>
+            <div class="fee-line-head" data-no-fullscreen>
+              <span class="fee-line-title">佣金收入折线图</span>
+              <span class="fee-line-unit">单位：万元</span>
+            </div>
+            <div class="fee-line-canvas-wrap" data-no-fullscreen>
+              <canvas id="feeLineChart" data-no-fullscreen></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="panel-loader" aria-hidden="true">
+          <div class="panel-loader-box">
+            <div class="panel-loader-track"><div class="panel-loader-bar"></div></div>
+            <div class="panel-loader-text">加载中 0%</div>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="column center-col">
+      <section class="panel top-banner">
+        <div class="top-banner-inner">
+          <div class="top-banner-date" id="bannerDate">数据日期：2026/04/16</div>
+          <div class="top-banner-main">国都证券领导驾驶舱</div>
+          <div class="top-banner-clock" id="bannerClock">2026/04/17 08:56:28</div>
+        </div>
+      </section>
+
+      <section class="dual-panel-wrap">
+        <div class="stat-block">
+          <div class="stat-head">
+            <h3 class="stat-title">收入状况</h3>
+            <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+          </div>
+          <div class="mini-grid">
+            <article class="mini-card">
+              <div class="mini-name">总佣金收入</div>
+              <div class="mini-value" data-kpi="totFee" data-decimals="2">148.28<small>万</small></div>
+              <div class="mini-trend down">35.41%▼</div>
+            </article>
+            <article class="mini-card">
+              <div class="mini-name">普通佣金收入</div>
+              <div class="mini-value" data-kpi="normalFee" data-decimals="2">116.12<small>万</small></div>
+              <div class="mini-trend up">0.99%▲</div>
+            </article>
+            <article class="mini-card">
+              <div class="mini-name">信用佣金收入</div>
+              <div class="mini-value" data-kpi="creditFee" data-decimals="2">27.90<small>万</small></div>
+              <div class="mini-trend down">74.46%▼</div>
+            </article>
+          </div>
+        </div>
+
+        <div class="stat-block">
+          <div class="stat-head">
+            <h3 class="stat-title">资产状况</h3>
+            <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+          </div>
+          <div class="mini-grid">
+            <article class="mini-card">
+              <div class="mini-name">总资产</div>
+              <div class="mini-value" data-kpi="assetAll" data-decimals="2">80966.84<small>亿</small></div>
+              <div class="mini-trend up">1223.23%▲</div>
+            </article>
+            <article class="mini-card">
+              <div class="mini-name">总负债</div>
+              <div class="mini-value" data-kpi="debtAll" data-decimals="2">152.80<small>亿</small></div>
+              <div class="mini-trend down">70.69%▼</div>
+            </article>
+            <article class="mini-card">
+              <div class="mini-name">资产净流入</div>
+              <div class="mini-value" data-kpi="assetIn" data-decimals="2">99.82<small>亿</small></div>
+              <div class="mini-trend up">173.81%▲</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel map-panel">
+        <div class="map-stage">
+          <div class="map-glow"></div>
+          <div class="china-map-chart" id="chinaMapChart" aria-label="中国地图"></div>
+          <div class="map-status" id="mapStatus">地图加载中...</div>
+
+          <div class="focus-card" id="mapFocusCard">
+            <div class="focus-title" id="focusProvince">河北省</div>
+            <div>当日开户数：<b id="focusOpen">5</b></div>
+            <div>当日资产净流入：<b id="focusInflow">-5125.29万</b></div>
+            <div>当日佣金收入：<b id="focusFee">1.78万</b></div>
+            <div>当日交易量：<b id="focusVolume">8592.47万</b></div>
+          </div>
+
+          <div class="south-box">南海诸岛</div>
+
+          <div class="bottom-kpi left">
+            <div class="kpi-label">机构客户数</div>
+            <div class="kpi-value" data-kpi="orgClients" data-decimals="0">4,251<small>户</small></div>
+            <div class="kpi-base"></div>
+          </div>
+
+          <div class="bottom-kpi right">
+            <div class="kpi-label">客户规模</div>
+            <div class="kpi-value" data-kpi="clientScale" data-decimals="2">82.57<small>万户</small></div>
+            <div class="kpi-base"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="column right-col">
+      <section class="panel panel-loadable" id="assetDistributionPanel">
+        <div class="panel-head">
+          <h2 class="sub-title">客户资产分布占比</h2>
+          <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+        </div>
+        <div class="donut-box">
+          <div class="donut-legend">
+            <div class="legend-pill"><span class="legend-dot" style="color:#50f1ff;background:#50f1ff"></span>基础客户(0-5万)<em>85.5%</em></div>
+            <div class="legend-pill"><span class="legend-dot" style="color:#f6cd49;background:#f6cd49"></span>中坚力客(50-500万)<em>6.2%</em></div>
+            <div class="legend-pill"><span class="legend-dot" style="color:#ff8d67;background:#ff8d67"></span>成长性客户(5-50万)<em>4.3%</em></div>
+            <div class="legend-pill"><span class="legend-dot" style="color:#3fc5ff;background:#3fc5ff"></span>资产峰值(>500万)<em>4.0%</em></div>
+          </div>
+          <div class="donut-zone">
+            <div class="donut-ring"></div>
+            <div class="donut-label">85.5%</div>
+            <span class="donut-tip t1">4.0%</span>
+            <span class="donut-tip t2">6.2%</span>
+            <span class="donut-tip t3">4.3%</span>
+            <span class="donut-tip t4">85.5%</span>
+          </div>
+        </div>
+        <div class="panel-loader" aria-hidden="true">
+          <div class="panel-loader-box">
+            <div class="panel-loader-track"><div class="panel-loader-bar"></div></div>
+            <div class="panel-loader-text">加载中 0%</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-head">
+          <h2 class="sub-title">两融余额 TOP10</h2>
+          <div class="panel-icons"><span class="icon-btn">C</span><span class="icon-btn">⤢</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:18%">排名</th>
+                <th style="width:44%">营业部</th>
+                <th style="width:20%">两融余额</th>
+                <th style="width:18%">涨跌幅</th>
+              </tr>
+            </thead>
+            <tbody id="rankTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.3.2/echarts.min.js"></script>
+  <script src="https://cdn.bootcdn.net/npm/echarts@5/map/js/china.js"></script>
+  <script>
+    const lineSeries = {
+      x: ["3/27", "4/1", "4/7", "4/10", "4/15"],
+      total: [62, 115, 860, 180, 95],
+      normal: [53, 98, 835, 152, 78],
+      treasury: [28, 44, 115, 73, 46],
+      credit: [17, 30, 96, 56, 33]
+    };
+
+    const lineCarouselMeta = [
+      { key: "total", name: "交易量", color: "#6dd8ff", width: 3, shadow: "rgba(89, 218, 255, 0.72)" },
+      { key: "normal", name: "普通交易量", color: "#7df5c8", width: 2.5, shadow: "rgba(125, 245, 200, 0.65)" },
+      { key: "treasury", name: "金库产品交易量", color: "#ffd166", width: 2.2, shadow: "rgba(255, 209, 102, 0.55)" },
+      { key: "credit", name: "信用交易量", color: "#8ab4ff", width: 2.2, shadow: "rgba(138, 180, 255, 0.55)" }
+    ];
+
+    const barRanking = [
+      { name: "北京静安路", a: 15, b: 8, rank: "03" },
+      { name: "北京总外大街", a: 19, b: 9, rank: "04" },
+      { name: "北京东中街", a: 18, b: 10, rank: "05" },
+      { name: "上海浦场路", a: 18, b: 9, rank: "06" },
+      { name: "中央行周大道", a: 20, b: 11, rank: "07" }
+    ];
+
+    const tableData = [
+      [1, "北京总外大街", "4.47亿", "87.48%"],
+      [2, "开封大梁路", "3.04亿", "87.41%"],
+      [3, "成都天府街", "2.68亿", "87.40%"],
+      [4, "北京东中街", "2.50亿", "87.19%"],
+      [5, "北京复合路", "1.84亿", "87.07%"],
+      [6, "上海浦场路", "1.72亿", "86.98%"],
+      [7, "深圳福民路", "1.59亿", "86.82%"],
+      [8, "广州花城路", "1.46亿", "86.75%"],
+      [9, "杭州武林路", "1.31亿", "86.63%"],
+      [10, "南京新街口", "1.18亿", "86.51%"]
+    ];
+
+    const mapCarousel = [
+      { province: "河北省", cardX: 65, cardY: 47, open: "5", inflow: "-5125.29万", fee: "1.78万", volume: "8592.47万" },
+      { province: "北京市", cardX: 60, cardY: 34, open: "9", inflow: "2268.14万", fee: "3.22万", volume: "12687.13万" },
+      { province: "山东省", cardX: 66, cardY: 55, open: "7", inflow: "1884.33万", fee: "2.47万", volume: "9681.90万" },
+      { province: "上海市", cardX: 70, cardY: 62, open: "6", inflow: "3096.84万", fee: "3.81万", volume: "14986.02万" },
+      { province: "广东省", cardX: 57, cardY: 65, open: "12", inflow: "4521.66万", fee: "5.13万", volume: "17129.44万" },
+      { province: "四川省", cardX: 51, cardY: 50, open: "8", inflow: "926.17万", fee: "2.05万", volume: "8235.27万" }
+    ];
+
+    const mapGeoCoords = [
+      [114.52, 38.05],
+      [116.4, 39.9],
+      [117.0, 36.67],
+      [121.47, 31.23],
+      [113.27, 23.13],
+      [104.06, 30.67]
+    ];
+
+    let chinaMapChart = null;
+    let lineCarouselIndex = 0;
+    let lineCarouselTimer = null;
+    let lineAnimRafId = null;
+    let lineAnimNow = performance.now();
+    let lineDrawStartAt = lineAnimNow;
+    let linePaused = false;
+    const lineDrawDuration = 1700;
+    const DASHBOARD_REFRESH_MS = 18000;
+    const LINE_CAROUSEL_INTERVAL_MS = Math.floor(DASHBOARD_REFRESH_MS / lineCarouselMeta.length);
+    const TABLE_PAGE_SIZE = 5;
+    const TABLE_PAGE_FLIP_MS = LINE_CAROUSEL_INTERVAL_MS;
+    let tablePageIndex = 0;
+    let tableHighlightIndex = 0;
+    let tableFlipTimer = null;
+    let tableHighlightTimer = null;
+
+    const kpiState = {
+      khkh: 352,
+      khxh: 23,
+      gdhk: 0,
+      gdxh: 0,
+      lrhk: 0,
+      lrxh: 0,
+      totFee: 148.28,
+      normalFee: 116.12,
+      creditFee: 27.9,
+      assetAll: 80966.84,
+      debtAll: 152.8,
+      assetIn: 99.82,
+      orgClients: 4251,
+      clientScale: 82.57
+    };
+
+    function formatDateTime(now) {
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+
+    function formatDateOnly(now) {
+      const d0 = new Date(now);
+      d0.setDate(d0.getDate() - 1);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d0.getFullYear()}/${pad(d0.getMonth() + 1)}/${pad(d0.getDate())}`;
+    }
+
+    function updateTime() {
+      const now = new Date();
+      document.getElementById("bannerClock").textContent = formatDateTime(now);
+      document.getElementById("bannerDate").textContent = `数据日期：${formatDateOnly(now)}`;
+    }
+
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    function toCanvasY(v, maxVal, chartH, top, bottomPad) {
+      const h = chartH - top - bottomPad;
+      return top + (1 - v / maxVal) * h;
+    }
+
+    function drawSmoothLine(ctx, points, color, width, shadow) {
+      if (!points.length) {
+        return;
+      }
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.shadowColor = shadow;
+      ctx.shadowBlur = 9;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i];
+        const p1 = points[i + 1];
+        const cx = (p0.x + p1.x) / 2;
+        ctx.quadraticCurveTo(p0.x, p0.y, cx, (p0.y + p1.y) / 2);
+      }
+
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawLinePointValues(ctx, points, values, color, options = {}) {
+      const {
+        fontSize = 11,
+        leftBound = 0,
+        rightBound = Number.POSITIVE_INFINITY,
+        topBound = 0
+      } = options;
+
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.font = `${fontSize}px Microsoft YaHei`;
+      ctx.lineWidth = 1.2;
+
+      points.forEach((p, idx) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        const text = `${values[idx]}亿元`;
+        const textWidth = ctx.measureText(text).width;
+        const x = Math.min(
+          rightBound - textWidth - 2,
+          Math.max(leftBound + 2, p.x - textWidth / 2)
+        );
+        const y = Math.max(topBound + fontSize + 2, p.y - 10);
+        ctx.fillText(text, x, y);
+      });
+      ctx.restore();
+    }
+
+    function getProgressiveLinePoints(basePoints, progress) {
+      if (!basePoints.length) {
+        return [];
+      }
+      if (basePoints.length === 1) {
+        return [basePoints[0]];
+      }
+
+      const p = Math.max(0, Math.min(1, progress));
+      const segmentFloat = (basePoints.length - 1) * p;
+      const whole = Math.floor(segmentFloat);
+      const frac = segmentFloat - whole;
+      const points = basePoints.slice(0, whole + 1);
+
+      if (whole < basePoints.length - 1) {
+        const p0 = basePoints[whole];
+        const p1 = basePoints[whole + 1];
+        points.push({
+          x: p0.x + (p1.x - p0.x) * frac,
+          y: p0.y + (p1.y - p0.y) * frac
+        });
+      }
+      return points;
+    }
+
+    function drawLineHead(ctx, point, color) {
+      if (!point) {
+        return;
+      }
+      const pulse = 1 + Math.sin(lineAnimNow * 0.02) * 0.14;
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 5.2 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawLineChart() {
+      const canvas = document.getElementById("lineChart");
+      const container = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const maxVal = 1000;
+      const yTicks = [0, 200, 400, 600, 800, 1000];
+      const axisFontSize = Math.max(10, Math.min(14, Math.floor(Math.min(width, height) * 0.035)));
+      const xFontSize = Math.max(10, axisFontSize - 1);
+      ctx.font = `${axisFontSize}px Microsoft YaHei`;
+      const yTickLabels = yTicks.map((tick) => (tick === 0 ? "0" : `${tick.toFixed(2)}亿`));
+      const yTickMaxWidth = yTickLabels.reduce((maxWidth, text) => Math.max(maxWidth, ctx.measureText(text).width), 0);
+      const leftPad = Math.max(54, Math.ceil(yTickMaxWidth + axisFontSize + 10));
+      const rightPad = Math.max(10, Math.floor(width * 0.02));
+      const topPad = Math.max(6, Math.floor(height * 0.035));
+      const bottomPad = Math.max(xFontSize + 14, Math.floor(height * 0.13));
+
+      ctx.fillStyle = "#7fb0d4";
+      ctx.strokeStyle = "rgba(76, 153, 231, 0.22)";
+      ctx.lineWidth = 1;
+
+      yTicks.forEach((tick) => {
+        const y = toCanvasY(tick, maxVal, height, topPad, bottomPad);
+        ctx.beginPath();
+        ctx.moveTo(leftPad, y);
+        ctx.lineTo(width - rightPad, y);
+        ctx.stroke();
+
+        const text = tick === 0 ? "0" : `${tick.toFixed(2)}亿`;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, leftPad - 8, y);
+      });
+
+      const chartW = Math.max(1, width - leftPad - rightPad);
+      const xStep = lineSeries.x.length > 1 ? chartW / (lineSeries.x.length - 1) : 0;
+
+      ctx.font = `${xFontSize}px Microsoft YaHei`;
+      ctx.textBaseline = "top";
+      lineSeries.x.forEach((label, idx) => {
+        const x = leftPad + idx * xStep;
+        if (idx === 0) {
+          ctx.textAlign = "left";
+          ctx.fillText(label, leftPad, height - bottomPad + 10);
+          return;
+        }
+        if (idx === lineSeries.x.length - 1) {
+          ctx.textAlign = "right";
+          ctx.fillText(label, width - rightPad, height - bottomPad + 10);
+          return;
+        }
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, height - bottomPad + 10);
+      });
+
+      const makePoints = (arr) => arr.map((v, i) => ({
+        x: leftPad + i * xStep,
+        y: toCanvasY(v, maxVal, height, topPad, bottomPad)
+      }));
+
+      const active = lineCarouselMeta[lineCarouselIndex] || lineCarouselMeta[0];
+      const progress = linePaused
+        ? 1
+        : Math.max(0, Math.min(1, (lineAnimNow - lineDrawStartAt) / lineDrawDuration));
+      const activeValues = lineSeries[active.key];
+      const activeBasePoints = makePoints(activeValues);
+      const activePoints = getProgressiveLinePoints(activeBasePoints, progress);
+      drawSmoothLine(ctx, activePoints, active.color, active.width, active.shadow);
+      drawLineHead(ctx, activePoints[activePoints.length - 1], active.color);
+
+      const visibleCount = Math.max(1, Math.floor((activeBasePoints.length - 1) * progress) + 1);
+      drawLinePointValues(
+        ctx,
+        activeBasePoints.slice(0, visibleCount),
+        activeValues.slice(0, visibleCount),
+        active.color,
+        {
+          fontSize: Math.max(9, xFontSize - 1),
+          leftBound: leftPad,
+          rightBound: width - rightPad,
+          topBound: topPad
+        }
+      );
+
+      drawRoundedRect(ctx, leftPad, topPad, width - leftPad - rightPad, height - topPad - bottomPad, 4);
+      ctx.strokeStyle = "rgba(99, 176, 255, 0.3)";
+      ctx.stroke();
+    }
+
+    function updateLinePlaybackUI() {
+      const active = lineCarouselMeta[lineCarouselIndex] || lineCarouselMeta[0];
+
+      const legendItems = document.querySelectorAll(".line-legend .legend-item[data-line-key]");
+      legendItems.forEach((el) => {
+        el.classList.toggle("is-active", el.getAttribute("data-line-key") === active.key);
+      });
+    }
+
+    function restartLineCarouselTimer() {
+      if (lineCarouselTimer) {
+        clearInterval(lineCarouselTimer);
+      }
+      lineCarouselTimer = setInterval(() => {
+        if (linePaused) {
+          return;
+        }
+        lineCarouselIndex = (lineCarouselIndex + 1) % lineCarouselMeta.length;
+        lineDrawStartAt = performance.now();
+        updateLinePlaybackUI();
+        drawLineChart();
+      }, LINE_CAROUSEL_INTERVAL_MS);
+    }
+
+    function startLineCarousel() {
+      lineDrawStartAt = performance.now();
+      updateLinePlaybackUI();
+      drawLineChart();
+      restartLineCarouselTimer();
+    }
+
+    function setLinePaused(paused) {
+      linePaused = paused;
+      if (linePaused) {
+        lineDrawStartAt = lineAnimNow - lineDrawDuration;
+      } else {
+        lineDrawStartAt = performance.now();
+      }
+      updateLinePlaybackUI();
+      drawLineChart();
+      restartLineCarouselTimer();
+    }
+
+    function bindLineChartInteraction() {
+      const canvas = document.getElementById("lineChart");
+      if (!canvas) {
+        return;
+      }
+      canvas.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setLinePaused(!linePaused);
+      });
+      canvas.title = "点击可暂停/继续趋势轮播";
+    }
+
+    async function togglePanelFullscreen(panel) {
+      if (!panel) {
+        return;
+      }
+      const requestFullscreenFn = panel.requestFullscreen || panel.webkitRequestFullscreen;
+      const exitFullscreenFn = document.exitFullscreen || document.webkitExitFullscreen;
+      if (!requestFullscreenFn || !exitFullscreenFn) {
+        return;
+      }
+
+      const fullscreenEl = document.fullscreenElement || document.webkitFullscreenElement;
+      try {
+        if (fullscreenEl === panel) {
+          await Promise.resolve(exitFullscreenFn.call(document));
+          return;
+        }
+        if (fullscreenEl) {
+          await Promise.resolve(exitFullscreenFn.call(document));
+        }
+        await Promise.resolve(requestFullscreenFn.call(panel));
+      } catch (err) {
+        // Ignore browser full screen errors in dashboard mode.
+      }
+    }
+
+    function syncFeePanelFullscreenState() {
+      const panel = document.getElementById("feeRankingPanel");
+      if (!panel) {
+        return false;
+      }
+      const fullscreenEl = document.fullscreenElement || document.webkitFullscreenElement;
+      const isFeeFullscreen = fullscreenEl === panel;
+      panel.classList.toggle("is-fullscreen-fee", isFeeFullscreen);
+      return isFeeFullscreen;
+    }
+
+    function redrawFeePanelAfterFullscreenChange() {
+      const drawIfNeeded = () => {
+        if (!syncFeePanelFullscreenState()) {
+          return;
+        }
+        drawFeeFullscreenLineChart();
+      };
+      drawIfNeeded();
+      setTimeout(drawIfNeeded, 80);
+      setTimeout(drawIfNeeded, 220);
+    }
+
+    function bindPanelFullscreen() {
+      const panels = Array.from(document.querySelectorAll(".panel"));
+      panels.forEach((panel) => {
+        const fullBtns = Array.from(panel.querySelectorAll(".icon-btn")).filter((btn) => btn.textContent.trim() === "⤢");
+        fullBtns.forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            togglePanelFullscreen(panel);
+          });
+        });
+
+        panel.addEventListener("click", (e) => {
+          if (e.target.closest("[data-no-fullscreen], .panel-icons, .icon-btn, .panel-loader")) {
+            return;
+          }
+          togglePanelFullscreen(panel);
+        });
+      });
+
+      const onFullscreenChange = () => {
+        syncFeePanelFullscreenState();
+        redrawFeePanelAfterFullscreenChange();
+        drawLineChart();
+        if (chinaMapChart) {
+          chinaMapChart.resize();
+        }
+      };
+      document.addEventListener("fullscreenchange", onFullscreenChange);
+      document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+    }
+
+    function startLineRealtimeAnimation() {
+      if (lineAnimRafId) {
+        cancelAnimationFrame(lineAnimRafId);
+      }
+      const loop = (ts) => {
+        lineAnimNow = ts || performance.now();
+        drawLineChart();
+        lineAnimRafId = requestAnimationFrame(loop);
+      };
+      lineAnimRafId = requestAnimationFrame(loop);
+    }
+
+    function animatePanelLoading(panel, duration = 1300) {
+      if (!panel) {
+        return;
+      }
+      const bar = panel.querySelector(".panel-loader-bar");
+      const text = panel.querySelector(".panel-loader-text");
+      if (!bar || !text) {
+        return;
+      }
+
+      panel.classList.add("is-loading");
+      bar.style.width = "0%";
+      text.textContent = "加载中 0%";
+      const start = performance.now();
+
+      const step = (now) => {
+        const p = Math.max(0, Math.min(1, (now - start) / duration));
+        const pct = Math.round(p * 100);
+        bar.style.width = `${pct}%`;
+        text.textContent = `加载中 ${pct}%`;
+        if (p < 1) {
+          requestAnimationFrame(step);
+          return;
+        }
+        setTimeout(() => {
+          panel.classList.remove("is-loading");
+        }, 180);
+      };
+      requestAnimationFrame(step);
+    }
+
+    function runDashboardPanelLoaders() {
+      const queue = [
+        { id: "customerOverviewPanel", duration: 1200 },
+        { id: "feeRankingPanel", duration: 1360 },
+        { id: "assetDistributionPanel", duration: 1220 }
+      ];
+
+      queue.forEach((cfg, idx) => {
+        const panel = document.getElementById(cfg.id);
+        if (!panel) {
+          return;
+        }
+        setTimeout(() => {
+          animatePanelLoading(panel, cfg.duration);
+        }, idx * 260);
+      });
+    }
+
+    function renderBarRanking() {
+      const body = document.querySelector("#barRanking .ranking-body");
+      body.innerHTML = "";
+      barRanking.forEach((item, idx) => {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        const pctA = Math.min(item.a / 21 * 100, 100);
+        const pctB = Math.min(item.b / 21 * 100, 100);
+        row.innerHTML = `
+          <div class="bar-name">${item.name}</div>
+          <div class="bar-track">
+            <div class="bar-fill-a"></div>
+            <div class="bar-fill-b"></div>
+          </div>
+          <div class="bar-rank">${item.rank}</div>
+        `;
+        body.appendChild(row);
+
+        const fillA = row.querySelector(".bar-fill-a");
+        const fillB = row.querySelector(".bar-fill-b");
+        if (fillA && fillB) {
+          fillA.style.width = "0%";
+          fillB.style.width = "0%";
+          setTimeout(() => {
+            fillA.style.width = `${pctA}%`;
+            fillB.style.width = `${pctB}%`;
+          }, 40 + idx * 90);
+        }
+      });
+    }
+
+    function drawFeeFullscreenLineChart() {
+      const panel = document.getElementById("feeRankingPanel");
+      const canvas = document.getElementById("feeLineChart");
+      const fullscreenEl = document.fullscreenElement || document.webkitFullscreenElement;
+      const isFeeFullscreen = panel && (panel.classList.contains("is-fullscreen-fee") || fullscreenEl === panel);
+      if (!panel || !canvas || !isFeeFullscreen) {
+        return;
+      }
+
+      const container = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (width < 40 || height < 40) {
+        return;
+      }
+
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const valuesA = barRanking.map((item) => Number(item.a) || 0);
+      const valuesB = barRanking.map((item) => Number(item.b) || 0);
+      const maxBase = Math.max(1, ...valuesA, ...valuesB);
+      const yMax = Math.ceil(maxBase / 5) * 5;
+
+      const axisFont = Math.max(12, Math.min(18, Math.floor(Math.min(width, height) * 0.026)));
+      const yLabels = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax].map((v) => `${Math.round(v)}`);
+      ctx.font = `${axisFont}px Microsoft YaHei`;
+      const yLabelMaxWidth = yLabels.reduce((m, t) => Math.max(m, ctx.measureText(t).width), 0);
+
+      const leftPad = Math.max(56, Math.ceil(yLabelMaxWidth + axisFont + 16));
+      const rightPad = Math.max(18, Math.floor(width * 0.03));
+      const topPad = Math.max(12, Math.floor(height * 0.04));
+      const bottomPad = Math.max(42, Math.floor(height * 0.16));
+      const chartW = Math.max(1, width - leftPad - rightPad);
+      const chartH = Math.max(1, height - topPad - bottomPad);
+      const xStep = valuesA.length > 1 ? chartW / (valuesA.length - 1) : 0;
+
+      const toY = (val) => topPad + (1 - val / yMax) * chartH;
+      const toX = (idx) => leftPad + idx * xStep;
+
+      ctx.strokeStyle = "rgba(107, 177, 242, 0.24)";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#86b3d6";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      yLabels.forEach((label, idx) => {
+        const y = topPad + chartH - (idx / (yLabels.length - 1)) * chartH;
+        ctx.beginPath();
+        ctx.moveTo(leftPad, y);
+        ctx.lineTo(width - rightPad, y);
+        ctx.stroke();
+        ctx.fillText(label, leftPad - 8, y);
+      });
+
+      const nameFont = Math.max(10, axisFont - 2);
+      ctx.font = `${nameFont}px Microsoft YaHei`;
+      ctx.textBaseline = "top";
+      barRanking.forEach((item, idx) => {
+        const x = toX(idx);
+        const shortName = item.name.length > 6 ? `${item.name.slice(0, 6)}...` : item.name;
+        if (idx === 0) {
+          ctx.textAlign = "left";
+          ctx.fillText(shortName, leftPad, height - bottomPad + 10);
+          return;
+        }
+        if (idx === barRanking.length - 1) {
+          ctx.textAlign = "right";
+          ctx.fillText(shortName, width - rightPad, height - bottomPad + 10);
+          return;
+        }
+        ctx.textAlign = "center";
+        ctx.fillText(shortName, x, height - bottomPad + 10);
+      });
+
+      const drawSeries = (values, color, shadow, lineWidth) => {
+        if (!values.length) {
+          return;
+        }
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.shadowColor = shadow;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(values[0]));
+        for (let i = 0; i < values.length - 1; i++) {
+          const p0x = toX(i);
+          const p0y = toY(values[i]);
+          const p1x = toX(i + 1);
+          const p1y = toY(values[i + 1]);
+          const cx = (p0x + p1x) / 2;
+          ctx.quadraticCurveTo(p0x, p0y, cx, (p0y + p1y) / 2);
+        }
+        ctx.lineTo(toX(values.length - 1), toY(values[values.length - 1]));
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = color;
+        values.forEach((v, i) => {
+          const x = toX(i);
+          const y = toY(v);
+          ctx.beginPath();
+          ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      };
+
+      drawSeries(valuesA, "#5ed7ff", "rgba(88, 214, 255, 0.72)", 3.2);
+      drawSeries(valuesB, "#ffd166", "rgba(255, 209, 102, 0.62)", 2.7);
+    }
+
+    function getTablePageCount() {
+      return Math.max(1, Math.ceil(tableData.length / TABLE_PAGE_SIZE));
+    }
+
+    function renderRankTable(pageIndex = tablePageIndex) {
+      const tbody = document.getElementById("rankTableBody");
+      tbody.innerHTML = "";
+      const pageCount = getTablePageCount();
+      tablePageIndex = ((pageIndex % pageCount) + pageCount) % pageCount;
+      const start = tablePageIndex * TABLE_PAGE_SIZE;
+      const pageRows = tableData.slice(start, start + TABLE_PAGE_SIZE);
+
+      pageRows.forEach((row, idx) => {
+        const tr = document.createElement("tr");
+        if (idx === tableHighlightIndex) {
+          tr.classList.add("active");
+        }
+        tr.innerHTML = `
+          <td><span class="rank-tag">${row[0]}</span></td>
+          <td>${row[1]}</td>
+          <td>${row[2]}</td>
+          <td class="yield">${row[3]}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function setMapStatus(text) {
+      const el = document.getElementById("mapStatus");
+      if (!el) {
+        return;
+      }
+      if (!text) {
+        el.classList.remove("show");
+        el.textContent = "";
+        return;
+      }
+      el.textContent = text;
+      el.classList.add("show");
+    }
+
+    function loadExternalScript(url, timeoutMs = 8000) {
+      return new Promise((resolve, reject) => {
+        let done = false;
+        const script = document.createElement("script");
+        script.src = url;
+        script.async = true;
+
+        const timer = setTimeout(() => {
+          if (done) {
+            return;
+          }
+          done = true;
+          reject(new Error(`timeout: ${url}`));
+        }, timeoutMs);
+
+        script.onload = () => {
+          if (done) {
+            return;
+          }
+          done = true;
+          clearTimeout(timer);
+          resolve(true);
+        };
+
+        script.onerror = () => {
+          if (done) {
+            return;
+          }
+          done = true;
+          clearTimeout(timer);
+          reject(new Error(`load failed: ${url}`));
+        };
+
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensureChinaMapReady() {
+      if (window.echarts && window.echarts.getMap && window.echarts.getMap("china")) {
+        return true;
+      }
+      const fallbackSources = [
+        "https://cdn.bootcdn.net/npm/echarts@5/map/js/china.js",
+        "https://cdn.jsdelivr.net/npm/echarts@5/map/js/china.js",
+        "https://unpkg.com/echarts@5/map/js/china.js"
+      ];
+
+      for (const src of fallbackSources) {
+        try {
+          await loadExternalScript(src);
+        } catch (e) {
+          // Try next source.
+        }
+        if (window.echarts && window.echarts.getMap && window.echarts.getMap("china")) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    async function initChinaMap() {
+      const chartEl = document.getElementById("chinaMapChart");
+      if (!chartEl || !window.echarts) {
+        setMapStatus("地图组件未加载");
+        return false;
+      }
+
+      setMapStatus("地图加载中...");
+      const mapReady = await ensureChinaMapReady();
+      if (!mapReady) {
+        setMapStatus("中国地图加载失败，请检查网络");
+        return false;
+      }
+
+      if (chinaMapChart) {
+        chinaMapChart.dispose();
+      }
+      chinaMapChart = window.echarts.init(chartEl);
+      chinaMapChart.setOption({
+        animationDurationUpdate: 600,
+        tooltip: { show: false },
+        geo: {
+          map: "china",
+          roam: false,
+          zoom: 1.06,
+          layoutCenter: ["49%", "52%"],
+          layoutSize: "96%",
+          itemStyle: {
+            areaColor: "rgba(21, 78, 170, 0.76)",
+            borderColor: "#65deff",
+            borderWidth: 1.2,
+            shadowBlur: 14,
+            shadowColor: "rgba(62, 214, 255, 0.45)"
+          },
+          emphasis: {
+            disabled: true
+          }
+        },
+        series: [
+          {
+            id: "focusPulse",
+            type: "effectScatter",
+            coordinateSystem: "geo",
+            showEffectOn: "render",
+            rippleEffect: {
+              period: 4,
+              scale: 4,
+              brushType: "stroke"
+            },
+            symbolSize: 14,
+            itemStyle: {
+              color: "#98ffff",
+              shadowBlur: 16,
+              shadowColor: "rgba(105, 235, 255, 0.92)"
+            },
+            data: []
+          }
+        ]
+      });
+      setMapStatus("");
+      return true;
+    }
+
+    function flickerValues() {
+      const items = document.querySelectorAll("[data-kpi]");
+      items.forEach((el) => {
+        const key = el.getAttribute("data-kpi");
+        const decimals = Number(el.getAttribute("data-decimals") || 0);
+        const base = kpiState[key];
+        if (typeof base !== "number") {
+          return;
+        }
+
+        const drift = base === 0 ? 0 : base * (Math.random() * 0.006 - 0.003);
+        const next = Math.max(0, base + drift);
+
+        if (Number.isInteger(base) && decimals === 0) {
+          el.firstChild.textContent = Math.round(next).toLocaleString("zh-CN");
+          return;
+        }
+
+        el.firstChild.textContent = next.toLocaleString("zh-CN", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+        });
+      });
+    }
+
+    function startRankTablePaging() {
+      renderRankTable(0);
+
+      if (tableHighlightTimer) {
+        clearInterval(tableHighlightTimer);
+      }
+      tableHighlightTimer = setInterval(() => {
+        const rows = Array.from(document.querySelectorAll("#rankTableBody tr"));
+        if (!rows.length) {
+          return;
+        }
+        rows.forEach((r) => r.classList.remove("active"));
+        tableHighlightIndex = (tableHighlightIndex + 1) % rows.length;
+        rows[tableHighlightIndex].classList.add("active");
+      }, 1400);
+
+      if (tableFlipTimer) {
+        clearInterval(tableFlipTimer);
+      }
+      tableFlipTimer = setInterval(() => {
+        tablePageIndex = (tablePageIndex + 1) % getTablePageCount();
+        tableHighlightIndex = 0;
+        renderRankTable(tablePageIndex);
+      }, TABLE_PAGE_FLIP_MS);
+    }
+
+    function renderMapPulse(item, idx) {
+      if (!chinaMapChart) {
+        return;
+      }
+      const coord = mapGeoCoords[idx] || mapGeoCoords[0];
+      chinaMapChart.setOption({
+        series: [
+          {
+            id: "focusPulse",
+            data: [
+              {
+                name: item.province,
+                value: [coord[0], coord[1], 1]
+              }
+            ]
+          }
+        ]
+      });
+    }
+
+    function updateMapCard(item) {
+      document.getElementById("focusProvince").textContent = item.province;
+      document.getElementById("focusOpen").textContent = item.open;
+      document.getElementById("focusInflow").textContent = item.inflow;
+      document.getElementById("focusFee").textContent = item.fee;
+      document.getElementById("focusVolume").textContent = item.volume;
+
+      const card = document.getElementById("mapFocusCard");
+      card.style.opacity = "0.45";
+      setTimeout(() => {
+        card.style.left = `${item.cardX}%`;
+        card.style.top = `${item.cardY}%`;
+        card.style.opacity = "1";
+      }, 120);
+    }
+
+    function startMapCarousel() {
+      let idx = 0;
+      const play = () => {
+        const item = mapCarousel[idx];
+        renderMapPulse(item, idx);
+        updateMapCard(item);
+        idx = (idx + 1) % mapCarousel.length;
+      };
+      play();
+      setInterval(play, 3000);
+    }
+
+    function handleResize() {
+      syncFeePanelFullscreenState();
+      drawLineChart();
+      drawFeeFullscreenLineChart();
+      if (chinaMapChart) {
+        chinaMapChart.resize();
+      }
+    }
+
+    async function bootstrap() {
+      updateTime();
+      renderBarRanking();
+      startRankTablePaging();
+      startLineCarousel();
+      startLineRealtimeAnimation();
+      bindLineChartInteraction();
+      bindPanelFullscreen();
+      syncFeePanelFullscreenState();
+      await initChinaMap();
+      startMapCarousel();
+      runDashboardPanelLoaders();
+
+      setInterval(updateTime, 1000);
+      setInterval(flickerValues, 2200);
+      setInterval(runDashboardPanelLoaders, DASHBOARD_REFRESH_MS);
+      window.addEventListener("resize", handleResize);
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
+
+
+

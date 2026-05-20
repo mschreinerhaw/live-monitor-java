@@ -1,0 +1,600 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>晚间净值核对监控</title>
+  <style>
+    :root{--bg:#edf3f8;--card:#fff;--ink:#22384d;--sub:#687f96;--line:#d3e1ee;--brand:#2f78c4;--brand2:#2b6daf;--good:#2d8f5f;--warn:#c87b2f;--risk:#ca5858;--shadow:0 10px 24px rgba(35,72,109,.08)}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;color:var(--ink);background:radial-gradient(circle at 92% -15%,#dbe8f4 0%,rgba(219,232,244,0) 35%),radial-gradient(circle at 9% 108%,#e3edf7 0%,rgba(227,237,247,0) 42%),linear-gradient(180deg,#f8fbff 0%,#eef3f8 60%,#edf3f8 100%)}
+    .page{width:min(1600px,98vw);margin:16px auto 22px;display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px}
+    .topbar{padding:16px;border-left:4px solid #73aede;background:linear-gradient(145deg,#fff 0%,#f6faff 100%);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    .topbar h1{margin:0;font-size:23px;color:#285172;letter-spacing:.3px}
+    .meta{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{border:1px solid #cbdded;background:#edf5fc;color:#335d88;border-radius:999px;padding:4px 11px;font-size:12px;white-space:nowrap}
+    .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
+    label{display:block;margin-bottom:6px;font-size:12px;color:var(--sub)}
+    input,select{width:100%;border:1px solid #c9d9e8;border-radius:10px;padding:9px 10px;font-size:14px;color:var(--ink);background:#fff}
+    .btn{border:1px solid #c6d8e8;border-radius:10px;background:#f2f7fd;color:#345f8a;font-size:13px;padding:8px 12px;cursor:pointer;transition:all .2s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(33,80,126,.15)}
+    .btn.primary,.btn.active{color:#fff;border-color:var(--brand2);background:linear-gradient(180deg,#3f84ca 0%,var(--brand) 100%)}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+    .kpi{border:1px solid #d8e4ef;border-radius:12px;padding:12px;background:linear-gradient(180deg,#fff 0%,#f9fcff 100%)}
+    .kpi .n{font-size:12px;color:var(--sub)}
+    .kpi .v{margin-top:7px;line-height:1;font-size:27px;font-weight:700;color:#23496d}
+    .kpi .s{margin-top:6px;font-size:12px;color:#5d7893}
+    .kpi.good .v{color:var(--good)} .kpi.warn .v{color:var(--warn)} .kpi.risk .v{color:var(--risk)}
+    .trend{margin-top:10px;border:1px solid #d7e3ef;border-radius:11px;background:#f7fbff;padding:9px 10px;display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#4e6b88}
+    .up{color:#b54a4a;font-weight:700}
+    .down{color:#2f885b;font-weight:700}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .head h2{margin:0;font-size:17px;color:#254567}
+    .tools{display:flex;gap:8px;flex-wrap:wrap}
+    .rules{display:grid;gap:8px}
+    .rule{border:1px solid #d4e2ee;border-radius:11px;background:#f9fcff;padding:10px;font-size:13px;color:#466485;line-height:1.6}
+    .rule b{color:#2d5276}
+    .flow{display:grid;gap:10px}
+    .flow-steps{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:16px}
+    .step{position:relative;border:1px solid #d6e3ef;border-radius:12px;background:linear-gradient(180deg,#fff 0%,#f9fcff 100%);padding:10px}
+    .step::after{content:"";position:absolute;right:-12px;top:50%;width:10px;height:10px;border-top:2px solid #91afd0;border-right:2px solid #91afd0;transform:translateY(-50%) rotate(45deg)}
+    .step:last-child::after{display:none}
+    .step-num{display:inline-flex;min-width:22px;height:22px;padding:0 6px;border-radius:999px;align-items:center;justify-content:center;background:#e7f1fb;border:1px solid #c3d9ef;color:#2f5d88;font-size:12px;font-weight:700}
+    .step-title{margin-top:7px;font-size:13px;color:#2f5478;font-weight:700}
+    .step-sub{margin-top:4px;font-size:12px;color:#607a93;line-height:1.5}
+    .check-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px}
+    .check-card{border:1px solid #d6e3ef;border-radius:11px;background:#fbfdff;padding:9px 10px}
+    .check-title{font-size:12px;color:#2f5478;font-weight:700}
+    .check-sub{margin-top:4px;font-size:12px;color:#617b94;line-height:1.55}
+    .wrap{border:1px solid #d3e0ec;border-radius:12px;overflow:auto;background:#fbfdff}
+    table{width:100%;border-collapse:collapse;font-size:13px;color:#315171}
+    .source{min-width:760px}.exception{min-width:1080px}.detail{min-width:1220px}.pick{min-width:780px}.task{min-width:980px}
+    thead th{position:sticky;top:0;z-index:1;background:linear-gradient(180deg,#edf4fb 0%,#e6eef7 100%);border-bottom:1px solid #ccdeed;color:#355c84;text-align:left;padding:10px 9px;font-weight:700;white-space:normal;line-height:1.35}
+    tbody tr:nth-child(odd){background:#fff} tbody tr:nth-child(even){background:#f8fbff} tbody tr:hover{background:#edf5fc}
+    td{border-bottom:1px solid #e3edf6;padding:9px;white-space:normal;line-height:1.45;vertical-align:top}
+    .status{display:inline-flex;align-items:center;border:1px solid;border-radius:999px;padding:2px 8px;font-size:12px}
+    .ok{color:#2d895b;border-color:#a8d5bc;background:#edf9f1}
+    .warn{color:#9a6a2c;border-color:#e4c79e;background:#fff5e9}
+    .risk{color:#a64a4a;border-color:#efbcbc;background:#fff0f0}
+    .mid{color:#86611f;border-color:#e4cf9a;background:#fff8ea}
+    .low{color:#2d6f8c;border-color:#b8d8e8;background:#eef7fc}
+    .diff{color:#b74b4b;font-weight:600}
+    .pack{font-family:"Consolas","SFMono-Regular","Microsoft YaHei",monospace;font-size:12px;line-height:1.5}
+    .task-layout{display:grid;grid-template-columns:1.4fr .9fr;gap:12px}
+    .task-form{display:grid;grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px;margin-bottom:10px}
+    .line{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    .search{width:220px}
+    .panel{border:1px solid #d5e2ee;border-radius:12px;background:#fbfdff;padding:10px;display:grid;gap:8px;min-height:240px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:7px 8px}
+    .check{border:1px solid #e0e9f3;border-radius:9px;background:#fff;color:#335676;padding:6px 8px;font-size:13px;display:flex;align-items:center;gap:7px}
+    .check input{width:auto;margin:0}
+    .sum{border:1px solid #d6e3ef;border-radius:11px;background:#f8fbff;padding:8px 10px;display:grid;gap:7px}
+    .row{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#426381}
+    .row b{color:#2e5274}
+    .report{display:none;border:1px solid #d6e3ef;border-radius:11px;background:#f8fbff;padding:10px}
+    .report.show{display:block}
+    .report pre{margin:0;white-space:pre-wrap;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif;font-size:13px;line-height:1.7;color:#365a7c}
+    @media(max-width:1360px){.flow-steps{grid-template-columns:repeat(3,minmax(140px,1fr))}.step:nth-child(3)::after{display:none}}
+    @media(max-width:1240px){.task-layout{grid-template-columns:1fr}}
+    @media(max-width:860px){.kpis{grid-template-columns:repeat(2,minmax(130px,1fr))}.task-form{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.search{width:100%}.flow-steps{grid-template-columns:1fr}.step::after{display:none}.check-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="card topbar">
+      <h1>晚间净值核对监控</h1>
+      <div class="meta">
+        <span class="chip">交易日批次：2026-04-07 PM</span>
+        <span class="chip">自动执行：交易日 20:00</span>
+        <span class="chip">责任部门：运营管理部（产品部）</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head"><h2>业务流程图</h2></div>
+      <div class="flow">
+        <div class="flow-steps">
+          <div class="step">
+            <span class="step-num">1</span>
+            <div class="step-title">自动触发</div>
+            <div class="step-sub">交易日 20:00 按批次启动核对。</div>
+          </div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <div class="step-title">四源抓取</div>
+            <div class="step-sub">估值/官网/TA/XBRL 取数并登记时间。</div>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <div class="step-title">规则比对</div>
+            <div class="step-sub">按容差核对单位净值和累计净值。</div>
+          </div>
+          <div class="step">
+            <span class="step-num">4</span>
+            <div class="step-title">异常定位</div>
+            <div class="step-sub">标记异常来源、差异值、优先级。</div>
+          </div>
+          <div class="step">
+            <span class="step-num">5</span>
+            <div class="step-title">分派处理</div>
+            <div class="step-sub">按责任人跟进，更新处理状态。</div>
+          </div>
+          <div class="step">
+            <span class="step-num">6</span>
+            <div class="step-title">复核闭环</div>
+            <div class="step-sub">修正后复核并生成异常报告。</div>
+          </div>
+        </div>
+        <div class="check-grid">
+          <div class="check-card">
+            <div class="check-title">日期口径检查</div>
+            <div class="check-sub">净值日期、披露日期、回传时间必须同批次可对齐。</div>
+          </div>
+          <div class="check-card">
+            <div class="check-title">来源完整性检查</div>
+            <div class="check-sub">缺失与延迟分开记录，避免把“未回传”误判成“数值差异”。</div>
+          </div>
+          <div class="check-card">
+            <div class="check-title">处理闭环检查</div>
+            <div class="check-sub">异常要有责任人、处理意见、最后更新时间和核实状态。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="filters">
+        <div><label for="navDate">净值日期</label><input id="navDate" type="date" value="2026-04-07"></div>
+        <div><label for="batchNo">核对批次</label><select id="batchNo"><option>晚间批次（20:00）</option><option>补跑批次（21:00）</option></select></div>
+        <div><label for="disclosureFilter">披露状态</label><select id="disclosureFilter"><option>全部</option><option>已披露</option><option>待披露</option><option>暂停披露</option></select></div>
+        <div><label for="managerFilter">责任人</label><select id="managerFilter"><option>全部</option><option>王琳</option><option>赵敏</option><option>李晨</option><option>周萍</option></select></div>
+        <div class="tools"><button class="btn primary" type="button">刷新监控</button><button class="btn" type="button">导出异常</button><button class="btn" id="generateReportBtn" type="button">一键生成异常报告</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head"><h2>核对规则说明</h2></div>
+      <div class="rules">
+        <div class="rule"><b>规则1：</b>估值系统、公司官网、TA、XBRL 四来源同时参与核对，默认以估值系统为基准。</div>
+        <div class="rule"><b>规则2：</b>任一来源缺失或未发布，结果标记为“来源缺失”，并进入异常清单。</div>
+        <div class="rule"><b>规则3：</b>单位净值或累计净值差异值超过容差阈值（默认 0.0001）即标记“差异”。</div>
+        <div class="rule"><b>规则4：</b>官网与 TA 不一致时，先按估值系统口径复核，再推进来源修正与披露确认。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="kpis">
+        <article class="kpi"><div class="n">应核对产品数</div><div class="v">36</div><div class="s">当前批次范围内</div></article>
+        <article class="kpi good"><div class="n">已完成抓取产品数</div><div class="v">35</div><div class="s">抓取完成率 97.2%</div></article>
+        <article class="kpi warn"><div class="n">单位净值差异数</div><div class="v" id="kpiUnitDiff">1</div><div class="s">待业务确认</div></article>
+        <article class="kpi risk"><div class="n">累计净值差异数</div><div class="v" id="kpiAccDiff">1</div><div class="s">待业务确认</div></article>
+        <article class="kpi warn"><div class="n">来源缺失数</div><div class="v" id="kpiMissing">1</div><div class="s">XBRL 未回传 1 条</div></article>
+        <article class="kpi risk"><div class="n">待处理异常数</div><div class="v" id="kpiPending">3</div><div class="s">含差异与来源缺失</div></article>
+        <article class="kpi good"><div class="n">已核实异常数</div><div class="v" id="kpiVerified">1</div><div class="s">已进入闭环</div></article>
+        <article class="kpi risk"><div class="n">未核实异常数</div><div class="v" id="kpiUnverified">2</div><div class="s">需持续跟进</div></article>
+      </div>
+      <div class="trend">
+        <span>较昨日异常总数：<span class="up">+1</span></span>
+        <span>较昨日单位净值差异：<span class="down">0</span></span>
+        <span>较昨日累计净值差异：<span class="up">+1</span></span>
+        <span>较昨日来源缺失：<span class="up">+1</span></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head"><h2>来源抓取状态</h2></div>
+      <div class="wrap">
+        <table class="source">
+          <thead><tr><th>来源系统</th><th>抓取状态</th><th>完成时间</th><th>成功产品数</th><th>失败产品数</th><th>延迟产品数</th><th>最新数据时间</th><th>备注</th></tr></thead>
+          <tbody>
+            <tr><td>估值系统</td><td><span class="status ok">已完成</span></td><td>20:00:41</td><td>36</td><td>0</td><td>0</td><td>2026-04-07 19:58:33</td><td>-</td></tr>
+            <tr><td>公司官网</td><td><span class="status ok">已完成</span></td><td>20:02:10</td><td>36</td><td>0</td><td>0</td><td>2026-04-07 20:01:48</td><td>-</td></tr>
+            <tr><td>TA 系统</td><td><span class="status ok">已完成</span></td><td>20:01:52</td><td>36</td><td>0</td><td>0</td><td>2026-04-07 20:01:39</td><td>-</td></tr>
+            <tr><td>XBRL 系统</td><td><span class="status warn">部分完成</span></td><td>20:03:26</td><td>35</td><td>0</td><td>1</td><td>2026-04-07 20:03:12</td><td>产品 000008 回传延迟</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <div class="head">
+        <h2>异常产品清单</h2>
+        <div class="tools">
+          <button class="btn active exception-filter" data-filter="all" type="button">全部异常</button>
+          <button class="btn exception-filter" data-filter="value" type="button">仅净值差异</button>
+          <button class="btn exception-filter" data-filter="missing" type="button">仅来源缺失</button>
+        </div>
+      </div>
+      <div class="wrap">
+        <table class="exception">
+          <thead>
+            <tr>
+              <th>基金代码</th><th>产品名称</th><th>净值日期</th><th>披露状态</th><th>优先级</th><th>单位净值差异值</th><th>累计净值差异值</th><th>异常来源</th><th>异常类型</th><th>处理状态</th><th>责任人</th><th>最后更新时间</th><th>处理意见</th>
+            </tr>
+          </thead>
+          <tbody id="exceptionBody">
+            <tr data-type="value"><td>000003</td><td>成长动力混合A</td><td>2026-04-07</td><td>待披露</td><td><span class="status risk">高</span></td><td class="diff">0.0001</td><td>0.0000</td><td>公司官网</td><td>数值不一致</td><td><span class="status warn">已反馈</span></td><td>赵敏</td><td>20:08:14</td><td>官网待同步估值口径后复核</td></tr>
+            <tr data-type="value"><td>000006</td><td>行业轮动灵活配置</td><td>2026-04-07</td><td>待披露</td><td><span class="status mid">中</span></td><td>0.0000</td><td class="diff">0.0001</td><td>TA 系统</td><td>数值不一致</td><td><span class="status ok">已核实</span></td><td>周萍</td><td>20:09:33</td><td>TA 已回传并确认次日修正</td></tr>
+            <tr data-type="missing"><td>000008</td><td>科创主题股票A</td><td>2026-04-07</td><td>暂停披露</td><td><span class="status low">低</span></td><td>-</td><td>-</td><td>XBRL 系统</td><td>来源未发布</td><td><span class="status risk">待修正</span></td><td>吴宁</td><td>20:10:02</td><td>XBRL 尚未回传该产品净值</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="reportBox" class="report" style="margin-top:10px;">
+        <pre id="reportText"></pre>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head">
+        <h2>核对明细</h2>
+        <div class="tools">
+          <button class="btn active detail-filter" data-filter="all" type="button">全部</button>
+          <button class="btn detail-filter" data-filter="ok" type="button">一致</button>
+          <button class="btn detail-filter" data-filter="diff" type="button">差异</button>
+          <button class="btn detail-filter" data-filter="missing" type="button">来源缺失</button>
+        </div>
+      </div>
+      <div class="wrap">
+        <table class="detail">
+          <thead>
+            <tr>
+              <th>基金代码</th>
+              <th>产品名称</th>
+              <th>净值日期</th>
+              <th>披露状态</th>
+              <th>单位净值（估值/官网/TA/XBRL）</th>
+              <th>累计净值（估值/官网/TA/XBRL）</th>
+              <th>单位差异值</th>
+              <th>累计差异值</th>
+              <th>异常来源</th>
+              <th>优先级</th>
+              <th>核对结果</th>
+              <th>处理状态</th>
+              <th>责任人</th>
+              <th>最后更新时间</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody">
+            <tr data-kind="ok">
+              <td>000001</td>
+              <td>稳健增长混合A</td>
+              <td>2026-04-07</td>
+              <td>已披露</td>
+              <td class="pack">1.2365 / 1.2365 / 1.2365 / 1.2365</td>
+              <td class="pack">2.4180 / 2.4180 / 2.4180 / 2.4180</td>
+              <td>0.0000</td>
+              <td>0.0000</td>
+              <td>-</td>
+              <td>-</td>
+              <td><span class="status ok">一致</span></td>
+              <td><span class="status ok">已核实</span></td>
+              <td>王琳</td>
+              <td>20:03:19</td>
+            </tr>
+            <tr data-kind="ok">
+              <td>000002</td>
+              <td>价值精选股票C</td>
+              <td>2026-04-07</td>
+              <td>已披露</td>
+              <td class="pack">0.9843 / 0.9843 / 0.9843 / 0.9843</td>
+              <td class="pack">1.8754 / 1.8754 / 1.8754 / 1.8754</td>
+              <td>0.0000</td>
+              <td>0.0000</td>
+              <td>-</td>
+              <td>-</td>
+              <td><span class="status ok">一致</span></td>
+              <td><span class="status ok">已核实</span></td>
+              <td>李晨</td>
+              <td>20:03:20</td>
+            </tr>
+            <tr data-kind="diff">
+              <td>000003</td>
+              <td>成长动力混合A</td>
+              <td>2026-04-07</td>
+              <td>待披露</td>
+              <td class="pack">1.1257 / <span class="diff">1.1258</span> / 1.1257 / 1.1257</td>
+              <td class="pack">2.1069 / 2.1069 / 2.1069 / 2.1069</td>
+              <td class="diff">0.0001</td>
+              <td>0.0000</td>
+              <td>公司官网</td>
+              <td><span class="status risk">高</span></td>
+              <td><span class="status warn">差异</span></td>
+              <td><span class="status warn">已反馈</span></td>
+              <td>赵敏</td>
+              <td>20:08:14</td>
+            </tr>
+            <tr data-kind="diff">
+              <td>000006</td>
+              <td>行业轮动灵活配置</td>
+              <td>2026-04-07</td>
+              <td>待披露</td>
+              <td class="pack">1.3079 / 1.3079 / 1.3079 / 1.3079</td>
+              <td class="pack">2.7341 / 2.7341 / <span class="diff">2.7340</span> / 2.7341</td>
+              <td>0.0000</td>
+              <td class="diff">0.0001</td>
+              <td>TA 系统</td>
+              <td><span class="status mid">中</span></td>
+              <td><span class="status warn">差异</span></td>
+              <td><span class="status ok">已核实</span></td>
+              <td>周萍</td>
+              <td>20:09:33</td>
+            </tr>
+            <tr data-kind="missing">
+              <td>000008</td>
+              <td>科创主题股票A</td>
+              <td>2026-04-07</td>
+              <td>暂停披露</td>
+              <td class="pack">1.4622 / 1.4622 / 1.4622 / <span class="diff">-</span></td>
+              <td class="pack">2.9135 / 2.9135 / 2.9135 / <span class="diff">-</span></td>
+              <td>-</td>
+              <td>-</td>
+              <td>XBRL 系统</td>
+              <td><span class="status low">低</span></td>
+              <td><span class="status risk">来源缺失</span></td>
+              <td><span class="status risk">待修正</span></td>
+              <td>吴宁</td>
+              <td>20:10:02</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <div class="head"><h2>核对策略配置</h2><div class="tools"><button class="btn primary" id="saveTaskBtn" type="button">保存策略</button><button class="btn" id="runTaskBtn" type="button">立即执行</button></div></div>
+      <div class="task-layout">
+        <div>
+          <div class="task-form">
+            <div><label for="taskName">策略名称</label><input id="taskName" value="权益基金净值核对策略" type="text"></div>
+            <div><label for="taskTime">执行时间</label><select id="taskTime"><option>交易日 20:00</option><option>交易日 19:30</option><option>交易日 20:30</option></select></div>
+            <div><label for="taskTolerance">容差阈值</label><select id="taskTolerance"><option>0.0001</option><option>0.0002</option><option>0.0005</option></select></div>
+          </div>
+          <div class="line">
+            <div class="tools"><button class="btn" id="selectAllProducts" type="button">全选产品</button><button class="btn" id="clearProducts" type="button">清空选择</button></div>
+            <input id="productSearch" class="search" type="text" placeholder="按基金代码/产品名称筛选">
+          </div>
+          <div class="wrap">
+            <table class="pick">
+              <thead><tr><th>选择</th><th>基金代码</th><th>产品全称</th><th>产品类型</th><th>TA代码</th><th>管理人</th><th>产品经理</th><th>是否当日应披露</th><th>数据来源状态</th></tr></thead>
+              <tbody id="productBody">
+                <tr data-key="000001 稳健增长混合A"><td><input class="product-check" type="checkbox" checked></td><td>000001</td><td>稳健增长混合A</td><td>混合</td><td>TA1001</td><td>资管一部</td><td>王琳</td><td>是</td><td><span class="status ok">齐全</span></td></tr>
+                <tr data-key="000002 价值精选股票C"><td><input class="product-check" type="checkbox" checked></td><td>000002</td><td>价值精选股票C</td><td>股票</td><td>TA1002</td><td>资管二部</td><td>李晨</td><td>是</td><td><span class="status ok">齐全</span></td></tr>
+                <tr data-key="000003 成长动力混合A"><td><input class="product-check" type="checkbox" checked></td><td>000003</td><td>成长动力混合A</td><td>混合</td><td>TA1003</td><td>资管一部</td><td>赵敏</td><td>是</td><td><span class="status warn">有差异</span></td></tr>
+                <tr data-key="000006 行业轮动灵活配置"><td><input class="product-check" type="checkbox"></td><td>000006</td><td>行业轮动灵活配置</td><td>混合</td><td>TA1006</td><td>资管三部</td><td>周萍</td><td>是</td><td><span class="status warn">有差异</span></td></tr>
+                <tr data-key="000008 科创主题股票A"><td><input class="product-check" type="checkbox"></td><td>000008</td><td>科创主题股票A</td><td>股票</td><td>TA1008</td><td>资管二部</td><td>吴宁</td><td>否</td><td><span class="status risk">来源缺失</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="head" style="margin-bottom:0;"><h2 style="font-size:16px;">消息提醒人</h2></div>
+          <div class="grid">
+            <label class="check"><input class="people-check" type="checkbox" checked>王琳（产品）</label>
+            <label class="check"><input class="people-check" type="checkbox" checked>赵敏（运营）</label>
+            <label class="check"><input class="people-check" type="checkbox">李晨（值班）</label>
+            <label class="check"><input class="people-check" type="checkbox">周萍（TA）</label>
+            <label class="check"><input class="people-check" type="checkbox">陈峰（官网）</label>
+            <label class="check"><input class="people-check" type="checkbox">吴宁（XBRL）</label>
+          </div>
+          <div class="head" style="margin-bottom:0;"><h2 style="font-size:16px;">提醒方式</h2></div>
+          <div class="grid">
+            <label class="check"><input class="channel-check" type="checkbox" checked>钉钉</label>
+            <label class="check"><input class="channel-check" type="checkbox" checked>邮件</label>
+            <label class="check"><input class="channel-check" type="checkbox">短信</label>
+          </div>
+          <div class="sum">
+            <div class="row"><span>已选产品数</span><b id="selectedCount">3</b></div>
+            <div class="row"><span>提醒人数</span><b id="peopleCount">2</b></div>
+            <div class="row"><span>提醒方式</span><b id="channelText">钉钉、邮件</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head"><h2>策略列表</h2></div>
+      <div class="wrap">
+        <table class="task">
+          <thead><tr><th>策略名称</th><th>产品数</th><th>提醒人</th><th>执行时间</th><th>最近执行</th><th>状态</th></tr></thead>
+          <tbody id="taskTableBody">
+            <tr><td>权益基金净值核对策略</td><td id="previewProductCount">3</td><td id="previewPeople">王琳（产品）、赵敏（运营）</td><td>交易日 20:00</td><td>2026-04-07 20:03</td><td><span class="status ok">已执行</span></td></tr>
+            <tr><td>债券基金净值核对策略</td><td>8</td><td>李晨（值班）、周萍（TA）</td><td>交易日 20:00</td><td>2026-04-07 20:01</td><td><span class="status ok">已执行</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const exceptionFilters = Array.from(document.querySelectorAll('.exception-filter'));
+    const detailFilters = Array.from(document.querySelectorAll('.detail-filter'));
+    const exceptionRows = Array.from(document.querySelectorAll('#exceptionBody tr'));
+    const detailRows = Array.from(document.querySelectorAll('#detailBody tr'));
+
+    const productChecks = Array.from(document.querySelectorAll('.product-check'));
+    const peopleChecks = Array.from(document.querySelectorAll('.people-check'));
+    const channelChecks = Array.from(document.querySelectorAll('.channel-check'));
+    const selectedCount = document.getElementById('selectedCount');
+    const peopleCount = document.getElementById('peopleCount');
+    const channelText = document.getElementById('channelText');
+    const previewProductCount = document.getElementById('previewProductCount');
+    const previewPeople = document.getElementById('previewPeople');
+    const productBody = document.getElementById('productBody');
+    const productSearch = document.getElementById('productSearch');
+    const saveTaskBtn = document.getElementById('saveTaskBtn');
+    const runTaskBtn = document.getElementById('runTaskBtn');
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    const reportBox = document.getElementById('reportBox');
+    const reportText = document.getElementById('reportText');
+    const taskTableBody = document.getElementById('taskTableBody');
+    const taskNameInput = document.getElementById('taskName');
+    const taskTimeInput = document.getElementById('taskTime');
+    const navDateInput = document.getElementById('navDate');
+    const batchNoInput = document.getElementById('batchNo');
+    const kpiUnitDiff = document.getElementById('kpiUnitDiff');
+    const kpiAccDiff = document.getElementById('kpiAccDiff');
+    const kpiMissing = document.getElementById('kpiMissing');
+    const kpiPending = document.getElementById('kpiPending');
+    const kpiVerified = document.getElementById('kpiVerified');
+    const kpiUnverified = document.getElementById('kpiUnverified');
+
+    function filterRows(rows, mode, key) {
+      rows.forEach((row) => {
+        row.style.display = mode === 'all' || row.dataset[key] === mode ? '' : 'none';
+      });
+    }
+
+    exceptionFilters.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        exceptionFilters.forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        filterRows(exceptionRows, btn.dataset.filter, 'type');
+      });
+    });
+
+    detailFilters.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        detailFilters.forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        filterRows(detailRows, btn.dataset.filter, 'kind');
+      });
+    });
+
+    function selectedPeople() {
+      return peopleChecks.filter((i) => i.checked).map((i) => i.parentElement.textContent.trim());
+    }
+
+    function selectedChannels() {
+      return channelChecks.filter((i) => i.checked).map((i) => i.parentElement.textContent.trim());
+    }
+
+    function syncExceptionKpis() {
+      let unitDiff = 0;
+      let accDiff = 0;
+      let missing = 0;
+      let verified = 0;
+      let pending = 0;
+
+      exceptionRows.forEach((row) => {
+        const tds = row.querySelectorAll('td');
+        const unitVal = tds[5].textContent.trim();
+        const accVal = tds[6].textContent.trim();
+        const typeVal = tds[8].textContent.trim();
+        const statusVal = tds[9].textContent.trim();
+        if (unitVal !== '-' && Number(unitVal) > 0) unitDiff += 1;
+        if (accVal !== '-' && Number(accVal) > 0) accDiff += 1;
+        if (typeVal === '来源未发布') missing += 1;
+        if (statusVal === '已核实') verified += 1;
+        else pending += 1;
+      });
+
+      kpiUnitDiff.textContent = String(unitDiff);
+      kpiAccDiff.textContent = String(accDiff);
+      kpiMissing.textContent = String(missing);
+      kpiPending.textContent = String(pending);
+      kpiVerified.textContent = String(verified);
+      kpiUnverified.textContent = String(pending);
+    }
+
+    function buildExceptionReport() {
+      const rows = exceptionRows.map((row) => {
+        const tds = row.querySelectorAll('td');
+        return {
+          code: tds[0].textContent.trim(),
+          name: tds[1].textContent.trim(),
+          priority: tds[4].textContent.trim(),
+          unitDiff: tds[5].textContent.trim(),
+          accDiff: tds[6].textContent.trim(),
+          source: tds[7].textContent.trim(),
+          type: tds[8].textContent.trim(),
+          status: tds[9].textContent.trim(),
+          owner: tds[10].textContent.trim(),
+          opinion: tds[12].textContent.trim()
+        };
+      });
+
+      const high = rows.filter((item) => item.priority === '高').length;
+      const mid = rows.filter((item) => item.priority === '中').length;
+      const low = rows.filter((item) => item.priority === '低').length;
+
+      const detail = rows.map((item, idx) =>
+        `${idx + 1}. ${item.code} ${item.name}｜优先级:${item.priority}｜来源:${item.source}｜类型:${item.type}｜单位差异:${item.unitDiff}｜累计差异:${item.accDiff}｜状态:${item.status}｜责任人:${item.owner}｜处理意见:${item.opinion}`
+      ).join('\n');
+
+      return [
+        `【今日净值核对异常报告】`,
+        `净值日期：${navDateInput.value || '-'}`,
+        `核对批次：${batchNoInput.value}`,
+        `异常总数：${rows.length}（高:${high} / 中:${mid} / 低:${low}）`,
+        `待处理异常：${kpiPending.textContent}`,
+        '',
+        `【异常明细】`,
+        detail,
+        '',
+        `【处理建议】`,
+        `1. 先处理高优先级异常，保障披露准确性。`,
+        `2. 来源缺失项需先补齐数据再复核差异。`,
+        `3. 差异修正后请同步更新处理状态为“已核实”。`
+      ].join('\n');
+    }
+
+    function updateSummary() {
+      const pickedProducts = productChecks.filter((i) => i.checked).length;
+      const people = selectedPeople();
+      const channels = selectedChannels();
+      selectedCount.textContent = String(pickedProducts);
+      peopleCount.textContent = String(people.length);
+      channelText.textContent = channels.length ? channels.join('、') : '未设置';
+      previewProductCount.textContent = String(pickedProducts);
+      previewPeople.textContent = people.length ? people.join('、') : '未设置';
+    }
+
+    productChecks.forEach((i) => i.addEventListener('change', updateSummary));
+    peopleChecks.forEach((i) => i.addEventListener('change', updateSummary));
+    channelChecks.forEach((i) => i.addEventListener('change', updateSummary));
+
+    document.getElementById('selectAllProducts').addEventListener('click', () => {
+      productChecks.forEach((i) => { i.checked = true; });
+      updateSummary();
+    });
+
+    document.getElementById('clearProducts').addEventListener('click', () => {
+      productChecks.forEach((i) => { i.checked = false; });
+      updateSummary();
+    });
+
+    productSearch.addEventListener('input', () => {
+      const keyword = productSearch.value.trim().toLowerCase();
+      Array.from(productBody.querySelectorAll('tr')).forEach((row) => {
+        row.style.display = row.dataset.key.toLowerCase().includes(keyword) ? '' : 'none';
+      });
+    });
+
+    saveTaskBtn.addEventListener('click', () => {
+      const taskName = taskNameInput.value.trim() || '未命名净值核对策略';
+      const pickedProducts = productChecks.filter((i) => i.checked).length;
+      const people = selectedPeople();
+      const newRow = document.createElement('tr');
+      newRow.innerHTML = `<td>${taskName}</td><td>${pickedProducts}</td><td>${people.length ? people.join('、') : '未设置'}</td><td>${taskTimeInput.value}</td><td>--</td><td><span class="status warn">未执行</span></td>`;
+      taskTableBody.prepend(newRow);
+    });
+
+    runTaskBtn.addEventListener('click', () => {
+      runTaskBtn.textContent = '执行中...';
+      runTaskBtn.disabled = true;
+      setTimeout(() => {
+        runTaskBtn.textContent = '立即执行';
+        runTaskBtn.disabled = false;
+      }, 1200);
+    });
+
+    generateReportBtn.addEventListener('click', () => {
+      syncExceptionKpis();
+      reportText.textContent = buildExceptionReport();
+      reportBox.classList.add('show');
+    });
+
+    syncExceptionKpis();
+    updateSummary();
+  </script>
+</body>
+</html>

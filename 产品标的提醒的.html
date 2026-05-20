@@ -1,0 +1,3657 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>产品标的提醒</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --bg-soft: #f5f8fc;
+      --panel: #ffffff;
+      --line: #dbe5f0;
+      --line-strong: #c9d8ea;
+      --ink: #203047;
+      --sub: #6b7c93;
+      --brand: #4a79b8;
+      --brand-deep: #345f9a;
+      --brand-soft: #edf4ff;
+      --cyan-soft: #eef8ff;
+      --warn-soft: #fff7ea;
+      --risk-soft: #fff2f1;
+      --good: #2d8a6b;
+      --warn: #c38b2f;
+      --risk: #c85a5a;
+      --shadow: 0 12px 30px rgba(55, 88, 133, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "MiSans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(125, 166, 214, 0.16) 0%, rgba(125, 166, 214, 0) 28%),
+        radial-gradient(circle at 100% 10%, rgba(200, 220, 244, 0.7) 0%, rgba(200, 220, 244, 0) 26%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 46%, #edf2f8 100%);
+    }
+
+    .page {
+      width: min(1480px, 96vw);
+      margin: 18px auto 26px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 22px 24px 18px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(120, 170, 225, 0.16) 0%, rgba(120, 170, 225, 0) 32%),
+        linear-gradient(135deg, #ffffff 0%, #f5f9ff 58%, #eef5fc 100%);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -56px;
+      bottom: -72px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74, 121, 184, 0.14) 0%, rgba(74, 121, 184, 0) 72%);
+      pointer-events: none;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0.4px;
+      color: #264b7a;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      max-width: 820px;
+      color: var(--sub);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .chips,
+    .actions,
+    .tab-nav,
+    .tab-summary,
+    .queue,
+    .flow,
+    .timeline,
+    .hero-top,
+    .hero-meta,
+    .path-bar,
+    .toolbar-head,
+    .toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chips,
+    .tab-summary {
+      margin-top: 14px;
+    }
+
+    .chip,
+    .queue-item,
+    .flow-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.88);
+      font-size: 12px;
+      color: #4d6686;
+      white-space: nowrap;
+    }
+
+    .hero-top {
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .hero-main {
+      flex: 1 1 760px;
+      min-width: 320px;
+    }
+
+    .hero-main p {
+      max-width: 960px;
+    }
+
+    .hero-meta {
+      justify-content: flex-end;
+      align-items: center;
+      min-width: 260px;
+    }
+
+    .hero-meta .chip {
+      background: #f8fbff;
+    }
+
+    .hero-stats {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .hero-path {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+    }
+
+    .path-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #355786;
+    }
+
+    .path-bar .chip {
+      background: #fff;
+    }
+
+    .mini-panel,
+    .section,
+    .detail-card,
+    .rule-card,
+    .source-card,
+    .kpi,
+    .alert-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .mini-panel h3,
+    .section h2,
+    .detail-card h3,
+    .rule-card h3 {
+      margin: 0;
+      color: #2b4c77;
+    }
+
+    .kpi-grid,
+    .source-grid,
+    .rule-grid,
+    .detail-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .detail-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .mini-stat,
+    .detail-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fcfdff;
+    }
+
+    .mini-stat .label,
+    .detail-item .k,
+    .muted,
+    label {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .mini-stat .value {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--brand-deep);
+      line-height: 1;
+    }
+
+    .mini-stat .note,
+    .detail-item .v,
+    .footer-note {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #5d728e;
+    }
+
+    .detail-item .v {
+      font-weight: 700;
+      color: #28486f;
+    }
+
+    .toolbar,
+    .tabs,
+    .section,
+    .detail {
+      padding: 16px 18px;
+    }
+
+    .toolbar {
+      display: grid;
+      gap: 14px;
+    }
+
+    .toolbar-head {
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toolbar-title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .toolbar-title h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #2c507d;
+    }
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(140px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    button {
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: #274469;
+      background: #fff;
+      font-family: inherit;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #7ba5d3;
+      box-shadow: 0 0 0 3px rgba(123, 165, 211, 0.16);
+    }
+
+    input,
+    select {
+      width: 100%;
+    }
+
+    button {
+      width: auto;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(66, 102, 151, 0.12);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #5f8fd0 0%, #456fae 100%);
+      border-color: #4a79b8;
+      color: #fff;
+    }
+
+    .btn-plain {
+      background: #f8fbff;
+      color: #466282;
+    }
+
+    .btn-subtle {
+      background: #fff;
+      color: #587090;
+    }
+
+    .btn-subtle.active {
+      border-color: #7ea5cf;
+      background: linear-gradient(135deg, #edf4ff 0%, #dfeeff 100%);
+      color: #2d5587;
+    }
+
+    .tab-nav button,
+    .switch button,
+    .queue-item {
+      width: auto;
+    }
+
+    .tab-nav button,
+    .switch button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #f4f8fd;
+      color: #58708f;
+    }
+
+    .tab-nav button.active,
+    .switch button.active {
+      border-color: #7ea5cf;
+      background: linear-gradient(135deg, #edf4ff 0%, #dfeeff 100%);
+      color: #2d5587;
+    }
+
+    .tab-panel {
+      display: none;
+      gap: 14px;
+    }
+
+    .tab-panel.active {
+      display: grid;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .source-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .rule-grid { grid-template-columns: 1fr 1fr; }
+
+    .kpi,
+    .source-card,
+    .alert-card,
+    .rule-card,
+    .detail-card {
+      padding: 14px;
+    }
+
+    .kpi {
+      position: relative;
+      overflow: hidden;
+      min-height: 116px;
+      background:
+        radial-gradient(circle at 100% 100%, rgba(103, 157, 222, 0.12) 0%, rgba(103, 157, 222, 0) 44%),
+        linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    }
+
+    .kpi .name {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .kpi .num {
+      margin-top: 10px;
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1;
+      color: #2f5a90;
+    }
+
+    .kpi .desc {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #677b96;
+      line-height: 1.6;
+    }
+
+    .kpi.warn .num { color: var(--warn); }
+    .kpi.risk .num { color: var(--risk); }
+    .kpi.good .num { color: var(--good); }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .ok { background: #edf8f4; color: var(--good); border-color: #c6e6d9; }
+    .warn { background: var(--warn-soft); color: var(--warn); border-color: #f1ddb7; }
+    .risk { background: var(--risk-soft); color: var(--risk); border-color: #efc8c6; }
+    .neutral { background: #f1f5f9; color: #697a91; border-color: #d9e2ec; }
+
+    .source-card strong {
+      display: block;
+      color: #2d4f7b;
+      font-size: 15px;
+    }
+
+    .source-meta {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .sync-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .sync-kpi {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .sync-kpi .name {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .sync-kpi .num {
+      margin-top: 8px;
+      font-size: 24px;
+      font-weight: 800;
+      color: #2f5a90;
+      line-height: 1;
+    }
+
+    .sync-kpi .desc {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #647b96;
+      line-height: 1.6;
+    }
+
+    .sync-issue-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .sync-issue {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdff;
+      font-size: 13px;
+      color: #506a87;
+    }
+
+    .sync-issue strong {
+      color: #2f527d;
+    }
+
+    .flow {
+      margin-top: 12px;
+    }
+
+    .flow-item {
+      padding: 8px 12px;
+      background: linear-gradient(180deg, #fff 0%, #f7fbff 100%);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fcfeff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1500px;
+      border-collapse: collapse;
+      font-size: 13px;
+      color: #2b466c;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 11px 10px;
+      text-align: left;
+      white-space: nowrap;
+      background: linear-gradient(180deg, #eef5fd 0%, #e8f0fa 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #e7eef7;
+      vertical-align: top;
+      line-height: 1.6;
+    }
+
+    tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.96); }
+    tbody tr:nth-child(even) { background: #f9fbfe; }
+    tbody tr:hover { background: #edf4fc; }
+    tbody tr.selected { background: #e7f1fd; }
+
+    .metric-up { color: var(--risk); font-weight: 700; }
+    .metric-down { color: var(--good); font-weight: 700; }
+
+    .alert-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .alert-card {
+      background:
+        linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    }
+
+    .alert-card.active {
+      border-color: #8fb3db;
+      box-shadow: 0 10px 20px rgba(73, 110, 161, 0.1);
+    }
+
+    .alert-top,
+    .alert-foot,
+    .source-table-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .alert-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #2b4f7c;
+    }
+
+    .alert-desc,
+    .alert-foot,
+    .note,
+    .sample {
+      font-size: 12px;
+      color: #667c98;
+      line-height: 1.7;
+    }
+
+    .alert-number {
+      font-weight: 700;
+      color: var(--risk);
+    }
+
+    .layout-main {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .detail {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.05fr 0.95fr;
+      align-items: start;
+    }
+
+    .detail-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .source-table {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .source-table-row {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      font-size: 13px;
+      color: #3c5678;
+    }
+
+    .sparkline {
+      width: 100%;
+      height: 120px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #f8fbff 0%, #eef5fc 100%);
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .range-value {
+      min-width: 92px;
+      text-align: right;
+      color: #2f5b90;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      accent-color: #5b86bf;
+      padding: 0;
+    }
+
+    .note-list,
+    .sample-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .note,
+    .sample {
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px dashed #d4dfec;
+      background: #fbfdff;
+    }
+
+    .config-layout,
+    .config-row,
+    .form-grid,
+    .check-grid,
+    .config-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .config-layout {
+      grid-template-columns: 1.15fr 0.85fr;
+    }
+
+    .config-row {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .form-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .config-item {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+
+    .config-item h4 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: #315481;
+    }
+
+    .rule-page-nav {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .rule-page-tab {
+      width: auto;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #f5f8fd;
+      color: #5b7391;
+      font-size: 13px;
+    }
+
+    .rule-page-tab.active {
+      border-color: #7ea5cf;
+      background: linear-gradient(135deg, #edf4ff 0%, #dfeeff 100%);
+      color: #2d5587;
+    }
+
+    .rule-page {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .rule-page.active {
+      display: block;
+    }
+
+    .threshold-table {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .threshold-row {
+      display: grid;
+      grid-template-columns: 180px 150px 90px 1fr 120px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .threshold-main {
+      display: grid;
+      gap: 4px;
+    }
+
+    .threshold-main strong {
+      color: #2f527d;
+      font-size: 14px;
+    }
+
+    .threshold-main span {
+      font-size: 12px;
+      color: var(--sub);
+      line-height: 1.6;
+    }
+
+    .threshold-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .threshold-input input {
+      width: 100%;
+      text-align: right;
+      font-weight: 700;
+      color: #2f527d;
+      background: #f9fbff;
+    }
+
+    .threshold-unit,
+    .config-preview {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #f7faff;
+      font-size: 12px;
+      color: #57708f;
+      white-space: nowrap;
+    }
+
+    .field-note {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--sub);
+      line-height: 1.6;
+    }
+
+    .scope-tip {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #647a95;
+      line-height: 1.6;
+    }
+
+    .scope-picker {
+      display: grid;
+      gap: 8px;
+    }
+
+    .scope-picker .scope-btn {
+      display: inline-flex;
+      width: 100%;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .scope-table {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .scope-row {
+      display: grid;
+      grid-template-columns: 240px 1fr 140px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .threshold-scope-text {
+      font-size: 12px;
+      color: #607791;
+      line-height: 1.6;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px dashed #d4dfec;
+      background: #f9fbff;
+      text-align: center;
+    }
+
+    .scope-selected {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-height: 28px;
+    }
+
+    .scope-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border: 1px solid #cddced;
+      border-radius: 999px;
+      background: #f3f8ff;
+      color: #3f5f84;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .scope-tag.muted {
+      border-style: dashed;
+      background: #fbfdff;
+      color: #7a8ea7;
+    }
+
+    .scope-modal-card {
+      width: min(760px, 96vw);
+    }
+
+    .scope-modal-tools {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .scope-modal-summary {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #58718f;
+    }
+
+    .scope-list {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      max-height: 360px;
+      overflow: auto;
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .scope-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid #dbe5f1;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 13px;
+      color: #3e5d80;
+    }
+
+    .scope-option input {
+      width: auto;
+      margin: 0;
+    }
+
+    .check-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #46627f;
+    }
+
+    .check-item input {
+      width: auto;
+      margin: 0;
+    }
+
+    .config-list {
+      margin-top: 10px;
+    }
+
+    .config-list-item {
+      display: grid;
+      grid-template-columns: 120px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #415d7d;
+    }
+
+    .config-list-item strong {
+      color: #2f527e;
+    }
+
+    .help-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line-strong);
+      background: #f8fbff;
+      color: #4e6b8c;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(25, 44, 68, 0.26);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+      padding: 20px;
+    }
+
+    .modal-mask.show {
+      display: flex;
+    }
+
+    .modal-card {
+      width: min(860px, 96vw);
+      max-height: 84vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 24px 40px rgba(38, 70, 109, 0.18);
+      padding: 18px 20px;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .modal-head h3 {
+      margin: 0;
+      font-size: 20px;
+      color: #294d7b;
+    }
+
+    .modal-close {
+      width: auto;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    .help-sections {
+      display: grid;
+      gap: 12px;
+    }
+
+    .help-block {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+
+    .help-block h4 {
+      margin: 0 0 8px;
+      color: #31537f;
+      font-size: 15px;
+    }
+
+    .help-block p {
+      margin: 0;
+      font-size: 13px;
+      color: #60758f;
+      line-height: 1.8;
+    }
+
+    .event-kpis,
+    .event-detail-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .event-kpis {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .event-detail-grid {
+      grid-template-columns: 0.92fr 1.08fr;
+    }
+
+    .event-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .event-card .name {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .event-card .num {
+      margin-top: 10px;
+      font-size: 28px;
+      font-weight: 800;
+      color: #2f5a90;
+      line-height: 1;
+    }
+
+    .event-card .desc {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #687d97;
+      line-height: 1.6;
+    }
+
+    .event-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .event-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .event-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .event-filter .check-item {
+      margin: 0;
+      padding: 8px 10px;
+    }
+
+    .event-switch button {
+      width: auto;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #f5f8fd;
+      color: #5b7391;
+    }
+
+    .event-switch button.active {
+      border-color: #7ea5cf;
+      background: linear-gradient(135deg, #edf4ff 0%, #dfeeff 100%);
+      color: #2d5587;
+    }
+
+    .event-content {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px dashed #d5e0ee;
+      border-radius: 14px;
+      background: #fbfdff;
+      font-size: 13px;
+      color: #546b87;
+      line-height: 1.85;
+    }
+
+    .event-meta-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .event-meta-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #48617f;
+      flex-wrap: wrap;
+    }
+
+    .event-analytics {
+      display: grid;
+      grid-template-columns: 0.92fr 1.08fr;
+      gap: 14px;
+    }
+
+    .type-bars {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .type-bar-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      color: #526983;
+    }
+
+    .type-bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #eef4fb;
+      overflow: hidden;
+      border: 1px solid #dce6f2;
+    }
+
+    .type-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7ea9dc 0%, #4b79b8 100%);
+    }
+
+    .status-flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .status-step {
+      position: relative;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      font-size: 12px;
+      color: #687d97;
+    }
+
+    .status-step.active {
+      border-color: #8fb3db;
+      background: #eef5ff;
+      color: #2f5687;
+    }
+
+    .status-step.done {
+      border-color: #c8deef;
+      background: #f6fbff;
+      color: #496684;
+    }
+
+    .status-step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: inherit;
+    }
+
+    .event-log {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .event-log-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #526a85;
+    }
+
+    .event-log-item strong {
+      color: #31527e;
+    }
+
+    .time-board {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .time-row {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #54708e;
+    }
+
+    .time-row strong {
+      color: #2e517d;
+    }
+
+    .trace-list,
+    .related-list,
+    .action-row {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .trace-item,
+    .related-item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: #526983;
+    }
+
+    .trace-item strong,
+    .related-item strong {
+      color: #31527e;
+    }
+
+    .action-row {
+      grid-template-columns: 1fr 1fr;
+      align-items: end;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .action-buttons button {
+      padding: 8px 14px;
+    }
+
+    .link-btn {
+      color: #2f5a90;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .footer-note {
+      padding: 0 4px 2px;
+    }
+
+    @media (max-width: 1320px) {
+      .hero-stats,
+      .toolbar-grid,
+      .kpi-grid,
+      .source-grid,
+      .sync-kpi-grid,
+      .event-kpis,
+      .event-analytics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .config-layout,
+      .config-row,
+      .alert-grid,
+      .rule-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .layout-main,
+      .detail {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-top,
+      .toolbar-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hero-meta {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100vw, 100%);
+        margin: 0;
+        padding: 10px;
+      }
+
+      .hero-stats,
+      .toolbar-grid,
+      .kpi-grid,
+      .source-grid,
+      .sync-kpi-grid,
+      .detail-grid,
+      .form-grid,
+      .check-grid,
+      .event-kpis,
+      .event-detail-grid,
+      .event-analytics,
+      .status-flow,
+      .action-row {
+        grid-template-columns: 1fr;
+      }
+
+      .threshold-row {
+        grid-template-columns: 1fr;
+      }
+
+      .scope-row {
+        grid-template-columns: 1fr;
+      }
+
+      .threshold-scope-text {
+        text-align: left;
+      }
+
+      .scope-modal-tools {
+        grid-template-columns: 1fr;
+      }
+
+      .hero,
+      .toolbar,
+      .tabs,
+      .section,
+      .detail {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero card">
+      <div class="hero-top">
+        <div class="hero-main">
+          <h1>产品持仓标的行情提醒</h1>
+          <p>面向运营管理部（产品部）的数据校验与差异提醒台。先确认投资交易系统持仓是否完整同步，再识别行情波动与跨源差异，最后触发提醒并进入处置闭环。</p>
+          <div class="chips">
+            <span class="chip">业务日期：<b id="bizDateText">2026-04-12</b></span>
+            <span class="chip">责任部门：运营管理部（产品部）</span>
+            <span class="chip">持仓来源：投资交易系统</span>
+            <span class="chip">盘后批次：17:30-18:30</span>
+          </div>
+        </div>
+        <div class="hero-meta">
+          <span class="chip">股票口径：交易所收盘价</span>
+          <span class="chip">债券口径：中债 / 上清所 / 特殊行情分列</span>
+          <span class="chip">提醒渠道：站内 + 邮件 + 企业微信</span>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="mini-stat">
+          <div class="label">高优先级提醒</div>
+          <div class="value" id="focusCount">0</div>
+          <div class="note">需优先复核和跟进</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">最大机构差异</div>
+          <div class="value" id="maxDiffValue">0bp</div>
+          <div class="note" id="maxDiffName">-</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">自动判定率</div>
+          <div class="value" id="autoRate">0%</div>
+          <div class="note">规则可直接生成建议</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">待人工跟进</div>
+          <div class="value" id="pendingCount">0</div>
+          <div class="note">需确认口径、来源或时点</div>
+        </div>
+      </div>
+      <div class="hero-path">
+        <div class="path-title">业务判断路径</div>
+        <div class="path-bar">
+          <span class="chip">1. 确认持仓同步完整</span>
+          <span class="chip">2. 确认权威行情源齐全</span>
+          <span class="chip">3. 判断是否异常波动</span>
+          <span class="chip">4. 判断机构差异是否超阈值</span>
+          <span class="chip">5. 明确责任人与处置动作</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="toolbar card">
+      <div class="toolbar-head">
+        <div class="toolbar-title">
+          <h2>校验筛选与操作</h2>
+          <span class="muted">先圈定产品和校验范围，再选择异常模式或全量浏览</span>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn-primary" id="refreshBtn" type="button">刷新并模拟最新校验</button>
+          <button class="btn-plain" id="exportBtn" type="button">导出异常清单</button>
+          <button class="btn-subtle" id="alertModeBtn" type="button">异常模式</button>
+          <button class="btn-subtle" id="allModeBtn" type="button">全量模式</button>
+        </div>
+      </div>
+      <div class="toolbar-grid">
+        <div>
+          <label for="bizDate">业务日期</label>
+          <input id="bizDate" type="date" value="2026-04-12">
+        </div>
+        <div>
+          <label for="productFilter">产品</label>
+          <select id="productFilter">
+            <option value="all">全部产品</option>
+          </select>
+        </div>
+        <div>
+          <label for="assetTypeFilter">标的类型</label>
+          <select id="assetTypeFilter">
+            <option value="all">全部类型</option>
+            <option value="股票">股票</option>
+            <option value="利率债">利率债</option>
+            <option value="信用债">信用债</option>
+            <option value="ABS">ABS</option>
+          </select>
+        </div>
+        <div>
+          <label for="alertFilter">提醒范围</label>
+          <select id="alertFilter">
+            <option value="all">全部</option>
+            <option value="onlyAlert">仅看异常</option>
+            <option value="sourceGap">仅看差异/冲突</option>
+            <option value="volatility">仅看大幅波动</option>
+            <option value="handled">仅看已处理</option>
+          </select>
+        </div>
+        <div>
+          <label for="sourceFilter">权威机构视角</label>
+          <select id="sourceFilter">
+            <option value="all">全部权威机构</option>
+            <option value="交易所">交易所</option>
+            <option value="中债">中债</option>
+            <option value="上清所">上清所</option>
+            <option value="特殊行情">特殊行情</option>
+          </select>
+        </div>
+        <div>
+          <label for="keyword">关键字</label>
+          <input id="keyword" type="text" placeholder="产品名 / 标的名 / 责任人">
+        </div>
+      </div>
+    </section>
+
+    <section class="tabs card">
+      <div class="tab-nav">
+        <button class="active" data-tab="overview" type="button">校验总览</button>
+        <button data-tab="alerts" type="button">异常处置</button>
+        <button data-tab="events" type="button">大事提醒</button>
+        <button data-tab="rules" type="button">规则配置</button>
+      </div>
+    </section>
+
+    <section class="tab-panel active" id="tab-overview">
+      <div class="section card">
+        <div class="section-head">
+          <h2>持仓同步校验</h2>
+          <span class="muted">投资交易系统持仓 VS 行情系统标的，优先识别缺失、漏同步和不一致</span>
+        </div>
+        <div class="sync-kpi-grid" id="syncCheckGrid"></div>
+        <div class="sync-issue-list" id="syncIssueList"></div>
+      </div>
+
+      <div class="section card">
+        <div class="section-head">
+          <h2>今日校验概览</h2>
+          <span class="muted">先看持仓与行情一致性，再下钻异常差异</span>
+        </div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+      </div>
+
+      <div class="section card">
+        <div class="section-head">
+          <h2>权威行情源同步状态</h2>
+          <span class="muted">优先回答“今天的数据是否拿全、是否可信”</span>
+        </div>
+        <div class="source-grid" id="sourceGrid"></div>
+      </div>
+
+      <div class="section card">
+        <div class="section-head">
+          <h2>业务流程</h2>
+          <span class="muted">建议作为原型讲解第一页使用</span>
+        </div>
+        <div class="flow">
+          <span class="flow-item">1. 同步投资交易系统持仓</span>
+          <span class="flow-item">2. 自动抓取交易所 / 中债 / 上清所 / 特殊行情</span>
+          <span class="flow-item">3. 统一价格和收益率口径</span>
+          <span class="flow-item">4. 识别日波动、跨机构差异、主源偏离、行情缺失</span>
+          <span class="flow-item">5. 向责任人推送提醒并留痕</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-alerts">
+      <div class="section card">
+        <div class="section-head">
+          <h2>提醒队列</h2>
+          <div class="switch">
+            <button class="active alert-tab" data-alert-tab="all" type="button">全部</button>
+            <button class="alert-tab" data-alert-tab="high" type="button">高优先级</button>
+            <button class="alert-tab" data-alert-tab="gap" type="button">差异/冲突</button>
+            <button class="alert-tab" data-alert-tab="move" type="button">大幅波动</button>
+          </div>
+        </div>
+        <div class="alert-grid" id="alertGrid"></div>
+      </div>
+
+      <div class="layout-main">
+        <div class="section card">
+          <div class="section-head">
+            <h2>标的提醒清单</h2>
+            <span class="muted">点击任一标的，下方联动刷新概览、机构比对、走势和建议动作</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>产品名称</th>
+                  <th>持仓标的</th>
+                  <th>类型</th>
+                  <th>主行情口径</th>
+                  <th>今日值</th>
+                  <th>昨日值</th>
+                  <th>日波动</th>
+                  <th>跨机构差异</th>
+                  <th>主源偏离</th>
+                  <th>异常类型</th>
+                  <th>提醒类型</th>
+                  <th>优先级</th>
+                  <th>状态</th>
+                  <th>责任人</th>
+                  <th>建议动作</th>
+                </tr>
+              </thead>
+              <tbody id="holdingBody"></tbody>
+            </table>
+          </div>
+          <div class="detail" style="margin-top:14px;">
+            <div class="detail-card">
+              <h3>选中标的概览</h3>
+              <div class="detail-grid" id="detailGrid"></div>
+            </div>
+            <div class="detail-stack">
+              <div class="detail-card">
+                <h3>权威机构行情比对</h3>
+                <div class="source-table" id="compareBody"></div>
+              </div>
+              <div class="detail-card">
+                <h3>最近 7 日走势模拟</h3>
+                <svg class="sparkline" id="sparkline" viewBox="0 0 360 120" preserveAspectRatio="none"></svg>
+              </div>
+              <div class="detail-card">
+                <h3>业务建议</h3>
+                <div class="note" id="adviceBox">请先从列表选择一个标的。</div>
+              </div>
+              <div class="detail-card">
+                <h3>行情来源追溯</h3>
+                <div class="trace-list" id="marketTraceList"></div>
+              </div>
+              <div class="detail-card">
+                <h3>相关大事事件</h3>
+                <div class="related-list" id="relatedEventList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-events">
+      <div class="section card">
+        <div class="section-head">
+          <h2>持仓标的大事提醒概览</h2>
+          <span class="muted">自动抓取权威资讯事件，优先识别分红、停复牌、风险异常和评级调整</span>
+        </div>
+        <div class="event-kpis" id="eventKpiGrid"></div>
+      </div>
+
+      <div class="section card">
+        <div class="section-head">
+          <h2>资讯源同步状态</h2>
+          <span class="muted">同步持仓标的并抓取外部公告、交易所资讯、评级与风险信息</span>
+        </div>
+        <div class="source-grid" id="eventSourceGrid"></div>
+      </div>
+
+      <div class="section card">
+        <div class="event-toolbar">
+          <div>
+            <h2 style="margin:0;color:#2b4c77;">大事提醒清单</h2>
+            <div class="muted" style="margin-top:4px;">点击任一事件，下方查看具体内容、影响判断和处理建议</div>
+          </div>
+          <div class="event-filter">
+            <label class="check-item"><input id="eventHoldingOnly" type="checkbox" checked> 仅看持仓相关</label>
+          </div>
+          <div class="event-switch">
+            <button class="active event-tab" data-event-tab="all" type="button">全部事件</button>
+            <button class="event-tab" data-event-tab="dividend" type="button">分红</button>
+            <button class="event-tab" data-event-tab="halt" type="button">停复牌</button>
+            <button class="event-tab" data-event-tab="risk" type="button">风险异常</button>
+            <button class="event-tab" data-event-tab="rating" type="button">评级调整</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>产品名称</th>
+                <th>持仓标的</th>
+                <th>事件类型</th>
+                <th>事件标题</th>
+                <th>权威来源</th>
+                <th>发布时间</th>
+                <th>是否持仓标的</th>
+                <th>关联产品</th>
+                <th>影响持仓规模</th>
+                <th>影响级别</th>
+                <th>当前状态</th>
+                <th>责任人</th>
+              </tr>
+            </thead>
+            <tbody id="eventBody"></tbody>
+          </table>
+        </div>
+        <div class="event-detail-grid" style="margin-top:14px;">
+          <div class="detail-card">
+            <h3>选中事件概览</h3>
+            <div class="detail-grid" id="eventDetailGrid"></div>
+            <div class="event-meta-list" id="eventMetaList"></div>
+            <div class="status-flow" id="eventStatusFlow"></div>
+          </div>
+          <div class="detail-stack">
+            <div class="detail-card">
+              <h3>大事件具体内容</h3>
+              <div class="event-content" id="eventContentBox">请先从列表选择一个大事件。</div>
+            </div>
+            <div class="detail-card">
+              <h3>业务影响与处置建议</h3>
+              <div class="note" id="eventAdviceBox">将根据事件类型展示建议动作。</div>
+            </div>
+            <div class="detail-card">
+              <h3>处理动作</h3>
+              <div class="action-row">
+                <div>
+                  <label for="eventOwnerSelect">改派责任人</label>
+                  <select id="eventOwnerSelect">
+                    <option>王琳</option>
+                    <option>赵敏</option>
+                    <option>李晨</option>
+                    <option>周萍</option>
+                  </select>
+                </div>
+                <div>
+                  <label>快捷操作</label>
+                  <div class="action-buttons">
+                    <button class="btn-plain" id="eventConfirmBtn" type="button">确认事件</button>
+                    <button class="btn-plain" id="eventEscalateBtn" type="button">升级处理</button>
+                    <button class="btn-plain" id="eventCloseBtn" type="button">关闭事件</button>
+                    <button class="btn-subtle" id="eventReassignBtn" type="button">改派责任人</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="detail-card">
+              <h3>来源追溯</h3>
+              <div class="trace-list" id="eventTraceList"></div>
+            </div>
+            <div class="detail-card">
+              <h3>关联行情提醒</h3>
+              <div class="related-list" id="relatedMarketList"></div>
+            </div>
+            <div class="detail-card">
+              <h3>处理记录</h3>
+              <div class="event-log" id="eventLog"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="event-analytics">
+        <div class="section card">
+          <div class="section-head">
+            <h2>事件类型统计</h2>
+            <span class="muted">看当天主要事件集中在哪一类</span>
+          </div>
+          <div class="type-bars" id="eventTypeBars"></div>
+        </div>
+
+        <div class="section card">
+          <div class="section-head">
+            <h2>近 7 日事件时间线</h2>
+            <span class="muted">适合值守或领导查看最近事件脉络</span>
+          </div>
+          <div class="time-board" id="eventTimeBoard"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-rules">
+      <div class="section card">
+        <div class="section-head">
+          <div>
+            <h2>规则配置</h2>
+            <span class="muted">按三层规则配置：数据规则（技术）→ 业务规则（核心）→ 处置规则（运营）</span>
+          </div>
+          <button class="help-link" id="openRuleHelp" type="button">查看规则说明</button>
+        </div>
+
+        <div class="rule-page-nav">
+          <button class="rule-page-tab active" data-rule-page="scope" type="button">数据规则（技术）</button>
+          <button class="rule-page-tab" data-rule-page="event" type="button">业务规则（核心）</button>
+          <button class="rule-page-tab" data-rule-page="dispose" type="button">处置规则（运营）</button>
+        </div>
+
+        <div class="rule-page active" id="rule-page-scope">
+          <div class="config-layout">
+            <div class="config-item">
+              <h4>数据规则（技术）：持仓范围与校验名单</h4>
+              <div class="scope-table">
+                <div class="scope-row">
+                  <div class="threshold-main">
+                    <strong>股票波动提醒名单</strong>
+                    <span>仅名单内产品触发股票波动阈值。</span>
+                  </div>
+                  <div class="scope-picker">
+                    <button class="btn-plain scope-btn" id="stockScopeBtn" data-scope-key="stock" type="button">搜索添加产品</button>
+                    <div class="scope-selected" id="stockScopeSelected"></div>
+                  </div>
+                  <span class="config-preview" id="stockScopeCount">已选 0 个产品</span>
+                </div>
+
+                <div class="scope-row">
+                  <div class="threshold-main">
+                    <strong>债券波动提醒名单</strong>
+                    <span>仅名单内产品触发债券波动阈值。</span>
+                  </div>
+                  <div class="scope-picker">
+                    <button class="btn-plain scope-btn" id="bondScopeBtn" data-scope-key="bond" type="button">搜索添加产品</button>
+                    <div class="scope-selected" id="bondScopeSelected"></div>
+                  </div>
+                  <span class="config-preview" id="bondScopeCount">已选 0 个产品</span>
+                </div>
+
+                <div class="scope-row">
+                  <div class="threshold-main">
+                    <strong>机构差异提醒名单</strong>
+                    <span>仅名单内产品触发机构差异与缺失提醒。</span>
+                  </div>
+                  <div class="scope-picker">
+                    <button class="btn-plain scope-btn" id="sourceScopeBtn" data-scope-key="source" type="button">搜索添加产品</button>
+                    <div class="scope-selected" id="sourceScopeSelected"></div>
+                  </div>
+                  <span class="config-preview" id="sourceScopeCount">已选 0 个产品</span>
+                </div>
+              </div>
+              <div class="scope-tip">产品量大时先在本页搜索维护名单，再切换到规则页配置阈值，可完整演示“选名单 → 配规则 → 触发提醒”。</div>
+            </div>
+
+            <div class="config-item">
+              <h4>数据规则（技术）：来源与更新时点</h4>
+              <div class="help-sections">
+                <div class="help-block">
+                  <h4>数据来源规则</h4>
+                  <p>明确交易所 / 中债 / 上清所 / 特殊行情来源优先级，禁止辅助源直接覆盖主口径。</p>
+                </div>
+                <div class="help-block">
+                  <h4>更新时间规则</h4>
+                  <p>定义抓取批次和最晚更新时间，超时则先标记“数据可疑”并触发行情缺失提醒。</p>
+                </div>
+                <div class="help-block">
+                  <h4>同步校验规则</h4>
+                  <p>每日对比投资交易系统持仓与行情系统标的，输出持仓缺失、行情缺失、标的不一致。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rule-page" id="rule-page-event">
+          <div class="config-layout">
+            <div class="config-item">
+              <h4>业务规则（核心）：阈值与提醒策略</h4>
+              <div class="field-note">先在“数据规则（技术）”页维护监控产品，再在本页配置阈值和提醒策略。</div>
+              <div class="threshold-table">
+                <div class="threshold-row">
+                  <div class="threshold-main">
+                    <strong>股票波动提醒</strong>
+                    <span>用于股票类持仓的收盘价涨跌幅提醒。</span>
+                  </div>
+                  <div class="threshold-input">
+                    <input id="stockThreshold" type="number" min="2" max="12" step="0.5" value="6.0">
+                  </div>
+                  <span class="threshold-unit">%</span>
+                  <span class="threshold-scope-text" id="stockScopeSummary">名单覆盖：0个产品（在“数据规则（技术）”页维护）</span>
+                  <span class="config-preview" id="stockThresholdValue">当前：6.0%（0个产品）</span>
+                </div>
+
+                <div class="threshold-row">
+                  <div class="threshold-main">
+                    <strong>债券波动提醒</strong>
+                    <span>用于利率债、信用债和 ABS 的估值收益率变动提醒。</span>
+                  </div>
+                  <div class="threshold-input">
+                    <input id="bondThreshold" type="number" min="2" max="20" step="1" value="8">
+                  </div>
+                  <span class="threshold-unit">bp</span>
+                  <span class="threshold-scope-text" id="bondScopeSummary">名单覆盖：0个产品（在“数据规则（技术）”页维护）</span>
+                  <span class="config-preview" id="bondThresholdValue">当前：8bp（0个产品）</span>
+                </div>
+
+                <div class="threshold-row">
+                  <div class="threshold-main">
+                    <strong>机构差异提醒</strong>
+                    <span>用于中债、上清所、特殊行情等机构间差异提醒。</span>
+                  </div>
+                  <div class="threshold-input">
+                    <input id="sourceThreshold" type="number" min="1" max="8" step="0.5" value="4.0">
+                  </div>
+                  <span class="threshold-unit">bp</span>
+                  <span class="threshold-scope-text" id="sourceScopeSummary">名单覆盖：0个产品（在“数据规则（技术）”页维护）</span>
+                  <span class="config-preview" id="sourceThresholdValue">当前：4.0bp / 1.5%（0个产品）</span>
+                </div>
+              </div>
+
+              <div class="check-grid">
+                <label class="check-item"><input type="checkbox" checked> 启用大幅波动提醒</label>
+                <label class="check-item"><input type="checkbox" checked> 启用机构差异提醒</label>
+                <label class="check-item"><input type="checkbox" checked> 启用行情缺失提醒</label>
+                <label class="check-item"><input type="checkbox" checked> 超阈值自动升级高优先级</label>
+              </div>
+            </div>
+
+            <div class="config-item">
+              <h4>业务规则（核心）：权威行情源口径</h4>
+              <div class="config-list">
+                <div class="config-list-item">
+                  <strong>股票</strong>
+                  <span>主口径：交易所收盘价</span>
+                  <span class="status ok">已启用</span>
+                </div>
+                <div class="config-list-item">
+                  <strong>利率债</strong>
+                  <span>主口径：中债，辅助比对：上清所 / 特殊行情</span>
+                  <span class="status ok">已启用</span>
+                </div>
+                <div class="config-list-item">
+                  <strong>信用债</strong>
+                  <span>主口径：中债，差异解释：上清所 / 特殊行情</span>
+                  <span class="status ok">已启用</span>
+                </div>
+                <div class="config-list-item">
+                  <strong>ABS</strong>
+                  <span>主口径：中债，缺失时保留缺失提醒</span>
+                  <span class="status warn">人工关注</span>
+                </div>
+              </div>
+              <div class="field-note">生产环境建议支持按产品、账户或标的类别分别配置优先级。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rule-page" id="rule-page-dispose">
+          <div class="config-row">
+            <div class="config-item">
+              <h4>处置规则（运营）：分派与升级</h4>
+              <div class="field-note">明确谁接收提醒、谁默认跟进、何时升级。</div>
+              <div class="form-grid">
+                <div>
+                  <label for="defaultOwner">默认责任岗位</label>
+                  <select id="defaultOwner">
+                    <option>产品运营岗</option>
+                    <option>估值核算岗</option>
+                    <option>投资经理</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="escalationRole">升级通知岗位</label>
+                  <select id="escalationRole">
+                    <option>运营管理部负责人</option>
+                    <option>产品部负责人</option>
+                    <option>估值负责人</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="dispatchRule">高优先级升级时点</label>
+                  <select id="dispatchRule">
+                    <option>连续 10 分钟未处理即升级</option>
+                    <option>连续 30 分钟未处理即升级</option>
+                    <option>仅盘后批量升级</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="batchTime">盘后批次时间</label>
+                  <select id="batchTime">
+                    <option>17:30 开始抓取，18:00 首次提醒</option>
+                    <option>18:00 开始抓取，18:30 首次提醒</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="config-item">
+              <h4>处置规则（运营）：通知渠道与模板</h4>
+              <div class="field-note">生产环境通常由运维或产品管理员维护。</div>
+              <div class="check-grid">
+                <label class="check-item"><input type="checkbox" checked> 站内待办</label>
+                <label class="check-item"><input type="checkbox" checked> 邮件汇总</label>
+                <label class="check-item"><input type="checkbox" checked> 企业微信实时提醒</label>
+                <label class="check-item"><input type="checkbox"> 短信升级提醒</label>
+              </div>
+              <div class="sample-list" id="sampleList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal-mask" id="scopeModal">
+      <div class="modal-card scope-modal-card">
+        <div class="modal-head">
+          <h3 id="scopeModalTitle">选择监控产品</h3>
+          <button class="btn-plain modal-close" id="closeScopeModal" type="button">关闭</button>
+        </div>
+        <div class="scope-modal-tools">
+          <input id="scopeSearch" type="text" placeholder="输入产品名称关键字">
+          <button class="btn-plain" id="scopeSelectVisibleBtn" type="button">全选结果</button>
+          <button class="btn-plain" id="scopeClearBtn" type="button">清空已选</button>
+        </div>
+        <div class="scope-modal-summary" id="scopeModalSummary"></div>
+        <div class="scope-list" id="scopeList"></div>
+        <div class="action-buttons">
+          <button class="btn-plain" id="scopeCancelBtn" type="button">取消</button>
+          <button class="btn-primary" id="scopeConfirmBtn" type="button">确认添加</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-mask" id="ruleHelpModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3>规则说明</h3>
+          <button class="btn-plain modal-close" id="closeRuleHelp" type="button">关闭</button>
+        </div>
+        <div class="help-sections">
+          <div class="help-block">
+            <h4>1. 权威行情取数原则</h4>
+            <p>股票默认取交易所收盘价作为主口径；银行间债券需分别采集中债、上清所和特殊行情，页面需保留差异值，不能直接用辅助源覆盖主值。</p>
+          </div>
+          <div class="help-block">
+            <h4>2. 异常识别原则</h4>
+            <p>波动提醒判断单一标的较上一交易日的变化幅度；机构差异提醒判断多个权威源之间是否存在显著偏离；若行情缺失或更新时间落后，优先标记为“数据可疑”而不是“市场异常”。</p>
+          </div>
+          <div class="help-block">
+            <h4>3. 处置闭环原则</h4>
+            <p>每条异常应具备责任人、当前状态、建议动作和最后更新时间。高优先级事项需要支持升级提醒，已确认事项应保留口径说明，便于后续复盘。</p>
+          </div>
+          <div class="help-block">
+            <h4>4. 生产化建议</h4>
+            <p>正式系统建议支持按产品线、账户组和标的类型维护独立规则；同时保留规则版本号、生效时间和修改人，避免批量调整阈值后无法追溯。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">说明：当前为 HTML + JS 演示原型，数据为模拟样例。若进入开发阶段，可将表头、阈值、提醒状态和责任人直接映射到真实接口与数据库模型。</div>
+  </div>
+  <script>
+    const sourceStatus = [
+      { name: "投资交易系统", status: "ok", text: "已同步", time: "08:35", count: "持仓 186 笔", note: "同步产品、账户、标的主键" },
+      { name: "交易所行情", status: "ok", text: "已抓取", time: "15:32", count: "股票 52 只", note: "沪深北收盘行情已落库" },
+      { name: "中债估值", status: "ok", text: "已抓取", time: "17:45", count: "债券 98 只", note: "估值收益率已更新" },
+      { name: "上清所", status: "warn", text: "部分延迟", time: "17:58", count: "债券 94 / 98 只", note: "4 只信用债待补齐" },
+      { name: "特殊行情", status: "ok", text: "已抓取", time: "18:06", count: "特殊债券 12 只", note: "用于差异说明，不直接覆盖中债口径" }
+    ];
+
+    const eventSourceStatus = [
+      { name: "交易所公告", status: "ok", text: "已抓取", time: "16:20", count: "股票公告 23 条", note: "分红、停复牌、风险提示已归集" },
+      { name: "上市公司公告", status: "ok", text: "已抓取", time: "16:48", count: "公司公告 17 条", note: "按持仓标的自动匹配" },
+      { name: "债券资讯", status: "ok", text: "已抓取", time: "17:22", count: "债券公告 11 条", note: "发行人公告、兑付与风险事项" },
+      { name: "评级机构", status: "warn", text: "部分延迟", time: "17:35", count: "评级变动 3 / 4 条", note: "1 条等待同步" },
+      { name: "风险资讯池", status: "ok", text: "已抓取", time: "17:40", count: "风险事件 6 条", note: "异常风险、监管处罚、负面舆情" }
+    ];
+
+    const holdings = [
+      {
+        id: "H001",
+        product: "国都稳盈债券1号",
+        asset: "24国开10",
+        type: "利率债",
+        market: "银行间",
+        owner: "王琳",
+        status: "待复核",
+        priority: "高",
+        handling: "确认采用中债还是特殊行情口径",
+        mainSource: "中债",
+        mainValue: 1.982,
+        previousValue: 2.073,
+        unit: "%",
+        metricLabel: "估值收益率",
+        sources: [
+          { name: "中债", value: 1.982, time: "17:45", authoritative: true },
+          { name: "上清所", value: 1.968, time: "17:58", authoritative: true },
+          { name: "特殊行情", value: 2.046, time: "18:06", authoritative: true }
+        ],
+        history: [2.14, 2.09, 2.11, 2.08, 2.05, 2.02, 1.982],
+        baseAdvice: "该债券今日下行较快，且特殊行情高于中债 6.4bp。建议先确认估值采用口径，再决定是否通知估值和交易团队。",
+        autoDecision: false,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "17:45:18",
+          updateTime: "17:58:10",
+          rule: "债券主口径采用中债，辅助比对上清所与特殊行情"
+        }
+      },
+      {
+        id: "H002",
+        product: "国都量化精选",
+        asset: "宁德时代",
+        type: "股票",
+        market: "深交所",
+        owner: "赵敏",
+        status: "待提醒",
+        priority: "高",
+        handling: "确认为真实市场波动，无需切换源",
+        mainSource: "交易所",
+        mainValue: 211.48,
+        previousValue: 197.86,
+        unit: "元",
+        metricLabel: "收盘价",
+        sources: [
+          { name: "交易所", value: 211.48, time: "15:32", authoritative: true },
+          { name: "内部快照", value: 211.41, time: "15:33", authoritative: false }
+        ],
+        history: [189.5, 191.8, 193.2, 198.6, 201.1, 205.4, 211.48],
+        baseAdvice: "属于交易所单源权威行情，波动较大但源一致，建议按市场波动提醒，不需要做跨机构差异解释。",
+        autoDecision: true,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "15:32:04",
+          updateTime: "15:33:16",
+          rule: "股票主口径采用交易所收盘价"
+        }
+      },
+      {
+        id: "H003",
+        product: "国都安享回报",
+        asset: "23农发05",
+        type: "利率债",
+        market: "银行间",
+        owner: "周萍",
+        status: "已确认",
+        priority: "中",
+        handling: "采用中债口径，已记录差异说明",
+        mainSource: "中债",
+        mainValue: 2.116,
+        previousValue: 2.139,
+        unit: "%",
+        metricLabel: "估值收益率",
+        sources: [
+          { name: "中债", value: 2.116, time: "17:45", authoritative: true },
+          { name: "上清所", value: 2.121, time: "17:58", authoritative: true },
+          { name: "特殊行情", value: 2.128, time: "18:06", authoritative: true }
+        ],
+        history: [2.171, 2.168, 2.162, 2.151, 2.143, 2.137, 2.116],
+        baseAdvice: "差异较小，业务上通常沿用中债口径即可。该条适合作为已处理样例展示。",
+        autoDecision: true,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "17:45:24",
+          updateTime: "18:06:02",
+          rule: "债券主口径采用中债，差异小于阈值则仅提示留痕"
+        }
+      },
+      {
+        id: "H004",
+        product: "国都科技成长",
+        asset: "寒武纪",
+        type: "股票",
+        market: "上交所科创板",
+        owner: "李晨",
+        status: "待复核",
+        priority: "中",
+        handling: "核实是否超过产品预警阈值",
+        mainSource: "交易所",
+        mainValue: 176.32,
+        previousValue: 166.44,
+        unit: "元",
+        metricLabel: "收盘价",
+        sources: [
+          { name: "交易所", value: 176.32, time: "15:32", authoritative: true },
+          { name: "内部快照", value: 175.97, time: "15:33", authoritative: false }
+        ],
+        history: [154.8, 158.4, 161.2, 164.7, 167.3, 171.5, 176.32],
+        baseAdvice: "该标的没有权威冲突，但涨幅显著。建议页面中把“市场波动提醒”和“口径差异提醒”清晰区分。",
+        autoDecision: true,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "15:32:08",
+          updateTime: "15:33:21",
+          rule: "股票主口径采用交易所收盘价"
+        }
+      },
+      {
+        id: "H005",
+        product: "国都信用增强",
+        asset: "24中电投MTN001",
+        type: "信用债",
+        market: "银行间",
+        owner: "王琳",
+        status: "待复核",
+        priority: "高",
+        handling: "核实上清所延迟，暂不下发最终估值",
+        mainSource: "中债",
+        mainValue: 2.468,
+        previousValue: 2.512,
+        unit: "%",
+        metricLabel: "估值收益率",
+        sources: [
+          { name: "中债", value: 2.468, time: "17:45", authoritative: true },
+          { name: "上清所", value: 2.509, time: "18:32", authoritative: true },
+          { name: "特殊行情", value: 2.518, time: "18:06", authoritative: true }
+        ],
+        history: [2.574, 2.551, 2.536, 2.524, 2.518, 2.512, 2.468],
+        baseAdvice: "中债与上清所差异已超过常见容忍区间，且上清所到达时间偏晚。建议标记为“机构差异 + 更新时间延迟”。",
+        autoDecision: false,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "17:45:33",
+          updateTime: "18:32:09",
+          rule: "信用债主口径采用中债，差异超阈值升级提醒"
+        }
+      },
+      {
+        id: "H006",
+        product: "国都资产支持专项",
+        asset: "和信2025-1优先A",
+        type: "ABS",
+        market: "银行间",
+        owner: "周萍",
+        status: "待提醒",
+        priority: "中",
+        handling: "特殊行情缺失，关注是否沿用前值",
+        mainSource: "中债",
+        mainValue: 3.126,
+        previousValue: 3.118,
+        unit: "%",
+        metricLabel: "估值收益率",
+        sources: [
+          { name: "中债", value: 3.126, time: "17:45", authoritative: true },
+          { name: "上清所", value: 3.129, time: "17:58", authoritative: true },
+          { name: "特殊行情", value: null, time: "--", authoritative: true }
+        ],
+        history: [3.169, 3.158, 3.146, 3.138, 3.131, 3.118, 3.126],
+        baseAdvice: "此类 ABS 常见问题不是大幅波动，而是可参考行情缺失。提醒文案应突出缺失值而非差异值。",
+        autoDecision: false,
+        trace: {
+          batch: "2026-04-12 PM-01",
+          fetchTime: "17:45:41",
+          updateTime: "17:58:42",
+          rule: "ABS 主口径采用中债，特殊行情缺失时保留缺失提醒"
+        }
+      }
+    ];
+
+    const events = [
+      {
+        id: "E001",
+        product: "国都量化精选",
+        asset: "宁德时代",
+        type: "分红",
+        source: "上市公司公告",
+        publishTime: "2026-04-12 09:18",
+        level: "中",
+        status: "待确认",
+        owner: "赵敏",
+        title: "2025 年度利润分配预案公告",
+        summary: "公告披露每 10 股派发现金红利 45.53 元，股权登记日待定。",
+        content: "宁德时代披露年度利润分配预案，拟实施现金分红。对于持仓产品，需要关注分红实施日期、除权除息安排，以及对估值与收益表现的影响。",
+        impact: "需提示产品经理关注除权除息安排，评估对产品净值波动和投资说明书披露口径的影响。",
+        action: "确认持仓产品是否需在分红实施日前进行说明或调整预估收益展示。",
+        category: "dividend",
+        noticeNo: "CATL-2026-031",
+        sourceUrl: "https://example.com/event/catl-dividend",
+        fetchTime: "2026-04-12 09:19",
+        storeTime: "2026-04-12 09:20",
+        updateTime: "2026-04-12 09:36",
+        logs: [
+          { time: "09:25", actor: "资讯抓取任务", text: "已从上市公司公告抓取并匹配到持仓产品。" },
+          { time: "09:40", actor: "赵敏", text: "待确认股权登记日与除权时间，准备形成运营提示。" }
+        ]
+      },
+      {
+        id: "E002",
+        product: "国都科技成长",
+        asset: "寒武纪",
+        type: "停牌",
+        source: "交易所公告",
+        publishTime: "2026-04-12 08:42",
+        level: "高",
+        status: "待处理",
+        owner: "李晨",
+        title: "筹划重大事项临时停牌公告",
+        summary: "寒武纪因筹划重大事项自 2026-04-12 开市起停牌，预计停牌不超过 3 个交易日。",
+        content: "交易所公告显示，寒武纪因筹划重大事项自开市起停牌。停牌期间将无正常交易价格，产品估值可能需转为采用停牌估值规则或前收盘价。",
+        impact: "对权益类产品估值和净值展示影响较大，需确认估值口径及对客户披露话术。",
+        action: "通知估值岗和产品经理确认停牌期间估值规则，并登记停牌开始与预计复牌时间。",
+        category: "halt",
+        noticeNo: "SSE-2026-1128",
+        sourceUrl: "https://example.com/event/cambricon-halt",
+        fetchTime: "2026-04-12 08:43",
+        storeTime: "2026-04-12 08:44",
+        updateTime: "2026-04-12 09:05",
+        logs: [
+          { time: "08:43", actor: "资讯抓取任务", text: "交易所停牌公告已入库并自动升级为高优先级。" },
+          { time: "09:05", actor: "李晨", text: "已通知估值岗确认停牌期间估值规则。" }
+        ]
+      },
+      {
+        id: "E003",
+        product: "国都信用增强",
+        asset: "24中电投MTN001",
+        type: "评级调整",
+        source: "评级机构",
+        publishTime: "2026-04-12 15:06",
+        level: "高",
+        status: "待处理",
+        owner: "王琳",
+        title: "主体评级展望由稳定调整为负面",
+        summary: "评级机构将发行人主体评级展望由“稳定”调整为“负面”，主体评级维持 AAA。",
+        content: "评级机构更新发行人信用评级展望，虽然主体评级暂未下调，但展望由稳定调整为负面，提示未来信用风险可能上升。",
+        impact: "需提示产品运营和投资经理关注组合信用暴露，并准备在必要时对持仓风险进行解释。",
+        action: "纳入重点跟踪名单，提示投资经理和产品部复核持仓暴露与风险披露口径。",
+        category: "rating",
+        noticeNo: "RATING-2026-0412-07",
+        sourceUrl: "https://example.com/event/mtn-rating",
+        fetchTime: "2026-04-12 15:08",
+        storeTime: "2026-04-12 15:09",
+        updateTime: "2026-04-12 15:26",
+        logs: [
+          { time: "15:08", actor: "评级资讯任务", text: "评级展望调整事件已抓取并匹配到持仓债券。" },
+          { time: "15:26", actor: "王琳", text: "已发送给投资经理，待确认是否升级专项跟踪。" }
+        ]
+      },
+      {
+        id: "E004",
+        product: "国都稳盈债券1号",
+        asset: "24国开10",
+        type: "特殊公告",
+        source: "债券资讯",
+        publishTime: "2026-04-12 11:25",
+        level: "低",
+        status: "已阅",
+        owner: "王琳",
+        title: "票息兑付安排公告",
+        summary: "公告披露本期债券下一次票息兑付安排，兑付日为 2026-05-10。",
+        content: "债券票息兑付安排已公告，当前并非风险事项，但属于需留痕的持仓大事件。适合纳入日常事件台账。",
+        impact: "主要用于运营留痕和后续现金流安排跟踪。",
+        action: "记录兑付日期，纳入运营日历即可。",
+        category: "dividend",
+        noticeNo: "BOND-2026-0501",
+        sourceUrl: "https://example.com/event/bond-coupon",
+        fetchTime: "2026-04-12 11:27",
+        storeTime: "2026-04-12 11:28",
+        updateTime: "2026-04-12 11:41",
+        logs: [
+          { time: "11:28", actor: "债券资讯任务", text: "票息兑付公告已同步至事件台账。" },
+          { time: "11:41", actor: "王琳", text: "已登记至运营日历，无需升级处理。" }
+        ]
+      },
+      {
+        id: "E005",
+        product: "国都资产支持专项",
+        asset: "和信2025-1优先A",
+        type: "异常风险",
+        source: "风险资讯池",
+        publishTime: "2026-04-12 14:12",
+        level: "高",
+        status: "待升级",
+        owner: "周萍",
+        title: "基础资产回款异常风险提示",
+        summary: "资讯显示基础资产部分回款延期，存量产品需关注未来现金流影响。",
+        content: "风险资讯池抓取到基础资产回款异常信息，提示基础资产回收节奏存在扰动，可能影响后续现金流分配及信用表现。",
+        impact: "需联动产品、风控和投资经理评估是否触发风险披露或预警升级。",
+        action: "升级通知产品负责人和风控岗，确认是否纳入专项风险跟踪。",
+        category: "risk",
+        noticeNo: "RISK-2026-1442",
+        sourceUrl: "https://example.com/event/abs-risk",
+        fetchTime: "2026-04-12 14:13",
+        storeTime: "2026-04-12 14:14",
+        updateTime: "2026-04-12 14:32",
+        logs: [
+          { time: "14:13", actor: "风险资讯任务", text: "异常风险事件已抓取并标记为高优先级。" },
+          { time: "14:32", actor: "周萍", text: "待升级风控岗确认是否触发专项风险跟踪。" }
+        ]
+      }
+    ];
+
+    events.push({
+      id: "E006",
+      product: "全市场观察池",
+      asset: "26浦发二级资本债",
+      type: "评级观察",
+      source: "评级机构",
+      publishTime: "2026-04-12 13:15",
+      level: "低",
+      status: "待确认",
+      owner: "王琳",
+      title: "发行人展望调整观察",
+      summary: "该事件暂未命中当前持仓，仅作为全市场观察样例。",
+      content: "该事件来自评级机构观察清单，当前未匹配到持仓标的。默认勾选“仅看持仓相关”时将自动隐藏，避免泛资讯干扰运营处置。",
+      impact: "对当前持仓暂无直接影响，保留观察记录即可。",
+      action: "无需升级，等待后续是否进入持仓范围。",
+      category: "rating",
+      noticeNo: "RATING-2026-OBS-06",
+      sourceUrl: "https://example.com/event/non-holding-rating",
+      fetchTime: "2026-04-12 13:16",
+      storeTime: "2026-04-12 13:17",
+      updateTime: "2026-04-12 13:18",
+      logs: [
+        { time: "13:16", actor: "评级资讯任务", text: "事件已抓取，但未命中持仓标的。" },
+        { time: "13:18", actor: "王琳", text: "保留观察，不进入处置流程。" }
+      ]
+    });
+
+    const productHoldingScale = {
+      "国都稳盈债券1号": "12.8 亿",
+      "国都量化精选": "9.6 亿",
+      "国都安享回报": "7.2 亿",
+      "国都科技成长": "10.4 亿",
+      "国都信用增强": "8.1 亿",
+      "国都资产支持专项": "5.7 亿"
+    };
+
+    const holdingSyncSnapshot = {
+      products: [...new Set(holdings.map(item => item.product))],
+      tradeAccounts: ["资管账户A01", "资管账户B07", "专户C03", "专户D11"],
+      syncedAccounts: ["资管账户A01", "资管账户B07", "专户C03"],
+      tradeAssets: [...new Set([...holdings.map(item => item.asset), "24国电SCP002", "22科创债03", "26浦发二级资本债"])],
+      marketAssets: [...new Set([...holdings.map(item => item.asset), "21城投债07"])]
+    };
+
+    const state = {
+      tab: "overview",
+      alertTab: "all",
+      viewMode: "alert",
+      selectedId: holdings[0].id,
+      eventTab: "all",
+      eventHoldingOnly: true,
+      selectedEventId: events[0].id,
+      rulePage: "scope"
+    };
+
+    const defaultRuleScope = {
+      stock: ["国都量化精选"],
+      bond: ["国都稳盈债券1号", "国都信用增强"],
+      source: ["国都稳盈债券1号", "国都信用增强", "国都资产支持专项"]
+    };
+
+    const scopeRuleName = {
+      stock: "股票波动提醒",
+      bond: "债券波动提醒",
+      source: "机构差异提醒"
+    };
+
+    const ruleScopePool = {
+      stock: [],
+      bond: [],
+      source: []
+    };
+
+    const ruleScopeState = {
+      stock: new Set(defaultRuleScope.stock),
+      bond: new Set(defaultRuleScope.bond),
+      source: new Set(defaultRuleScope.source)
+    };
+
+    const scopeModalState = {
+      key: null,
+      query: "",
+      draft: new Set()
+    };
+
+    const els = {
+      bizDate: document.getElementById("bizDate"),
+      bizDateText: document.getElementById("bizDateText"),
+      productFilter: document.getElementById("productFilter"),
+      assetTypeFilter: document.getElementById("assetTypeFilter"),
+      alertFilter: document.getElementById("alertFilter"),
+      sourceFilter: document.getElementById("sourceFilter"),
+      keyword: document.getElementById("keyword"),
+      kpiGrid: document.getElementById("kpiGrid"),
+      syncCheckGrid: document.getElementById("syncCheckGrid"),
+      syncIssueList: document.getElementById("syncIssueList"),
+      sourceGrid: document.getElementById("sourceGrid"),
+      eventKpiGrid: document.getElementById("eventKpiGrid"),
+      eventSourceGrid: document.getElementById("eventSourceGrid"),
+      alertGrid: document.getElementById("alertGrid"),
+      holdingBody: document.getElementById("holdingBody"),
+      detailGrid: document.getElementById("detailGrid"),
+      compareBody: document.getElementById("compareBody"),
+      sparkline: document.getElementById("sparkline"),
+      adviceBox: document.getElementById("adviceBox"),
+      marketTraceList: document.getElementById("marketTraceList"),
+      relatedEventList: document.getElementById("relatedEventList"),
+      eventBody: document.getElementById("eventBody"),
+      eventDetailGrid: document.getElementById("eventDetailGrid"),
+      eventMetaList: document.getElementById("eventMetaList"),
+      eventStatusFlow: document.getElementById("eventStatusFlow"),
+      eventContentBox: document.getElementById("eventContentBox"),
+      eventAdviceBox: document.getElementById("eventAdviceBox"),
+      eventOwnerSelect: document.getElementById("eventOwnerSelect"),
+      eventConfirmBtn: document.getElementById("eventConfirmBtn"),
+      eventEscalateBtn: document.getElementById("eventEscalateBtn"),
+      eventCloseBtn: document.getElementById("eventCloseBtn"),
+      eventReassignBtn: document.getElementById("eventReassignBtn"),
+      eventHoldingOnly: document.getElementById("eventHoldingOnly"),
+      eventTraceList: document.getElementById("eventTraceList"),
+      relatedMarketList: document.getElementById("relatedMarketList"),
+      eventLog: document.getElementById("eventLog"),
+      eventTypeBars: document.getElementById("eventTypeBars"),
+      eventTimeBoard: document.getElementById("eventTimeBoard"),
+      sampleList: document.getElementById("sampleList"),
+      openRuleHelp: document.getElementById("openRuleHelp"),
+      closeRuleHelp: document.getElementById("closeRuleHelp"),
+      ruleHelpModal: document.getElementById("ruleHelpModal"),
+      focusCount: document.getElementById("focusCount"),
+      maxDiffValue: document.getElementById("maxDiffValue"),
+      maxDiffName: document.getElementById("maxDiffName"),
+      autoRate: document.getElementById("autoRate"),
+      pendingCount: document.getElementById("pendingCount"),
+      stockThreshold: document.getElementById("stockThreshold"),
+      stockThresholdValue: document.getElementById("stockThresholdValue"),
+      stockScopeCount: document.getElementById("stockScopeCount"),
+      stockScopeSummary: document.getElementById("stockScopeSummary"),
+      stockScopeBtn: document.getElementById("stockScopeBtn"),
+      stockScopeSelected: document.getElementById("stockScopeSelected"),
+      bondThreshold: document.getElementById("bondThreshold"),
+      bondThresholdValue: document.getElementById("bondThresholdValue"),
+      bondScopeCount: document.getElementById("bondScopeCount"),
+      bondScopeSummary: document.getElementById("bondScopeSummary"),
+      bondScopeBtn: document.getElementById("bondScopeBtn"),
+      bondScopeSelected: document.getElementById("bondScopeSelected"),
+      sourceThreshold: document.getElementById("sourceThreshold"),
+      sourceThresholdValue: document.getElementById("sourceThresholdValue"),
+      sourceScopeCount: document.getElementById("sourceScopeCount"),
+      sourceScopeSummary: document.getElementById("sourceScopeSummary"),
+      sourceScopeBtn: document.getElementById("sourceScopeBtn"),
+      sourceScopeSelected: document.getElementById("sourceScopeSelected"),
+      scopeModal: document.getElementById("scopeModal"),
+      scopeModalTitle: document.getElementById("scopeModalTitle"),
+      closeScopeModal: document.getElementById("closeScopeModal"),
+      scopeSearch: document.getElementById("scopeSearch"),
+      scopeSelectVisibleBtn: document.getElementById("scopeSelectVisibleBtn"),
+      scopeClearBtn: document.getElementById("scopeClearBtn"),
+      scopeModalSummary: document.getElementById("scopeModalSummary"),
+      scopeList: document.getElementById("scopeList"),
+      scopeCancelBtn: document.getElementById("scopeCancelBtn"),
+      scopeConfirmBtn: document.getElementById("scopeConfirmBtn"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      exportBtn: document.getElementById("exportBtn"),
+      alertModeBtn: document.getElementById("alertModeBtn"),
+      allModeBtn: document.getElementById("allModeBtn")
+    };
+
+    function populateProducts() {
+      [...new Set(holdings.map(item => item.product))].forEach(product => {
+        const option = document.createElement("option");
+        option.value = product;
+        option.textContent = product;
+        els.productFilter.appendChild(option);
+      });
+    }
+
+    function buildScopePool(key) {
+      const isStockRule = key === "stock";
+      const base = [...new Set(holdings.filter(item => (isStockRule ? item.type === "股票" : item.type !== "股票")).map(item => item.product))];
+      return [...new Set([...base, ...defaultRuleScope[key]])].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+    }
+
+    function scopeValues(key) {
+      return [...ruleScopeState[key]].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+    }
+
+    function renderScopeTags(container, key) {
+      const selected = scopeValues(key);
+      if (!selected.length) {
+        container.innerHTML = `<span class="scope-tag muted">未指定产品</span>`;
+        return;
+      }
+      container.innerHTML = selected.map(name => `<span class="scope-tag">${name}</span>`).join("");
+    }
+
+    function renderRuleScopePanels() {
+      renderScopeTags(els.stockScopeSelected, "stock");
+      renderScopeTags(els.bondScopeSelected, "bond");
+      renderScopeTags(els.sourceScopeSelected, "source");
+    }
+
+    function sanitizeScopeSelection(key) {
+      const allowed = new Set(ruleScopePool[key]);
+      ruleScopeState[key] = new Set([...ruleScopeState[key]].filter(name => allowed.has(name)));
+    }
+
+    function populateRuleScopes() {
+      ruleScopePool.stock = buildScopePool("stock");
+      ruleScopePool.bond = buildScopePool("bond");
+      ruleScopePool.source = buildScopePool("source");
+      sanitizeScopeSelection("stock");
+      sanitizeScopeSelection("bond");
+      sanitizeScopeSelection("source");
+      renderRuleScopePanels();
+    }
+
+    function matchedScopeProducts(key, query) {
+      const text = query.trim().toLowerCase();
+      if (!text) return ruleScopePool[key];
+      return ruleScopePool[key].filter(name => name.toLowerCase().includes(text));
+    }
+
+    function renderScopeModalList() {
+      const { key, query } = scopeModalState;
+      if (!key) return;
+      const matched = matchedScopeProducts(key, query);
+      els.scopeModalSummary.textContent = `规则：${scopeRuleName[key]}，候选 ${ruleScopePool[key].length} 个，当前已选 ${scopeModalState.draft.size} 个，搜索命中 ${matched.length} 个。`;
+
+      if (!matched.length) {
+        els.scopeList.innerHTML = `<div class="note">没有匹配产品，请调整关键字。</div>`;
+        return;
+      }
+
+      els.scopeList.innerHTML = matched.map((name, index) => `
+        <label class="scope-option">
+          <input type="checkbox" data-scope-index="${index}" ${scopeModalState.draft.has(name) ? "checked" : ""}>
+          <span>${name}</span>
+        </label>
+      `).join("");
+
+      els.scopeList.querySelectorAll("input[type='checkbox']").forEach(node => {
+        node.addEventListener("change", () => {
+          const productName = matched[Number(node.dataset.scopeIndex)];
+          if (node.checked) scopeModalState.draft.add(productName);
+          else scopeModalState.draft.delete(productName);
+          els.scopeModalSummary.textContent = `规则：${scopeRuleName[key]}，候选 ${ruleScopePool[key].length} 个，当前已选 ${scopeModalState.draft.size} 个，搜索命中 ${matched.length} 个。`;
+        });
+      });
+    }
+
+    function openScopeModal(key) {
+      scopeModalState.key = key;
+      scopeModalState.query = "";
+      scopeModalState.draft = new Set(ruleScopeState[key]);
+      els.scopeSearch.value = "";
+      els.scopeModalTitle.textContent = `${scopeRuleName[key]} - 搜索添加监控产品`;
+      renderScopeModalList();
+      els.scopeModal.classList.add("show");
+      els.scopeSearch.focus();
+    }
+
+    function closeScopeModal() {
+      els.scopeModal.classList.remove("show");
+      scopeModalState.key = null;
+      scopeModalState.query = "";
+      scopeModalState.draft = new Set();
+    }
+
+    function applyScopeModalSelection() {
+      const { key } = scopeModalState;
+      if (!key) return;
+      ruleScopeState[key] = new Set(scopeModalState.draft);
+      renderRuleScopePanels();
+      closeScopeModal();
+      render();
+    }
+
+    function thresholds() {
+      return {
+        stock: Number(els.stockThreshold.value),
+        bond: Number(els.bondThreshold.value),
+        gap: Number(els.sourceThreshold.value)
+      };
+    }
+
+    function percentMove(item) {
+      return ((item.mainValue - item.previousValue) / item.previousValue) * 100;
+    }
+
+    function bpMove(item) {
+      return (item.mainValue - item.previousValue) * 100;
+    }
+
+    function sourceGap(item) {
+      const values = item.sources.filter(source => source.authoritative && source.value != null).map(source => source.value);
+      if (!values.length) return null;
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      return item.type === "股票" ? ((max - min) / min) * 100 : (max - min) * 100;
+    }
+
+    function mainSourceDeviation(item) {
+      const main = item.sources.find(source => source.name === item.mainSource && source.value != null)?.value ?? item.mainValue;
+      const peers = item.sources
+        .filter(source => source.authoritative && source.name !== item.mainSource && source.value != null)
+        .map(source => source.value);
+      if (main == null || !peers.length) return null;
+      const avg = peers.reduce((sum, value) => sum + value, 0) / peers.length;
+      if (!avg) return null;
+      return item.type === "股票" ? ((main - avg) / avg) * 100 : (main - avg) * 100;
+    }
+
+    function isMissing(item) {
+      return item.sources.some(source => source.authoritative && source.value == null);
+    }
+
+    function formatMetricDelta(item, value, withSign = false) {
+      if (value == null) return "--";
+      if (item.type === "股票") return `${withSign && value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+      return `${withSign && value >= 0 ? "+" : ""}${value.toFixed(1)}bp`;
+    }
+
+    function eventBinding(item) {
+      const relatedHolding = holdings.find(holding => holding.asset === item.asset && holding.product === item.product);
+      const relatedProduct = relatedHolding ? relatedHolding.product : "无";
+      return {
+        isHoldingRelated: Boolean(relatedHolding),
+        relatedProduct,
+        holdingScale: relatedHolding ? (productHoldingScale[relatedProduct] || "--") : "0",
+        label: relatedHolding ? "是" : "否"
+      };
+    }
+
+    function getHoldingSyncStats() {
+      const tradeAssets = new Set(holdingSyncSnapshot.tradeAssets);
+      const marketAssets = new Set(holdingSyncSnapshot.marketAssets);
+      const missingAssets = [...tradeAssets].filter(asset => !marketAssets.has(asset));
+      const inconsistentAssets = [...marketAssets].filter(asset => !tradeAssets.has(asset));
+      const unsyncedAccounts = holdingSyncSnapshot.tradeAccounts.filter(account => !holdingSyncSnapshot.syncedAccounts.includes(account));
+      const quoteMissingAssets = holdings.filter(item => isMissing(item)).map(item => `${item.product} / ${item.asset}`);
+      return {
+        productCount: holdingSyncSnapshot.products.length,
+        holdingAssetCount: holdingSyncSnapshot.tradeAssets.length,
+        missingAssets,
+        inconsistentAssets,
+        unsyncedAccounts,
+        quoteMissingAssets
+      };
+    }
+
+    function buildAutoExplanations(item, m) {
+      const result = [];
+      const move = item.type === "股票" ? percentMove(item) : bpMove(item);
+      if (item.type !== "股票" && move <= -5) result.push("利率下行导致债券收益率下降");
+      if (m.sourceConflict) result.push("主源偏离明显，建议复核主口径与辅助源");
+      if (m.gapAlert) result.push("跨机构差异偏大，可能由成交稀疏或估值时点差异导致");
+      if (m.missing) result.push("存在权威源缺失，优先排查抓取链路和更新时间");
+      if (!result.length && item.type === "股票" && Math.abs(move) >= thresholds().stock) result.push("股票波动主要来自市场价格变化");
+      return result.length ? result : ["未发现结构性冲突，可沿用当前口径"];
+    }
+
+    function meta(item) {
+      const limit = thresholds();
+      const stock = item.type === "股票";
+      const move = stock ? Math.abs(percentMove(item)) : Math.abs(bpMove(item));
+      const crossDiff = sourceGap(item);
+      const mainDeviation = mainSourceDeviation(item);
+      const deviationAbs = mainDeviation == null ? null : Math.abs(mainDeviation);
+      const inStockScope = ruleScopeState.stock.has(item.product);
+      const inBondScope = ruleScopeState.bond.has(item.product);
+      const inSourceScope = ruleScopeState.source.has(item.product);
+      const inMoveScope = stock ? inStockScope : inBondScope;
+      const inAnyScope = inMoveScope || inSourceScope;
+      const moveAlert = inMoveScope && (stock ? move >= limit.stock : move >= limit.bond);
+      const gapAlert = inSourceScope && crossDiff != null && crossDiff >= limit.gap;
+      const sourceConflict = inSourceScope && deviationAbs != null && deviationAbs >= limit.gap;
+      const missing = inSourceScope && isMissing(item);
+      const types = [];
+      const anomalyTags = [];
+
+      if (!inAnyScope) {
+        types.push("未纳入规则");
+        anomalyTags.push("无");
+      } else {
+        if (moveAlert) {
+          types.push("行情波动提醒");
+          anomalyTags.push("波动异常");
+        }
+        if (gapAlert) {
+          types.push("跨机构差异提醒");
+          anomalyTags.push("差异异常");
+        }
+        if (sourceConflict) {
+          types.push("主源偏离提醒");
+          anomalyTags.push("来源冲突");
+        }
+        if (missing) {
+          types.push("行情缺失提醒");
+          anomalyTags.push("数据缺失");
+        }
+        if (!types.length) types.push("正常监控");
+        if (!anomalyTags.length) anomalyTags.push("无");
+      }
+
+      let level = "低";
+      if (item.priority === "高" || (moveAlert && (gapAlert || sourceConflict))) level = "高";
+      else if (item.priority === "中" || moveAlert || gapAlert || sourceConflict || missing) level = "中";
+
+      return {
+        move,
+        gap: crossDiff,
+        crossDiff,
+        mainDeviation,
+        moveAlert,
+        gapAlert,
+        sourceConflict,
+        missing,
+        types,
+        anomalyTags,
+        level
+      };
+    }
+
+    function formatValue(item, value) {
+      if (value == null) return "--";
+      return `${value.toFixed(item.type === "股票" ? 2 : 3)}${item.unit}`;
+    }
+
+    function getList() {
+      const product = els.productFilter.value;
+      const assetType = els.assetTypeFilter.value;
+      const alertFilter = els.alertFilter.value;
+      const source = els.sourceFilter.value;
+      const keyword = els.keyword.value.trim().toLowerCase();
+
+      return holdings.filter(item => {
+        const m = meta(item);
+        const byProduct = product === "all" || item.product === product;
+        const byType = assetType === "all" || item.type === assetType;
+        const bySource = source === "all" || item.mainSource === source || item.sources.some(s => s.name === source);
+        const byKeyword = !keyword || [item.product, item.asset, item.owner].join("|").toLowerCase().includes(keyword);
+
+        let byAlert = true;
+        if (alertFilter === "onlyAlert") byAlert = m.moveAlert || m.gapAlert || m.sourceConflict || m.missing;
+        if (alertFilter === "sourceGap") byAlert = m.gapAlert || m.sourceConflict;
+        if (alertFilter === "volatility") byAlert = m.moveAlert;
+        if (alertFilter === "handled") byAlert = item.status === "已确认";
+
+        if (state.viewMode === "alert") {
+          byAlert = byAlert && (m.moveAlert || m.gapAlert || m.sourceConflict || m.missing || item.priority !== "低");
+        }
+
+        return byProduct && byType && bySource && byKeyword && byAlert;
+      }).sort((a, b) => {
+        const order = { "高": 3, "中": 2, "低": 1 };
+        return (order[meta(b).level] - order[meta(a).level]) || ((meta(b).gap || 0) - (meta(a).gap || 0));
+      });
+    }
+
+    function getEventList() {
+      const product = els.productFilter.value;
+      const assetType = els.assetTypeFilter.value;
+      const keyword = els.keyword.value.trim().toLowerCase();
+
+      return events.filter(item => {
+        const binding = eventBinding(item);
+        const holding = holdings.find(row => row.asset === item.asset && row.product === item.product);
+        const byProduct = product === "all" || item.product === product;
+        const byType = assetType === "all" || (holding ? holding.type === assetType : false);
+        const byKeyword = !keyword || [item.product, item.asset, item.owner, item.title, item.type].join("|").toLowerCase().includes(keyword);
+        const byTab = state.eventTab === "all" || item.category === state.eventTab;
+        const byHolding = !state.eventHoldingOnly || binding.isHoldingRelated;
+        return byProduct && byType && byKeyword && byTab && byHolding;
+      }).sort((a, b) => {
+        const order = { "高": 3, "中": 2, "低": 1 };
+        return (order[b.level] - order[a.level]) || b.publishTime.localeCompare(a.publishTime);
+      });
+    }
+
+    function renderHeaderStats(list) {
+      const maxItem = [...list].sort((a, b) => (meta(b).gap || 0) - (meta(a).gap || 0))[0];
+      const autoCount = list.filter(item => item.autoDecision).length;
+      const pending = list.filter(item => item.status === "待复核" || item.status === "待提醒").length;
+
+      els.bizDateText.textContent = els.bizDate.value;
+      els.focusCount.textContent = list.filter(item => meta(item).level === "高").length;
+      els.maxDiffValue.textContent = maxItem ? (maxItem.type === "股票" ? `${(meta(maxItem).gap || 0).toFixed(2)}%` : `${(meta(maxItem).gap || 0).toFixed(1)}bp`) : "0bp";
+      els.maxDiffName.textContent = maxItem ? `${maxItem.product} / ${maxItem.asset}` : "-";
+      els.autoRate.textContent = list.length ? `${Math.round(autoCount / list.length * 100)}%` : "0%";
+      els.pendingCount.textContent = pending;
+    }
+
+    function renderKpis(list) {
+      const syncStats = getHoldingSyncStats();
+      const cards = [
+        { cls: "", name: "已校验标的", num: list.length, desc: "持仓映射后进入差异识别" },
+        { cls: "risk", name: "需提醒标的", num: list.filter(item => { const m = meta(item); return m.moveAlert || m.gapAlert || m.sourceConflict || m.missing; }).length, desc: "波动 / 差异 / 冲突 / 缺失任一触发" },
+        { cls: "warn", name: "跨机构差异", num: list.filter(item => meta(item).gapAlert).length, desc: "中债、上清所、特殊行情间差异超阈值" },
+        { cls: "warn", name: "主源偏离", num: list.filter(item => meta(item).sourceConflict).length, desc: "主口径相对其他权威源偏离过大" },
+        { cls: "warn", name: "历史波动", num: list.filter(item => meta(item).moveAlert).length, desc: "今日相对昨日波动超过阈值" },
+        { cls: "risk", name: "数据缺失", num: list.filter(item => meta(item).missing).length, desc: "权威行情缺失或更新落后" },
+        { cls: "risk", name: "持仓同步异常", num: syncStats.missingAssets.length + syncStats.unsyncedAccounts.length + syncStats.inconsistentAssets.length, desc: "持仓缺失 / 未同步账户 / 标的不一致" },
+        { cls: "good", name: "已自动判定", num: list.filter(item => item.autoDecision).length, desc: "可直接生成业务建议" },
+        { cls: "risk", name: "待人工复核", num: list.filter(item => item.status === "待复核" || item.status === "待提醒").length, desc: "需确认口径、源一致性和解释信息" },
+        { cls: "good", name: "已闭环", num: list.filter(item => item.status === "已确认").length, desc: "已完成处置留痕" }
+      ];
+
+      els.kpiGrid.innerHTML = cards.map(card => `
+        <article class="kpi ${card.cls}">
+          <div class="name">${card.name}</div>
+          <div class="num">${card.num}</div>
+          <div class="desc">${card.desc}</div>
+        </article>
+      `).join("");
+    }
+
+    function renderSources() {
+      els.sourceGrid.innerHTML = sourceStatus.map(item => `
+        <article class="source-card">
+          <strong>${item.name}</strong>
+          <div class="source-meta">
+            <span class="status ${item.status}">${item.text}</span>
+            <span>${item.time}</span>
+          </div>
+          <div class="source-meta">
+            <span>${item.count}</span>
+            <span>${item.note}</span>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderHoldingSync() {
+      const stats = getHoldingSyncStats();
+      const cards = [
+        { name: "产品数", num: stats.productCount, desc: "投资交易系统同步产品范围" },
+        { name: "持仓标的数", num: stats.holdingAssetCount, desc: "交易系统持仓标的总量（校验基准）" },
+        { name: "缺失标的", num: stats.missingAssets.length, desc: "交易系统有持仓但行情系统无标的" },
+        { name: "未同步账户", num: stats.unsyncedAccounts.length, desc: "账户未进入本批次同步任务" }
+      ];
+      els.syncCheckGrid.innerHTML = cards.map(card => `
+        <article class="sync-kpi">
+          <div class="name">${card.name}</div>
+          <div class="num">${card.num}</div>
+          <div class="desc">${card.desc}</div>
+        </article>
+      `).join("");
+
+      const issues = [
+        { type: "持仓缺失", detail: stats.missingAssets.length ? stats.missingAssets.join("、") : "无" },
+        { type: "行情缺失", detail: stats.quoteMissingAssets.length ? stats.quoteMissingAssets.join("、") : "无" },
+        { type: "标的不一致", detail: stats.inconsistentAssets.length ? stats.inconsistentAssets.join("、") : "无" }
+      ];
+
+      const accountIssue = stats.unsyncedAccounts.length ? `；未同步账户：${stats.unsyncedAccounts.join("、")}` : "";
+      els.syncIssueList.innerHTML = issues.map(item => `
+        <div class="sync-issue">
+          <strong>${item.type}</strong>
+          <span>${item.detail}${item.type === "持仓缺失" ? accountIssue : ""}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderEventKpis(list) {
+      const holdingRelated = list.filter(item => eventBinding(item).isHoldingRelated).length;
+      const cards = [
+        { name: "今日抓取事件数", num: list.length, desc: "按持仓标的自动匹配外部资讯" },
+        { name: "持仓相关事件", num: holdingRelated, desc: "直接命中持仓标的的大事提醒" },
+        { name: "高优先级事件", num: list.filter(item => item.level === "高").length, desc: "停复牌、异常风险、重要评级调整" },
+        { name: "待处理事件", num: list.filter(item => item.status === "待处理" || item.status === "待升级").length, desc: "需要业务跟进或升级通知" },
+        { name: "已确认事件", num: list.filter(item => item.status === "已阅" || item.status === "已确认").length, desc: "已完成确认并留痕" },
+        { name: "非持仓事件", num: list.length - holdingRelated, desc: "仅在取消“仅看持仓相关”时显示" }
+      ];
+
+      els.eventKpiGrid.innerHTML = cards.map(card => `
+        <article class="event-card">
+          <div class="name">${card.name}</div>
+          <div class="num">${card.num}</div>
+          <div class="desc">${card.desc}</div>
+        </article>
+      `).join("");
+    }
+
+    function renderEventSources() {
+      els.eventSourceGrid.innerHTML = eventSourceStatus.map(item => `
+        <article class="source-card">
+          <strong>${item.name}</strong>
+          <div class="source-meta">
+            <span class="status ${item.status}">${item.text}</span>
+            <span>${item.time}</span>
+          </div>
+          <div class="source-meta">
+            <span>${item.count}</span>
+            <span>${item.note}</span>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function getAlertCards(list) {
+      return list
+        .map(item => ({ item, meta: meta(item) }))
+        .filter(({ meta: m }) => m.moveAlert || m.gapAlert || m.sourceConflict || m.missing || m.level === "高")
+        .filter(({ meta: m }) => {
+          if (state.alertTab === "high") return m.level === "高";
+          if (state.alertTab === "gap") return m.gapAlert || m.sourceConflict || m.missing;
+          if (state.alertTab === "move") return m.moveAlert;
+          return true;
+        });
+    }
+
+    function renderAlertCards(list) {
+      const rows = getAlertCards(list);
+      if (!rows.length) {
+        els.alertGrid.innerHTML = `<div class="note">当前条件下没有提醒事项，可切换到全量模式或调低阈值查看更多演示样例。</div>`;
+        return;
+      }
+
+      els.alertGrid.innerHTML = rows.map(({ item, meta: m }) => `
+        <article class="alert-card ${item.id === state.selectedId ? "active" : ""}" data-id="${item.id}">
+          <div class="alert-top">
+            <div>
+              <div class="alert-title">${item.product} / ${item.asset}</div>
+              <div class="alert-desc">异常类型：${m.anomalyTags.join(" / ")}；提醒类型：${m.types.join(" / ")}。主行情口径为 ${item.mainSource}${item.metricLabel}，当前状态：${item.status}。</div>
+            </div>
+            <span class="status ${m.level === "高" ? "risk" : m.level === "中" ? "warn" : "neutral"}">${m.level}</span>
+          </div>
+          <div class="alert-foot" style="margin-top:10px;">
+            <span>日波动：<span class="alert-number">${formatMetricDelta(item, item.type === "股票" ? percentMove(item) : bpMove(item), true)}</span></span>
+            <span>跨机构差异：<span class="alert-number">${formatMetricDelta(item, m.crossDiff)}</span></span>
+            <span>主源偏离：<span class="alert-number">${formatMetricDelta(item, m.mainDeviation, true)}</span></span>
+            <span>责任人：${item.owner}</span>
+          </div>
+        </article>
+      `).join("");
+
+      els.alertGrid.querySelectorAll("[data-id]").forEach(node => {
+        node.addEventListener("click", () => {
+          state.selectedId = node.dataset.id;
+          state.tab = "alerts";
+          applyTabs();
+          render();
+        });
+      });
+    }
+
+    function renderTable(list) {
+      if (!list.length) {
+        els.holdingBody.innerHTML = `<tr><td colspan="15" style="text-align:center;padding:28px 10px;color:#6e8096;">当前筛选条件下没有匹配标的。</td></tr>`;
+        return;
+      }
+
+      if (!list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
+
+      els.holdingBody.innerHTML = list.map(item => {
+        const m = meta(item);
+        const move = item.type === "股票" ? percentMove(item) : bpMove(item);
+        const moveText = formatMetricDelta(item, move, true);
+        const crossDiffText = formatMetricDelta(item, m.crossDiff);
+        const mainDeviationText = formatMetricDelta(item, m.mainDeviation, true);
+        return `
+          <tr class="${item.id === state.selectedId ? "selected" : ""}" data-id="${item.id}">
+            <td>${item.product}</td>
+            <td><strong>${item.asset}</strong><br><span class="muted">${item.market}</span></td>
+            <td>${item.type}</td>
+            <td>${item.mainSource} ${item.metricLabel}</td>
+            <td>${formatValue(item, item.mainValue)}</td>
+            <td>${formatValue(item, item.previousValue)}</td>
+            <td class="${move >= 0 ? "metric-up" : "metric-down"}">${moveText}</td>
+            <td>${crossDiffText}</td>
+            <td>${mainDeviationText}</td>
+            <td>${m.anomalyTags.join(" / ")}</td>
+            <td>${m.types.join(" / ")}</td>
+            <td><span class="status ${m.level === "高" ? "risk" : m.level === "中" ? "warn" : "neutral"}">${m.level}</span></td>
+            <td><span class="status ${item.status === "已确认" ? "ok" : item.status === "待复核" ? "risk" : "warn"}">${item.status}</span></td>
+            <td>${item.owner}</td>
+            <td>${item.handling}</td>
+          </tr>
+        `;
+      }).join("");
+
+      els.holdingBody.querySelectorAll("[data-id]").forEach(row => {
+        row.addEventListener("click", () => {
+          state.selectedId = row.dataset.id;
+          render();
+        });
+      });
+    }
+
+    function renderEventTable(list) {
+      if (!list.length) {
+        els.eventBody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:28px 10px;color:#6e8096;">当前筛选条件下没有匹配的大事件。</td></tr>`;
+        return;
+      }
+
+      if (!list.some(item => item.id === state.selectedEventId)) state.selectedEventId = list[0].id;
+
+      els.eventBody.innerHTML = list.map(item => {
+        const binding = eventBinding(item);
+        return `
+          <tr class="${item.id === state.selectedEventId ? "selected" : ""}" data-event-id="${item.id}">
+            <td>${item.product}</td>
+            <td><strong>${item.asset}</strong></td>
+            <td>${item.type}</td>
+            <td>${item.title}</td>
+            <td>${item.source}</td>
+            <td>${item.publishTime}</td>
+            <td><span class="status ${binding.isHoldingRelated ? "ok" : "neutral"}">${binding.label}</span></td>
+            <td>${binding.relatedProduct}</td>
+            <td>${binding.holdingScale}</td>
+            <td><span class="status ${item.level === "高" ? "risk" : item.level === "中" ? "warn" : "neutral"}">${item.level}</span></td>
+            <td><span class="status ${item.status === "待处理" || item.status === "待升级" ? "risk" : item.status === "待确认" ? "warn" : "ok"}">${item.status}</span></td>
+            <td>${item.owner}</td>
+          </tr>
+        `;
+      }).join("");
+
+      els.eventBody.querySelectorAll("[data-event-id]").forEach(row => {
+        row.addEventListener("click", () => {
+          state.selectedEventId = row.dataset.eventId;
+          render();
+        });
+      });
+    }
+
+    function renderEventAnalytics(list) {
+      const types = [
+        { key: "dividend", label: "分红 / 兑付" },
+        { key: "halt", label: "停复牌" },
+        { key: "risk", label: "异常风险" },
+        { key: "rating", label: "评级调整" }
+      ];
+      const max = Math.max(...types.map(type => list.filter(item => item.category === type.key).length), 1);
+
+      els.eventTypeBars.innerHTML = types.map(type => {
+        const count = list.filter(item => item.category === type.key).length;
+        const width = (count / max) * 100;
+        return `
+          <div class="type-bar-row">
+            <span>${type.label}</span>
+            <div class="type-bar-track"><div class="type-bar-fill" style="width:${width}%"></div></div>
+            <strong>${count}</strong>
+          </div>
+        `;
+      }).join("");
+
+      const board = [
+        { day: "D-6", date: "04-06", text: "分红预案 1 条，债券兑付安排 1 条" },
+        { day: "D-5", date: "04-07", text: "无高优先级事件，常规公告 2 条" },
+        { day: "D-4", date: "04-08", text: "评级调整 1 条，已通知投资经理" },
+        { day: "D-3", date: "04-09", text: "停牌公告 1 条，估值口径已确认" },
+        { day: "D-2", date: "04-10", text: "异常风险资讯 1 条，进入跟踪池" },
+        { day: "D-1", date: "04-11", text: "无新增重大事件" },
+        { day: "D0", date: "04-12", text: `今日共 ${list.length} 条，重点关注 ${list.filter(item => item.level === "高").length} 条高优先级事件` }
+      ];
+
+      els.eventTimeBoard.innerHTML = board.map(item => `
+        <div class="time-row">
+          <strong>${item.day} / ${item.date}</strong>
+          <span>${item.text}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderSparkline(values, type) {
+      const width = 360;
+      const height = 120;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const gap = max - min || 1;
+      const color = type === "股票" ? "#c06a4a" : "#4f7db8";
+      const line = values.map((value, index) => {
+        const x = (index / (values.length - 1)) * width;
+        const y = height - ((value - min) / gap) * 84 - 18;
+        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+      }).join(" ");
+      const points = values.map((value, index) => {
+        const x = (index / (values.length - 1)) * width;
+        const y = height - ((value - min) / gap) * 84 - 18;
+        return `${x},${y}`;
+      }).join(" ");
+
+      els.sparkline.innerHTML = `
+        <defs>
+          <linearGradient id="fillArea" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="${color}" stop-opacity="0.28"></stop>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+        <path d="${line} L ${width} ${height} L 0 ${height} Z" fill="url(#fillArea)"></path>
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      `;
+    }
+
+    function renderDetail(list) {
+      const item = list.find(row => row.id === state.selectedId) || list[0];
+      if (!item) {
+        els.detailGrid.innerHTML = `<div class="detail-item"><div class="k">暂无数据</div><div class="v">--</div></div>`;
+        els.compareBody.innerHTML = "";
+        els.adviceBox.textContent = "当前筛选条件下没有可展示标的。";
+        els.marketTraceList.innerHTML = "";
+        els.relatedEventList.innerHTML = "";
+        els.sparkline.innerHTML = "";
+        return;
+      }
+
+      const m = meta(item);
+      const move = item.type === "股票" ? percentMove(item) : bpMove(item);
+      const crossDiffText = formatMetricDelta(item, m.crossDiff);
+      const mainDeviationText = formatMetricDelta(item, m.mainDeviation, true);
+      const moveText = formatMetricDelta(item, move, true);
+
+      els.detailGrid.innerHTML = [
+        { k: "产品 / 标的", v: `${item.product} / ${item.asset}` },
+        { k: "主行情口径", v: `${item.mainSource} ${item.metricLabel}` },
+        { k: "跨机构差异", v: crossDiffText },
+        { k: "主源偏离", v: mainDeviationText },
+        { k: "日波动", v: moveText },
+        { k: "异常类型", v: m.anomalyTags.join(" / ") },
+        { k: "当前状态", v: item.status },
+        { k: "责任人", v: item.owner }
+      ].map(row => `
+        <div class="detail-item">
+          <div class="k">${row.k}</div>
+          <div class="v">${row.v}</div>
+        </div>
+      `).join("");
+
+      els.compareBody.innerHTML = item.sources.map(source => {
+        let diffText = "主口径";
+        if (source.name !== item.mainSource) {
+          if (source.value == null) diffText = "缺失";
+          else diffText = item.type === "股票"
+            ? `${(((source.value - item.mainValue) / item.mainValue) * 100).toFixed(2)}%`
+            : `${((source.value - item.mainValue) * 100).toFixed(1)}bp`;
+        }
+        return `
+          <div class="source-table-row">
+            <span>${source.name}</span>
+            <span>${source.value == null ? "缺失" : formatValue(item, source.value)}</span>
+            <span>${source.time}</span>
+            <span>${diffText}</span>
+          </div>
+        `;
+      }).join("");
+
+      const notes = [];
+      if (m.moveAlert) notes.push("已触发波动阈值");
+      if (m.gapAlert) notes.push("已触发跨机构差异阈值");
+      if (m.sourceConflict) notes.push("已触发主源偏离阈值");
+      if (m.missing) notes.push("存在权威行情缺失");
+      if (!notes.length) notes.push("当前更适合作为正常样例");
+      const explains = buildAutoExplanations(item, m);
+      els.adviceBox.textContent = `${item.baseAdvice} 自动解释：${explains.join("；")}。当前判断：${notes.join("，")}。`;
+
+      els.marketTraceList.innerHTML = [
+        { k: "抓取批次", v: item.trace.batch },
+        { k: "首次抓取时间", v: item.trace.fetchTime },
+        { k: "最后更新时间", v: item.trace.updateTime },
+        { k: "采用规则", v: item.trace.rule }
+      ].map(row => `
+        <div class="trace-item">
+          <strong>${row.k}</strong>
+          <span>${row.v}</span>
+        </div>
+      `).join("");
+
+      const relatedEvents = events.filter(event => event.asset === item.asset && event.product === item.product);
+      els.relatedEventList.innerHTML = relatedEvents.length
+        ? relatedEvents.map(event => `
+          <div class="related-item">
+            <strong>${event.type}</strong>
+            <span>${event.title}，状态：${event.status}，来源：${event.source}</span>
+          </div>
+        `).join("")
+        : `<div class="related-item"><strong>暂无</strong><span>当前标的暂无关联大事事件。</span></div>`;
+
+      renderSparkline(item.history, item.type);
+    }
+
+    function renderSamples(list) {
+      const samples = getAlertCards(list).slice(0, 3).map(({ item, meta: m }) => {
+        const gapText = m.gap == null ? "无明显差异" : item.type === "股票" ? `${m.gap.toFixed(2)}%` : `${m.gap.toFixed(1)}bp`;
+        return `【${item.product} / ${item.asset}】主口径 ${item.mainSource}${item.metricLabel} 触发 ${m.types.join("、")}，跨源差异 ${gapText}，责任人 ${item.owner}。`;
+      });
+
+      els.sampleList.innerHTML = samples.length
+        ? samples.map(text => `<div class="sample">${text}</div>`).join("")
+        : `<div class="sample">当前筛选下没有可生成的提醒文案样例。</div>`;
+    }
+
+    function renderEventDetail(list) {
+      const item = list.find(row => row.id === state.selectedEventId) || list[0];
+      if (!item) {
+        els.eventDetailGrid.innerHTML = `<div class="detail-item"><div class="k">暂无事件</div><div class="v">--</div></div>`;
+        els.eventMetaList.innerHTML = "";
+        els.eventStatusFlow.innerHTML = "";
+        els.eventContentBox.textContent = "当前筛选条件下没有可展示事件。";
+        els.eventAdviceBox.textContent = "请调整筛选条件后重试。";
+        els.eventTraceList.innerHTML = "";
+        els.relatedMarketList.innerHTML = "";
+        els.eventLog.innerHTML = "";
+        return;
+      }
+
+      const binding = eventBinding(item);
+      els.eventDetailGrid.innerHTML = [
+        { k: "产品 / 标的", v: `${item.product} / ${item.asset}` },
+        { k: "事件类型", v: item.type },
+        { k: "权威来源", v: item.source },
+        { k: "发布时间", v: item.publishTime },
+        { k: "是否持仓标的", v: binding.label },
+        { k: "关联产品", v: binding.relatedProduct },
+        { k: "影响持仓规模", v: binding.holdingScale },
+        { k: "影响级别", v: item.level },
+        { k: "责任人", v: item.owner }
+      ].map(row => `
+        <div class="detail-item">
+          <div class="k">${row.k}</div>
+          <div class="v">${row.v}</div>
+        </div>
+      `).join("");
+
+      els.eventMetaList.innerHTML = [
+        { k: "事件摘要", v: item.summary },
+        { k: "当前状态", v: item.status },
+        { k: "建议动作", v: item.action }
+      ].map(row => `
+        <div class="event-meta-item">
+          <span>${row.k}</span>
+          <span>${row.v}</span>
+        </div>
+      `).join("");
+
+      const flow = ["待抓取", "待确认", "处理中", "已闭环"];
+      const currentIndex = item.status === "待确认" ? 1 : (item.status === "待处理" || item.status === "待升级" ? 2 : 3);
+      els.eventStatusFlow.innerHTML = flow.map((step, index) => {
+        const cls = index < currentIndex ? "done" : index === currentIndex ? "active" : "";
+        return `
+          <div class="status-step ${cls}">
+            <strong>${step}</strong>
+            <span>${index === 0 ? "系统自动抓取并匹配持仓" : index === 1 ? "业务确认事件真实性与影响" : index === 2 ? "跟进估值、产品、风控处理" : "已确认并留痕归档"}</span>
+          </div>
+        `;
+      }).join("");
+
+      const eventExplain = binding.isHoldingRelated
+        ? `该事件命中持仓产品 ${binding.relatedProduct}，预计影响规模 ${binding.holdingScale}。`
+        : "该事件未命中持仓标的，默认仅保留观察，不进入处置闭环。";
+      els.eventContentBox.textContent = item.content;
+      els.eventAdviceBox.textContent = `${item.impact} 建议：${item.action} 自动解释：${eventExplain}`;
+      els.eventOwnerSelect.value = item.owner;
+      els.eventTraceList.innerHTML = [
+        { k: "公告编号", v: item.noticeNo },
+        { k: "抓取时间", v: item.fetchTime },
+        { k: "入库时间", v: item.storeTime },
+        { k: "更新时间", v: item.updateTime },
+        { k: "原文链接", v: `<a class="link-btn" href="${item.sourceUrl}" target="_blank">查看原文</a>` }
+      ].map(row => `
+        <div class="trace-item">
+          <strong>${row.k}</strong>
+          <span>${row.v}</span>
+        </div>
+      `).join("");
+
+      const relatedHolding = holdings.find(holding => holding.asset === item.asset && holding.product === item.product);
+      const relatedMeta = relatedHolding ? meta(relatedHolding) : null;
+      els.relatedMarketList.innerHTML = relatedHolding
+        ? `
+          <div class="related-item">
+            <strong>行情主口径</strong>
+            <span>${relatedHolding.mainSource}${relatedHolding.metricLabel}，当前值 ${formatValue(relatedHolding, relatedHolding.mainValue)}</span>
+          </div>
+          <div class="related-item">
+            <strong>行情提醒</strong>
+            <span>${relatedMeta.anomalyTags.join(" / ")}，波动 ${formatMetricDelta(relatedHolding, relatedHolding.type === "股票" ? percentMove(relatedHolding) : bpMove(relatedHolding), true)}</span>
+          </div>
+        `
+        : `<div class="related-item"><strong>暂无</strong><span>当前事件不属于持仓标的，未匹配到关联行情提醒。</span></div>`;
+
+      els.eventLog.innerHTML = item.logs.map(log => `
+        <div class="event-log-item">
+          <strong>${log.time} / ${log.actor}</strong>
+          <span>${log.text}</span>
+        </div>
+      `).join("");
+    }
+
+    function refreshRangeLabels() {
+      const gap = Number(els.sourceThreshold.value);
+      const stockCount = ruleScopeState.stock.size;
+      const bondCount = ruleScopeState.bond.size;
+      const sourceCount = ruleScopeState.source.size;
+      const stockHint = stockCount ? `（${stockCount}个产品）` : "（未指定产品）";
+      const bondHint = bondCount ? `（${bondCount}个产品）` : "（未指定产品）";
+      const sourceHint = sourceCount ? `（${sourceCount}个产品）` : "（未指定产品）";
+      els.stockThresholdValue.textContent = `${Number(els.stockThreshold.value).toFixed(1)}%${stockHint}`;
+      els.bondThresholdValue.textContent = `${Number(els.bondThreshold.value)}bp${bondHint}`;
+      els.sourceThresholdValue.textContent = `${gap.toFixed(1)}bp / ${(gap / 2.6667).toFixed(1)}%${sourceHint}`;
+      els.stockScopeCount.textContent = `已选 ${stockCount} 个产品`;
+      els.bondScopeCount.textContent = `已选 ${bondCount} 个产品`;
+      els.sourceScopeCount.textContent = `已选 ${sourceCount} 个产品`;
+      els.stockScopeSummary.textContent = `名单覆盖：${stockCount}个产品（在“数据规则（技术）”页维护）`;
+      els.bondScopeSummary.textContent = `名单覆盖：${bondCount}个产品（在“数据规则（技术）”页维护）`;
+      els.sourceScopeSummary.textContent = `名单覆盖：${sourceCount}个产品（在“数据规则（技术）”页维护）`;
+    }
+
+    function applyTabs() {
+      document.querySelectorAll(".tab-nav button").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === state.tab);
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `tab-${state.tab}`);
+      });
+    }
+
+    function applyRulePages() {
+      document.querySelectorAll(".rule-page-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.rulePage === state.rulePage);
+      });
+      document.querySelectorAll(".rule-page").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `rule-page-${state.rulePage}`);
+      });
+    }
+
+    function render() {
+      const list = getList();
+      const eventList = getEventList();
+      renderHeaderStats(list);
+      renderHoldingSync();
+      renderKpis(list);
+      renderSources();
+      renderAlertCards(list);
+      renderTable(list);
+      renderDetail(list);
+      renderEventKpis(eventList);
+      renderEventSources();
+      renderEventTable(eventList);
+      renderEventDetail(eventList);
+      renderEventAnalytics(eventList);
+      renderSamples(list);
+      refreshRangeLabels();
+      applyRulePages();
+      els.eventHoldingOnly.checked = state.eventHoldingOnly;
+      els.alertModeBtn.classList.toggle("active", state.viewMode === "alert");
+      els.allModeBtn.classList.toggle("active", state.viewMode === "all");
+    }
+
+    function simulateRefresh() {
+      holdings.forEach(item => {
+        if (item.type === "股票") {
+          const ratio = 1 + (Math.random() - 0.42) * 0.04;
+          item.previousValue = Number(item.mainValue.toFixed(2));
+          item.mainValue = Number((item.mainValue * ratio).toFixed(2));
+          item.sources[0].value = item.mainValue;
+          if (item.sources[1]) item.sources[1].value = Number((item.mainValue * (1 + (Math.random() - 0.5) * 0.004)).toFixed(2));
+        } else {
+          const shift = (Math.random() - 0.55) * 0.06;
+          item.previousValue = Number(item.mainValue.toFixed(3));
+          item.mainValue = Number((item.mainValue + shift).toFixed(3));
+          item.sources.forEach((source, index) => {
+            if (source.value != null) {
+              source.value = Number((item.mainValue + (index === 0 ? 0 : (Math.random() - 0.5) * 0.05)).toFixed(3));
+            }
+          });
+          item.mainValue = item.sources[0].value;
+        }
+      });
+
+      sourceStatus[3].text = Math.random() > 0.45 ? "已抓取" : "部分延迟";
+      sourceStatus[3].status = sourceStatus[3].text === "已抓取" ? "ok" : "warn";
+      sourceStatus[3].count = sourceStatus[3].text === "已抓取" ? "债券 98 / 98 只" : "债券 95 / 98 只";
+      sourceStatus[3].time = sourceStatus[3].text === "已抓取" ? "18:08" : "18:01";
+      render();
+    }
+
+    function currentClock() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function selectedEvent() {
+      return events.find(item => item.id === state.selectedEventId);
+    }
+
+    function pushEventLog(actor, text) {
+      const item = selectedEvent();
+      if (!item) return;
+      item.logs.unshift({ time: currentClock(), actor, text });
+      item.updateTime = `${els.bizDate.value} ${currentClock()}`;
+    }
+
+    function applyEventAction(type) {
+      const item = selectedEvent();
+      if (!item) return;
+
+      if (type === "confirm") {
+        item.status = "已确认";
+        pushEventLog("运营管理部", "已确认事件真实性与业务影响，进入留痕状态。");
+      }
+      if (type === "escalate") {
+        item.status = "待升级";
+        pushEventLog("运营管理部", "已升级处理，待部门负责人或风控岗位进一步跟进。");
+      }
+      if (type === "close") {
+        item.status = "已关闭";
+        pushEventLog("运营管理部", "事件已关闭，处理结论已归档。");
+      }
+      if (type === "reassign") {
+        item.owner = els.eventOwnerSelect.value;
+        pushEventLog("运营管理部", `已改派责任人至 ${item.owner}。`);
+      }
+
+      render();
+    }
+
+    function exportCsv() {
+      const rows = getAlertCards(getList()).map(({ item, meta: m }) => ({
+        产品名称: item.product,
+        持仓标的: item.asset,
+        标的类型: item.type,
+        主行情口径: item.mainSource,
+        日波动: formatMetricDelta(item, item.type === "股票" ? percentMove(item) : bpMove(item), true),
+        跨机构差异: formatMetricDelta(item, m.crossDiff),
+        主源偏离: formatMetricDelta(item, m.mainDeviation, true),
+        异常类型: m.anomalyTags.join(" / "),
+        提醒类型: m.types.join(" / "),
+        当前状态: item.status,
+        责任人: item.owner,
+        跨机构差异原值: m.gap == null ? "" : (item.type === "股票" ? `${m.gap.toFixed(2)}%` : `${m.gap.toFixed(1)}bp`)
+      }));
+
+      if (!rows.length) {
+        window.alert("当前没有可导出的异常提醒。");
+        return;
+      }
+
+      const headers = Object.keys(rows[0]);
+      const csv = "\uFEFF" + [headers.join(","), ...rows.map(item => headers.map(key => `"${String(item[key] || "").replace(/"/g, '""')}"`).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `产品标的提醒_${els.bizDate.value}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    document.querySelectorAll(".tab-nav button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.tab = btn.dataset.tab;
+        applyTabs();
+      });
+    });
+
+    document.querySelectorAll(".rule-page-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.rulePage = btn.dataset.rulePage;
+        applyRulePages();
+      });
+    });
+
+    document.querySelectorAll(".alert-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.alertTab = btn.dataset.alertTab;
+        document.querySelectorAll(".alert-tab").forEach(node => node.classList.remove("active"));
+        btn.classList.add("active");
+        render();
+      });
+    });
+
+    document.querySelectorAll(".event-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.eventTab = btn.dataset.eventTab;
+        document.querySelectorAll(".event-tab").forEach(node => node.classList.remove("active"));
+        btn.classList.add("active");
+        render();
+      });
+    });
+
+    els.eventHoldingOnly.addEventListener("change", () => {
+      state.eventHoldingOnly = els.eventHoldingOnly.checked;
+      render();
+    });
+
+    [els.bizDate, els.productFilter, els.assetTypeFilter, els.alertFilter, els.sourceFilter, els.keyword, els.stockThreshold, els.bondThreshold, els.sourceThreshold]
+      .forEach(node => node.addEventListener("input", render));
+
+    els.refreshBtn.addEventListener("click", simulateRefresh);
+    els.exportBtn.addEventListener("click", exportCsv);
+    els.alertModeBtn.addEventListener("click", () => {
+      state.viewMode = "alert";
+      render();
+    });
+    els.allModeBtn.addEventListener("click", () => {
+      state.viewMode = "all";
+      render();
+    });
+    els.openRuleHelp.addEventListener("click", () => {
+      els.ruleHelpModal.classList.add("show");
+    });
+    els.closeRuleHelp.addEventListener("click", () => {
+      els.ruleHelpModal.classList.remove("show");
+    });
+    [els.stockScopeBtn, els.bondScopeBtn, els.sourceScopeBtn].forEach(btn => {
+      btn.addEventListener("click", () => openScopeModal(btn.dataset.scopeKey));
+    });
+    els.closeScopeModal.addEventListener("click", closeScopeModal);
+    els.scopeCancelBtn.addEventListener("click", closeScopeModal);
+    els.scopeConfirmBtn.addEventListener("click", applyScopeModalSelection);
+    els.scopeSearch.addEventListener("input", () => {
+      scopeModalState.query = els.scopeSearch.value;
+      renderScopeModalList();
+    });
+    els.scopeSelectVisibleBtn.addEventListener("click", () => {
+      const { key, query } = scopeModalState;
+      if (!key) return;
+      matchedScopeProducts(key, query).forEach(name => scopeModalState.draft.add(name));
+      renderScopeModalList();
+    });
+    els.scopeClearBtn.addEventListener("click", () => {
+      scopeModalState.draft.clear();
+      renderScopeModalList();
+    });
+    els.scopeModal.addEventListener("click", event => {
+      if (event.target === els.scopeModal) closeScopeModal();
+    });
+    els.ruleHelpModal.addEventListener("click", event => {
+      if (event.target === els.ruleHelpModal) {
+        els.ruleHelpModal.classList.remove("show");
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeScopeModal();
+        els.ruleHelpModal.classList.remove("show");
+      }
+    });
+    els.eventConfirmBtn.addEventListener("click", () => applyEventAction("confirm"));
+    els.eventEscalateBtn.addEventListener("click", () => applyEventAction("escalate"));
+    els.eventCloseBtn.addEventListener("click", () => applyEventAction("close"));
+    els.eventReassignBtn.addEventListener("click", () => applyEventAction("reassign"));
+
+    populateProducts();
+    populateRuleScopes();
+    applyTabs();
+    render();
+  </script>
+</body>
+</html>

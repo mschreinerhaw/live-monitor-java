@@ -1,0 +1,413 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link rel="shortcut icon" href="./react/favicon.ico">
+        <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+        <meta name="theme-color" content="#000000">
+        <link rel="manifest" href="./react/manifest.json">
+        <script type="systemjs-importmap">
+            {
+        "imports": { "react":"x:react","react-dom":"x:react-dom","vue":"x:vue","clsx":"x:clsx","redux":"x:redux","react-redux":"x:react-redux","redux-form":"x:redux-form","redux-saga":"x:redux-saga","redux-saga/effects":"x:redux-saga/effects","react-use":"x:react-use","regenerator-runtime":"x:regenerator-runtime","formik":"x:formik","moment":"x:moment","@livebos/ui":"x:@livebos/ui","@livebos/icons":"x:@livebos/icons","@livebos/lab":"x:@livebos/lab","@material-ui/pickers":"x:@material-ui/pickers","@livebos/core":"x:@livebos/core","@livebos/core/actions":"x:@livebos/core/actions","@livebos/core/utils":"x:@livebos/core/utils","@livebos/grid-base":"x:@livebos/grid-base","@livebos/grid-core":"x:@livebos/grid-core","@livebos/grid-ui":"x:@livebos/grid-ui","@livebos/core/integration":"x:@livebos/core/integration" }
+      }
+        </script>
+        <title>数据运营管理平台[开发模式]</title>
+        <base href="/">
+        <link href="./react/static/css/html-editor-6.0.20250829.chunk.css" rel="stylesheet">
+        <link href="./react/static/css/vendors~404~index~message-6.0.20250829.chunk.css" rel="stylesheet">
+        <link href="./react/static/css/404~index~message-6.0.20250829.chunk.css" rel="stylesheet">
+        <script src="./react/static/js/material-ui-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/html-editor-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/lb-icons-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/devexpress-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/core-js-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/react-virtualized-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/vendors~404~index~message-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/404~index~message-6.0.20250829.chunk.js"></script>
+        <script src="./react/static/js/index-6.0.20250829.js"></script>
+    </head>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+        <script src="./react/static/js/lb-ui-1.1.10.js"></script>
+        <script>
+            var WebPDF = {
+                workerSrc: "./react/static/js/WebPDF.worker.js"
+            }
+        </script>
+        <script src="./react/static/js/WebPDF.js"></script>
+        <script src="./react/static/js/loadFoxitPDF.js"></script>
+        <script>
+            var initProps = [{
+                "page": {
+                    "success": true,
+                    "title": "分支机构",
+                    "url": "\/UIProcessor?Table=XN_FZJG&Token=887cc21883e882c0ec24a5ca5a659250",
+                    "type": "Object",
+                    "objectName": "XN_FZJG",
+                    "token": "887cc21883e882c0ec24a5ca5a659250",
+                    "operatorCallback": {
+                        "reloadParams": {
+                            "loadStore": "true"
+                        }
+                    },
+                    "state": {
+                        "id": ["XN_FZJG"]
+                    },
+                    "layout": [{
+                        "elements": [{
+                            "type": "parameterForm",
+                            "actionUrl": "\/UIProcessor?Table=XN_FZJG&Token=887cc21883e882c0ec24a5ca5a659250&ParamAction=true",
+                            "actionMode": 1,
+                            "title": "汇总统计-分支机构 - 查询",
+                            "columns": [{
+                                "type": "LBDateTimeElement",
+                                "title": "开始日期",
+                                "key": "P1",
+                                "enabled": true,
+                                "allowBlank": true,
+                                "autosize": true,
+                                "format": "Y-m-d",
+                                "isEventSource": true,
+                                "dateString": "2026-04-09"
+                            }, {
+                                "type": "LBDateTimeElement",
+                                "title": "结束日期",
+                                "key": "P3",
+                                "enabled": true,
+                                "allowBlank": true,
+                                "autosize": true,
+                                "format": "Y-m-d",
+                                "isEventSource": true,
+                                "dateString": "2026-04-09"
+                            }],
+                            "layout": {
+                                "layout": "gutter",
+                                "properties": {
+                                    "mode": "parameter"
+                                },
+                                "elements": [{
+                                    "name": "P1",
+                                    "label": {
+                                        "text": "开始日期",
+                                        "type": "label"
+                                    },
+                                    "type": "column"
+                                }, {
+                                    "name": "P3",
+                                    "label": {
+                                        "text": "结束日期",
+                                        "type": "label"
+                                    },
+                                    "type": "column"
+                                }],
+                                "empty": false
+                            },
+                            "cls": [],
+                            "collapsed": true,
+                            "buttons": [{
+                                "type": "submit",
+                                "label": "查询",
+                                "params": {
+                                    "loadStore": "true"
+                                }
+                            }],
+                            "collapsible": true
+                        }],
+                        "type": "header"
+                    }, {
+                        "elements": [{
+                            "type": "toolbar",
+                            "elements": [{
+                                "type": "fill"
+                            }, {
+                                "type": "refreshBtn",
+                                "params": {
+                                    "Refresh": "true"
+                                },
+                                "iconCls": "Refresh",
+                                "actionType": "refresh",
+                                "value": "refreshBtn"
+                            }, {
+                                "type": "settingBtn",
+                                "dialog": {
+                                    "form": {
+                                        "type": "LBObjectSettingForm",
+                                        "actionMode": 1,
+                                        "columns": [{
+                                            "type": "LBObjectGridColsSetting",
+                                            "title": "显示列",
+                                            "key": "gridColsSetting",
+                                            "enabled": true,
+                                            "allowBlank": true,
+                                            "autosize": false,
+                                            "option": {
+                                                "items": ["分支机构", "展业总数", "本周新增", "已完成", "推进中", "跟进中", "完成率", "平均周期", "超7天未跟进"],
+                                                "values": ["F1", "F2", "F7", "F3", "F4", "F5", "F6", "F8", "F9"],
+                                                "groups": ["基本信息", "基本信息", "基本信息", "基本信息", "基本信息", "基本信息", "基本信息", "基本信息", "基本信息"]
+                                            }
+                                        }],
+                                        "layout": {
+                                            "elements": [{
+                                                "elements": [{
+                                                    "name": "gridColsSetting",
+                                                    "layout": "U-D",
+                                                    "type": "column"
+                                                }],
+                                                "empty": false,
+                                                "type": "row"
+                                            }],
+                                            "empty": false
+                                        }
+                                    }
+                                },
+                                "iconCls": "Settings",
+                                "actionType": "dialog",
+                                "value": "settingBtn"
+                            }],
+                            "overflow": "visible"
+                        }, {
+                            "type": "grid",
+                            "model": {
+                                "idCol": "ID",
+                                "displayCol": "ID",
+                                "fields": [{
+                                    "name": "F1",
+                                    "label": "分支机构",
+                                    "bizType": 500,
+                                    "sortType": "asLBObj"
+                                }, {
+                                    "name": "F2",
+                                    "label": "展业总数",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F7",
+                                    "label": "本周新增",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F3",
+                                    "label": "已完成",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F4",
+                                    "label": "推进中",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F5",
+                                    "label": "跟进中",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F6",
+                                    "label": "完成率",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F8",
+                                    "label": "平均周期",
+                                    "bizType": 100
+                                }, {
+                                    "name": "F9",
+                                    "label": "超7天未跟进",
+                                    "bizType": 100
+                                }],
+                                "subDisplayCols": []
+                            },
+                            "data": [{
+                                "ID": "1",
+                                "F1": {
+                                    "text": "普通用户",
+                                    "value": "10",
+                                    "viewUrl": "\/OperateProcessor?Table=lbOrganization&ID=10&operate=View",
+                                    "popup": true
+                                },
+                                "F2": "2",
+                                "F7": "2",
+                                "F3": "2",
+                                "F4": "0",
+                                "F5": "0",
+                                "F6": "1.0000",
+                                "F8": "0.0",
+                                "F9": "0"
+                            }],
+                            "pageInfo": {
+                                "pageSize": 10,
+                                "pageNo": 1,
+                                "total": 1
+                            },
+                            "columnModel": [{
+                                "header": "分支机构",
+                                "type": "lbObjlinkColumn",
+                                "dataIndex": "F1",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 200,
+                                "visible": true
+                            }, {
+                                "header": "展业总数",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F2",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "本周新增",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F7",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "已完成",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F3",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "推进中",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F4",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "跟进中",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F5",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "完成率",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F6",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "平均周期",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F8",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "超7天未跟进",
+                                "type": "lbEditColumn",
+                                "dataIndex": "F9",
+                                "resizable": true,
+                                "sortable": true,
+                                "length": 30,
+                                "visible": true
+                            }, {
+                                "header": "操作",
+                                "id": "action-col",
+                                "type": "lbActionColumn",
+                                "sortable": false,
+                                "locked": true,
+                                "lock": "right",
+                                "visible": false,
+                                "items": [{
+                                    "text": "查看",
+                                    "color": "primary",
+                                    "url": "\/OperateProcessor?&Table=XN_FZJG&Token=887cc21883e882c0ec24a5ca5a659250&",
+                                    "windowType": 1,
+                                    "popup": true,
+                                    "name": "View",
+                                    "hidden": true,
+                                    "defCmd": true,
+                                    "recType": 1,
+                                    "params": {
+                                        "operate": "View",
+                                        "PopupWin": "true"
+                                    }
+                                }]
+                            }],
+                            "headers": {
+                                "sticky": true
+                            },
+                            "adjustColumnMode": "flex",
+                            "sortMode": "local"
+                        }],
+                        "type": "body"
+                    }, {
+                        "elements": [{
+                            "type": "toolbar",
+                            "elements": [{
+                                "type": "fill"
+                            }, {
+                                "pageSize": 10,
+                                "pageNo": 1,
+                                "hasMore": false,
+                                "total": 1,
+                                "type": "pagination",
+                                "params": [{
+                                    "name": "loadStore",
+                                    "value": "true"
+                                }]
+                            }],
+                            "overflow": "visible"
+                        }],
+                        "type": "footer",
+                        "sticky": true,
+                        "gutter": false
+                    }]
+                },
+                "userInfo": {
+                    "userId": "admin",
+                    "userName": "管理员",
+                    "photoCode": "dFVzZXIvUGhvdG8vMC8wLzE5ZDcwZGE5Yzg1",
+                    "type": "userinfo",
+                    "logon": true,
+                    "message": null,
+                    "lastLogin": "2026-04-09 11:37:22",
+                    "allowUpdatePhoto": true
+                },
+                "uiConfig": {
+                    "themes": [{
+                        "name": "lb-light"
+                    }, {
+                        "name": "lb-dark"
+                    }, {
+                        "name": "my-theme",
+                        "plugin": "react\/themes\/my-theme"
+                    }, {
+                        "name": "blackGold-theme",
+                        "plugin": "react\/themes\/blackGold-theme"
+                    }, {
+                        "name": "apexRed",
+                        "plugin": "react\/themes\/apexTheme"
+                    }],
+                    "themeConfig": {
+                        "name": "my-theme",
+                        "palette.primary.main": "#165dff",
+                        "preference.navMode.value": "mix",
+                        "preference.compact.value": false
+                    },
+                    "defaultTheme": "my-theme",
+                    "defaultThemeConfig": {},
+                    "plugins": [{
+                        "scope": "session",
+                        "id": "standard\/docView"
+                    }, {
+                        "scope": "global",
+                        "id": "react\/global"
+                    }]
+                }
+            }][0];
+            LBUI.ready((function() {
+                LBUI.init(),
+                LiveBOS.render(LiveBOS.createElement(LiveBOS.App, {
+                    initProps: initProps
+                }), document.getElementById("root"))
+            }
+            ))
+        </script>
+    </body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LiveMuse 灵感数据工坊 - 证券业务服务中心</title>
+<style>
+:root{--blue:#2563eb;--blue2:#1d4ed8;--bg:#f6f8fc;--card:#fff;--line:#e6ebf5;--text:#172033;--muted:#6b7890;--soft:#eef4ff;--orange:#ff6b35;--green:#10b981;--purple:#7c3aed;--pink:#ec4899;--shadow:0 10px 30px rgba(18,35,68,.08)}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#fbfcff 0,#f5f7fb 100%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;color:var(--text)}
+.header{height:70px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:27px}.brand b{color:#ef2626}.brand .cube{width:42px;height:42px;border:2px solid #4877ff;border-radius:12px;display:grid;place-items:center;color:#2563eb;font-size:20px}.sub{font-size:18px;color:#111827;font-weight:700}.nav{display:flex;gap:40px;align-items:center}.nav a{font-size:18px;text-decoration:none;color:#1f2a44;font-weight:700;padding:22px 6px 19px;border-bottom:4px solid transparent}.nav a.active{color:var(--blue);border-color:var(--blue)}.icons{display:flex;align-items:center;gap:20px;font-size:24px;color:#172033}.badge{position:relative}.badge i{position:absolute;right:-8px;top:-9px;background:#ef1f2d;color:white;border-radius:999px;padding:2px 5px;font-size:11px;font-style:normal}
+.layout{display:grid;grid-template-columns:minmax(880px,1fr) 338px;gap:18px;padding:18px 26px 26px}.main,.side{min-width:0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}.stat{height:136px;border:1px solid #edf1f8;border-radius:14px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;gap:20px;padding:24px;background-image:linear-gradient(135deg,rgba(37,99,235,.04),rgba(255,255,255,.95))}.stat:nth-child(2){background-image:linear-gradient(135deg,rgba(255,107,53,.08),#fff)}.stat:nth-child(3){background-image:linear-gradient(135deg,rgba(245,158,11,.08),#fff)}.stat:nth-child(4){background-image:linear-gradient(135deg,rgba(37,99,235,.07),#fff)}.ico{
+width:54px;
+height:54px;
+display:grid;
+place-items:center;
+font-size:30px;
+background:none !important;
+box-shadow:none !important;
+border:none !important;
+}.purple{color:#7c3aed;font-size:32px;}.orange{color:#f97316}.gold{color:#f59e0b}.blue{color:#2563eb}.stat h3{margin:0 0 8px;font-size:16px}.stat strong{font-size:34px}.stat p{margin:14px 0 0;font-size:14px;color:#111827;font-weight:700}.toolbar{display:grid;grid-template-columns:170px 170px 170px 1fr;gap:18px;margin-bottom:18px}.select,.search{height:54px;border:1px solid var(--line);background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 22px;font-size:16px;font-weight:700;box-shadow:0 4px 18px rgba(20,40,80,.04)}.select{justify-content:space-between}.search{padding:0 0 0 18px}.search input{border:0;outline:0;flex:1;font-size:14px;color:#34405a}.search button{height:48px;margin-right:3px;border:0;border-radius:8px;background:var(--blue);color:white;font-size:16px;font-weight:800;padding:0 24px}.search .adv{color:var(--blue);font-weight:800;padding:0 16px;white-space:nowrap}.table{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}.thead,.row{display:grid;grid-template-columns:minmax(360px,1.7fr) 160px minmax(220px,.92fr) 120px 130px;align-items:center}.thead{height:54px;background:#fbfcff;color:#3b4660;font-weight:800;border-bottom:1px solid var(--line);padding:0 24px;font-size:14px}.row{min-height:112px;padding:16px 24px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}
+.service-color:nth-of-type(1){color:#6d28d9;}
+
+.service{display:flex;gap:18px;align-items:center}.sico{
+width:48px;
+height:48px;
+display:grid;
+place-items:center;
+font-size:28px;
+flex:none;
+background:none !important;
+box-shadow:none !important;
+border:none !important;
+}.svc-title{font-size:17px;font-weight:900;margin-bottom:8px}.rate{color:#f97316;font-size:15px;margin-left:8px}.desc{font-size:13px;line-height:1.55;color:#5d6a82;max-width:520px}.usage{font-size:13px;color:#374151;line-height:1.9}.usage span{font-weight:900;margin:0 4px}.tags{display:flex;flex-wrap:wrap;gap:8px}.tag{background:#eaf2ff;color:#2563eb;border-radius:7px;padding:6px 9px;font-weight:800;font-size:12px;line-height:1}.op{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0}.detail-btn{height:36px;padding:0 16px;border-radius:10px;border:1px solid #dbe7ff;background:#fff;color:#2563ff;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;line-height:36px}.detail-btn:hover{background:#f3f7ff;border-color:#2563ff;box-shadow:0 4px 12px rgba(37,99,255,.10)}.more{width:26px;height:32px;border-radius:8px;display:grid;place-items:center;color:#738097;font-size:20px;font-weight:900}.more:hover{background:#f5f7fb;color:#2563ff}.check{width:28px;height:28px;border-radius:8px;background:var(--blue);display:grid;place-items:center;color:white;font-weight:900;box-shadow:0 6px 14px rgba(37,99,235,.18)}.foot{height:60px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 24px;color:#63708a;font-weight:700;font-size:13px;background:#fff;white-space:nowrap}.pages{display:flex;gap:8px;align-items:center;flex:none}.page{min-width:34px;height:34px;padding:0 9px;border-radius:9px;display:grid;place-items:center;border:1px solid transparent;cursor:pointer}.page.active{border:1px solid #dbe6fb;background:#f8fbff;color:var(--blue)}.foot-total{color:#5f6d84;font-size:14px;font-weight:800;flex:none}.page-tools{display:flex;align-items:center;gap:8px;color:#4b5b78;font-size:14px;font-weight:700;white-space:nowrap;flex:none}.page-input,.page-size{height:34px;width:42px;min-width:42px;border:1px solid #d9e5fb;border-radius:9px;background:#fff;color:#172033;font-size:14px;font-weight:700;text-align:center;outline:none}.page-size{width:72px;min-width:72px;padding:0 8px;text-align:left}.split{width:1px;height:18px;background:#e6ebf5;margin:0 8px;display:inline-block}.foot-right{display:flex;align-items:center;gap:20px;flex:none}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}.panel-title{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:18px;margin-bottom:10px}.panel-title a{color:var(--blue);font-size:14px;text-decoration:none}.quick{display:grid;gap:16px}.qitem{display:grid;grid-template-columns:34px 1fr 28px;align-items:center}.qico{
+width:28px;
+height:28px;
+display:grid;
+place-items:center;
+font-size:22px;
+background:none !important;
+border:none !important;
+box-shadow:none !important;
+}
+.qitem:nth-child(1) .qico{color:#ef4444;}
+.qitem:nth-child(2) .qico{color:#2563eb;}
+.qitem:nth-child(3) .qico{color:#f59e0b;}
+.qitem:nth-child(4) .qico{color:#10b981;}
+
+.qtitle{font-weight:900}.qsub{font-size:12px;color:#7b879c;margin-top:4px}.num{font-size:20px;color:#ef1f2d;font-weight:900;text-align:right}.scenario-search{height:42px;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;gap:10px;padding:0 12px;color:#68758c;margin:12px 0}.tabs{display:flex;gap:18px;font-size:14px;font-weight:900;color:#4d5b75;border-bottom:1px solid var(--line);margin-bottom:8px}.tabs span{padding:10px 0}.tabs .on{color:var(--blue);border-bottom:3px solid var(--blue)}.scene{display:grid;grid-template-columns:32px 1fr 18px;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f3f8;position:relative}.scene:before{content:'';position:absolute;left:13px;top:38px;bottom:-6px;width:1px;background:#edf2fb}.scene:last-child:before{display:none}.scene:last-child{border:0}.mini{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:14px}.scene b{display:block;font-size:15px}.scene p{margin:4px 0 0;color:#68758c;font-size:12px;line-height:1.45}.scene .link{color:#2563ff;font-weight:800;margin-left:6px}.ai{background:linear-gradient(135deg,#fff7ed,#fff);overflow:hidden;position:relative}.ai-box{display:flex;gap:12px;align-items:center}.robot{width:92px;height:92px;border-radius:22px;background:linear-gradient(180deg,#e0f2fe,#fff);display:grid;place-items:center;font-size:48px}.ai p{margin:6px 0;color:#5d6a82;font-size:13px;line-height:1.6}.consult{height:42px;border:0;border-radius:9px;background:var(--orange);color:white;font-weight:900;font-size:16px;padding:0 26px}.demo-note{margin-bottom:14px;background:linear-gradient(90deg,#eef5ff,#fff);border:1px solid #dce8ff;color:#31405e;padding:13px 16px;border-radius:12px;font-weight:700}.demo-note b{color:var(--blue)}
+
+
+.batch-apply-btn{
+height:38px;
+padding:0 18px;
+border-radius:10px;
+border:1px solid #cfe0ff;
+background:linear-gradient(180deg,#ffffff,#eef5ff);
+display:flex;
+align-items:center;
+justify-content:center;
+gap:6px;
+cursor:pointer;
+font-size:13px;
+font-weight:800;
+color:#2563eb;
+box-shadow:0 4px 12px rgba(37,99,235,.08);
+transition:all .2s;
+}
+
+.batch-apply-btn:hover{
+background:#eaf2ff;
+border-color:#2563eb;
+transform:translateY(-1px);
+}
+
+.service-check{
+width:18px;
+height:18px;
+cursor:pointer;
+accent-color:#2563eb;
+}
+
+.apply-cell{
+gap:12px;
+}
+
+.apply-head{
+display:flex;
+align-items:center;
+gap:8px;
+font-weight:800;
+color:#2563eb;
+}
+
+.apply-cell{
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.apply-btn{
+width:40px;
+height:40px;
+border-radius:12px;
+border:1px solid #dbe7ff;
+background:linear-gradient(180deg,#ffffff,#f5f9ff);
+display:grid;
+place-items:center;
+font-size:18px;
+cursor:pointer;
+color:#2563eb;
+box-shadow:0 4px 12px rgba(37,99,235,.08);
+transition:all .2s;
+}
+
+.apply-btn:hover{
+transform:translateY(-1px);
+background:#eef5ff;
+border-color:#2563eb;
+}
+
+@media(max-width:1180px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.panel{margin-bottom:0}.toolbar{grid-template-columns:1fr 1fr}.search{grid-column:1/-1}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="brand"><b>Live</b>Muse <span class="cube">◇</span><span class="sub">灵感数据工坊</span></div>
+  <nav class="nav"><a class="active">🏠 服务中心</a><a>♙ 我的工作台</a></nav>
+  <div class="icons"><span>⌕</span><span class="badge">🔔<i>4</i></span><span class="badge">✉<i>23</i></span><span class="badge">💬<i>99+</i></span><span>♙ 进入人员</span></div>
+</header>
+<div class="layout">
+  <main class="main">
+    <section class="stats">
+      <div class="stat"><div class="ico purple">▦</div><div><h3>全部服务</h3><strong>2,256</strong><p>较昨日　+128 ↑</p></div></div>
+      <div class="stat"><div class="ico orange">♨</div><div><h3>热门服务</h3><strong>128</strong><p>较昨日　+12 ↑</p></div></div>
+      <div class="stat"><div class="ico gold">★</div><div><h3>我的收藏</h3><strong>32</strong><p>较昨日　+5 ↑</p></div></div>
+      <div class="stat"><div class="ico blue">▥</div><div><h3>我使用的</h3><strong>56</strong><p>较昨日　+8 ↑</p></div></div>
+    </section>
+    <section class="toolbar">
+      <div class="select">业务场景 <span>⌄</span></div><div class="select">服务状态 <span>⌄</span></div><div class="select">更多筛选 <span>▽</span></div>
+      <div class="search">🔍<input id="kw" placeholder="搜索服务名称、关键词、业务场景等"><button onclick="filterRows()">搜索</button><span class="adv">高级搜索⌄</span></div>
+    </section>
+    <section class="table">
+      
+<div class="thead">
+  <div>服务名称</div>
+  <div>使用情况</div>
+  <div>业务标签</div>
+  <div>操作</div>
+  <div class="apply-head"><span>服务一键申请</span>
+  </div>
+</div>
+
+      <div id="rows"></div>
+      <div class="foot">
+        <div class="pages">
+          <span class="page">‹</span>
+          <span class="page active">1</span>
+          <span class="page">2</span>
+          <span class="page">3</span>
+          <span class="page">4</span>
+          <span class="page">5</span>
+          <span>…</span>
+          <span class="page">10</span>
+          <span class="page">›</span>
+        </div>
+        <div class="foot-right">
+          <div class="foot-total">共98条</div>
+          <div class="page-tools">
+            <span>跳至</span>
+            <input class="page-input" value="1" />
+            <span>页</span>
+            <span class="split"></span>
+            <span>每页显示</span>
+            <select class="page-size">
+              <option>10</option>
+              <option>20</option>
+              <option>50</option>
+            </select>
+            <span>条</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <aside class="side">
+    <section class="panel"><div class="panel-title">快捷入口 <a>管理 ›</a></div><div class="quick">
+      <div class="qitem"><div class="qico">◉</div><div><div class="qtitle">待我审批事项</div><div class="qsub">需要您处理</div></div><div class="num">2</div></div>
+      <div class="qitem"><div class="qico">♙</div><div><div class="qtitle">我的服务</div><div class="qsub">已开通服务</div></div><div class="num" style="color:#2563eb">6</div></div>
+      <div class="qitem"><div class="qico">☑</div><div><div class="qtitle">超时预警</div><div class="qsub">即将超时服务</div></div><div class="num">2</div></div>
+      <div class="qitem"><div class="qico">♢</div><div><div class="qtitle">系统通知</div><div class="qsub">未读通知</div></div><div class="num">8</div></div>
+    </div></section>
+    <section class="panel"><div class="panel-title">服务应用场景 <a>更多 ›</a></div><div class="qsub">查看该服务在证券业务链路中被使用的位置</div><div class="scenario-search">🔍 搜索场景名称</div><div class="tabs"><span class="on">最近使用</span><span>关联报表</span><span>关联系统</span></div>
+      <div class="scene"><div class="mini purple">♙</div><div><b>客户运营</b><p>API 12个接口｜场景 8个｜系统 5个 <span class="link">查看链路</span></p></div><b>›</b></div>
+      <div class="scene"><div class="mini orange">▤</div><div><b>交易分析</b><p>API 9个接口｜场景 15个｜系统 3个 <span class="link">查看链路</span></p></div><b>›</b></div>
+      <div class="scene"><div class="mini">盾</div><div><b>风险管理</b><p>API 6个接口｜场景 10个｜系统 4个 <span class="link">查看链路</span></p></div><b>›</b></div>
+    </section>
+    <section class="panel ai"><div class="panel-title">智能AI助手 <a style="color:#f97316">NEW</a></div><div class="ai-box"><div class="robot">🤖</div><div><b>您好！我是智能AI助手</b><p>可帮助您查找数据服务、解释指标口径、推荐使用场景。</p><button class="consult">立即咨询</button></div></div></section>
+  </aside>
+</div>
+<script>
+const services=[
+ {icon:'♙',textColor:'#6d28d9',name:'客户画像标签服务',rate:'4.8',desc:'基于客户行为、交易、基础信息等多维度数据，生成客户分层，支持客户分群和精准营销。',users:128,month:256,tags:['客户分析','客户画像','精准营销','分群管理']},
+ {icon:'▤',textColor:'#f97316',name:'交易流水明细服务',rate:'4.7',desc:'提供客户交易明细数据，包含交易时间、金额、渠道等信息，支持多维度查询分析。',users:96,month:182,tags:['交易分析','交易明细','流水查询','金额交易']},
+ {icon:'盾',textColor:'#10b981',name:'风险预警指标服务',rate:'4.6',desc:'整合多维风险指标，提供风险预警和监控能力，支持风险识别和处置。',users:75,month:142,tags:['风险管理','风险预警','指标监控','风险识别']},
+ {icon:'▥',textColor:'#ec4899',name:'营销活动效果服务',rate:'4.5',desc:'提供营销活动的全链路数据，包括曝光、点击、转化等关键指标。',users:64,month:98,tags:['活动分析','效果分析','转化分析','转化分析']}
+];
+function render(list=services){document.getElementById('rows').innerHTML=list.map(s=>`<div class="row"><div class="service"><div class="sico service-color">${s.icon}</div><div><div class="svc-title">${s.name}<span class="rate">★ ${s.rate}</span></div><div class="desc">${s.desc}</div></div></div><div class="usage">♙ <span>${s.users}</span> 人在用<br>本月使用 <span>${s.month}</span> 次</div><div class="tags">${s.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+<div class="op">
+  <button class="detail-btn">查看详情</button>
+  
+</div>
+<div class="apply-cell">
+  <input type="checkbox" class="service-check">
+</div>
+</div>`).join('')}
+function filterRows(){const k=document.getElementById('kw').value.trim();if(!k){render();return}render(services.filter(s=>[s.name,s.desc,...s.tags].join('').includes(k)))}
+render();
+</script>
+</body>
+</html>

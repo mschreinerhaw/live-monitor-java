@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能问数</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f8f9fb;color:#1f2430}button,textarea{font:inherit}button{cursor:pointer;border:0;background:none}
+.app{display:flex;height:100vh}
+.sidebar{width:312px;background:#fff;border-right:1px solid #e9edf3;display:flex;flex-direction:column}
+.brand{height:86px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #edf1f6}
+.brand-left{display:flex;align-items:center;gap:10px}.logo{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,#1f6fff,#35bbff);color:#fff;display:grid;place-items:center;font-weight:700}.brand-name{font-size:18px;font-weight:700}
+.new-wrap{padding:10px 16px;border-bottom:1px solid #f0f3f7}.new-chat{width:100%;height:40px;border-radius:12px;background:#2d63f6;color:#fff;font-weight:700}
+.nav{border-bottom:1px solid #edf1f6}.nav-item{height:52px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;color:#4d5668}.nav-item.active{background:#e9f1ff}.nav-left{display:flex;gap:12px;align-items:center}
+.history{display:flex;flex-direction:column;min-height:0;flex:1}.history-title{padding:14px 16px 10px;font-size:15px;font-weight:700;color:#5f6778}
+.history-list{padding:0 10px 12px 16px;overflow:auto;display:grid;gap:10px}
+.history-card{padding:11px;border:1px solid #e8edf3;border-radius:14px;background:#fff;text-align:left}
+.history-card.active{border-color:#cfe0ff;background:#f8fbff}
+.h-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.h-q{font-size:14px;font-weight:700;line-height:1.35;color:#1f2430;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.h-time{margin-top:8px;font-size:12px;color:#758095}
+.main{position:relative;flex:1;overflow:auto}
+.window-actions{position:absolute;top:12px;right:18px;display:flex;gap:14px;color:#5a667a;font-size:24px}
+.content{max-width:1260px;margin:0 auto;padding:52px 24px 24px}
+.home{display:block}
+.home h1{text-align:center;font-size:64px;line-height:1;color:#2d63f6;margin:0}
+.home p{text-align:center;margin:12px 0 28px;color:#6c7382;font-size:17px}
+.result{display:none;margin-bottom:20px}
+.result.show{display:block}
+.question-row{display:flex;justify-content:flex-end;gap:12px}
+.q-bubble{max-width:420px;background:linear-gradient(135deg,#3d6ef8,#2d79ff);border-radius:18px;color:#fff;padding:14px 18px 18px;position:relative}
+.q-text{font-size:15px;line-height:1.6}.q-time{position:absolute;right:16px;bottom:8px;font-size:12px;opacity:.92}
+.mini-user{width:36px;height:36px;border-radius:50%;background:#f0f3fa;display:grid;place-items:center;color:#6c55a8}
+.answer-row{display:flex;gap:12px;margin-top:16px}
+.ai-badge{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2d63f6,#39b2ff);color:#fff;display:grid;place-items:center;font-weight:700}
+.answer-box{flex:1;border:1px solid #cfe0ff;background:#fff;border-radius:18px;padding:16px;min-height:290px}
+.intro{white-space:pre-wrap;line-height:1.9;font-size:16px;color:#2f3745}.typing::after{content:"";display:inline-block;width:2px;height:14px;background:#2d63f6;vertical-align:-2px;margin-left:4px;animation:blink 1s steps(1) infinite}
+.panel{margin-top:12px;border:1px solid #edf2f7;border-radius:14px;padding:12px;background:#fff}
+.panel h3{margin:0 0 8px;font-size:16px;color:#6c7687}
+.panel ul{margin:0;padding-left:18px;color:#697384;line-height:1.8;font-size:15px}
+.insight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.metric-card{border:1px solid #e9eef5;border-radius:12px;padding:10px;background:#fbfdff}
+.metric-name{font-size:12px;color:#738094}
+.metric-value{margin-top:6px;font-size:20px;font-weight:700;color:#1f2430}
+.metric-trend{margin-top:4px;font-size:12px;color:#2d63f6}
+.chart-box{margin-top:10px;border:1px solid #e9eef5;border-radius:12px;padding:10px;background:#fff}
+.chart-title{font-size:13px;font-weight:700;color:#505b6f;margin-bottom:8px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:140px;padding:10px 8px 0;border-bottom:1px dashed #e8edf4}
+.bar-col{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px}
+.bar-value{font-size:11px;color:#6d7a91;line-height:1}
+.bar{width:100%;max-width:28px;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,#2d63f6,#5d91ff)}
+.bar-label{font-size:11px;color:#7a8598}
+.chart-svg{width:100%;height:170px;display:block;background:#fff;border:1px dashed #edf2f7;border-radius:10px}
+.line-dot{fill:#fff;stroke:#2d63f6;stroke-width:2}
+.hbars{display:grid;gap:8px}
+.hbar-row{display:grid;grid-template-columns:64px 1fr 56px;align-items:center;gap:8px}
+.hbar-name{font-size:12px;color:#647186;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar-track{height:10px;background:#eef3fb;border-radius:999px;overflow:hidden}
+.hbar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#4f7dff,#22b8ff)}
+.hbar-value{font-size:12px;color:#6f7c91;text-align:right}
+.donut-wrap{display:flex;align-items:center;gap:16px}
+.donut-legend{display:grid;gap:6px}
+.donut-item{display:flex;align-items:center;gap:8px;font-size:12px;color:#667487}
+.dot{width:10px;height:10px;border-radius:50%}
+.menu-box{margin-top:10px;border:1px solid #e9eef5;border-radius:12px;padding:10px;background:#fff}
+.menu-title{font-size:13px;font-weight:700;color:#505b6f;margin-bottom:8px}
+.menu-list{display:grid;gap:8px}
+.menu-item{padding:8px 10px;border:1px solid #edf2f7;border-radius:10px;background:#fbfdff;font-size:13px;line-height:1.6;color:#5c667a}
+.ops-box{margin-top:10px;border:1px solid #e9eef5;border-radius:12px;padding:10px;background:#fff}
+.ops-title{font-size:13px;font-weight:700;color:#505b6f;margin-bottom:8px}
+.ops-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ops-col{border:1px solid #edf2f7;border-radius:10px;padding:8px;background:#fbfdff}
+.ops-col h4{margin:0 0 6px;font-size:12px;color:#4f5a6e}
+.ops-col ul{margin:0;padding-left:16px;font-size:12px;color:#657287;line-height:1.7}
+.contact-list{display:grid;gap:6px}
+.contact-item{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border:1px solid #e8edf4;border-radius:8px;background:#fff;font-size:12px;color:#576377}
+.contact-item b{color:#1f2430}
+.composer{max-width:780px;margin:14px auto 0}
+.ask-box{border:1px solid #c9dbff;border-radius:18px;background:#fff;padding:14px;box-shadow:0 8px 20px rgba(32,88,212,.08)}
+.ask-input{width:100%;height:116px;border:0;resize:none;background:transparent;font-size:16px;color:#1f2430}
+.ask-input:focus{outline:none}.ask-input::placeholder{color:#6f7788}
+.ask-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px}.skill-note{color:#6a7383;font-size:14px}
+.send-btn{min-width:104px;height:40px;border-radius:14px;background:#2d63f6;color:#fff;font-size:16px;font-weight:700}
+.guess{max-width:780px;margin:20px auto 0}.guess h3{margin:0 0 10px;font-size:18px}.guess-row{display:flex;gap:10px;flex-wrap:wrap}
+.guess-btn{height:44px;padding:0 14px;border-radius:14px;border:1px solid #e5e9f0;background:#fff;color:#525d70;font-size:16px}
+@keyframes blink{50%{opacity:0}}
+@media (max-width:980px){.app{display:block;height:auto}.sidebar{width:100%}.content{padding:22px 14px}.home h1{font-size:48px}.home p{font-size:16px}.brand-name,.h-q,.q-text,.intro,.ask-input,.send-btn,.guess h3,.guess-btn{font-size:16px}.history-title,.h-time,.q-time,.skill-note{font-size:13px}.insight-grid,.ops-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-left"><div class="logo">🛡</div><div class="brand-name">智能问数助手</div></div>
+      <button aria-label="菜单">☰</button>
+    </div>
+    <div class="new-wrap"><button class="new-chat" id="newChat" type="button">✎ 新对话</button></div>
+    <nav class="nav">
+      <div class="nav-item"><div class="nav-left"><span>⌂</span><span>首页</span></div><span>›</span></div>
+      <div class="nav-item active"><div class="nav-left"><span>⌕</span><span>智能问数</span></div><span>›</span></div>
+      <div class="nav-item"><div class="nav-left"><span>📄</span><span>报告解读</span></div><span>›</span></div>
+      <div class="nav-item"><div class="nav-left"><span>⊞</span><span>更多</span></div><span>›</span></div>
+    </nav>
+    <section class="history">
+      <div class="history-title">历史会话</div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+  </aside>
+  <main class="main">
+    <div class="window-actions"><span>⛶</span><span>✕</span></div>
+    <div class="content">
+      <section class="home" id="homeView">
+        <h1>首页</h1>
+        <p>业务问题即问即得 · 指标分析 · 数据洞察</p>
+      </section>
+      <section class="result" id="answerView">
+        <div class="question-row">
+          <div class="q-bubble">
+            <div class="q-text" id="questionText"></div>
+            <div class="q-time" id="questionTime"></div>
+          </div>
+          <div class="mini-user">👤</div>
+        </div>
+        <div class="answer-row">
+          <div class="ai-badge">🛡</div>
+          <div class="answer-box">
+            <div class="intro typing" id="introText"></div>
+            <div class="panel" id="summaryPanel"></div>
+            <div id="insightPanel"></div>
+          </div>
+        </div>
+      </section>
+      <div class="composer">
+        <div class="ask-box">
+          <textarea class="ask-input" id="questionInput" placeholder="请描述你的数据问题（如：近7天客户增长趋势）"></textarea>
+          <div class="ask-footer">
+            <div class="skill-note">@ 选择技能</div>
+            <button class="send-btn" id="sendBtn" type="button">▷ 发送</button>
+          </div>
+        </div>
+      </div>
+      <section class="guess">
+        <h3>猜你想问</h3>
+        <div class="guess-row">
+          <button class="guess-btn" data-question="近7天客户增长趋势如何？" type="button">1. 近7天客户增长趋势如何？</button>
+          <button class="guess-btn" data-question="本月两融资产变化情况如何？" type="button">2. 本月两融资产变化情况如何？</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+const historyItems=[
+  {id:'h1',key:'warning',title:'近一周的指标监控情况如何...',time:'03/30 10:27'},
+  {id:'h2',key:'growth',title:'最近7天客户增长情况？',time:'04/03 10:45'},
+  {id:'h3',key:'margin',title:'本月两融资产趋势...',time:'04/01 17:26'},
+  {id:'h4',key:'risk',title:'客户风险等级分布...',time:'03/31 13:48'},
+  {id:'h5',key:'outflow',title:'哪些客户资产流失最多？ ...',time:'03/30 14:04'},
+  {id:'h6',key:'portfolio',title:'投资组合建议演示（股债基）...',time:'04/04 15:36'},
+  {id:'h7',key:'weeklyPortfolio',title:'根据当前市场环境，预测未来一周投资方向并推荐组合...',time:'04/04 16:12'}
+];
+const templates={
+  warning:{summary:'目前已定义并纳入预警监控的核心指标，主要覆盖经营收入、客户增长、两融资产、风险分层和客户资产流失五个方向。',bullets:['经营监控类覆盖总经纪收入、总资产、总负债、资产净收入。','客户经营类覆盖客户总数、高净值客户净增、7日留存率。','两融业务类覆盖总资产、总负债、今日交易额、今日盈亏。','风险预警类覆盖风险等级分布、重点回访客户、资产流失名单。'],metrics:[['预警指标数','16','已启用'],['经营类','4','稳定'],['风控类','5','需关注'],['客户类','7','增长中']],chart:{type:'bar',labels:['经营','客户','两融','风险'],values:[82,68,77,91]},menus:['领导驾驶舱：查看总览指标','风险分层页：查看风险客群','资产流失预警页：跟踪异常客户']},
+  growth:{summary:'近7天客户增长呈持续上升态势，客户总数从814增至852，高净值客户净增11户。',bullets:['期末客户总数852户，较期初增长4.67%。','高净值客户达到142户，增速快于总体客户。','新增客户主要来自北京阜外大街营业部。'],metrics:[['客户总数','852','+4.67%'],['高净值客户','142','+8.40%'],['净增客户','38','+11户'],['留存率','93.8%','+1.6pct']],chart:{type:'line',labels:['03/30','03/31','04/01','04/02','04/03'],values:[70,76,83,90,97]},menus:['客户增长分析页：追踪新增来源','营业部贡献页：看增长贡献','客户画像页：下钻高净值客群']},
+  margin:{summary:'本月两融资产整体先稳后升，总资产与总负债同步抬升，但交易额波动较大。',bullets:['总资产12.85万元，较昨日增长3.01%。','总负债4.54万元，业务规模稳定。','今日盈亏+1130.29万元，交易额需重点跟踪。'],metrics:[['总资产(万)','12.85','+3.01%'],['总负债(万)','4.54','+0.50%'],['交易额(万)','2574.36','波动'],['今日盈亏(万)','1130.29','高波动']],chart:{type:'area',labels:['03/28','03/29','03/30','03/31','04/01'],values:[62,67,72,78,86],values2:[38,41,44,47,52]},menus:['两融经营概览页：看资产变化','信用客户列表页：查看客户明细','风险预警页：跟踪高波动账户']},
+  risk:{summary:'低风险和中低风险客户合计占比74%，当前客户结构整体偏稳健。',bullets:['低风险客户392户，占比46.0%。','中低风险客户238户，占比28.0%。','中高风险及以上客户建议优先回访。'],metrics:[['低风险','392','46.0%'],['中低风险','238','28.0%'],['中风险','146','17.1%'],['高风险','76','8.9%']],chart:{type:'donut',labels:['低风险','中低风险','中风险','高风险'],values:[392,238,146,76],colors:['#2d63f6','#45b0ff','#7b6dff','#ff8f6b']},menus:['风险分层页：查看结构分布','重点回访页：跟进高风险客群','标签页：叠加资产与信用维度']},
+  outflow:{summary:'资产流失主要集中在中风险和高净值客群，需要优先回访高波动客户。',bullets:['负向波动最大客户为钱意洪与章雅晴。','高净值客户占流失名单过半。','建议联动客户画像页进行回访。'],metrics:[['流失客户','5','今日重点'],['高净值占比','60%','偏高'],['最大波动','-126,933','钱意洪'],['待回访','3','紧急']],chart:{type:'hbar',labels:['钱意洪','章雅晴','周迅'],values:[126.9,14.9,7.7]},menus:['资产流失预警页：查看名单','客户画像页：确认联系方式','回访记录页：登记动作闭环']},
+  portfolio:{summary:'建议采用“股债基”均衡配置：权益保持进攻弹性，债券负责回撤控制，基金组合承担风格分散。',bullets:['股票市场观察：沪深300（000300.SH）与中证1000（000852.SH）近5个交易日呈修复，建议权益仓位以宽基为主。','债券市场观察：国债ETF（511010）波动低、对冲有效，可作为组合稳定器。','基金市场建议：以沪深300ETF（510300）+ 创业板ETF（159915）+ 现金管理类ETF（511990）做核心搭配，兼顾流动性与弹性。','演示组合（稳健型）：权益50% / 债券35% / 现金管理15%，并按周复盘偏离度。'],metrics:[['权益仓位','50%','中性偏进攻'],['债券仓位','35%','稳波动'],['基金标的数','4','真实代码'],['预计波动','中等','可控']],chart:{type:'donut',labels:['沪深300ETF(510300)','创业板ETF(159915)','国债ETF(511010)','华宝添益(511990)'],values:[35,15,35,15],colors:['#2d63f6','#4a8dff','#45b0ff','#7b6dff']},menus:['投资组合看板：查看股债基权重与偏离','产品中心 > 交易：按代码检索510300/159915/511010/511990','风控预警页：设置组合回撤与波动阈值']},
+  weeklyPortfolio:{summary:'未来一周建议“偏稳健、留弹性”：权益仓位中性偏高，债券做回撤缓冲，货基保持流动性以应对政策与波动。',bullets:['市场行情分析：近5个交易日成长风格修复，沪深300（000300.SH）与中证1000（000852.SH）相对强弱切换，短线建议“核心宽基+小盘卫星”结构。','政策分析：稳增长与资本市场活跃度政策预期延续，利率中枢平稳，债券资产仍具防守价值。','投研报告分析：演示样本18份周度研报中，权益“中性偏多”占比约61%，债券“中性偏多”占比约72%，共识为“控制回撤、分散行业集中度”。','组合建议（未来一周）：510300（25%）+ 159915（20%）+ 511010（30%）+ 511990（25%），按日监控波动与回撤阈值。'],metrics:[['研报样本','18份','周度更新'],['政策信号','3项','偏积极'],['权益建议仓位','45%','中性偏多'],['债券+货基','55%','稳健防守']],chart:{type:'line',labels:['周一','周二','周三','周四','周五'],values:[62,68,73,70,76]},menus:['组合周报页：查看未来一周调仓建议','宏观策略页：查看政策事件与市场情绪','风险预警页：设置回撤阈值与止损提醒']}
+};
+const opsGuideByKey={
+  warning:{
+    path:['数据分析 > 数据产品中心 > 全部 > 监管 / 业务条线','数据取数 > ODS采集清单（CIF3 / A2集中&两融 / 个股期权 / OTC / 资讯）','数据报表 > 财富数据集市清单（表元数据汇总 / adp_ads / adp_dws / adp_dwd）'],
+    quality:['元数据完整性：表名、表描述、数据库用户不能为空（ODS清单字段：表名/表描述/数据库用户）。','来源一致性：`src_sys_no` 与“所属系统-资源描述/业务系统”要一一对应，避免跨系统错挂。','结构变更监控：按日比对 ODS 清单（如 `LBORGANIZATION`、`TCZMX`、`TSO_KHXX`）新增/删减字段。','更新时效：按更新频率监控延迟，超过阈值触发告警。'],
+    contacts:[['admin','管理员'],['kf','开发'],['wangxiaowei','王*伟']]
+  },
+  growth:{
+    path:['数据分析 > 数据产品中心 > 业务分类 > 客户经营','数据报表 > adp_dws（客户全账户日表/月表）','数据资产门户 > 指标目录 > 客户增长'],
+    quality:['主键唯一性：`cust_num + trd_date` 不可重复（来自 adp_dws 字段）。','时间完整性：`trd_date` 近7天不能断档，且格式统一。','机构归属完整性：`dept_num` 空值率需低于阈值，避免营业部归属失真。','口径一致性：新增/净增/留存统计口径在日表、月表保持一致。'],
+    contacts:[['lianxiaoshan','连*山'],['mapengfei','马*飞'],['admin','管理员']]
+  },
+  margin:{
+    path:['数据分析 > 数据产品中心 > 交易 / 两融','数据取数 > ODS > A2集中&两融采集表清单（ACCOUNT/ABOSS）','数据报表 > adp_ads / adp_dwd 两融相关主题'],
+    quality:['关键字段完整性：`cust_num`、`trd_acc_num`、`entr_no`、`entr_date` 不能为空。','金额异常检测：资产/负债/盈亏按环比阈值监控突变。','数据类型一致性：当前元数据大量为 `string`，金额/日期入仓前需校验可解析性。','时效性：交易额与盈亏按 T+0/T+1 约定核对加载时间。'],
+    contacts:[['kf','开发'],['wangxiaowei','王*伟'],['admin','管理员']]
+  },
+  risk:{
+    path:['数据分析 > 数据产品中心 > 监管 / 风险分类','数据治理 > 质量规则 > 风险分层字段','数据报表 > adp_dwd 风险事件相关主题'],
+    quality:['分层覆盖率：风险等级空值率需持续下降并设红线。','规则版本一致性：风险规则版本在指标平台与离线加工保持一致。','追溯性：每条风险标签可追溯到来源系统与计算逻辑。','事件关联性：`src_sys_no`、`entr_no`、`cust_num` 关联失败需告警。'],
+    contacts:[['admin','管理员'],['lianxiaoshan','连*山'],['test11','test11']]
+  },
+  outflow:{
+    path:['数据分析 > 数据产品中心 > 资产流失主题','数据报表 > adp_ads（资产变化趋势 / 净值流水）','数据服务 > 流失预警订阅'],
+    quality:['波动校验：流失金额与源流水（OTC/集中）按日对账。','关联完整性：`cust_num`、`dept_num`、产品编码(`finl_pd_code`)不能为空。','码值有效性：`finl_ta_code`、产品代码需命中字典，不允许脏码。','延迟监控：预警数据超时未更新要触发通知。'],
+    contacts:[['mapengfei','马*飞'],['wangxiaowei','王*伟'],['admin','管理员']]
+  },
+  portfolio:{
+    path:['数据分析 > 数据产品中心 > 业务分类 > 交易 / 基金 / 监管','数据报表 > 财富数据集市（adp_ads / adp_dws）检索组合相关指标','数据资产门户 > 指标目录 > 投资组合（股市/债市/基金市场）'],
+    quality:['证券代码标准化：A股指数代码（如 000300.SH、000852.SH）与基金代码（510300/159915/511010/511990）需分口径存储。','价格与净值时效：交易日收盘后T+0/T+1更新时间要有SLA，超时自动告警。','映射一致性：产品代码与产品名称、资产类别映射唯一，避免一对多错挂。','缺失与异常：持仓权重合计应为100%，空值、负权重、突变权重需拦截。'],
+    contacts:[['admin','管理员'],['kf','开发'],['lianxiaoshan','连*山']]
+  },
+  weeklyPortfolio:{
+    path:['数据分析 > 数据产品中心 > 交易 / 监管 > 宏观与组合主题','数据报表 > adp_dws（市场行情周频）+ adp_ads（组合建议快照）','数据服务 > 订阅服务 > 一周投资组合建议'],
+    quality:['行情口径一致性：指数行情（000300.SH、000852.SH）与ETF净值（510300/159915/511010/511990）需统一交易日历。','政策时效性：政策事件入库时间与解读版本需可追溯，避免旧版本策略误用。','研报可信度：报告来源、发布时间、评级变更需留痕；过期报告不应参与最新打分。','建议可执行性：组合权重和=100%，且单品种权重、回撤阈值满足风控规则。'],
+    contacts:[['admin','管理员'],['wangxiaowei','王*伟'],['mapengfei','马*飞']]
+  }
+};
+let activeId='';
+let typingTimer=null;
+const historyList=document.getElementById('historyList');
+const homeView=document.getElementById('homeView');
+const answerView=document.getElementById('answerView');
+const questionText=document.getElementById('questionText');
+const questionTime=document.getElementById('questionTime');
+const introText=document.getElementById('introText');
+const summaryPanel=document.getElementById('summaryPanel');
+const insightPanel=document.getElementById('insightPanel');
+const questionInput=document.getElementById('questionInput');
+function nowStamp(){const d=new Date();return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+function matchKey(text){const q=text.replace(/[？?！!。,.，\s]/g,'');if(/未来一周|市场环境|投资方向|组合推荐/.test(q))return 'weeklyPortfolio';if(/投资|组合|股市|债市|基金/.test(q))return 'portfolio';if(/监控|指标|预警|定义/.test(q))return 'warning';if(/流失|流出|下滑/.test(q))return 'outflow';if(/风险/.test(q))return 'risk';if(/两融|融资|融券/.test(q))return 'margin';return 'growth';}
+function showHomeState(){homeView.style.display='block';answerView.classList.remove('show');clearInterval(typingTimer);introText.classList.remove('typing');introText.textContent='';summaryPanel.innerHTML='';insightPanel.innerHTML='';}
+function showAnswerState(){homeView.style.display='none';answerView.classList.add('show');}
+function renderHistory(){historyList.innerHTML=historyItems.map(item=>`<button class="history-card ${activeId===item.id?'active':''}" data-id="${item.id}" type="button"><div class="h-top"><div class="h-q">${item.title}</div><span>⋮</span></div><div class="h-time">${item.time}</div></button>`).join('');historyList.querySelectorAll('.history-card').forEach(btn=>{btn.onclick=()=>{const id=btn.dataset.id;const current=historyItems.find(v=>v.id===id);if(!current)return;activeId=id;renderHistory();runAnswer(current.title,current.key);};});}
+function streamText(text,speed=14){clearInterval(typingTimer);introText.textContent='';introText.classList.add('typing');return new Promise(resolve=>{let i=0;typingTimer=setInterval(()=>{i++;introText.textContent=text.slice(0,i);if(i>=text.length){clearInterval(typingTimer);introText.classList.remove('typing');resolve();}},speed);});}
+function renderLineSvg(chart,area=false){
+  const w=700,h=170,p=24;
+  const vals=[...chart.values,...(chart.values2||[])];
+  const min=Math.min(...vals),max=Math.max(...vals),range=Math.max(1,max-min);
+  const stepX=(w-p*2)/Math.max(1,chart.labels.length-1);
+  const pts=chart.values.map((v,i)=>({x:p+i*stepX,y:h-p-((v-min)/range)*(h-p*2)}));
+  const d=pts.map((pt,i)=>`${i===0?'M':'L'} ${pt.x} ${pt.y}`).join(' ');
+  const dots=pts.map(pt=>`<circle class="line-dot" cx="${pt.x}" cy="${pt.y}" r="3"/>`).join('');
+  let second='';
+  if(chart.values2){
+    const pts2=chart.values2.map((v,i)=>({x:p+i*stepX,y:h-p-((v-min)/range)*(h-p*2)}));
+    const d2=pts2.map((pt,i)=>`${i===0?'M':'L'} ${pt.x} ${pt.y}`).join(' ');
+    second=`<path d="${d2}" fill="none" stroke="#49b3ff" stroke-width="2" stroke-dasharray="4 4"/>`;
+  }
+  const areaPath=area?`<path d="${d} L ${pts[pts.length-1].x} ${h-p} L ${pts[0].x} ${h-p} Z" fill="rgba(45,99,246,.15)"/>`:'';
+  return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}">${areaPath}<path d="${d}" fill="none" stroke="#2d63f6" stroke-width="2.5"/>${second}${dots}${chart.labels.map((lb,i)=>`<text x="${p+i*stepX}" y="${h-6}" text-anchor="middle" font-size="11" fill="#7a8598">${lb}</text>`).join('')}</svg>`;
+}
+function renderBarChart(chart){
+  const max=Math.max(...chart.values,1);
+  const bars=chart.values.map((v,i)=>{const h=Math.max(14,Math.round((v/max)*100));return `<div class="bar-col"><div class="bar-value">${v}</div><div class="bar" style="height:${h}px"></div><div class="bar-label">${chart.labels[i]}</div></div>`;}).join('');
+  return `<div class="bars">${bars}</div>`;
+}
+function renderHBarChart(chart){
+  const max=Math.max(...chart.values,1);
+  return `<div class="hbars">${chart.values.map((v,i)=>`<div class="hbar-row"><div class="hbar-name">${chart.labels[i]}</div><div class="hbar-track"><div class="hbar-fill" style="width:${Math.max(8,Math.round((v/max)*100))}%"></div></div><div class="hbar-value">${v}</div></div>`).join('')}</div>`;
+}
+function renderDonut(chart){
+  const colors = chart.colors && chart.colors.length ? chart.colors : ['#2d63f6','#45b0ff','#7b6dff','#ff8f6b','#6cc26f'];
+  const total=chart.values.reduce((a,b)=>a+b,0)||1;
+  const cx=72,cy=72,r=52;
+  let start=-90;
+  const segs=chart.values.map((v,i)=>{const ang=(v/total)*360;const end=start+ang;const a0=(Math.PI/180)*start,a1=(Math.PI/180)*end;const x1=cx+r*Math.cos(a0),y1=cy+r*Math.sin(a0),x2=cx+r*Math.cos(a1),y2=cy+r*Math.sin(a1);const large=ang>180?1:0;const path=`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;start=end;return `<path d="${path}" fill="${colors[i%colors.length]}"></path>`;}).join('');
+  const legend=chart.labels.map((lb,i)=>`<div class="donut-item"><span class="dot" style="background:${colors[i%colors.length]}"></span><span>${lb} ${chart.values[i]}</span></div>`).join('');
+  return `<div class="donut-wrap"><svg class="chart-svg" viewBox="0 0 144 144" style="width:150px;height:150px;flex:none;border:none">${segs}<circle cx="72" cy="72" r="30" fill="#fff"></circle><text x="72" y="76" text-anchor="middle" font-size="12" fill="#5f6a7e">风险分层</text></svg><div class="donut-legend">${legend}</div></div>`;
+}
+function renderChartByType(chart){
+  if(!chart) return '';
+  if(chart.type==='line') return renderLineSvg(chart,false);
+  if(chart.type==='area') return renderLineSvg(chart,true);
+  if(chart.type==='donut') return renderDonut(chart);
+  if(chart.type==='hbar') return renderHBarChart(chart);
+  return renderBarChart(chart);
+}
+function renderInsights(tpl){
+  const metricHtml = tpl.metrics.map(item=>`<div class="metric-card"><div class="metric-name">${item[0]}</div><div class="metric-value">${item[1]}</div><div class="metric-trend">${item[2]}</div></div>`).join('');
+  const chartHtml = renderChartByType(tpl.chart);
+  const menuHtml = tpl.menus.map(m=>`<div class="menu-item">${m}</div>`).join('');
+  return `<div class="insight-grid">${metricHtml}</div><div class="chart-box"><div class="chart-title">数据图表</div>${chartHtml}</div><div class="menu-box"><div class="menu-title">菜单建议</div><div class="menu-list">${menuHtml}</div></div>`;
+}
+function renderOpsGuide(key){
+  const g = opsGuideByKey[key] || opsGuideByKey.warning;
+  const pathHtml = g.path.map(v=>`<li>${v}</li>`).join('');
+  const qualityHtml = g.quality.map(v=>`<li>${v}</li>`).join('');
+  const contactHtml = g.contacts.map(v=>`<div class="contact-item"><b>${v[0]}</b><span>${v[1]}</span></div>`).join('');
+  return `<div class="ops-box"><div class="ops-title">资产运营平台联动（指标位置 / 质量关注 / 联系人）</div><div class="ops-grid"><div class="ops-col"><h4>到哪里找这些统计指标</h4><ul>${pathHtml}</ul></div><div class="ops-col"><h4>建议重点关注的数据质量</h4><ul>${qualityHtml}</ul></div><div class="ops-col"><h4>联系人</h4><div class="contact-list">${contactHtml}</div></div></div></div>`;
+}
+async function runAnswer(question,key){const tpl=templates[key]||templates.warning;showAnswerState();questionText.textContent=question;questionTime.textContent=nowStamp();summaryPanel.innerHTML='';insightPanel.innerHTML='';await streamText(`先说结论：${tpl.summary}\n\n我已经基于当前演示数据整理出关键结论和下一步建议。`,12);summaryPanel.innerHTML=`<h3>${question}</h3><ul>${tpl.bullets.map(v=>`<li>${v}</li>`).join('')}</ul>`;insightPanel.innerHTML=renderInsights(tpl)+renderOpsGuide(key);}
+function askQuestion(text){const q=(text||questionInput.value).trim();if(!q)return;activeId='';renderHistory();runAnswer(q,matchKey(q));}
+renderHistory();
+showHomeState();
+document.getElementById('sendBtn').onclick=()=>askQuestion();
+document.getElementById('newChat').onclick=()=>{questionInput.value='';activeId='';renderHistory();showHomeState();};
+questionInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askQuestion();}});
+document.querySelector('.guess-row').addEventListener('click',e=>{const btn=e.target.closest('[data-question]');if(btn)askQuestion(btn.dataset.question);});
+</script>
+</body>
+</html>

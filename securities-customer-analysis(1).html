@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多维分析</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --secondary-color: #3b82f6;
+            --accent-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --light-bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-card.active {
+            border-left: 4px solid var(--accent-color);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.2);
+        }
+        
+        .chart-container {
+            height: 300px;
+            width: 100%;
+        }
+        
+        .large-chart {
+            height: 400px;
+        }
+        
+        .filter-badge {
+            transition: all 0.2s ease;
+        }
+        
+        .filter-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .sidebar {
+            background: rgba(248, 250, 252, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border-color);
+        }
+        
+        .table-row:hover {
+            background-color: rgba(241, 245, 249, 0.8);
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-active { background-color: var(--accent-color); }
+        .status-warning { background-color: var(--warning-color); }
+        .status-danger { background-color: var(--danger-color); }
+        
+        /* 移动端适配 */
+        @media (max-width: 1024px) {
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                z-index: 40;
+                transform: translateX(-100%);
+            }
+            
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+                display: none;
+            }
+            
+            .overlay.active {
+                display: block;
+            }
+            
+            /* 移动端顶部导航优化 */
+            header {
+                padding-top: 60px !important;
+            }
+            
+            /* 移动端布局优化 - 关键指标2列，图表独自成行 */
+            .mobile-grid-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+            
+            @media (max-width: 640px) {
+                .mobile-grid-2 {
+                    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+                }
+            }
+            
+            /* 确保非桌面设备应用移动端布局 */
+            @media (max-width: 1024px) {
+                /* 关键指标区域 */
+                .grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+                
+                /* 图表区域 - 独自成行 */
+                .lg\:grid-cols-2 {
+                    grid-template-columns: 1fr !important;
+                }
+                
+                /* 底部图表区域 - 独自成行 */
+                .lg\:grid-cols-3 {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+            
+            /* 图表类独自成行 */
+            .chart-row {
+                grid-column: 1 / -1;
+            }
+            
+            /* 筛选条件样式 */
+            .filter-container {
+                white-space: nowrap;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            
+            .filter-container::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .more-filters-btn {
+                flex-shrink: 0;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-grid-2 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .mobile-grid-3 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .large-chart {
+                height: 300px;
+            }
+            
+            /* 移动端按钮样式优化 */
+            .mobile-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
+        
+        /* 筛选条件更多按钮样式 */
+        .more-filters-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                z-index: 50;
+                display: none;
+                min-width: 200px;
+            }
+            
+            .more-filters-dropdown.active {
+                display: block;
+            }
+            
+            .filter-item {
+                padding: 8px 12px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+            
+            .filter-item:hover {
+                background-color: #f1f5f9;
+            }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 移动端菜单按钮 - 已移动到标题栏 -->
+    
+    <div class="flex h-screen">
+        <!-- 遮罩层 -->
+        <div id="overlay" class="overlay"></div>
+        
+        <!-- 侧边栏 -->
+        <div id="sidebar" class="sidebar w-64 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-blue-500"></i>
+                        多维分析
+                    </h1>
+                    <p class="text-xs text-gray-500 mt-1">客户数据分析平台</p>
+                </div>
+                <button id="close-sidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <nav class="flex-1 p-4 overflow-y-auto">
+                <div class="mb-6">
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">核心指标</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all active text-gray-700"><i class="fas fa-home mr-3 text-blue-500"></i> 总览面板</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-users mr-3 text-green-500"></i> 客户分析</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-chart-pie mr-3 text-purple-500"></i> 投资组合</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-exchange-alt mr-3 text-yellow-500"></i> 交易行为</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-shield-alt mr-3 text-red-500"></i> 风险管理</a></li>
+                    </ul>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">高级分析</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-brain mr-3 text-pink-500"></i> AI预测模型</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-project-diagram mr-3 text-indigo-500"></i> 关联网络</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-clock mr-3 text-teal-500"></i> 时间序列</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-xs uppercase text-gray-500 mb-3">系统设置</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-cog mr-3 text-gray-500"></i> 参数配置</a></li>
+                        <li><a href="#" class="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-all text-gray-700"><i class="fas fa-user-shield mr-3 text-gray-500"></i> 权限管理</a></li>
+                    </ul>
+                </div>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex items-center">
+                    <img src="https://via.placeholder.com/32" alt="用户头像" class="w-8 h-8 rounded-full">
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">分析专员</p>
+                        <p class="text-xs text-gray-400">张伟</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航 - 移动端优化布局 -->
+            <header class="bg-white bg-opacity-90 backdrop-filter backdrop-blur-lg border-b border-gray-200">
+                <!-- 第一排：标题 + 按钮 -->
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center">
+                        <h2 class="text-xl font-semibold text-gray-800">多维分析总览</h2>
+                        <span class="ml-3 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">实时数据</span>
+                    </div>
+                    
+                    <!-- 右侧按钮组 - 横向排列 -->
+                    <div class="flex items-center space-x-2">
+                        <!-- 用户按钮 -->
+                        <button class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap">
+                            <i class="fas fa-user mr-1"></i> 用户
+                        </button>
+                        
+                        <!-- 移动端菜单按钮 -->
+                        <button id="menu-toggle" class="lg:hidden bg-gradient-to-r from-blue-500 to-blue-600 text-white p-2 rounded-full shadow-md transition-all duration-200 hover:shadow-lg">
+                            <i class="fas fa-bars text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 第二排：搜索和其他功能 -->
+                <div class="flex items-center px-4 pb-4">
+                    <!-- 搜索框 -->
+                    <div class="relative flex-grow mr-4">
+                        <input type="text" placeholder="搜索客户..." class="bg-gray-100 text-gray-800 rounded-lg pl-10 pr-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-500"></i>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex items-center space-x-2">
+                        <!-- 导出按钮 -->
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap">
+                            <i class="fas fa-download mr-1"></i> 导出
+                        </button>
+                        
+                        <!-- 筛选按钮 -->
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center text-sm transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap">
+                            <i class="fas fa-filter mr-1"></i> 筛选
+                        </button>
+                        
+                        <!-- 更多操作按钮 -->
+                        <div class="relative">
+                            <button id="more-actions-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm transition-all duration-200 shadow-sm hover:shadow-md">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            
+                            <!-- 更多操作下拉菜单 -->
+                            <div id="more-actions-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 hidden">
+                                <div class="py-1">
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">添加客户</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">批量操作</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">设置</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- 筛选条件（移动端优化） -->
+            <div class="p-4 border-b border-gray-200 bg-white bg-opacity-50">
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-600 mr-2 flex-shrink-0">筛选:</span>
+                    <div class="filter-container flex items-center space-x-2 overflow-x-auto flex-grow">
+                        <span class="filter-badge bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            近30天 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            高净值 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            >100万 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            活跃 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            保守型 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <span class="filter-badge bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            新客户 <i class="fas fa-times ml-1 cursor-pointer"></i>
+                        </span>
+                        <button class="text-blue-600 hover:text-blue-800 text-sm flex items-center flex-shrink-0">
+                            <i class="fas fa-plus mr-1"></i> 添加
+                        </button>
+                        <button id="more-filters-btn" class="more-filters-btn bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center flex-shrink-0">
+                            <i class="fas fa-ellipsis-h mr-1"></i> 更多
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 更多筛选下拉菜单 -->
+                <div id="more-filters-dropdown" class="more-filters-dropdown">
+                    <div class="filter-item">按地区筛选</div>
+                    <div class="filter-item">按产品类型</div>
+                    <div class="filter-item">按客户经理</div>
+                    <div class="filter-item">按开户时间</div>
+                    <div class="filter-item">清除所有筛选</div>
+                </div>
+            </div>
+            
+            <!-- 主要内容 -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- 关键指标卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 mobile-grid-2" style="grid-template-columns: repeat(2, minmax(0, 1fr)) !important;">
+                    <div class="glass-card metric-card p-5 cursor-pointer active">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">总客户数</p>
+                                <h3 class="text-2xl font-bold mt-1 text-gray-800">12,458</h3>
+                                <p class="text-green-600 text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 5.2% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-full">
+                                <i class="fas fa-users text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card p-5 cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">总资产规模</p>
+                                <h3 class="text-2xl font-bold mt-1 text-gray-800">¥48.6亿</h3>
+                                <p class="text-green-600 text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 3.8% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-full">
+                                <i class="fas fa-wallet text-green-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card p-5 cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">月活跃客户</p>
+                                <h3 class="text-2xl font-bold mt-1 text-gray-800">8,732</h3>
+                                <p class="text-red-600 text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-down mr-1"></i> 2.1% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-purple-100 p-3 rounded-full">
+                                <i class="fas fa-user-check text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card metric-card p-5 cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm">平均资产</p>
+                                <h3 class="text-2xl font-bold mt-1 text-gray-800">¥39.0万</h3>
+                                <p class="text-green-600 text-sm mt-2 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 1.5% 较上月
+                                </p>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded-full">
+                                <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div class="grid grid-cols-1 lg:grid-cols-1 gap-4 mb-6" style="grid-template-columns: 1fr !important;">
+                    <!-- 客户增长趋势 -->
+                    <div class="glass-card p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold">客户增长趋势</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300 text-gray-700">日</button>
+                                <button class="px-3 py-1 bg-blue-200 rounded text-sm text-blue-800">周</button>
+                                <button class="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300 text-gray-700">月</button>
+                            </div>
+                        </div>
+                        <div id="customerGrowthChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 客户分布 -->
+                    <div class="glass-card p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold">客户分布</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-blue-200 rounded text-sm text-blue-800 client-filter-btn active" data-filter="asset">按资产规模</button>
+                                <button class="px-3 py-1 bg-gray-200 rounded text-sm text-gray-700 client-filter-btn" data-filter="age">按年龄层次</button>
+                                <button class="px-3 py-1 bg-gray-200 rounded text-sm text-gray-700 client-filter-btn" data-filter="activity">按交易活跃度</button>
+                            </div>
+                        </div>
+                        <div id="assetDistributionChart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <!-- 详细数据表格 -->
+                <div class="glass-card p-5 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">客户详细数据</h3>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">
+                                <i class="fas fa-sort-amount-down mr-1"></i> 排序
+                            </button>
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">
+                                <i class="fas fa-columns mr-1"></i> 列设置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 text-gray-700">客户ID</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">姓名</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">资产规模</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">风险等级</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">交易频率</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">最近交易</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">状态</th>
+                                    <th class="text-left py-3 px-4 text-gray-700">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-row border-b border-gray-200">
+                                    <td class="py-3 px-4 text-gray-700">C10001</td>
+                                    <td class="py-3 px-4 text-gray-700">李明</td>
+                                    <td class="py-3 px-4 text-gray-700">¥2,450,000</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">保守型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-green-500 h-2 rounded-full" style="width: 30%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-700">2023-10-15</td>
+                                    <td class="py-3 px-4 text-gray-700">
+                                        <span class="status-indicator status-active"></span>活跃
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-gray-200">
+                                    <td class="py-3 px-4 text-gray-700">C10002</td>
+                                    <td class="py-3 px-4 text-gray-700">王芳</td>
+                                    <td class="py-3 px-4 text-gray-700">¥5,120,000</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">稳健型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-700">2023-10-18</td>
+                                    <td class="py-3 px-4 text-gray-700">
+                                        <span class="status-indicator status-active"></span>活跃
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-gray-200">
+                                    <td class="py-3 px-4 text-gray-700">C10003</td>
+                                    <td class="py-3 px-4 text-gray-700">张伟</td>
+                                    <td class="py-3 px-4 text-gray-700">¥1,850,000</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">激进型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-red-500 h-2 rounded-full" style="width: 85%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-700">2023-10-12</td>
+                                    <td class="py-3 px-4 text-gray-700">
+                                        <span class="status-indicator status-warning"></span>一般
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row border-b border-gray-200">
+                                    <td class="py-3 px-4 text-gray-700">C10004</td>
+                                    <td class="py-3 px-4 text-gray-700">刘洋</td>
+                                    <td class="py-3 px-4 text-gray-700">¥8,750,000</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">平衡型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-500 h-2 rounded-full" style="width: 50%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-700">2023-10-20</td>
+                                    <td class="py-3 px-4 text-gray-700">
+                                        <span class="status-indicator status-active"></span>活跃
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="py-3 px-4 text-gray-700">C10005</td>
+                                    <td class="py-3 px-4 text-gray-700">陈静</td>
+                                    <td class="py-3 px-4 text-gray-700">¥3,200,000</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">保守型</span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-green-500 h-2 rounded-full" style="width: 25%"></div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-700">2023-10-08</td>
+                                    <td class="py-3 px-4 text-gray-700">
+                                        <span class="status-indicator status-danger"></span>不活跃
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mt-4">
+                        <p class="text-sm text-gray-600">显示 1-5 条，共 12,458 条记录</p>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">上一页</button>
+                            <button class="px-3 py-1 bg-blue-200 rounded text-sm text-blue-800">1</button>
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">2</button>
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">3</button>
+                            <button class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm text-gray-700">下一页</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 底部图表 -->
+                <div class="grid grid-cols-1 lg:grid-cols-1 gap-4 mb-6" style="grid-template-columns: 1fr !important;">
+                    <!-- 产品偏好 -->
+                    <div class="glass-card p-5">
+                        <h3 class="text-lg font-semibold mb-4">产品偏好分析</h3>
+                        <div id="productPreferenceChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 渠道来源 -->
+                    <div class="glass-card p-5">
+                        <h3 class="text-lg font-semibold mb-4">客户渠道来源</h3>
+                        <div id="channelSourceChart" class="chart-container"></div>
+                    </div>
+                    
+                    <!-- 风险分布 -->
+                    <div class="glass-card p-5">
+                        <h3 class="text-lg font-semibold mb-4">风险等级分布</h3>
+                        <div id="riskDistributionChart" class="chart-container"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // 初始化图表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 客户增长趋势图
+            const customerGrowthChart = echarts.init(document.getElementById('customerGrowthChart'));
+            const customerGrowthOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    borderColor: '#334155',
+                    textStyle: {
+                        color: '#e2e8f0'
+                    }
+                },
+                legend: {
+                    data: ['新增客户', '活跃客户'],
+                    textStyle: {
+                        color: '#e2e8f0'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#334155'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '新增客户',
+                        type: 'line',
+                        smooth: true,
+                        data: [120, 132, 101, 134, 90, 230, 210, 182, 191, 234],
+                        itemStyle: {
+                            color: '#3b82f6'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(59, 130, 246, 0.5)' },
+                                { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '活跃客户',
+                        type: 'line',
+                        smooth: true,
+                        data: [220, 182, 191, 234, 290, 330, 310, 282, 291, 334],
+                        itemStyle: {
+                            color: '#10b981'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(16, 185, 129, 0.5)' },
+                                { offset: 1, color: 'rgba(16, 185, 129, 0.1)' }
+                            ])
+                        }
+                    }
+                ]
+            };
+            customerGrowthChart.setOption(customerGrowthOption);
+            
+            // 客户分布图
+            const assetDistributionChart = echarts.init(document.getElementById('assetDistributionChart'));
+            
+            // 定义三种筛选模式的数据
+            const clientDistributionData = {
+                asset: {
+                    title: '按资产规模分布',
+                    data: [
+                        {
+                            value: 1048,
+                            name: '0-10万',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#3b82f6' },
+                                    { offset: 1, color: '#1e3a8a' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 735,
+                            name: '10-50万',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#10b981' },
+                                    { offset: 1, color: '#047857' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 580,
+                            name: '50-100万',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#f59e0b' },
+                                    { offset: 1, color: '#d97706' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 484,
+                            name: '100-500万',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#ef4444' },
+                                    { offset: 1, color: '#dc2626' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 300,
+                            name: '500万以上',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#8b5cf6' },
+                                    { offset: 1, color: '#7c3aed' }
+                                ])
+                            }
+                        }
+                    ]
+                },
+                age: {
+                    title: '按年龄层次分布',
+                    data: [
+                        {
+                            value: 850,
+                            name: '18-25岁',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#0ea5e9' },
+                                    { offset: 1, color: '#0284c7' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 1200,
+                            name: '26-35岁',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#6366f1' },
+                                    { offset: 1, color: '#4f46e5' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 980,
+                            name: '36-45岁',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#f97316' },
+                                    { offset: 1, color: '#ea580c' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 750,
+                            name: '46-55岁',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#ec4899' },
+                                    { offset: 1, color: '#db2777' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 367,
+                            name: '55岁以上',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#14b8a6' },
+                                    { offset: 1, color: '#0d9488' }
+                                ])
+                            }
+                        }
+                    ]
+                },
+                activity: {
+                    title: '按交易活跃度分布',
+                    data: [
+                        {
+                            value: 620,
+                            name: '高频交易',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#ef4444' },
+                                    { offset: 1, color: '#dc2626' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 1350,
+                            name: '中频交易',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#f59e0b' },
+                                    { offset: 1, color: '#d97706' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 980,
+                            name: '低频交易',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#10b981' },
+                                    { offset: 1, color: '#059669' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 750,
+                            name: '偶尔交易',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#3b82f6' },
+                                    { offset: 1, color: '#1d4ed8' }
+                                ])
+                            }
+                        },
+                        {
+                            value: 597,
+                            name: '长期持有',
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#6b7280' },
+                                    { offset: 1, color: '#4b5563' }
+                                ])
+                            }
+                        }
+                    ]
+                }
+            };
+            
+            // 更新图表函数
+            function updateClientDistributionChart(filterType) {
+                const data = clientDistributionData[filterType];
+                
+                const option = {
+                    title: {
+                        text: data.title,
+                        left: 'center',
+                        top: '5%',
+                        textStyle: {
+                            color: '#334155',
+                            fontSize: 14,
+                            fontWeight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: '{a} <br/>{b}: {c} ({d}%)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        borderColor: '#334155',
+                        textStyle: {
+                            color: '#e2e8f0',
+                            fontSize: 14
+                        }
+                    },
+                    legend: {
+                        orient: 'vertical',
+                        left: 'left',
+                        top: 'center',
+                        textStyle: {
+                            color: '#334155',
+                            fontSize: 12
+                        },
+                        itemWidth: 12,
+                        itemHeight: 12,
+                        itemGap: 15
+                    },
+                    series: [
+                        {
+                            name: '客户分布',
+                            type: 'pie',
+                            radius: ['45%', '80%'],
+                            center: ['60%', '50%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: {
+                                borderRadius: 0,
+                                borderColor: '#fff',
+                                borderWidth: 2,
+                                shadowBlur: 10,
+                                shadowColor: 'rgba(0, 0, 0, 0.2)'
+                            },
+                            label: {
+                                show: false,
+                                position: 'center',
+                                formatter: '{b}\n{d}%',
+                                fontSize: 16,
+                                fontWeight: 'bold',
+                                color: '#1e293b'
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    fontSize: 18,
+                                    fontWeight: 'bold',
+                                    color: '#1e293b'
+                                },
+                                itemStyle: {
+                                    shadowBlur: 20,
+                                    shadowColor: 'rgba(0, 0, 0, 0.3)'
+                                }
+                            },
+                            labelLine: {
+                                show: false
+                            },
+                            data: data.data
+                        }
+                    ]
+                };
+                
+                assetDistributionChart.setOption(option);
+            }
+            
+            // 初始化图表
+            updateClientDistributionChart('asset');
+            
+            // 绑定筛选按钮事件
+            document.querySelectorAll('.client-filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有按钮的激活状态
+                    document.querySelectorAll('.client-filter-btn').forEach(b => {
+                        b.classList.remove('bg-blue-200', 'text-blue-800');
+                        b.classList.add('bg-gray-200', 'text-gray-700');
+                    });
+                    
+                    // 激活当前按钮
+                    this.classList.remove('bg-gray-200', 'text-gray-700');
+                    this.classList.add('bg-blue-200', 'text-blue-800');
+                    
+                    // 更新图表
+                    const filterType = this.getAttribute('data-filter');
+                    updateClientDistributionChart(filterType);
+                });
+            });
+            
+            // 产品偏好图
+            const productPreferenceChart = echarts.init(document.getElementById('productPreferenceChart'));
+            const productPreferenceOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    borderColor: '#334155',
+                    textStyle: {
+                        color: '#e2e8f0'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#334155'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: ['股票', '基金', '债券', '理财', '期货', '外汇'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    }
+                },
+                series: [
+                    {
+                        name: '客户数量',
+                        type: 'bar',
+                        data: [320, 302, 341, 374, 290, 220],
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                { offset: 0, color: '#3b82f6' },
+                                { offset: 1, color: '#1e3a8a' }
+                            ])
+                        }
+                    }
+                ]
+            };
+            productPreferenceChart.setOption(productPreferenceOption);
+            
+            // 渠道来源图
+            const channelSourceChart = echarts.init(document.getElementById('channelSourceChart'));
+            const channelSourceOption = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    borderColor: '#334155',
+                    textStyle: {
+                        color: '#e2e8f0',
+                        fontSize: 14
+                    }
+                },
+                legend: {
+                    top: '5%',
+                    left: 'center',
+                    textStyle: {
+                        color: '#334155',
+                        fontSize: 12
+                    },
+                    itemWidth: 12,
+                    itemHeight: 12,
+                    itemGap: 10
+                },
+                series: [
+                    {
+                        name: '渠道来源',
+                        type: 'pie',
+                        radius: ['50%', '85%'],
+                        center: ['50%', '55%'],
+                        avoidLabelOverlap: false,
+                        roseType: 'radius',
+                        itemStyle: {
+                            borderRadius: 0,
+                            borderColor: '#fff',
+                            borderWidth: 2,
+                            shadowBlur: 10,
+                            shadowColor: 'rgba(0, 0, 0, 0.15)'
+                        },
+                        label: {
+                            show: false,
+                            position: 'outside',
+                            formatter: '{b}: {d}%',
+                            fontSize: 12,
+                            color: '#334155'
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                color: '#1e293b'
+                            },
+                            itemStyle: {
+                                shadowBlur: 20,
+                                shadowColor: 'rgba(0, 0, 0, 0.25)'
+                            }
+                        },
+                        labelLine: {
+                            show: false,
+                            length: 5,
+                            length2: 5
+                        },
+                        data: [
+                            {
+                                value: 1048,
+                                name: '线上开户',
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                        { offset: 0, color: '#3b82f6' },
+                                        { offset: 1, color: '#1d4ed8' }
+                                    ])
+                                }
+                            },
+                            {
+                                value: 735,
+                                name: '线下网点',
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                        { offset: 0, color: '#10b981' },
+                                        { offset: 1, color: '#059669' }
+                                    ])
+                                }
+                            },
+                            {
+                                value: 580,
+                                name: '推荐介绍',
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                        { offset: 0, color: '#f59e0b' },
+                                        { offset: 1, color: '#d97706' }
+                                    ])
+                                }
+                            },
+                            {
+                                value: 484,
+                                name: '活动营销',
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                        { offset: 0, color: '#ef4444' },
+                                        { offset: 1, color: '#dc2626' }
+                                    ])
+                                }
+                            },
+                            {
+                                value: 300,
+                                name: '其他',
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                        { offset: 0, color: '#8b5cf6' },
+                                        { offset: 1, color: '#7c3aed' }
+                                    ])
+                                }
+                            }
+                        ]
+                    }
+                ]
+            };
+            channelSourceChart.setOption(channelSourceOption);
+            
+            // 风险分布图
+            const riskDistributionChart = echarts.init(document.getElementById('riskDistributionChart'));
+            const riskDistributionOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    borderColor: '#334155',
+                    textStyle: {
+                        color: '#e2e8f0'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['保守型', '稳健型', '平衡型', '成长型', '激进型'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#475569'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#94a3b8'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#334155'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '客户数量',
+                        type: 'bar',
+                        data: [2300, 3800, 2900, 1800, 1658],
+                        itemStyle: {
+                            color: function(params) {
+                                const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
+                                return colors[params.dataIndex];
+                            }
+                        }
+                    }
+                ]
+            };
+            riskDistributionChart.setOption(riskDistributionOption);
+            
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                customerGrowthChart.resize();
+                assetDistributionChart.resize();
+                productPreferenceChart.resize();
+                channelSourceChart.resize();
+                riskDistributionChart.resize();
+            });
+            
+            // 移动端侧边栏控制
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const closeSidebar = document.getElementById('close-sidebar');
+            
+            // 打开侧边栏
+            menuToggle.addEventListener('click', function() {
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            // 关闭侧边栏
+            function closeSidebarMenu() {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            
+            closeSidebar.addEventListener('click', closeSidebarMenu);
+            overlay.addEventListener('click', closeSidebarMenu);
+            
+            // 点击侧边栏链接后自动关闭（移动端）
+            document.querySelectorAll('#sidebar a').forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 1024) {
+                        closeSidebarMenu();
+                    }
+                });
+            });
+            
+            // 窗口大小改变时处理
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 1024) {
+                    closeSidebarMenu();
+                }
+                
+                // 重新调整图表大小
+                customerGrowthChart.resize();
+                assetDistributionChart.resize();
+                productPreferenceChart.resize();
+                channelSourceChart.resize();
+                riskDistributionChart.resize();
+            });
+            
+            // 移动端交互优化
+            // 搜索按钮点击事件
+            document.querySelector('.md\\:hidden .fa-search').parentElement.addEventListener('click', function() {
+                const mobileSearch = document.getElementById('mobile-search');
+                mobileSearch.classList.toggle('hidden');
+            });
+            
+            // 更多操作下拉菜单
+            const moreActionsBtn = document.getElementById('more-actions-btn');
+            const moreActionsDropdown = document.getElementById('more-actions-dropdown');
+            
+            moreActionsBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                moreActionsDropdown.classList.toggle('hidden');
+            });
+            
+            // 更多筛选下拉菜单
+            const moreFiltersBtn = document.getElementById('more-filters-btn');
+            const moreFiltersDropdown = document.getElementById('more-filters-dropdown');
+            
+            moreFiltersBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                moreFiltersDropdown.classList.toggle('active');
+            });
+            
+            // 点击其他地方关闭下拉菜单
+            document.addEventListener('click', function() {
+                moreActionsDropdown.classList.add('hidden');
+                moreFiltersDropdown.classList.remove('active');
+            });
+            
+            // 菜单按钮切换功能
+            let isMenuOpen = false;
+            
+            menuToggle.addEventListener('click', function() {
+                isMenuOpen = !isMenuOpen;
+                if (isMenuOpen) {
+                    sidebar.classList.add('open');
+                    overlay.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1325 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分支机构展业统计-领导驾驶舱</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --line: #e5ebf3;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --blue: #2563eb;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --green: #10b981;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .page {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field {
+      height: 42px;
+      border: 1px solid #e3e9f4;
+      border-radius: 8px;
+      background: #f8faff;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+    }
+
+    .field label {
+      min-width: 72px;
+      color: #334155;
+      font-size: 15px;
+    }
+
+    .field input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .btn {
+      height: 42px;
+      min-width: 104px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn.ghost {
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 12px 0 10px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .status-row.error { color: var(--red); }
+
+    .refresh-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #d8e2f1;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .raw-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .insight-bar {
+      border: 1px solid #dbe7ff;
+      background: linear-gradient(90deg, #eff5ff 0%, #f7fbff 100%);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 0 0 12px;
+      color: #1e3a8a;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .kpi-card {
+      border: 1px solid #e6edf7;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 12px;
+      min-height: 92px;
+    }
+
+    .kpi-label {
+      color: #64748b;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .kpi-sub {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      color: #0f172a;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .chart-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .chart-head {
+      padding: 10px 12px;
+      border-bottom: 1px dashed #e6edf7;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .chart-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .chart-note {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .bar-list {
+      padding: 10px;
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .bar-item {
+      display: grid;
+      grid-template-columns: minmax(150px, 190px) 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid #e7edf8;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+
+    .bar-name {
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #e7edf7;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      min-width: 2px;
+    }
+
+    .bar-fill.blue { background: linear-gradient(90deg, #2563eb, #3b82f6); }
+    .bar-fill.orange { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .bar-fill.red { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+    .bar-meta {
+      min-width: 360px;
+      text-align: right;
+      color: #334155;
+      font-size: 12px;
+      white-space: normal;
+      line-height: 1.35;
+    }
+
+    .bar-meta-main {
+      color: #334155;
+    }
+
+    .bar-meta-owner {
+      color: #0f172a;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .owner-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0 6px;
+      margin-left: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      vertical-align: middle;
+      line-height: 1.5;
+    }
+
+    .owner-tag.core {
+      color: #047857;
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+
+    .owner-tag.watch {
+      color: #b45309;
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+
+    .owner-tag.risk {
+      color: #b91c1c;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .owner-tag.none {
+      color: #475569;
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .table-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .table-head {
+      padding: 10px 12px;
+      border-bottom: 1px dashed #e6edf7;
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 320px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid #edf2f8;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f6f8fc;
+      color: #0f172a;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .empty {
+      text-align: center;
+      color: #94a3b8;
+      padding: 36px 0;
+      font-size: 14px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: #64748b;
+      font-size: 12px;
+      margin: 4px 10px 10px;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    .status-pie-layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) 1fr;
+      gap: 12px;
+      align-items: center;
+      min-height: 300px;
+      padding: 10px 6px;
+    }
+
+    .status-donut {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      margin: 0 auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .status-donut::after {
+      content: "";
+      width: 124px;
+      height: 124px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: inset 0 0 0 1px #e7edf7;
+    }
+
+    .status-donut-center {
+      position: absolute;
+      text-align: center;
+      z-index: 1;
+      line-height: 1.25;
+    }
+
+    .status-donut-center .t1 {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .status-donut-center .t2 {
+      color: #0f172a;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .status-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .status-item {
+      border: 1px solid #e7edf7;
+      border-radius: 9px;
+      background: #fbfdff;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .status-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-right {
+      color: #334155;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1260px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar > :nth-child(3) { display: none; }
+      .kpi-grid { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
+      .raw-grid { grid-template-columns: 1fr; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 8px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+      .kpi-value { font-size: 26px; }
+      .bar-item { grid-template-columns: 1fr; gap: 6px; }
+      .bar-meta { text-align: left; min-width: 0; }
+      .status-pie-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="field">
+          <label for="startDate">开始日期:</label>
+          <input id="startDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="endDate">结束日期:</label>
+          <input id="endDate" type="date" />
+        </div>
+        <div></div>
+        <button id="btnSearch" class="btn primary">查询</button>
+        <button id="btnReset" class="btn ghost">重置</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div id="statusRow" class="status-row">
+        <div id="statusText">等待查询</div>
+        <button id="btnRefresh" class="refresh-btn" title="刷新">↻</button>
+      </div>
+
+      <section id="kpiGrid" class="kpi-grid"></section>
+      <section id="insightText" class="insight-bar">正在生成管理结论...</section>
+
+      <section class="compare-grid">
+        <article class="chart-card">
+          <div class="chart-head">
+            <h3 class="chart-title">机构规模与主力贡献</h3>
+            <span class="chart-note">机构总量 + 机构规模占比 + 主力负责人贡献占比</span>
+          </div>
+          <div id="orgTopList" class="bar-list"></div>
+          <div class="legend">
+            <span><i style="background:#2563eb"></i>正常（完成率≥60%且无超期）</span>
+            <span><i style="background:#f59e0b"></i>完成率低</span>
+            <span><i style="background:#ef4444"></i>有超期</span>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-head">
+            <h3 class="chart-title">展业状态分布</h3>
+            <span class="chart-note">整体状态占比（已完成 / 推进中 / 跟进中 / 超期未跟进）</span>
+          </div>
+          <div id="statusPieChart" class="bar-list"></div>
+          <div class="legend">
+            <span><i style="background:#10b981"></i>已完成</span>
+            <span><i style="background:#2563eb"></i>推进中</span>
+            <span><i style="background:#f59e0b"></i>跟进中</span>
+            <span><i style="background:#ef4444"></i>超期未跟进</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="raw-grid">
+        <article class="table-card">
+          <div class="table-head">机构数据明细</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>机构</th>
+                  <th>展业量</th>
+                  <th>已完成</th>
+                  <th>完成率</th>
+                  <th>超期数</th>
+                  <th>建议动作</th>
+                </tr>
+              </thead>
+              <tbody id="orgDataBody"></tbody>
+            </table>
+          </div>
+        </article>
+        <article class="table-card">
+          <div class="table-head">负责人数据明细</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>负责人</th>
+                  <th>所属机构</th>
+                  <th>展业量</th>
+                  <th>已完成</th>
+                  <th>完成率</th>
+                  <th>超期数</th>
+                  <th>建议动作</th>
+                </tr>
+              </thead>
+              <tbody id="ownerDataBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <script src="./common/api.js"></script>
+  <script>
+    (function () {
+      const API_ENDPOINT = "/UIProcessor";
+      const TOP_N = 10;
+
+      const state = {
+        orgRows: [],
+        ownerRows: [],
+        loading: false
+      };
+
+      const el = {
+        startDate: document.getElementById("startDate"),
+        endDate: document.getElementById("endDate"),
+        btnSearch: document.getElementById("btnSearch"),
+        btnReset: document.getElementById("btnReset"),
+        btnRefresh: document.getElementById("btnRefresh"),
+        statusRow: document.getElementById("statusRow"),
+        statusText: document.getElementById("statusText"),
+        kpiGrid: document.getElementById("kpiGrid"),
+        insightText: document.getElementById("insightText"),
+        orgDataBody: document.getElementById("orgDataBody"),
+        ownerDataBody: document.getElementById("ownerDataBody"),
+        orgTopList: document.getElementById("orgTopList"),
+        statusPieChart: document.getElementById("statusPieChart")
+      };
+
+      function esc(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function setStatus(text, isError) {
+        el.statusText.textContent = text;
+        el.statusRow.className = isError ? "status-row error" : "status-row";
+      }
+
+      function todayText() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + day;
+      }
+
+      function toNumber(v) {
+        if (typeof v === "number") {
+          return Number.isFinite(v) ? v : 0;
+        }
+        if (v === null || v === undefined || v === "") {
+          return 0;
+        }
+        const n = parseFloat(String(v).replace(/,/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function fmtNum(v) {
+        return String(Math.round(toNumber(v) * 100) / 100);
+      }
+
+      function fmtPct(v) {
+        return (Math.max(0, toNumber(v)) * 100).toFixed(2) + "%";
+      }
+
+      function readValue(v) {
+        if (v === null || v === undefined) {
+          return "";
+        }
+        if (typeof v === "object") {
+          return String(v.text || v.value || "");
+        }
+        return String(v);
+      }
+
+      function sanitizeJsonText(text) {
+        if (!text) {
+          return "";
+        }
+        return String(text)
+          .replace(/^\uFEFF/, "")
+          .replace(/^\)\]\}',?\s*/, "")
+          .trim();
+      }
+
+      function findBracketEnd(text, start, openChar, closeChar) {
+        let depth = 0;
+        let inStr = false;
+        let strChar = "";
+        let escaped = false;
+        for (let i = start; i < text.length; i += 1) {
+          const ch = text[i];
+          if (inStr) {
+            if (escaped) {
+              escaped = false;
+              continue;
+            }
+            if (ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (ch === strChar) {
+              inStr = false;
+              strChar = "";
+            }
+            continue;
+          }
+          if (ch === "\"" || ch === "'") {
+            inStr = true;
+            strChar = ch;
+            continue;
+          }
+          if (ch === openChar) {
+            depth += 1;
+          } else if (ch === closeChar) {
+            depth -= 1;
+            if (depth === 0) {
+              return i;
+            }
+          }
+        }
+        return -1;
+      }
+      function tryParseJson(text) {
+        try {
+          const parsed = JSON.parse(sanitizeJsonText(text));
+          if (typeof parsed === "string") {
+            return JSON.parse(sanitizeJsonText(parsed));
+          }
+          return parsed;
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function extractFirstJsonObject(text) {
+        const start = text.indexOf("{");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "{", "}");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractFirstJsonArray(text) {
+        const start = text.indexOf("[");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractModelDataPair(text) {
+        const src = String(text || "");
+        const modelKeyIdx = src.indexOf("\"model\"");
+        if (modelKeyIdx < 0) {
+          return null;
+        }
+
+        const modelColon = src.indexOf(":", modelKeyIdx);
+        if (modelColon < 0) {
+          return null;
+        }
+        const modelStart = src.indexOf("{", modelColon);
+        if (modelStart < 0) {
+          return null;
+        }
+        const modelEnd = findBracketEnd(src, modelStart, "{", "}");
+        if (modelEnd < 0) {
+          return null;
+        }
+        const modelObj = tryParseJson(src.slice(modelStart, modelEnd + 1));
+        if (!modelObj || typeof modelObj !== "object") {
+          return null;
+        }
+
+        const dataTokenRegex = /\"data\"\s*:\s*\[/g;
+        dataTokenRegex.lastIndex = modelEnd;
+        const dataMatch = dataTokenRegex.exec(src);
+        if (!dataMatch) {
+          return null;
+        }
+        const dataStart = src.indexOf("[", dataMatch.index);
+        if (dataStart < 0) {
+          return null;
+        }
+        const dataEnd = findBracketEnd(src, dataStart, "[", "]");
+        if (dataEnd < 0) {
+          return null;
+        }
+
+        const dataArr = tryParseJson(src.slice(dataStart, dataEnd + 1));
+        if (!Array.isArray(dataArr)) {
+          return null;
+        }
+
+        return { model: modelObj, data: dataArr };
+      }
+
+      function parseInitPropsHtml(htmlText) {
+        const marker = /(var|let|const)\s+initProps\s*=/;
+        const m = marker.exec(htmlText || "");
+        if (!m) {
+          return null;
+        }
+
+        const eq = htmlText.indexOf("=", m.index);
+        const start = htmlText.indexOf("[", eq);
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(htmlText, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+
+        const arr = tryParseJson(htmlText.slice(start, end + 1));
+        if (Array.isArray(arr)) {
+          return arr[0] || null;
+        }
+        return arr || null;
+      }
+
+      function parsePayload(rawText, contentType) {
+        const safe = sanitizeJsonText(rawText);
+        const direct = tryParseJson(safe);
+        if (direct) {
+          return Array.isArray(direct) ? direct[0] : direct;
+        }
+
+        const trimmed = String(safe || "").trim();
+        const lParen = trimmed.indexOf("(");
+        const rParen = trimmed.lastIndexOf(")");
+        if (lParen >= 0 && rParen > lParen) {
+          const inner = trimmed.slice(lParen + 1, rParen).trim();
+          const callback = tryParseJson(inner) || extractFirstJsonObject(inner) || extractFirstJsonArray(inner);
+          if (callback) {
+            return Array.isArray(callback) ? callback[0] : callback;
+          }
+        }
+
+        const modelData = extractModelDataPair(rawText);
+        if (modelData) {
+          return modelData;
+        }
+
+        const isHtml = /<html[\s>]/i.test(rawText || "") || (contentType || "").includes("text/html");
+        if (isHtml) {
+          const fromInitProps = parseInitPropsHtml(rawText);
+          if (fromInitProps) {
+            return fromInitProps;
+          }
+        }
+
+        return extractFirstJsonObject(rawText) || extractFirstJsonArray(rawText) || null;
+      }
+
+      function findGridElement(node) {
+        if (!node) {
+          return null;
+        }
+        if (Array.isArray(node)) {
+          for (let i = 0; i < node.length; i += 1) {
+            const hit = findGridElement(node[i]);
+            if (hit) {
+              return hit;
+            }
+          }
+          return null;
+        }
+
+        if (typeof node === "object") {
+          if (node.model && Array.isArray(node.data)) {
+            return { model: node.model, data: node.data };
+          }
+          if (node.model && node.data && Array.isArray(node.data.items)) {
+            return { model: node.model, data: node.data.items };
+          }
+          if (Array.isArray(node.fields) && Array.isArray(node.data)) {
+            return { model: { fields: node.fields }, data: node.data };
+          }
+          if (node.model && Array.isArray(node.rows)) {
+            return { model: node.model, data: node.rows };
+          }
+
+          const keys = Object.keys(node);
+          for (let i = 0; i < keys.length; i += 1) {
+            const hit = findGridElement(node[keys[i]]);
+            if (hit) {
+              return hit;
+            }
+          }
+        }
+        return null;
+      }
+
+      function fieldNameByLabel(fields, keyword, fallback) {
+        const f = (fields || []).find((it) => it && it.label && String(it.label).indexOf(keyword) >= 0);
+        return (f && f.name) || fallback || "";
+      }
+
+      function normalizeOrg(payload) {
+        const roots = [payload, payload && payload.result, payload && payload.data, payload && payload.response, payload && payload.page, payload && payload.body];
+        let grid = null;
+        for (let i = 0; i < roots.length; i += 1) {
+          grid = findGridElement(roots[i]);
+          if (grid) {
+            break;
+          }
+        }
+        if (!grid) {
+          throw new Error("机构接口未找到 grid 结构");
+        }
+
+        const rows = Array.isArray(grid.data) ? grid.data : [];
+        state.orgRows = rows.map((item, idx) => ({
+          id: String(item.ID || idx + 1),
+          name: readValue(item.F1),
+          total: toNumber(readValue(item.F2)),
+          done: toNumber(readValue(item.F3)),
+          progress: toNumber(readValue(item.F4)),
+          follow: toNumber(readValue(item.F5)),
+          rate: toNumber(readValue(item.F6)),
+          overdue: toNumber(readValue(item.F9))
+        }));
+      }
+
+      function normalizeOwner(payload) {
+        const roots = [payload, payload && payload.result, payload && payload.data, payload && payload.response, payload && payload.page, payload && payload.body];
+        let grid = null;
+        for (let i = 0; i < roots.length; i += 1) {
+          grid = findGridElement(roots[i]);
+          if (grid) {
+            break;
+          }
+        }
+        if (!grid) {
+          throw new Error("负责人接口未找到 grid 结构");
+        }
+
+        const fields = Array.isArray(grid.model && grid.model.fields) ? grid.model.fields : [];
+        const rows = Array.isArray(grid.data) ? grid.data : [];
+
+        const nameKey = fieldNameByLabel(fields, "负责人", "F1");
+        const totalKey = fieldNameByLabel(fields, "展业总数", "F2");
+        const doneKey = fieldNameByLabel(fields, "已完成", "F3");
+        const progressKey = fieldNameByLabel(fields, "推进中", "F4");
+        const followKey = fieldNameByLabel(fields, "跟进中", "F5");
+        const rateKey = fieldNameByLabel(fields, "完成率", "F8");
+        const overdueKey = fieldNameByLabel(fields, "超7天未跟进", "F10");
+        const preferredOrgKey =
+          fieldNameByLabel(fields, "负责人所属机构", "") ||
+          fieldNameByLabel(fields, "所属机构", "");
+        const orgField = fields.find((f) => {
+          const label = String((f && f.label) || "");
+          return (
+            f &&
+            f.name &&
+            f.name !== nameKey &&
+            /机构/.test(label) &&
+            !/总数|完成率|周期|超|企业数|新增|推进|跟进|已完成/.test(label)
+          );
+        });
+        const orgKey = preferredOrgKey || (orgField ? orgField.name : "");
+
+        state.ownerRows = rows.map((item, idx) => ({
+          id: String(item.ID || idx + 1),
+          name: readValue(item[nameKey || "F1"]),
+          orgName: readValue(orgKey ? item[orgKey] : ""),
+          total: toNumber(readValue(item[totalKey || "F2"])),
+          done: toNumber(readValue(item[doneKey || "F3"])),
+          progress: toNumber(readValue(item[progressKey || "F4"])),
+          follow: toNumber(readValue(item[followKey || "F5"])),
+          rate: toNumber(readValue(item[rateKey || "F8"])),
+          overdue: toNumber(readValue(item[overdueKey || "F10"]))
+        }));
+      }
+
+      function buildRequestUrl(table) {
+        return window.PageApi.buildUIProcessorUrl(
+          {
+            Table: table,
+            P1: el.startDate.value,
+            P3: el.endDate.value,
+            ParamAction: "true"
+          },
+          API_ENDPOINT
+        );
+      }
+
+      async function fetchOne(table) {
+        const url = buildRequestUrl(table);
+        const resp = await window.PageApi.requestText(url, { timeoutMs: 20000 });
+        const payload = parsePayload(resp.text, resp.contentType);
+        if (!payload) {
+          throw new Error(table + " 接口解析失败");
+        }
+        return payload;
+      }
+
+      function riskClass(item) {
+        if (item.overdue > 0) {
+          return "red";
+        }
+        if (item.rate < 0.6) {
+          return "orange";
+        }
+        return "blue";
+      }
+
+      function buildKpi() {
+        const total = state.orgRows.reduce((s, x) => s + x.total, 0);
+        const done = state.orgRows.reduce((s, x) => s + x.done, 0);
+        const overdue = state.orgRows.reduce((s, x) => s + x.overdue, 0);
+        const avgRate = total > 0 ? done / total : 0;
+        return {
+          total,
+          orgCount: state.orgRows.length,
+          ownerCount: state.ownerRows.length,
+          avgRate,
+          overdue
+        };
+      }
+
+      function buildActionText(item, type) {
+        if (item.overdue > 0) {
+          return type === "org" ? "优先清理超期并周督办" : "立即处理超期任务";
+        }
+        if (item.rate < 0.6) {
+          return type === "org" ? "提升机构转化效率" : "加强过程转化辅导";
+        }
+        if ((item.progress + item.follow) > item.done) {
+          return "加快推进节奏";
+        }
+        return "保持当前节奏";
+      }
+
+      function buildInsightText(kpi) {
+        if (!state.orgRows.length) {
+          return "当前暂无可分析数据，请先执行查询。";
+        }
+        const topOrg = state.orgRows.slice().sort((a, b) => b.total - a.total)[0] || null;
+        const topShare = topOrg && kpi.total > 0 ? (topOrg.total / kpi.total) * 100 : 0;
+        if (kpi.overdue > 0) {
+          return "当前存在超期未跟进任务，建议优先督办高风险对象并压降超期。";
+        }
+        if (kpi.avgRate < 0.6) {
+          return "当前整体完成率偏低，需重点提升推进与转化效率。";
+        }
+        if (topShare >= 60) {
+          return "当前展业集中在少数机构，建议在保持主力产能的同时扩大机构覆盖。";
+        }
+        return "当前机构分布较均衡，整体推进可控，建议持续跟踪转化质量。";
+      }
+
+      function getOwnerTag(contribPct) {
+        if (contribPct >= 70) {
+          return { cls: "core", text: "⭐ 核心" };
+        }
+        if (contribPct >= 40) {
+          return { cls: "watch", text: "⚠ 关注" };
+        }
+        return { cls: "risk", text: "❗ 风险" };
+      }
+
+      function renderKpi(kpi) {
+        const cards = [
+          { label: "今日展业总量", sub: "当前查询周期", value: fmtNum(kpi.total) },
+          { label: "覆盖机构数", sub: "参与机构", value: fmtNum(kpi.orgCount) },
+          { label: "覆盖负责人", sub: "参与人员", value: fmtNum(kpi.ownerCount) },
+          { label: "平均完成率", sub: "整体达成水平", value: fmtPct(kpi.avgRate) },
+          { label: "超期未跟进", sub: "需立即关注", value: fmtNum(kpi.overdue) }
+        ];
+
+        el.kpiGrid.innerHTML = cards.map((it) => (
+          "<div class=\"kpi-card\">" +
+            "<div class=\"kpi-label\">" + esc(it.label) + "</div>" +
+            "<div class=\"kpi-sub\">" + esc(it.sub) + "</div>" +
+            "<div class=\"kpi-value\">" + esc(it.value) + "</div>" +
+          "</div>"
+        )).join("");
+      }
+
+      function renderRawDataTables() {
+        if (!state.orgRows.length) {
+          el.orgDataBody.innerHTML = "<tr><td colspan=\"6\" class=\"empty\">暂无机构数据</td></tr>";
+        } else {
+          el.orgDataBody.innerHTML = state.orgRows
+            .slice()
+            .sort((a, b) => b.total - a.total)
+            .map((item) => (
+              "<tr>" +
+                "<td>" + esc(item.name || "-") + "</td>" +
+                "<td>" + esc(fmtNum(item.total)) + "</td>" +
+                "<td>" + esc(fmtNum(item.done)) + "</td>" +
+                "<td>" + esc(fmtPct(item.rate)) + "</td>" +
+                "<td>" + esc(fmtNum(item.overdue)) + "</td>" +
+                "<td>" + esc(buildActionText(item, "org")) + "</td>" +
+              "</tr>"
+            ))
+            .join("");
+        }
+
+        if (!state.ownerRows.length) {
+          el.ownerDataBody.innerHTML = "<tr><td colspan=\"7\" class=\"empty\">暂无负责人数据</td></tr>";
+        } else {
+          el.ownerDataBody.innerHTML = state.ownerRows
+            .slice()
+            .sort((a, b) => b.total - a.total)
+            .map((item) => (
+              "<tr>" +
+                "<td>" + esc(item.name || "-") + "</td>" +
+                "<td>" + esc(item.orgName || "-") + "</td>" +
+                "<td>" + esc(fmtNum(item.total)) + "</td>" +
+                "<td>" + esc(fmtNum(item.done)) + "</td>" +
+                "<td>" + esc(fmtPct(item.rate)) + "</td>" +
+                "<td>" + esc(fmtNum(item.overdue)) + "</td>" +
+                "<td>" + esc(buildActionText(item, "owner")) + "</td>" +
+              "</tr>"
+            ))
+            .join("");
+        }
+      }
+
+      function normKey(name) {
+        return String(name || "")
+          .replace(/\s+/g, "")
+          .toLowerCase();
+      }
+
+      function buildOwnerOrgIndex() {
+        const index = new Map();
+        state.ownerRows.forEach((owner) => {
+          const key = normKey(owner.orgName);
+          if (!key) {
+            return;
+          }
+          if (!index.has(key)) {
+            index.set(key, []);
+          }
+          index.get(key).push(owner);
+        });
+        return index;
+      }
+
+      function findOwnersForOrg(orgName, index) {
+        const key = normKey(orgName);
+        if (!key || !index.size) {
+          return [];
+        }
+        if (index.has(key)) {
+          return index.get(key);
+        }
+
+        let best = [];
+        let bestScore = 0;
+        index.forEach((arr, idxKey) => {
+          if (idxKey.includes(key) || key.includes(idxKey)) {
+            const score = Math.min(idxKey.length, key.length) / Math.max(idxKey.length, key.length);
+            if (score > bestScore) {
+              bestScore = score;
+              best = arr;
+            }
+          }
+        });
+        return best;
+      }
+
+      function renderTopList(rows, container) {
+        if (!rows.length) {
+          container.innerHTML = "<div class=\"empty\">暂无图表数据</div>";
+          return;
+        }
+
+        const topRows = rows.slice().sort((a, b) => b.total - a.total).slice(0, TOP_N);
+        const maxVal = Math.max(1, ...topRows.map((x) => x.total));
+        const allOrgTotal = Math.max(1, state.orgRows.reduce((s, x) => s + x.total, 0));
+        const ownerOrgIndex = buildOwnerOrgIndex();
+        const hasOwnerOrg = ownerOrgIndex.size > 0;
+
+        container.innerHTML = topRows.map((item) => {
+          const width = Math.max(2, (item.total / maxVal) * 100);
+          const klass = riskClass(item);
+          const orgShare = (item.total / allOrgTotal) * 100;
+          const candidates = findOwnersForOrg(item.name, ownerOrgIndex)
+            .slice()
+            .sort((a, b) => b.total - a.total);
+          const mainOwner = candidates[0] || null;
+          const contribPct = mainOwner && item.total > 0
+            ? Math.min(100, (mainOwner.total / item.total) * 100)
+            : 0;
+          const ownerRateHint = mainOwner
+            ? (mainOwner.rate < 0.6 ? "⚠ 偏低" : "✅ 正常")
+            : "";
+          const ownerTag = mainOwner ? getOwnerTag(contribPct) : { cls: "none", text: "待补充" };
+          const ownerLine = mainOwner
+            ? ("主力负责人：" + (mainOwner.name || "-") +
+              "（贡献 " + fmtNum(mainOwner.total) + "，占比 " + contribPct.toFixed(1) + "%）｜完成率 " +
+              fmtPct(mainOwner.rate) + " " + ownerRateHint)
+            : (hasOwnerOrg
+              ? "主力负责人：暂无数据（建议完善机构与人员关联关系）"
+              : "主力负责人：暂无数据（需补充机构归属）");
+          return (
+            "<div class=\"bar-item\" title=\"已完成:" + esc(fmtNum(item.done)) + " | 推进中:" + esc(fmtNum(item.progress)) + " | 跟进中:" + esc(fmtNum(item.follow)) + " | 超期:" + esc(fmtNum(item.overdue)) + "\">" +
+              "<div class=\"bar-name\">" + esc(item.name || "-") + "</div>" +
+              "<div class=\"bar-track\"><div class=\"bar-fill " + klass + "\" style=\"width:" + width.toFixed(2) + "%\"></div></div>" +
+              "<div class=\"bar-meta\">" +
+                "<div class=\"bar-meta-main\">总量 " + esc(fmtNum(item.total)) + "｜规模占比 " + orgShare.toFixed(1) + "%</div>" +
+                "<div class=\"bar-meta-owner\">" + esc(ownerLine) + "<span class=\"owner-tag " + ownerTag.cls + "\">" + ownerTag.text + "</span></div>" +
+              "</div>" +
+            "</div>"
+          );
+        }).join("");
+      }
+
+      function renderStatusPieChart() {
+        const done = state.orgRows.reduce((s, x) => s + x.done, 0);
+        const progress = state.orgRows.reduce((s, x) => s + x.progress, 0);
+        const follow = state.orgRows.reduce((s, x) => s + x.follow, 0);
+        const overdue = state.orgRows.reduce((s, x) => s + x.overdue, 0);
+
+        const statusData = [
+          { label: "已完成", value: done, color: "#10b981" },
+          { label: "推进中", value: progress, color: "#2563eb" },
+          { label: "跟进中", value: follow, color: "#f59e0b" },
+          { label: "超期未跟进", value: overdue, color: "#ef4444" }
+        ];
+
+        const total = statusData.reduce((s, x) => s + x.value, 0);
+        if (total <= 0) {
+          el.statusPieChart.innerHTML = "<div class=\"empty\">暂无状态分布数据</div>";
+          return;
+        }
+
+        let acc = 0;
+        const gradient = statusData.map((item) => {
+          const start = (acc / total) * 100;
+          acc += item.value;
+          const end = (acc / total) * 100;
+          return item.color + " " + start.toFixed(2) + "% " + end.toFixed(2) + "%";
+        }).join(", ");
+
+        const listHtml = statusData.map((item) => {
+          const p = (item.value / total) * 100;
+          return (
+            "<div class=\"status-item\">" +
+              "<div class=\"status-left\"><span class=\"status-dot\" style=\"background:" + item.color + "\"></span>" + esc(item.label) + "</div>" +
+              "<div class=\"status-right\">" + esc(fmtNum(item.value)) + "（" + p.toFixed(1) + "%）</div>" +
+            "</div>"
+          );
+        }).join("");
+
+        el.statusPieChart.innerHTML =
+          "<div class=\"status-pie-layout\">" +
+            "<div class=\"status-donut\" style=\"background:conic-gradient(" + gradient + ")\">" +
+              "<div class=\"status-donut-center\"><div class=\"t1\">总状态数</div><div class=\"t2\">" + esc(fmtNum(total)) + "</div></div>" +
+            "</div>" +
+            "<div class=\"status-list\">" + listHtml + "</div>" +
+          "</div>";
+      }
+
+      function renderAll() {
+        const kpi = buildKpi();
+        renderKpi(kpi);
+        el.insightText.textContent = buildInsightText(kpi);
+        renderRawDataTables();
+        renderTopList(state.orgRows, el.orgTopList);
+        renderStatusPieChart();
+      }
+
+      async function runQuery() {
+        if (!window.PageApi) {
+          setStatus("缺少 common/api.js，无法请求接口", true);
+          return;
+        }
+        if (state.loading) {
+          return;
+        }
+
+        state.loading = true;
+        el.btnSearch.disabled = true;
+        el.btnRefresh.disabled = true;
+        setStatus("正在加载驾驶舱数据...");
+
+        try {
+          const [orgPayload, ownerPayload] = await Promise.all([
+            fetchOne("XN_FZJG"),
+            fetchOne("XN_FZRY")
+          ]);
+          normalizeOrg(orgPayload);
+          normalizeOwner(ownerPayload);
+          renderAll();
+          setStatus("加载成功：机构 " + state.orgRows.length + " 条，负责人 " + state.ownerRows.length + " 条");
+        } catch (err) {
+          console.error("[领导驾驶舱] 请求失败", err);
+          state.orgRows = [];
+          state.ownerRows = [];
+          renderAll();
+          setStatus("加载失败，请检查代理路径与接口返回格式", true);
+        } finally {
+          state.loading = false;
+          el.btnSearch.disabled = false;
+          el.btnRefresh.disabled = false;
+        }
+      }
+
+      function resetDates() {
+        const t = todayText();
+        el.startDate.value = t;
+        el.endDate.value = t;
+      }
+
+      el.btnSearch.addEventListener("click", runQuery);
+      el.btnRefresh.addEventListener("click", runQuery);
+      el.btnReset.addEventListener("click", function () {
+        resetDates();
+        runQuery();
+      });
+
+      resetDates();
+      runQuery();
+    })();
+  </script>
+</body>
+</html>

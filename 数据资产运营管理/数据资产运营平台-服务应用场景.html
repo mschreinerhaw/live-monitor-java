@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LiveMuse 灵感数据工坊 - 服务应用场景</title>
+<style>
+:root{
+  --blue:#1557ff;
+  --blue2:#0b45e8;
+  --text:#111827;
+  --sub:#65708a;
+  --muted:#8a94aa;
+  --line:#e8edf6;
+  --bg:#f7f9fd;
+  --card:#fff;
+  --shadow:0 10px 28px rgba(22,35,65,.06);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#ffffff 0%,#f8faff 100%);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;
+  color:var(--text);
+}
+.header{
+  height:74px;
+  background:#fff;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 26px;
+  position:sticky;
+  top:0;
+  z-index:20;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:-.3px;
+}
+.brand .live{color:#f5222d}
+.logo-box{
+  width:40px;
+  height:40px;
+  border:2px solid #2463ff;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  color:#2463ff;
+  font-size:20px;
+}
+.brand-sub{font-size:21px;font-weight:800;color:#111827}
+.nav{
+  display:flex;
+  align-items:center;
+  gap:34px;
+  margin-left:40px;
+}
+.nav a{
+  height:74px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#172033;
+  font-size:17px;
+  font-weight:800;
+  text-decoration:none;
+  border-bottom:4px solid transparent;
+}
+.nav a.active{
+  color:var(--blue);
+  border-bottom-color:var(--blue);
+}
+.nav-wrap{display:flex;align-items:center}
+.top-icons{
+  display:flex;
+  align-items:center;
+  gap:22px;
+  color:#111a44;
+  font-size:24px;
+}
+.top-badge{position:relative;display:inline-flex}
+.top-badge i{
+  position:absolute;
+  right:-8px;
+  top:-10px;
+  min-width:18px;
+  height:18px;
+  padding:0 4px;
+  background:#f5222d;
+  color:#fff;
+  border-radius:999px;
+  font-size:11px;
+  font-style:normal;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+}
+.user{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  font-size:12px;
+  font-weight:800;
+}
+.user span{font-size:22px}
+.page{
+  display:grid;
+  grid-template-columns:minmax(820px,1fr) 330px;
+  gap:28px;
+  padding:20px 26px 30px;
+}
+.breadcrumb{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  color:#4d5b7c;
+  font-size:14px;
+  font-weight:800;
+  margin:4px 0 18px;
+}
+.title h1{
+  font-size:27px;
+  line-height:1.1;
+  margin:0 0 12px;
+}
+.title p{
+  margin:0;
+  color:#65708a;
+  font-size:14px;
+  font-weight:700;
+}
+.search-bar{
+  width:320px;
+  height:40px;
+  margin-top:20px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 14px;
+  background:#fff;
+  color:#7b86a0;
+  box-shadow:0 3px 10px rgba(22,35,65,.03);
+}
+.search-bar input{
+  border:0;
+  outline:0;
+  flex:1;
+  font-size:14px;
+  color:#334155;
+}
+.tabs{
+  height:54px;
+  margin:22px 0 18px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  display:grid;
+  grid-template-columns:110px repeat(7,1fr) 90px;
+  align-items:center;
+  padding:0;
+  overflow:hidden;
+}
+.tab{
+  height:54px;
+  display:grid;
+  place-items:center;
+  color:#172033;
+  font-size:15px;
+  font-weight:900;
+  cursor:pointer;
+}
+.tab.active{
+  height:38px;
+  margin:8px 0 8px 0;
+  background:var(--blue);
+  color:white;
+  border-radius:7px;
+  box-shadow:0 8px 16px rgba(21,87,255,.18);
+}
+.tab.more{display:flex;gap:8px;justify-content:center}
+.scenario-list{
+  display:grid;
+  gap:14px;
+}
+.scenario-card{
+  min-height:92px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 6px 20px rgba(22,35,65,.035);
+  display:grid;
+  grid-template-columns:300px 1px minmax(300px,1fr) 130px 160px;
+  align-items:center;
+  padding:18px 20px;
+  transition:.2s ease;
+}
+.scenario-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 26px rgba(22,35,65,.08);
+  border-color:#dbe7ff;
+}
+.left-info{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+.scene-icon{
+  width:56px;
+  height:56px;
+  display:grid;
+  place-items:center;
+  font-size:38px;
+  line-height:1;
+  background:none;
+  border:0;
+  box-shadow:none;
+  flex:none;
+}
+.scene-icon.blue{color:#1557ff}
+.scene-icon.purple{color:#8b3ffc}
+.scene-icon.green{color:#22c55e}
+.scene-icon.orange{color:#ff8a00}
+.scene-icon.teal{color:#14b8a6}
+.scene-icon.gold{color:#f59e0b}
+.scene-title{
+  font-size:17px;
+  font-weight:900;
+  margin-bottom:8px;
+}
+.scene-count{
+  color:#1f2a44;
+  font-size:14px;
+  font-weight:800;
+}
+.separator{
+  height:58px;
+  background:#e6ebf5;
+}
+.mid-desc{
+  padding:0 28px;
+}
+.desc{
+  color:#334155;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.7;
+  margin-bottom:8px;
+}
+.tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.tag{
+  min-width:66px;
+  height:24px;
+  border-radius:5px;
+  padding:0 9px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  font-weight:900;
+}
+.tag.blue{color:#2563eb;background:#eef5ff;border:1px solid #cfe0ff}
+.tag.purple{color:#8b3ffc;background:#f6edff;border:1px solid #e2cfff}
+.tag.green{color:#10b981;background:#edfff8;border:1px solid #bfefdb}
+.tag.orange{color:#ff7a00;background:#fff7ed;border:1px solid #ffd8ad}
+.action{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  color:#0f2d70;
+  font-size:14px;
+  font-weight:900;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.apply-box{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  height:38px;
+  border-left:1px solid #e6ebf5;
+  color:#15265c;
+  font-size:14px;
+  font-weight:900;
+}
+.apply-box input{
+  width:17px;
+  height:17px;
+  accent-color:#1557ff;
+  cursor:pointer;
+}
+.foot{
+  height:58px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 4px;
+  color:#44516f;
+  font-size:14px;
+  font-weight:800;
+}
+.pages,.page-tools{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  white-space:nowrap;
+}
+.page-num{
+  min-width:34px;
+  height:34px;
+  padding:0 8px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+.page-num.active{
+  color:var(--blue);
+  background:#fff;
+  border:1px solid #dbe7ff;
+  box-shadow:0 4px 12px rgba(21,87,255,.06);
+}
+.page-input,.page-size{
+  height:34px;
+  width:42px;
+  border:1px solid #d9e5fb;
+  border-radius:8px;
+  background:#fff;
+  color:#172033;
+  font-size:14px;
+  font-weight:800;
+  text-align:center;
+  outline:none;
+}
+.page-size{
+  width:58px;
+}
+.side{
+  display:grid;
+  gap:18px;
+  align-content:start;
+}
+.panel{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+  padding:18px;
+}
+.panel-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:16px;
+}
+.panel-title{
+  font-size:20px;
+  font-weight:900;
+}
+.panel-link{
+  color:#34405a;
+  font-size:13px;
+  font-weight:900;
+}
+.quick-list{display:grid;gap:20px}
+.quick-item{
+  display:grid;
+  grid-template-columns:34px 1fr 26px;
+  align-items:center;
+  gap:12px;
+}
+.quick-icon{
+  font-size:24px;
+  color:#10205c;
+  display:grid;
+  place-items:center;
+  background:none;
+}
+.quick-name{
+  font-weight:900;
+  font-size:15px;
+  margin-bottom:4px;
+}
+.quick-sub{
+  color:#758198;
+  font-size:13px;
+  font-weight:700;
+}
+.quick-num{
+  text-align:right;
+  font-size:19px;
+  font-weight:900;
+  color:#f5222d;
+}
+.quick-num.blue{color:var(--blue)}
+.hot-list{display:grid;gap:18px}
+.hot-item{
+  display:grid;
+  grid-template-columns:28px 1fr auto;
+  align-items:center;
+  gap:12px;
+}
+.hot-ico{
+  width:24px;
+  height:24px;
+  border-radius:5px;
+  display:grid;
+  place-items:center;
+  color:white;
+  font-size:13px;
+  font-weight:900;
+}
+.hot-title{
+  font-size:15px;
+  font-weight:900;
+}
+.hot-use{
+  color:#65708a;
+  font-size:12px;
+  font-weight:800;
+}
+.ai{
+  padding:0;
+  overflow:hidden;
+  background:linear-gradient(135deg,#fffaf0 0%,#fff 100%);
+}
+.ai-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 20px 0;
+}
+.new{
+  background:#fff3e8;
+  color:#ff3b00;
+  border-radius:999px;
+  padding:3px 11px;
+  font-size:12px;
+  font-weight:900;
+}
+.ai-body{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:12px 18px 18px;
+}
+.robot{
+  width:116px;
+  height:116px;
+  border-radius:24px;
+  background:linear-gradient(180deg,#eaf5ff,#fff);
+  display:grid;
+  place-items:center;
+  font-size:72px;
+}
+.ai-body b{
+  font-size:15px;
+  display:block;
+  margin-bottom:10px;
+}
+.ai-body p{
+  margin:0 0 14px;
+  color:#65708a;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.7;
+}
+.ai-btn{
+  height:42px;
+  width:120px;
+  border:0;
+  border-radius:7px;
+  background:#ff4b1f;
+  color:white;
+  font-size:16px;
+  font-weight:900;
+  box-shadow:0 8px 16px rgba(255,75,31,.18);
+  cursor:pointer;
+}
+@media(max-width:1280px){
+  .page{grid-template-columns:1fr}
+  .side{grid-template-columns:repeat(3,1fr)}
+  .scenario-card{grid-template-columns:260px 1px 1fr 120px 150px}
+}
+@media(max-width:980px){
+  .tabs{grid-template-columns:repeat(3,1fr);height:auto}
+  .tab{height:44px}
+  .scenario-card{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+  .separator,.apply-box{border:0;height:auto}
+  .mid-desc{padding:0}
+  .side{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="nav-wrap">
+    <div class="brand"><span class="live">Live</span>Muse <span class="logo-box">◇</span><span class="brand-sub">灵感数据工坊</span></div>
+    <nav class="nav">
+      <a class="active">🏠 服务中心</a>
+      <a>♙ 我的工作台</a>
+    </nav>
+  </div>
+  <div class="top-icons">
+    <span>⌕</span>
+    <span class="top-badge">♧<i>6</i></span>
+    <span class="top-badge">✉<i>73</i></span>
+    <span class="top-badge">☵<i>24</i></span>
+    <div class="user"><span>♙</span>业务人员</div>
+  </div>
+</header>
+
+<div class="page">
+  <main>
+    <div class="breadcrumb"><span>服务中心</span><span>›</span><span>服务应用场景</span></div>
+    <section class="title">
+      <h1>服务应用场景</h1>
+      <p>覆盖证券公司核心业务场景，快速找到适合您的数据服务，助力业务决策与合规运营。</p>
+      <div class="search-bar">⌕ <input placeholder="搜索场景名称、关键词" /></div>
+    </section>
+
+    <section class="tabs" id="tabs"></section>
+
+    <section class="scenario-list" id="scenarioList"></section>
+
+    <section class="foot">
+      <div class="pages">
+        <span>‹</span>
+        <span class="page-num active">1</span>
+        <span class="page-num">2</span>
+        <span class="page-num">3</span>
+        <span class="page-num">4</span>
+        <span class="page-num">5</span>
+        <span>…</span>
+        <span class="page-num">12</span>
+        <span>›</span>
+      </div>
+      <div class="page-tools">
+        <span>跳至</span><input class="page-input" value="1" /><span>页</span>
+      </div>
+      <div class="page-tools">
+        <span>每页显示</span><select class="page-size"><option>12</option><option>24</option><option>50</option></select><span>条</span>
+        <span>共 138 条</span>
+      </div>
+    </section>
+  </main>
+
+  <aside class="side">
+    <section class="panel">
+      <div class="panel-head"><div class="panel-title">快捷入口</div><div class="panel-link">管理 ›</div></div>
+      <div class="quick-list">
+        <div class="quick-item"><div class="quick-icon">⊙</div><div><div class="quick-name">待审批事项</div><div class="quick-sub">申请待审批</div></div><div class="quick-num">2</div></div>
+        <div class="quick-item"><div class="quick-icon">♙</div><div><div class="quick-name">我的服务</div><div class="quick-sub">已开通服务</div></div><div class="quick-num blue">6</div></div>
+        <div class="quick-item"><div class="quick-icon">▣</div><div><div class="quick-name">即将到期</div><div class="quick-sub">授权将到期</div></div><div class="quick-num">2</div></div>
+        <div class="quick-item"><div class="quick-icon">♧</div><div><div class="quick-name">系统通知</div><div class="quick-sub">未读消息</div></div><div class="quick-num">8</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div class="panel-title">热门场景</div><div class="panel-link">更多 ›</div></div>
+      <div class="hot-list" id="hotList"></div>
+    </section>
+
+    <section class="panel ai">
+      <div class="ai-head"><div class="panel-title">智能AI助手</div><span class="new">NEW</span><span>⟳</span></div>
+      <div class="ai-body">
+        <div class="robot">🤖</div>
+        <div>
+          <b>您好！我是智能AI助手</b>
+          <p>可以帮您查找场景、推荐服务、解答问题。</p>
+          <button class="ai-btn">立即咨询</button>
+        </div>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script>
+const tabs = ['全部场景','投资研究','投资交易','客户经营','风险合规','运营管理','财富管理','投行与机构服务','更多⌄'];
+const scenarios = [
+  {icon:'↗', color:'blue', title:'投资数据分析', count:16, desc:'宏观经济、行业研究、公司深度等数据分析，辅助投资研究与策略制定。', tags:['宏观经济','行业研究','财务分析'], tagColor:'blue'},
+  {icon:'▥', color:'purple', title:'量化策略开发', count:12, desc:'历史行情、因子数据、回测分析等支持量化模型开发与效果评估。', tags:['历史行情','因子数据','回测验证'], tagColor:'purple'},
+  {icon:'♧', color:'green', title:'交易执行分析', count:11, desc:'交易数据分析、成交监控、算法运行评估，提升交易执行质量。', tags:['交易监控','执行分析','成交分析'], tagColor:'green'},
+  {icon:'♙', color:'orange', title:'客户画像与分群', count:13, desc:'整合客户资产、交易、行为数据，构建客户画像与分群，精准营销。', tags:['客户画像','客户分群','客户洞察'], tagColor:'orange'},
+  {icon:'⌂', color:'teal', title:'客户资产配置分析', count:10, desc:'客户资产配置诊断、持仓分析与优化建议，提升资产配置服务能力。', tags:['资产诊断','组合分析','配置建议'], tagColor:'green'},
+  {icon:'▤', color:'gold', title:'财富产品分析', count:9, desc:'基金、理财、固收等产品数据分析，评估产品表现与市场竞争力。', tags:['产品表现','业绩归因','产品评价'], tagColor:'orange'}
+];
+const hot = [
+  ['↗','投资数据分析','235人正在使用','#1557ff'],
+  ['盾','风险监控与预警','189人正在使用','#1557ff'],
+  ['♙','客户画像与分群','176人正在使用','#ff8a00'],
+  ['▣','交易执行分析','154人正在使用','#1557ff'],
+  ['⌂','合规监管报送','132人正在使用','#8b3ffc']
+];
+
+document.getElementById('tabs').innerHTML = tabs.map((t,i)=>`<div class="tab ${i===0?'active':''} ${t.includes('更多')?'more':''}">${t}</div>`).join('');
+
+document.getElementById('scenarioList').innerHTML = scenarios.map(s=>`
+  <div class="scenario-card">
+    <div class="left-info">
+      <div class="scene-icon ${s.color}">${s.icon}</div>
+      <div>
+        <div class="scene-title">${s.title}</div>
+        <div class="scene-count">相关服务 ${s.count} 个</div>
+      </div>
+    </div>
+    <div class="separator"></div>
+    <div class="mid-desc">
+      <div class="desc">${s.desc}</div>
+      <div class="tags">${s.tags.map(t=>`<span class="tag ${s.tagColor}">${t}</span>`).join('')}</div>
+    </div>
+    <div class="action">查看详情 <span>›</span></div>
+    <label class="apply-box"><input type="checkbox" />服务一键申请</label>
+  </div>
+`).join('');
+
+document.getElementById('hotList').innerHTML = hot.map(h=>`
+  <div class="hot-item">
+    <div class="hot-ico" style="background:${h[3]}">${h[0]}</div>
+    <div class="hot-title">${h[1]}</div>
+    <div class="hot-use">${h[2]}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

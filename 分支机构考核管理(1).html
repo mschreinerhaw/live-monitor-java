@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分支机构考核系统</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --primary: #5B8DEF;
+      --primary-light: #EEF4FD;
+      --primary-dark: #4A7BC8;
+      --bg: #E8EEF4;
+      --bg-card: #FFFFFF;
+      --bg-sidebar: #34495E;
+      --text: #2D3748;
+      --text-light: #718096;
+      --text-white: #FFFFFF;
+      --border: #DDE4EC;
+      --success: #48BB78;
+      --success-light: #E6F7ED;
+      --success-bg: #EDF7F1;
+      --warning: #ECC94B;
+      --warning-light: #FEF9E6;
+      --warning-bg: #FFFBEB;
+      --danger: #F56565;
+      --danger-light: #FEE2E2;
+      --danger-bg: #FEF2F2;
+      --purple: #9F7AEA;
+      --purple-light: #F3EEFF;
+      --purple-bg: #F5F3FF;
+      --pink: #ED64A6;
+      --pink-light: #FDF2F8;
+      --pink-bg: #FDF2F8;
+      --cyan: #38B2AC;
+      --cyan-light: #E6FFFA;
+      --cyan-bg: #E6FFFA;
+      --blue-bg: #EBF4FF;
+      --orange-bg: #FFF7ED;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* 顶部导航 */
+    .header {
+      background: linear-gradient(135deg, var(--bg-sidebar) 0%, #3D566E 100%);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(52, 73, 94, 0.3);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 14px; }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #F6AD55, #ED8936);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: white;
+      font-weight: 700;
+      box-shadow: 0 3px 8px rgba(237, 137, 54, 0.4);
+    }
+
+    .header-title { font-size: 18px; font-weight: 600; color: var(--text-white); letter-spacing: 1px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+
+    .header-search {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 12px;
+      border-radius: 20px;
+      width: 200px;
+    }
+
+    .header-search input {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+      margin-left: 6px;
+    }
+
+    .header-search input::placeholder { color: rgba(255,255,255,0.7); }
+
+    .header-icon {
+      width: 34px;
+      height: 34px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .header-icon:hover { background: rgba(255,255,255,0.25); }
+
+    .user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 12px 4px 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+    }
+
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .user-name { font-size: 13px; font-weight: 500; color: white; }
+
+    /* 主布局 */
+    .main-layout { display: flex; min-height: calc(100vh - 56px); }
+
+    /* 侧边导航 */
+    .sidebar {
+      width: 200px;
+      background: var(--bg-sidebar);
+      padding: 16px 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+
+    .sidebar-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 8px 12px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      color: rgba(255,255,255,0.8);
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: 8px;
+      margin: 2px 8px;
+      font-size: 13px;
+    }
+
+    .nav-item:hover { background: rgba(255,255,255,0.15); color: white; }
+    .nav-item.active { background: rgba(255,255,255,0.2); color: white; font-weight: 500; }
+
+    .nav-item .icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-item.active .icon { background: linear-gradient(135deg, #F6AD55, #ED8936); }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    /* 内容区 */
+    .content { flex: 1; padding: 16px 20px; overflow-y: auto; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .page-title { font-size: 20px; font-weight: 600; color: var(--text); }
+    .page-breadcrumb { font-size: 12px; color: var(--text-light); }
+
+    /* ========== 各模块独立背景颜色 ========== */
+
+    /* 流程步骤 - 淡蓝背景 */
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      background: var(--blue-bg);
+      border-radius: 12px;
+      padding: 14px 18px;
+      border: 1px solid #D4E5F7;
+      margin-bottom: 14px;
+    }
+
+    .flow-step { display: flex; align-items: center; flex: 1; }
+
+    .step-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 8px;
+      flex: 1;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: white;
+    }
+
+    .step-num.done { background: var(--success); }
+    .step-num.active { background: var(--primary); }
+    .step-num.wait { background: #CBD5E0; color: var(--text-light); }
+
+    .step-label { font-size: 11px; font-weight: 500; color: var(--text); }
+    .step-status { font-size: 10px; color: var(--text-light); }
+    .step-line { width: 30px; height: 2px; background: #CBD5E0; flex-shrink: 0; }
+    .step-line.done { background: var(--success); }
+
+    /* 统计卡片 - 每个有独立颜色 */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+
+    .stat-card {
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid;
+    }
+
+    .stat-card.blue { background: linear-gradient(135deg, #EBF4FF, #DBEAFE); border-color: #BFDBFE; }
+    .stat-card.green { background: linear-gradient(135deg, #EDF7F1, #D1FAE5); border-color: #A7F3D0; }
+    .stat-card.orange { background: linear-gradient(135deg, #FFF7ED, #FED7AA); border-color: #FDBA74; }
+    .stat-card.purple { background: linear-gradient(135deg, #F5F3FF, #E9D5FF); border-color: #DDD6FE; }
+    .stat-card.red { background: linear-gradient(135deg, #FEF2F2, #FECACA); border-color: #FCA5A5; }
+    .stat-card.pink { background: linear-gradient(135deg, #FDF2F8, #FBCFE8); border-color: #F9A8D4; }
+    .stat-card.cyan { background: linear-gradient(135deg, #E6FFFA, #CFFAFE); border-color: #A5F3FC; }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .stat-card.blue .stat-icon { background: rgba(91, 141, 239, 0.2); }
+    .stat-card.green .stat-icon { background: rgba(72, 187, 120, 0.2); }
+    .stat-card.orange .stat-icon { background: rgba(236, 201, 75, 0.3); }
+    .stat-card.purple .stat-icon { background: rgba(159, 122, 234, 0.2); }
+    .stat-card.red .stat-icon { background: rgba(245, 101, 101, 0.2); }
+    .stat-card.pink .stat-icon { background: rgba(237, 100, 166, 0.2); }
+    .stat-card.cyan .stat-icon { background: rgba(56, 178, 172, 0.2); }
+
+    .stat-info { flex: 1; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .stat-label { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+
+    /* 卡片 - 每个有不同背景 */
+    .card {
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .card-blue { background: linear-gradient(180deg, #F0F7FF 0%, #FFFFFF 100%); border-color: #D0E4FF; }
+    .card-green { background: linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%); border-color: #BBF7D0; }
+    .card-orange { background: linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 100%); border-color: #FDE68A; }
+    .card-purple { background: linear-gradient(180deg, #FAF5FF 0%, #FFFFFF 100%); border-color: #E9D5FF; }
+    .card-pink { background: linear-gradient(180deg, #FDF2F8 0%, #FFFFFF 100%); border-color: #FBCFE8; }
+    .card-cyan { background: linear-gradient(180deg, #ECFEFF 0%, #FFFFFF 100%); border-color: #A5F3FC; }
+    .card-white { background: #FFFFFF; }
+
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+    }
+
+    .card-title-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    /* 表格 */
+    .table { width: 100%; border-collapse: collapse; }
+
+    .table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #F8FAFC;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table td {
+      padding: 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table tr:hover td { background: #F8FAFC; }
+    .table tr:last-child td { border-bottom: none; }
+
+    /* 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .tag-success { background: var(--success-light); color: #059669; }
+    .tag-warning { background: var(--warning-light); color: #B7791F; }
+    .tag-danger { background: var(--danger-light); color: #DC2626; }
+    .tag-info { background: var(--primary-light); color: var(--primary); }
+    .tag-purple { background: var(--purple-light); color: #7C3AED; }
+    .tag-pink { background: var(--pink-light); color: #DB2777; }
+    .tag-gray { background: #F1F5F9; color: #64748B; }
+
+    /* 按钮 */
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-light); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* 进度条 */
+    .progress { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 3px; }
+    .progress-bar.blue { background: var(--primary); }
+    .progress-bar.green { background: var(--success); }
+    .progress-bar.orange { background: var(--warning); }
+    .progress-bar.purple { background: var(--purple); }
+
+    /* 待办 - 淡紫背景 */
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      background: var(--purple-bg);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #E9D5FF;
+    }
+
+    .todo-checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--purple);
+      border-radius: 5px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      background: white;
+    }
+
+    .todo-content { flex: 1; }
+    .todo-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    .todo-meta { font-size: 11px; color: var(--text-light); }
+
+    /* 排名 */
+    .rank {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .rank-1 { background: linear-gradient(135deg, #FEF3C7, #FDE68A); color: #D97706; }
+    .rank-2 { background: linear-gradient(135deg, #F1F5F9, #E2E8F0); color: #64748B; }
+    .rank-3 { background: linear-gradient(135deg, #FED7AA, #FBBF24); color: #C2410C; }
+
+    /* 环形图 */
+    .ring-chart { display: flex; align-items: center; gap: 20px; }
+    .ring-chart svg { transform: rotate(-90deg); }
+    .ring-chart circle { fill: none; stroke-width: 10; }
+    .ring-chart .bg { stroke: var(--border); }
+    .ring-chart .fg { stroke-linecap: round; }
+
+    /* 指标网格 */
+    .indicator-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+    .indicator-card {
+      padding: 16px;
+      background: var(--cyan-bg);
+      border-radius: 10px;
+      text-align: center;
+      border: 1px solid #A5F3FC;
+    }
+
+    .indicator-name { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: var(--text); }
+
+    .indicator-ring {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 8px;
+      position: relative;
+    }
+
+    .indicator-ring svg { transform: rotate(-90deg); }
+    .indicator-ring circle { fill: none; stroke-width: 6; }
+    .indicator-ring .bg { stroke: var(--border); }
+
+    .indicator-val {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .indicator-target { font-size: 11px; color: var(--text-light); }
+
+    /* 表单 */
+    .form-group { margin-bottom: 12px; }
+    .form-label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 5px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      background: white;
+    }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.1); }
+    .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+    /* 快捷入口 - 渐变背景 */
+    .quick-entry { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+
+    .quick-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 10px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+    }
+
+    .quick-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      border-color: var(--primary);
+    }
+
+    .quick-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .quick-item span { font-size: 12px; font-weight: 500; color: var(--text); }
+
+    /* 图表区 */
+    .chart-area { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* 进度卡片 */
+    .progress-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: #F8FAFC;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .progress-info { flex: 1; }
+    .progress-name { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+
+    /* 搜索区 */
+    .search-area { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .search-item { min-width: 140px; }
+    .search-item .form-label { font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">考</div>
+      <span class="header-title">分支机构考核系统</span>
+    </div>
+    <div class="header-right">
+      <div class="header-search">🔍 <input type="text" placeholder="搜索功能或数据..."></div>
+      <div class="header-icon">🔔<span style="position:absolute;top:4px;right:4px;width:8px;height:8px;background:#F56565;border-radius:50%;"></span></div>
+      <div class="header-icon">⚙️</div>
+      <div class="user-card">
+        <div class="user-avatar">管</div>
+        <span class="user-name">管理员</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- 侧边导航 -->
+    <nav class="sidebar">
+      <div class="sidebar-section"><div class="sidebar-title">主菜单</div></div>
+      <div class="nav-item active" onclick="showPage('home')"><div class="icon">🏠</div><span>驾驶舱</span></div>
+      <div class="nav-item" onclick="showPage('scheme')"><div class="icon">⚙️</div><span>指标配置</span></div>
+      <div class="nav-item" onclick="showPage('indicator')"><div class="icon">📤</div><span>方案派发</span></div>
+      <div class="nav-item" onclick="showPage('score')"><div class="icon">🧮</div><span>得分计算</span></div>
+      <div class="nav-item" onclick="showPage('audit')"><div class="icon">✅</div><span>结果审核</span><span class="nav-badge">2</span></div>
+      <div class="nav-item" onclick="showPage('query')"><div class="icon">🏆</div><span>最终结果</span></div>
+      <div class="nav-item" onclick="showPage('report')"><div class="icon">📈</div><span>考核战报</span></div>
+    </nav>
+
+    <!-- 内容区 -->
+    <main class="content">
+
+      <!-- ========== 驾驶舱 ========== -->
+      <div class="page active" id="page-home">
+        <div class="page-header">
+          <h1 class="page-title">📊 驾驶舱</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 驾驶舱</div>
+        </div>
+
+        <!-- 流程 -->
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-box"><div class="step-num done">✓</div><div class="step-label">方案设置</div><div class="step-status">已完成</div></div></div>
+          <div class="step-line done"></div>
+          <div class="flow-step"><div class="step-box"><div class="step-num done">✓</div><div class="step-label">指标派发</div><div class="step-status">已完成</div></div></div>
+          <div class="step-line done"></div>
+          <div class="flow-step"><div class="step-box"><div class="step-num active">3</div><div class="step-label">得分计算</div><div class="step-status">进行中</div></div></div>
+          <div class="step-line"></div>
+          <div class="flow-step"><div class="step-box"><div class="step-num wait">4</div><div class="step-label">结果审核</div><div class="step-status">待处理</div></div></div>
+          <div class="step-line"></div>
+          <div class="flow-step"><div class="step-box"><div class="step-num wait">5</div><div class="step-label">结果查询</div><div class="step-status">待处理</div></div></div>
+        </div>
+
+        <!-- 统计 -->
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-value">8</div><div class="stat-label">待办事项</div></div></div>
+          <div class="stat-card green"><div class="stat-icon">🏆</div><div class="stat-info"><div class="stat-value">85%</div><div class="stat-label">考核进度</div></div></div>
+          <div class="stat-card purple"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-value">17</div><div class="stat-label">已完成审核</div></div></div>
+          <div class="stat-card orange"><div class="stat-icon">⚠️</div><div class="stat-info"><div class="stat-value">3</div><div class="stat-label">预警指标</div></div></div>
+        </div>
+
+        <!-- 快捷入口 -->
+        <div class="card card-blue">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#DBEAFE">⚡</div> 快捷入口</div>
+          </div>
+          <div class="quick-entry">
+            <div class="quick-item" onclick="showPage('scheme')"><div class="quick-icon" style="background:#DBEAFE">📋</div><span>考核方案</span></div>
+            <div class="quick-item" onclick="showPage('indicator')"><div class="quick-icon" style="background:#D1FAE5">🎯</div><span>指标派发</span></div>
+            <div class="quick-item" onclick="showPage('score')"><div class="quick-icon" style="background:#FEF3C7">🧮</div><span>得分计算</span></div>
+            <div class="quick-item" onclick="showPage('audit')"><div class="quick-icon" style="background:#E9D5FF">✅</div><span>结果审核</span></div>
+            <div class="quick-item" onclick="showPage('query')"><div class="quick-icon" style="background:#FBCFE8">🔍</div><span>结果查询</span></div>
+            <div class="quick-item" onclick="showPage('report')"><div class="quick-icon" style="background:#A5F3FC">📈</div><span>考核战报</span></div>
+          </div>
+        </div>
+
+        <!-- 排名和待办 -->
+        <div class="chart-area">
+          <div class="card card-green">
+            <div class="card-header">
+              <div class="card-title"><div class="card-title-icon" style="background:#D1FAE5">🏅</div> 分支机构排名 TOP5</div>
+              <button class="btn btn-outline btn-sm" onclick="showPage('query')">查看全部</button>
+            </div>
+            <table class="table">
+              <tbody>
+                <tr><td><div class="rank rank-1">1</div></td><td><b>北京朝阳分部</b></td><td><b style="color:#059669">98.5</b></td><td style="width:80px"><div class="progress"><div class="progress-bar green" style="width:100%"></div></div></td><td><span class="tag tag-success">升级 +1级</span></td></tr>
+                <tr><td><div class="rank rank-2">2</div></td><td><b>上海浦东分部</b></td><td><b style="color:#4F86E8">95.2</b></td><td style="width:80px"><div class="progress"><div class="progress-bar blue" style="width:95%"></div></div></td><td><span class="tag tag-success">升级 +1级</span></td></tr>
+                <tr><td><div class="rank rank-3">3</div></td><td><b>深圳南山分部</b></td><td><b style="color:#4F86E8">92.8</b></td><td style="width:80px"><div class="progress"><div class="progress-bar blue" style="width:93%"></div></div></td><td><span class="tag tag-info">维持</span></td></tr>
+                <tr><td><div class="rank">4</div></td><td><b>广州天河分部</b></td><td><b style="color:#B7791F">88.6</b></td><td style="width:80px"><div class="progress"><div class="progress-bar orange" style="width:88%"></div></div></td><td><span class="tag tag-warning">降级 -1级</span></td></tr>
+                <tr><td><div class="rank">5</div></td><td><b>杭州西湖分部</b></td><td><b style="color:#DC2626">76.3</b></td><td style="width:80px"><div class="progress"><div class="progress-bar orange" style="width:76%"></div></div></td><td><span class="tag tag-danger">降级 -2级</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card card-purple">
+            <div class="card-header">
+              <div class="card-title"><div class="card-title-icon" style="background:#E9D5FF">📝</div> 待办事项</div>
+              <button class="btn btn-primary btn-sm">全部处理</button>
+            </div>
+            <div class="todo-item">
+              <div class="todo-checkbox" onclick="this.style.background='#48BB78';this.style.borderColor='#48BB78'"></div>
+              <div class="todo-content">
+                <div class="todo-title">审核杭州西湖分部考核结果（降级-2级）</div>
+                <div class="todo-meta">📅 2026-04-29 · <span class="tag tag-danger" style="padding:1px 6px;font-size:10px">紧急</span></div>
+              </div>
+            </div>
+            <div class="todo-item">
+              <div class="todo-checkbox" onclick="this.style.background='#48BB78';this.style.borderColor='#48BB78'"></div>
+              <div class="todo-content">
+                <div class="todo-title">下发5月新增考核指标</div>
+                <div class="todo-meta">📅 2026-04-30 · <span class="tag tag-info" style="padding:1px 6px;font-size:10px">一般</span></div>
+              </div>
+            </div>
+            <div class="todo-item">
+              <div class="todo-checkbox" onclick="this.style.background='#48BB78';this.style.borderColor='#48BB78'"></div>
+              <div class="todo-content">
+                <div class="todo-title">确认深圳南山分部数据修正</div>
+                <div class="todo-meta">📅 2026-05-01 · <span class="tag tag-info" style="padding:1px 6px;font-size:10px">一般</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 指标 -->
+        <div class="card card-cyan">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#A5F3FC">📊</div> 核心指标完成情况</div>
+          </div>
+          <div class="indicator-grid">
+            <div class="indicator-card">
+              <div class="indicator-name">营收增长率</div>
+              <div class="indicator-ring">
+                <svg width="64" height="64"><circle class="bg" cx="32" cy="32" r="26"/><circle cx="32" cy="32" r="26" stroke="#48BB78" stroke-dasharray="163" stroke-dashoffset="16"/></svg>
+                <span class="indicator-val" style="color:#48BB78">90%</span>
+              </div>
+              <div class="indicator-target">目标: 85%</div>
+            </div>
+            <div class="indicator-card">
+              <div class="indicator-name">客户满意度</div>
+              <div class="indicator-ring">
+                <svg width="64" height="64"><circle class="bg" cx="32" cy="32" r="26"/><circle cx="32" cy="32" r="26" stroke="#5B8DEF" stroke-dasharray="163" stroke-dashoffset="41"/></svg>
+                <span class="indicator-val" style="color:#5B8DEF">75%</span>
+              </div>
+              <div class="indicator-target">目标: 80%</div>
+            </div>
+            <div class="indicator-card">
+              <div class="indicator-name">风险合规率</div>
+              <div class="indicator-ring">
+                <svg width="64" height="64"><circle class="bg" cx="32" cy="32" r="26"/><circle cx="32" cy="32" r="26" stroke="#9F7AEA" stroke-dasharray="163" stroke-dashoffset="8"/></svg>
+                <span class="indicator-val" style="color:#9F7AEA">95%</span>
+              </div>
+              <div class="indicator-target">目标: 90%</div>
+            </div>
+            <div class="indicator-card">
+              <div class="indicator-name">培训完成率</div>
+              <div class="indicator-ring">
+                <svg width="64" height="64"><circle class="bg" cx="32" cy="32" r="26"/><circle cx="32" cy="32" r="26" stroke="#ECC94B" stroke-dasharray="163" stroke-dashoffset="65"/></svg>
+                <span class="indicator-val" style="color:#B7791F">60%</span>
+              </div>
+              <div class="indicator-target">目标: 95%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 指标配置 ========== -->
+      <div class="page" id="page-scheme">
+        <div class="page-header">
+          <h1 class="page-title">⚙️ 指标配置</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 指标配置</div>
+        </div>
+
+        <div class="card card-blue">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#DBEAFE">📋</div> 考核方案列表</div>
+            <button class="btn btn-primary">+ 新增方案</button>
+          </div>
+          <table class="table">
+            <thead><tr><th>方案名称</th><th>考核周期</th><th>指标数</th><th>机构</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td><b>2026年Q2综合考核方案</b></td><td>2026-04-01 ~ 2026-06-30</td><td>12项</td><td>全部机构</td><td><span class="tag tag-success">进行中</span></td><td>2026-03-25</td><td><button class="btn btn-outline btn-sm">编辑</button></td></tr>
+              <tr><td><b>2026年Q1综合考核方案</b></td><td>2026-01-01 ~ 2026-03-31</td><td>12项</td><td>全部机构</td><td><span class="tag tag-purple">已完成</span></td><td>2025-12-20</td><td><button class="btn btn-outline btn-sm">查看</button></td></tr>
+              <tr><td><b>2025年Q4专项考核方案</b></td><td>2025-10-01 ~ 2025-12-31</td><td>8项</td><td>东部区域</td><td><span class="tag tag-purple">已完成</span></td><td>2025-09-15</td><td><button class="btn btn-outline btn-sm">查看</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-orange">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#FEF3C7">➕</div> 新增考核方案</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">方案名称</label><input type="text" class="form-input" placeholder="请输入方案名称"></div>
+            <div class="form-group"><label class="form-label">考核周期</label><select class="form-select"><option>2026年Q2</option><option>2026年Q3</option><option>2026年Q4</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">开始日期</label><input type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">结束日期</label><input type="date" class="form-input"></div>
+          </div>
+          <div class="form-group"><label class="form-label">适用机构</label><select class="form-select"><option>全部机构</option><option>东部区域</option><option>西部区域</option></select></div>
+          <div class="form-group"><label class="form-label">方案说明</label><textarea class="form-textarea" rows="2" placeholder="请输入方案说明..."></textarea></div>
+          <div class="form-actions"><button class="btn btn-primary">保存方案</button><button class="btn btn-outline">取消</button></div>
+        </div>
+      </div>
+
+      <!-- ========== 方案派发 ========== -->
+      <div class="page" id="page-indicator">
+        <div class="page-header">
+          <h1 class="page-title">📤 方案派发</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 方案派发</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card green"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-value">12</div><div class="stat-label">指标总数</div></div></div>
+          <div class="stat-card blue"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-value">10</div><div class="stat-label">已派发</div></div></div>
+          <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-info"><div class="stat-value">2</div><div class="stat-label">待派发</div></div></div>
+          <div class="stat-card purple"><div class="stat-icon">🏢</div><div class="stat-info"><div class="stat-value">20</div><div class="stat-label">分支机构</div></div></div>
+        </div>
+
+        <div class="card card-cyan">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#A5F3FC">🎯</div> 指标库管理</div>
+            <button class="btn btn-primary">+ 添加指标</button>
+          </div>
+          <table class="table">
+            <thead><tr><th>指标名称</th><th>类型</th><th>权重</th><th>目标值</th><th>数据来源</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td><b>营收增长率</b></td><td>效益类</td><td>25%</td><td>≥15%</td><td>财务系统</td><td><span class="tag tag-success">已启用</span></td><td><button class="btn btn-outline btn-sm">编辑</button></td></tr>
+              <tr><td><b>客户满意度</b></td><td>服务类</td><td>20%</td><td>≥85%</td><td>客服系统</td><td><span class="tag tag-success">已启用</span></td><td><button class="btn btn-outline btn-sm">编辑</button></td></tr>
+              <tr><td><b>风险合规率</b></td><td>合规类</td><td>20%</td><td>≥95%</td><td>风控系统</td><td><span class="tag tag-success">已启用</span></td><td><button class="btn btn-outline btn-sm">编辑</button></td></tr>
+              <tr><td><b>员工培训完成率</b></td><td>管理类</td><td>15%</td><td>≥90%</td><td>培训系统</td><td><span class="tag tag-success">已启用</span></td><td><button class="btn btn-outline btn-sm">编辑</button></td></tr>
+              <tr><td><b>市场份额</b></td><td>效益类</td><td>10%</td><td>≥12%</td><td>市场部门</td><td><span class="tag tag-warning">待派发</span></td><td><button class="btn btn-primary btn-sm">派发</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-green">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#D1FAE5">📨</div> 派发记录</div>
+          </div>
+          <table class="table">
+            <thead><tr><th>派发时间</th><th>指标名称</th><th>派发对象</th><th>派发人</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-15</td><td>营收增长率</td><td>全部机构</td><td>管理员</td><td><span class="tag tag-success">已接收</span></td></tr>
+              <tr><td>2026-04-15</td><td>客户满意度</td><td>全部机构</td><td>管理员</td><td><span class="tag tag-success">已接收</span></td></tr>
+              <tr><td>2026-04-20</td><td>市场份额</td><td>东部区域</td><td>管理员</td><td><span class="tag tag-warning">待确认</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 得分计算 ========== -->
+      <div class="page" id="page-score">
+        <div class="page-header">
+          <h1 class="page-title">🧮 得分计算</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 得分计算</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-icon">📊</div><div class="stat-info"><div class="stat-value">20</div><div class="stat-label">待计算</div></div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-value">17</div><div class="stat-label">已完成</div></div></div>
+          <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-info"><div class="stat-value">3</div><div class="stat-label">计算中</div></div></div>
+          <div class="stat-card purple"><div class="stat-icon">📅</div><div class="stat-info"><div class="stat-value">4月</div><div class="stat-label">当前周期</div></div></div>
+        </div>
+
+        <div class="card card-orange">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#FEF3C7">🧮</div> 得分计算</div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <select class="form-select" style="width:130px;padding:6px 10px"><option>2026年Q2</option></select>
+              <button class="btn btn-primary">批量计算</button>
+            </div>
+          </div>
+          <table class="table">
+            <thead><tr><th>机构</th><th>营收(25%)</th><th>满意(20%)</th><th>合规(20%)</th><th>培训(15%)</th><th>综合</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td><b>北京朝阳分部</b></td><td>98</td><td>99</td><td>100</td><td>96</td><td><b style="color:#059669">98.5</b></td><td><span class="tag tag-success">完成</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><b>上海浦东分部</b></td><td>96</td><td>95</td><td>97</td><td>92</td><td><b style="color:#059669">95.2</b></td><td><span class="tag tag-success">完成</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><b>深圳南山分部</b></td><td>94</td><td>93</td><td>95</td><td>86</td><td><b style="color:#4F86E8">92.8</b></td><td><span class="tag tag-success">完成</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><b>广州天河分部</b></td><td>88</td><td>90</td><td>92</td><td>83</td><td><b style="color:#B7791F">88.6</b></td><td><span class="tag tag-info">待审核</span></td><td><button class="btn btn-primary btn-sm">提交</button></td></tr>
+              <tr><td><b>杭州西湖分部</b></td><td>75</td><td>78</td><td>80</td><td>70</td><td><b style="color:#DC2626">76.3</b></td><td><span class="tag tag-warning">待修正</span></td><td><button class="btn btn-outline btn-sm">修正</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 结果审核 ========== -->
+      <div class="page" id="page-audit">
+        <div class="page-header">
+          <h1 class="page-title">✅ 结果审核</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 结果审核</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-info"><div class="stat-value">2</div><div class="stat-label">待审核</div></div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-value">15</div><div class="stat-label">已通过</div></div></div>
+          <div class="stat-card red"><div class="stat-icon">❌</div><div class="stat-info"><div class="stat-value">0</div><div class="stat-label">已驳回</div></div></div>
+          <div class="stat-card purple"><div class="stat-icon">📅</div><div class="stat-info"><div class="stat-value">4月</div><div class="stat-label">当前周期</div></div></div>
+        </div>
+
+        <div class="card card-orange">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#FEF3C7">📋</div> 待审核列表</div>
+          </div>
+          <table class="table">
+            <thead><tr><th>提交时间</th><th>机构</th><th>周期</th><th>得分</th><th>建议结果</th><th>提交人</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-28</td><td><b>广州天河分部</b></td><td>4月</td><td><b style="color:#B7791F">88.6</b></td><td><span class="tag tag-warning">降级 -1级</span></td><td>张三</td><td><span class="tag tag-warning">待审核</span></td><td><button class="btn btn-success btn-sm">通过</button><button class="btn btn-outline btn-sm" style="margin-left:4px">驳回</button></td></tr>
+              <tr><td>2026-04-27</td><td><b>成都武侯分部</b></td><td>4月</td><td><b style="color:#4F86E8">82.3</b></td><td><span class="tag tag-info">维持</span></td><td>李四</td><td><span class="tag tag-warning">待审核</span></td><td><button class="btn btn-success btn-sm">通过</button><button class="btn btn-outline btn-sm" style="margin-left:4px">驳回</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card card-green">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#D1FAE5">✅</div> 已审核记录</div>
+          </div>
+          <table class="table">
+            <thead><tr><th>审核时间</th><th>机构</th><th>周期</th><th>得分</th><th>考核结果</th><th>审核人</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-26</td><td><b>北京朝阳分部</b></td><td>4月</td><td><b style="color:#059669">98.5</b></td><td><span class="tag tag-success">升级 +1级</span></td><td>管理员</td></tr>
+              <tr><td>2026-04-25</td><td><b>上海浦东分部</b></td><td>4月</td><td><b style="color:#059669">95.2</b></td><td><span class="tag tag-success">升级 +1级</span></td><td>管理员</td></tr>
+              <tr><td>2026-04-24</td><td><b>深圳南山分部</b></td><td>4月</td><td><b style="color:#4F86E8">92.8</b></td><td><span class="tag tag-info">维持</span></td><td>管理员</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 最终结果 ========== -->
+      <div class="page" id="page-query">
+        <div class="page-header">
+          <h1 class="page-title">🏆 最终结果</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 最终结果</div>
+        </div>
+
+        <div class="card card-blue">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#DBEAFE">🔍</div> 查询条件</div>
+          </div>
+          <div class="search-area">
+            <div class="search-item"><label class="form-label">考核周期</label><select class="form-select"><option>2026年Q2</option><option>2026年Q1</option><option>2025年Q4</option></select></div>
+            <div class="search-item"><label class="form-label">分支机构</label><select class="form-select"><option>全部机构</option><option>北京朝阳分部</option><option>上海浦东分部</option></select></div>
+            <div class="search-item"><label class="form-label">考核结果</label><select class="form-select"><option>全部</option><option>升级</option><option>降级</option><option>维持</option><option>未参与</option></select></div>
+            <button class="btn btn-primary">查询</button>
+            <button class="btn btn-outline">重置</button>
+            <button class="btn btn-outline">导出Excel</button>
+          </div>
+        </div>
+
+        <div class="card card-purple">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-icon" style="background:#E9D5FF">📊</div> 查询结果</div>
+          </div>
+          <table class="table">
+            <thead><tr><th>排名</th><th>机构</th><th>周期</th><th>综合得分</th><th>考核结果</th><th>较上期</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td><div class="rank rank-1">1</div></td><td><b>北京朝阳分部</b></td><td>Q2</td><td><b style="color:#059669">98.5</b></td><td><span class="tag tag-success">升级 +1级</span></td><td><span style="color:#059669">↑ 2.3</span></td><td><span class="tag tag-purple">已发布</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><div class="rank rank-2">2</div></td><td><b>上海浦东分部</b></td><td>Q2</td><td><b style="color:#059669">95.2</b></td><td><span class="tag tag-success">升级 +1级</span></td><td><span style="color:#059669">↑ 1.5</span></td><td><span class="tag tag-purple">已发布</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><div class="rank rank-3">3</div></td><td><b>深圳南山分部</b></td><td>Q2</td><td><b style="color:#4F86E8">92.8</b></td><td><span class="tag tag-info">维持</span></td><td><span style="color:#DC2626">↓ 0.8</span></td><td><span class="tag tag-purple">已发布</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><div class="rank">4</div></td><td><b>广州天河分部</b></td><td>Q2</td><td><b style="color:#B7791F">88.6</b></td><td><span class="tag tag-warning">降级 -1级</span></td><td><span style="color:#059669">↑ 3.2</span></td><td><span class="tag tag-warning">待整改</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+              <tr><td><div class="rank">5</div></td><td><b>杭州西湖分部</b></td><td>Q2</td><td><b style="color:#DC2626">76.3</b></td><td><span class="tag tag-danger">降级 -2级</span></td><td><span style="color:#DC2626">↓ 5.1</span></td><td><span class="tag tag-warning">待整改</span></td><td><button class="btn btn-outline btn-sm">详情</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 考核战报 ========== -->
+      <div class="page" id="page-report">
+        <div class="page-header">
+          <h1 class="page-title">📈 考核战报</h1>
+          <div class="page-breadcrumb">分支机构考核系统 / 考核战报</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-icon">🏆</div><div class="stat-info"><div class="stat-value">20</div><div class="stat-label">参评机构</div></div></div>
+          <div class="stat-card green"><div class="stat-icon">⬆️</div><div class="stat-info"><div class="stat-value">5</div><div class="stat-label">升级机构</div></div></div>
+          <div class="stat-card purple"><div class="stat-icon">📊</div><div class="stat-info"><div class="stat-value">87.3</div><div class="stat-label">平均得分</div></div></div>
+          <div class="stat-card cyan"><div class="stat-icon">📈</div><div class="stat-info"><div class="stat-value">+2.5</div><div class="stat-label">较上期增幅</div></div></div>
+        </div>
+
+        <div class="chart-area">
+          <div class="card card-blue">
+            <div class="card-header">
+              <div class="card-title"><div class="card-title-icon" style="background:#DBEAFE">📈</div> 考核概况</div>
+              <button class="btn btn-outline btn-sm">导出</button>
+            </div>
+            <div class="ring-chart">
+              <svg width="100" height="100"><circle cx="50" cy="50" r="40" stroke="#E2E8F0" stroke-width="10"/><circle cx="50" cy="50" r="40" stroke="#48BB78" stroke-width="10" stroke-dasharray="251" stroke-dashoffset="38" class="fg"/></svg>
+              <div><div style="font-size:28px;font-weight:700;color:#059669">85%</div><div style="color:var(--text-light);font-size:12px">整体完成率</div></div>
+            </div>
+            <div style="margin-top:16px">
+              <div class="progress-card"><div class="progress-info"><div class="progress-name">升级</div><div class="progress"><div class="progress-bar green" style="width:25%"></div></div></div><span style="font-size:13px;font-weight:600">5家</span></div>
+              <div class="progress-card"><div class="progress-info"><div class="progress-name">维持</div><div class="progress"><div class="progress-bar blue" style="width:50%"></div></div></div><span style="font-size:13px;font-weight:600">10家</span></div>
+              <div class="progress-card"><div class="progress-info"><div class="progress-name">降级</div><div class="progress"><div class="progress-bar orange" style="width:20%"></div></div></div><span style="font-size:13px;font-weight:600">4家</span></div>
+              <div class="progress-card"><div class="progress-info"><div class="progress-name">未参与</div><div class="progress"><div style="width:5%;height:100%;background:#94A3B8;border-radius:3px"></div></div></div><span style="font-size:13px;font-weight:600">1家</span></div>
+            </div>
+          </div>
+
+          <div class="card card-green">
+            <div class="card-header">
+              <div class="card-title"><div class="card-title-icon" style="background:#D1FAE5">🏅</div> TOP 5 机构</div>
+            </div>
+            <table class="table">
+              <tbody>
+                <tr><td><div class="rank rank-1">1</div></td><td>北京朝阳分部</td><td><b style="color:#059669">98.5</b></td><td><span class="tag tag-success">升级 +1级</span></td></tr>
+                <tr><td><div class="rank rank-2">2</div></td><td>上海浦东分部</td><td><b style="color:#059669">95.2</b></td><td><span class="tag tag-success">升级 +1级</span></td></tr>
+                <tr><td><div class="rank rank-3">3</div></td><td>深圳南山分部</td><td><b style="color:#4F86E8">92.8</b></td><td><span class="tag tag-info">维持</span></td></tr>
+                <tr><td><div class="rank">4</div></td><td>南京鼓楼分部</td><td><b style="color:#4F86E8">91.5</b></td><td><span class="tag tag-success">升级 +1级</span></td></tr>
+                <tr><td><div class="rank">5</div></td><td>武汉武昌分部</td><td><b style="color:#4F86E8">90.2</b></td><td><span class="tag tag-info">维持</span></td></tr>
+              </tbody>
+            </table>
+            <div style="margin-top:16px">
+              <div class="card-title" style="margin-bottom:12px"><div class="card-title-icon" style="background:#FECACA">⚠️</div> 降级名单</div>
+              <table class="table">
+                <tbody>
+                  <tr><td>杭州西湖分部</td><td><b style="color:#DC2626">76.3</b></td><td><span class="tag tag-danger">降级 -2级</span></td></tr>
+                  <tr><td>西安雁塔分部</td><td><b style="color:#DC2626">71.5</b></td><td><span class="tag tag-danger">降级 -1级</span></td></tr>
+                  <tr><td>沈阳铁西分部</td><td><b style="color:#B7791F">68.2</b></td><td><span class="tag tag-warning">降级 -1级</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      event.target.closest('.nav-item').classList.add('active');
+    }
+  </script>
+</body>
+</html>

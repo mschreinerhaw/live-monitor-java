@@ -1,0 +1,1690 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分支机构展业统计</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --line: #e6ebf2;
+      --text: #14213d;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --ok: #12b981;
+      --warn: #f59e0b;
+      --info: #3b82f6;
+      --danger: #ef4444;
+      --card-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .page {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 10px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 10px;
+    }
+
+    .query-row {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field {
+      height: 42px;
+      border: 1px solid #e5eaf3;
+      background: #f7f9fc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+    }
+
+    .field label {
+      min-width: 72px;
+      color: #334155;
+      font-size: 15px;
+    }
+
+    .field input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      color: #0f172a;
+      font-size: 15px;
+    }
+
+    .btn {
+      height: 42px;
+      min-width: 110px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn.ghost {
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 10px 0;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status-row.error {
+      color: var(--danger);
+    }
+
+    .refresh-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid #d9e2f0;
+      background: #fff;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(130px, 1fr));
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+
+    .kpi-card {
+      border: 1px solid #e7edf8;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      padding: 8px 10px;
+      min-height: 70px;
+    }
+
+    .kpi-label {
+      color: #64748b;
+      font-size: 12px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.2px;
+    }
+
+    .kpi-value.sm {
+      font-size: 22px;
+    }
+
+    .section-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .two-col {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 10px 12px;
+      border-bottom: 1px dashed #e5ebf4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .card-note {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .chart-body {
+      padding: 10px 12px;
+      min-height: 320px;
+      overflow: auto;
+    }
+
+    .chart-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .sort-switch {
+      display: inline-flex;
+      border: 1px solid #d8e2f1;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #f8faff;
+    }
+
+    .sort-btn {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    .sort-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .leaderboard-item {
+      display: grid;
+      grid-template-columns: minmax(170px, 230px) 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid #e8eef7;
+      border-radius: 10px;
+      background: #f8fbff;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .leaderboard-item:hover {
+      border-color: #bfd4ff;
+      background: #f1f6ff;
+    }
+
+    .leaderboard-item.active {
+      border-color: #7ea9ff;
+      background: #eaf2ff;
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+    }
+
+    .leader-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .rank-no {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+
+    .rank-no.top1 { background: #f59e0b; color: #ffffff; }
+    .rank-no.top2 { background: #94a3b8; color: #ffffff; }
+    .rank-no.top3 { background: #c08457; color: #ffffff; }
+
+    .leader-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .leader-sub {
+      color: #64748b;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .leader-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #e6edf7;
+      overflow: hidden;
+    }
+
+    .leader-fill {
+      height: 100%;
+      border-radius: inherit;
+      transition: width 0.25s ease;
+      min-width: 2px;
+    }
+
+    .leader-fill.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .leader-fill.mid { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .leader-fill.low { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .leader-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .leader-pct {
+      font-size: 13px;
+      color: #334155;
+      font-weight: 600;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .risk-tag {
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 2px 8px;
+      border: 1px solid transparent;
+    }
+
+    .risk-tag.high {
+      color: #b91c1c;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .risk-tag.mid {
+      color: #b45309;
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+
+    .risk-tag.low {
+      color: #047857;
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend i {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 340px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid #edf2f7;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f6f8fc;
+      font-weight: 700;
+      color: #0f172a;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    tbody tr:hover {
+      background: #f8fbff;
+    }
+
+    tbody tr.active {
+      background: #eaf2ff;
+    }
+
+    .text-link {
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .empty {
+      text-align: center;
+      color: #94a3b8;
+      padding: 36px 0;
+      font-size: 13px;
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .sub-list {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr;
+    }
+
+    .list-box {
+      border: 1px solid #e8edf6;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fcfdff;
+    }
+
+    .list-box h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #0f172a;
+    }
+
+    .rank-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px dashed #edf2f7;
+      font-size: 13px;
+    }
+
+    .rank-item:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #eff4ff;
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    .risk-high { color: #ef4444; font-weight: 700; }
+    .risk-mid { color: #f59e0b; font-weight: 700; }
+    .risk-low { color: #10b981; font-weight: 700; }
+
+    .advice {
+      border: 1px solid #e8edf6;
+      border-radius: 10px;
+      background: #f9fbff;
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+
+    .advice h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #0f172a;
+    }
+
+    .advice p {
+      margin: 4px 0;
+      color: #334155;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1420px) {
+      .kpi-grid {
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .query-row {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .query-row > :nth-child(3) {
+        display: none;
+      }
+
+      .two-col,
+      .risk-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 8px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+
+      .query-row {
+        grid-template-columns: 1fr;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .chart-body {
+        min-height: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <div class="query-row">
+        <div class="field">
+          <label for="startDate">开始日期:</label>
+          <input id="startDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="endDate">结束日期:</label>
+          <input id="endDate" type="date" />
+        </div>
+        <div></div>
+        <button id="btnSearch" class="btn primary">查询</button>
+        <button id="btnReset" class="btn ghost">重置</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div id="statusRow" class="status-row">
+        <div id="statusText">等待查询</div>
+        <button id="btnRefresh" class="refresh-btn" title="刷新">↻</button>
+      </div>
+
+      <div id="kpiGrid" class="kpi-grid"></div>
+
+      <div class="section-grid two-col">
+        <section class="card">
+          <div class="card-head">
+            <h3 class="card-title">机构风险排行（Top N）</h3>
+            <div class="chart-toolbar">
+              <div class="sort-switch">
+                <button class="sort-btn active" data-chart="org" data-sort="risk">按风险排序</button>
+                <button class="sort-btn" data-chart="org" data-sort="total">按展业数排序</button>
+              </div>
+              <div class="legend">
+                <span><i style="background:#ef4444"></i>高风险</span>
+                <span><i style="background:#f59e0b"></i>中风险</span>
+                <span><i style="background:#10b981"></i>低风险</span>
+              </div>
+            </div>
+          </div>
+          <div id="orgChart" class="chart-body"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h3 class="card-title">负责人风险排行（Top N）</h3>
+            <div class="chart-toolbar">
+              <div class="sort-switch">
+                <button class="sort-btn active" data-chart="owner" data-sort="risk">按风险排序</button>
+                <button class="sort-btn" data-chart="owner" data-sort="total">按展业数排序</button>
+              </div>
+              <div class="legend">
+                <span><i style="background:#ef4444"></i>高风险</span>
+                <span><i style="background:#f59e0b"></i>中风险</span>
+                <span><i style="background:#10b981"></i>低风险</span>
+              </div>
+            </div>
+          </div>
+          <div id="ownerChart" class="chart-body"></div>
+        </section>
+      </div>
+
+      <div class="section-grid two-col">
+        <section class="card">
+          <div class="card-head">
+            <h3 class="card-title">机构统计</h3>
+            <span class="card-note">按机构汇总，支持点击联动</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr id="orgTableHead"></tr>
+              </thead>
+              <tbody id="orgTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h3 class="card-title">负责人员统计</h3>
+            <span class="card-note">按负责人汇总，支持点击联动</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr id="ownerTableHead"></tr>
+              </thead>
+              <tbody id="ownerTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="risk-grid">
+        <section class="card">
+          <div class="card-head">
+            <h3 class="card-title">机构-负责人交叉督办矩阵</h3>
+            <span class="card-note">按风险高低并排对照</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>机构</th>
+                  <th>机构超期</th>
+                  <th>机构完成率</th>
+                  <th>负责人</th>
+                  <th>负责人超期</th>
+                  <th>负责人完成率</th>
+                  <th>督办优先级</th>
+                </tr>
+              </thead>
+              <tbody id="matrixBody"></tbody>
+            </table>
+          </div>
+          <div class="card-head">
+            <h3 class="card-title">重点问题清单</h3>
+            <span class="card-note">按风险值自动排序（高→低）</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>维度</th>
+                  <th>对象</th>
+                  <th>展业总数</th>
+                  <th>推进中</th>
+                  <th>超7天未跟进</th>
+                  <th>完成率</th>
+                  <th>平均周期</th>
+                </tr>
+              </thead>
+              <tbody id="issueBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="sub-list">
+          <div class="list-box">
+            <h4>选中对象明细</h4>
+            <div id="selectedDetail"></div>
+          </div>
+          <div class="list-box">
+            <h4>风险机构 TOP5</h4>
+            <div id="riskOrgList"></div>
+          </div>
+          <div class="list-box">
+            <h4>风险负责人 TOP5</h4>
+            <div id="riskOwnerList"></div>
+          </div>
+          <div class="list-box">
+            <h4>高效样板 TOP5</h4>
+            <div id="bestOwnerList"></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="advice">
+        <h4>建议动作</h4>
+        <div id="adviceText"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="./common/api.js"></script>
+  <script>
+    (function () {
+      const API_ENDPOINT = "/UIProcessor";
+      const TOP_N = 8;
+      const TOP5 = 5;
+
+      const TABLE_CONFIG = {
+        org: {
+          table: "XN_FZJG",
+          name: "机构",
+          fieldOrder: ["F1", "F2", "F7", "F3", "F4", "F5", "F6", "F8", "F9"],
+          fallbackLabels: {
+            F1: "分支机构",
+            F2: "展业总数",
+            F7: "本周新增",
+            F3: "已完成",
+            F4: "推进中",
+            F5: "跟进中",
+            F6: "完成率",
+            F8: "平均周期",
+            F9: "超7天未跟进"
+          }
+        },
+        owner: {
+          table: "XN_FZRY",
+          name: "负责人"
+        }
+      };
+
+      const state = {
+        org: { rows: [], fields: [], selectedId: "" },
+        owner: { rows: [], fields: [], selectedId: "" },
+        chartSort: { org: "risk", owner: "risk" },
+        loading: false
+      };
+
+      const el = {
+        startDate: document.getElementById("startDate"),
+        endDate: document.getElementById("endDate"),
+        btnSearch: document.getElementById("btnSearch"),
+        btnReset: document.getElementById("btnReset"),
+        btnRefresh: document.getElementById("btnRefresh"),
+        statusRow: document.getElementById("statusRow"),
+        statusText: document.getElementById("statusText"),
+        kpiGrid: document.getElementById("kpiGrid"),
+        orgChart: document.getElementById("orgChart"),
+        ownerChart: document.getElementById("ownerChart"),
+        orgTableHead: document.getElementById("orgTableHead"),
+        orgTableBody: document.getElementById("orgTableBody"),
+        ownerTableHead: document.getElementById("ownerTableHead"),
+        ownerTableBody: document.getElementById("ownerTableBody"),
+        matrixBody: document.getElementById("matrixBody"),
+        issueBody: document.getElementById("issueBody"),
+        selectedDetail: document.getElementById("selectedDetail"),
+        riskOrgList: document.getElementById("riskOrgList"),
+        riskOwnerList: document.getElementById("riskOwnerList"),
+        bestOwnerList: document.getElementById("bestOwnerList"),
+        adviceText: document.getElementById("adviceText")
+      };
+
+      function todayText() {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return yyyy + "-" + mm + "-" + dd;
+      }
+
+      function readValue(v) {
+        if (v === null || v === undefined) {
+          return "";
+        }
+        if (typeof v === "object") {
+          return String(v.text || v.value || "");
+        }
+        return String(v);
+      }
+
+      function toNumber(v) {
+        if (typeof v === "number") {
+          return Number.isFinite(v) ? v : 0;
+        }
+        if (v === null || v === undefined || v === "") {
+          return 0;
+        }
+        const n = parseFloat(String(v).replace(/,/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function pct(v) {
+        return (Math.max(0, toNumber(v)) * 100).toFixed(2) + "%";
+      }
+
+      function num(v) {
+        return String(Math.round(toNumber(v) * 100) / 100);
+      }
+
+      function esc(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function setStatus(text, isError) {
+        el.statusText.textContent = text;
+        el.statusRow.className = isError ? "status-row error" : "status-row";
+      }
+
+      function sanitizeJsonText(text) {
+        if (!text) {
+          return "";
+        }
+        return String(text)
+          .replace(/^\uFEFF/, "")
+          .replace(/^\)\]\}',?\s*/, "")
+          .trim();
+      }
+
+      function findBracketEnd(text, start, openChar, closeChar) {
+        let depth = 0;
+        let inStr = false;
+        let strChar = "";
+        let escaped = false;
+
+        for (let i = start; i < text.length; i += 1) {
+          const ch = text[i];
+          if (inStr) {
+            if (escaped) {
+              escaped = false;
+              continue;
+            }
+            if (ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (ch === strChar) {
+              inStr = false;
+              strChar = "";
+            }
+            continue;
+          }
+          if (ch === "\"" || ch === "'") {
+            inStr = true;
+            strChar = ch;
+            continue;
+          }
+          if (ch === openChar) {
+            depth += 1;
+          } else if (ch === closeChar) {
+            depth -= 1;
+            if (depth === 0) {
+              return i;
+            }
+          }
+        }
+        return -1;
+      }
+
+      function tryParseJson(text) {
+        try {
+          const parsed = JSON.parse(sanitizeJsonText(text));
+          if (typeof parsed === "string") {
+            return JSON.parse(sanitizeJsonText(parsed));
+          }
+          return parsed;
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function extractFirstJsonObject(text) {
+        const start = text.indexOf("{");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "{", "}");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractFirstJsonArray(text) {
+        const start = text.indexOf("[");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractModelDataPair(text) {
+        const source = String(text || "");
+        const modelKeyIdx = source.indexOf("\"model\"");
+        if (modelKeyIdx < 0) {
+          return null;
+        }
+
+        const modelColonIdx = source.indexOf(":", modelKeyIdx);
+        if (modelColonIdx < 0) {
+          return null;
+        }
+
+        const modelStart = source.indexOf("{", modelColonIdx);
+        if (modelStart < 0) {
+          return null;
+        }
+
+        const modelEnd = findBracketEnd(source, modelStart, "{", "}");
+        if (modelEnd < 0) {
+          return null;
+        }
+
+        const modelObj = tryParseJson(source.slice(modelStart, modelEnd + 1));
+        if (!modelObj) {
+          return null;
+        }
+
+        const dataTokenRegex = /\"data\"\s*:\s*\[/g;
+        dataTokenRegex.lastIndex = modelEnd;
+        const dataMatch = dataTokenRegex.exec(source);
+        if (!dataMatch) {
+          return null;
+        }
+
+        const dataStart = source.indexOf("[", dataMatch.index);
+        if (dataStart < 0) {
+          return null;
+        }
+        const dataEnd = findBracketEnd(source, dataStart, "[", "]");
+        if (dataEnd < 0) {
+          return null;
+        }
+
+        const dataArr = tryParseJson(source.slice(dataStart, dataEnd + 1));
+        if (!Array.isArray(dataArr)) {
+          return null;
+        }
+
+        return { model: modelObj, data: dataArr };
+      }
+
+      function parseInitPropsHtml(htmlText) {
+        const marker = /(var|let|const)\s+initProps\s*=/;
+        const m = marker.exec(htmlText || "");
+        if (!m) {
+          return null;
+        }
+
+        const eqIndex = htmlText.indexOf("=", m.index);
+        const start = htmlText.indexOf("[", eqIndex);
+        if (start < 0) {
+          return null;
+        }
+
+        const end = findBracketEnd(htmlText, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+
+        const arr = tryParseJson(htmlText.slice(start, end + 1));
+        if (Array.isArray(arr) && arr[0]) {
+          return arr[0];
+        }
+        return arr || null;
+      }
+
+      function parsePayload(rawText, contentType) {
+        const safeText = sanitizeJsonText(rawText);
+
+        const direct = tryParseJson(safeText);
+        if (direct) {
+          return Array.isArray(direct) ? direct[0] : direct;
+        }
+
+        const trimmed = String(safeText || "").trim();
+        const lParen = trimmed.indexOf("(");
+        const rParen = trimmed.lastIndexOf(")");
+        if (lParen >= 0 && rParen > lParen) {
+          const inner = trimmed.slice(lParen + 1, rParen).trim();
+          const callback = tryParseJson(inner) || extractFirstJsonObject(inner) || extractFirstJsonArray(inner);
+          if (callback) {
+            return Array.isArray(callback) ? callback[0] : callback;
+          }
+        }
+
+        const modelData = extractModelDataPair(rawText);
+        if (modelData) {
+          return modelData;
+        }
+
+        const isHtml = /<html[\s>]/i.test(rawText || "") || (contentType || "").includes("text/html");
+        if (isHtml) {
+          const fromInitProps = parseInitPropsHtml(rawText);
+          if (fromInitProps) {
+            return fromInitProps;
+          }
+          const obj = extractFirstJsonObject(rawText);
+          if (obj) {
+            return obj;
+          }
+        }
+
+        return null;
+      }
+
+      function findGridElement(node) {
+        if (!node) {
+          return null;
+        }
+
+        if (Array.isArray(node)) {
+          for (let i = 0; i < node.length; i += 1) {
+            const hit = findGridElement(node[i]);
+            if (hit) {
+              return hit;
+            }
+          }
+          return null;
+        }
+
+        if (typeof node === "object") {
+          if (node.model && Array.isArray(node.data)) {
+            return { model: node.model, data: node.data };
+          }
+          if (node.model && node.data && Array.isArray(node.data.items)) {
+            return { model: node.model, data: node.data.items };
+          }
+          if (Array.isArray(node.fields) && Array.isArray(node.data)) {
+            return { model: { fields: node.fields }, data: node.data };
+          }
+          if (node.model && Array.isArray(node.rows)) {
+            return { model: node.model, data: node.rows };
+          }
+
+          const keys = Object.keys(node);
+          for (let i = 0; i < keys.length; i += 1) {
+            const hit = findGridElement(node[keys[i]]);
+            if (hit) {
+              return hit;
+            }
+          }
+        }
+
+        return null;
+      }
+
+      function fieldNameByLabel(fields, keyword, fallback) {
+        const hit = (fields || []).find((f) => f && f.label && String(f.label).indexOf(keyword) >= 0);
+        return (hit && hit.name) || fallback || "";
+      }
+
+      function normalizeData(payload, type) {
+        const rootCandidates = [payload, payload && payload.result, payload && payload.data, payload && payload.response, payload && payload.page, payload && payload.body];
+
+        let grid = null;
+        for (let i = 0; i < rootCandidates.length; i += 1) {
+          grid = findGridElement(rootCandidates[i]);
+          if (grid) {
+            break;
+          }
+        }
+
+        if (!grid) {
+          throw new Error("未在返回结果中找到 grid 结构");
+        }
+
+        const modelFields = Array.isArray(grid.model && grid.model.fields) ? grid.model.fields : [];
+        const rawRows = Array.isArray(grid.data) ? grid.data : [];
+
+        if (type === "org") {
+          const labels = TABLE_CONFIG.org.fallbackLabels;
+          state.org.fields = TABLE_CONFIG.org.fieldOrder.map((name) => {
+            const f = modelFields.find((it) => it && it.name === name);
+            return { name, label: (f && f.label) || labels[name] || name };
+          });
+
+          state.org.rows = rawRows.map((item, idx) => ({
+            ID: String(item.ID || idx + 1),
+            NAME: readValue(item.F1),
+            TOTAL: toNumber(readValue(item.F2)),
+            WEEKLY: toNumber(readValue(item.F7)),
+            DONE: toNumber(readValue(item.F3)),
+            PROGRESS: toNumber(readValue(item.F4)),
+            FOLLOW: toNumber(readValue(item.F5)),
+            RATE: toNumber(readValue(item.F6)),
+            CYCLE: toNumber(readValue(item.F8)),
+            OVERDUE: toNumber(readValue(item.F9)),
+            RAW: item
+          }));
+
+          if (!state.org.rows.length) {
+            state.org.selectedId = "";
+          } else if (!state.org.selectedId || !state.org.rows.some((x) => x.ID === state.org.selectedId)) {
+            state.org.selectedId = state.org.rows[0].ID;
+          }
+          return;
+        }
+
+        const nameKey = fieldNameByLabel(modelFields, "负责人", "F1");
+        const totalKey = fieldNameByLabel(modelFields, "展业总数", "F2");
+        const weeklyKey = fieldNameByLabel(modelFields, "本周新增", "F7");
+        const doneKey = fieldNameByLabel(modelFields, "已完成", "F3");
+        const progressKey = fieldNameByLabel(modelFields, "推进中", "F4");
+        const followKey = fieldNameByLabel(modelFields, "跟进中", "F5");
+        const rateKey = fieldNameByLabel(modelFields, "完成率", "F8");
+        const cycleKey = fieldNameByLabel(modelFields, "平均周期", "F9");
+        const overdueKey = fieldNameByLabel(modelFields, "超7天未跟进", "F10");
+        const companyKey = fieldNameByLabel(modelFields, "跟进企业数", "");
+
+        state.owner.fields = [
+          { name: nameKey || "F1", label: "负责人" },
+          { name: totalKey || "F2", label: "展业总数" },
+          { name: companyKey || "_COMPANY", label: "跟进企业数" },
+          { name: weeklyKey || "F7", label: "本周新增" },
+          { name: doneKey || "F3", label: "已完成" },
+          { name: progressKey || "F4", label: "推进中" },
+          { name: followKey || "F5", label: "跟进中" },
+          { name: rateKey || "F8", label: "完成率" },
+          { name: cycleKey || "F9", label: "平均周期" },
+          { name: overdueKey || "F10", label: "超7天未跟进" }
+        ];
+
+        state.owner.rows = rawRows.map((item, idx) => ({
+          ID: String(item.ID || idx + 1),
+          NAME: readValue(item[nameKey || "F1"]),
+          TOTAL: toNumber(readValue(item[totalKey || "F2"])),
+          COMPANY: toNumber(readValue(companyKey ? item[companyKey] : "")),
+          WEEKLY: toNumber(readValue(item[weeklyKey || "F7"])),
+          DONE: toNumber(readValue(item[doneKey || "F3"])),
+          PROGRESS: toNumber(readValue(item[progressKey || "F4"])),
+          FOLLOW: toNumber(readValue(item[followKey || "F5"])),
+          RATE: toNumber(readValue(item[rateKey || "F8"])),
+          CYCLE: toNumber(readValue(item[cycleKey || "F9"])),
+          OVERDUE: toNumber(readValue(item[overdueKey || "F10"])),
+          RAW: item
+        }));
+
+        if (!state.owner.rows.length) {
+          state.owner.selectedId = "";
+        } else if (!state.owner.selectedId || !state.owner.rows.some((x) => x.ID === state.owner.selectedId)) {
+          state.owner.selectedId = state.owner.rows[0].ID;
+        }
+      }
+
+      function buildRequestUrl(table, startDate, endDate) {
+        return window.PageApi.buildUIProcessorUrl(
+          {
+            Table: table,
+            P1: startDate,
+            P3: endDate,
+            ParamAction: "true"
+          },
+          API_ENDPOINT
+        );
+      }
+
+      async function fetchTableData(type) {
+        const table = TABLE_CONFIG[type].table;
+        const url = buildRequestUrl(table, el.startDate.value, el.endDate.value);
+        const resp = await window.PageApi.requestText(url, { timeoutMs: 20000 });
+        const payload = parsePayload(resp.text, resp.contentType);
+        if (!payload) {
+          throw new Error(TABLE_CONFIG[type].name + "接口解析失败");
+        }
+        normalizeData(payload, type);
+      }
+
+      function riskScore(item) {
+        // 用户指定的风险评分：超期*3 + 跟进中*2 + 推进中*1
+        return item.OVERDUE * 3 + item.FOLLOW * 2 + item.PROGRESS;
+      }
+
+      function riskLevelKey(item) {
+        if (!item) {
+          return "low";
+        }
+        if (item.OVERDUE > 0) {
+          return "high";
+        }
+        if (item.FOLLOW > item.DONE) {
+          return "mid";
+        }
+        return "low";
+      }
+
+      function riskLevelText(item) {
+        const lv = riskLevelKey(item);
+        if (lv === "high") {
+          return "高风险";
+        }
+        if (lv === "mid") {
+          return "中风险";
+        }
+        return "低风险";
+      }
+
+      function riskLevelRank(item) {
+        const lv = riskLevelKey(item);
+        if (lv === "high") {
+          return 3;
+        }
+        if (lv === "mid") {
+          return 2;
+        }
+        return 1;
+      }
+
+      function getTopRisk(rows) {
+        return rows
+          .slice()
+          .sort((a, b) => riskScore(b) - riskScore(a))
+          .slice(0, TOP5);
+      }
+
+      function getTopBest(rows) {
+        return rows
+          .slice()
+          .sort((a, b) => {
+            if (b.RATE !== a.RATE) {
+              return b.RATE - a.RATE;
+            }
+            if (a.CYCLE !== b.CYCLE) {
+              return a.CYCLE - b.CYCLE;
+            }
+            return b.TOTAL - a.TOTAL;
+          })
+          .slice(0, TOP5);
+      }
+
+      function selectedRow(type) {
+        const rows = state[type].rows;
+        const id = state[type].selectedId;
+        return rows.find((x) => x.ID === id) || rows[0] || null;
+      }
+      function renderKpiCards() {
+        const orgRows = state.org.rows;
+
+        const totals = orgRows.reduce(
+          (acc, row) => {
+            acc.total += row.TOTAL;
+            acc.weekly += row.WEEKLY;
+            acc.done += row.DONE;
+            acc.progress += row.PROGRESS;
+            acc.follow += row.FOLLOW;
+            acc.overdue += row.OVERDUE;
+            acc.weightCycle += row.CYCLE * Math.max(1, row.TOTAL);
+            acc.weightBase += Math.max(1, row.TOTAL);
+            return acc;
+          },
+          { total: 0, weekly: 0, done: 0, progress: 0, follow: 0, overdue: 0, weightCycle: 0, weightBase: 0 }
+        );
+
+        const completeRate = totals.total > 0 ? totals.done / totals.total : 0;
+        const avgCycle = totals.weightBase > 0 ? totals.weightCycle / totals.weightBase : 0;
+        const cards = [
+          { label: "展业总数", value: totals.total, cls: "" },
+          { label: "本周新增", value: totals.weekly, cls: "" },
+          { label: "已完成", value: totals.done, cls: "" },
+          { label: "推进中", value: totals.progress, cls: "" },
+          { label: "跟进中", value: totals.follow, cls: "" },
+          { label: "超7天未跟进", value: totals.overdue, cls: "" },
+          { label: "完成率", value: pct(completeRate), cls: "sm" },
+          { label: "平均周期(天)", value: num(avgCycle), cls: "sm" }
+        ];
+
+        el.kpiGrid.innerHTML = cards
+          .map((it) => {
+            return (
+              "<div class=\"kpi-card\">" +
+              "<div class=\"kpi-label\">" + esc(it.label) + "</div>" +
+              "<div class=\"kpi-value " + (it.cls || "") + "\">" + esc(String(it.value)) + "</div>" +
+              "</div>"
+            );
+          })
+          .join("");
+      }
+
+      function syncSortButtons() {
+        document.querySelectorAll(".sort-btn").forEach((btn) => {
+          const chart = btn.getAttribute("data-chart");
+          const mode = btn.getAttribute("data-sort");
+          const active = state.chartSort[chart] === mode;
+          btn.classList.toggle("active", active);
+        });
+      }
+
+      function bindSortButtons() {
+        document.querySelectorAll(".sort-btn").forEach((btn) => {
+          if (btn.dataset.bindReady === "1") {
+            return;
+          }
+          btn.dataset.bindReady = "1";
+          btn.addEventListener("click", () => {
+            const chart = btn.getAttribute("data-chart");
+            const mode = btn.getAttribute("data-sort");
+            state.chartSort[chart] = mode;
+            renderAll();
+          });
+        });
+      }
+
+      function renderStackChart(type, container) {
+        const mode = state.chartSort[type] || "risk";
+        const sortedRows = state[type].rows.slice().sort((a, b) => {
+          if (mode === "total") {
+            if (b.TOTAL !== a.TOTAL) {
+              return b.TOTAL - a.TOTAL;
+            }
+            return riskScore(b) - riskScore(a);
+          }
+          if (riskScore(b) !== riskScore(a)) {
+            return riskScore(b) - riskScore(a);
+          }
+          return b.TOTAL - a.TOTAL;
+        });
+        const rows = sortedRows.slice(0, TOP_N);
+
+        if (!rows.length) {
+          container.innerHTML = "<div class=\"empty\">暂无可视化数据</div>";
+          return;
+        }
+
+        const maxRisk = Math.max(1, ...rows.map((x) => riskScore(x)));
+        const selectedId = state[type].selectedId;
+        const html = rows
+          .map((row, idx) => {
+            const risk = riskScore(row);
+            const riskPct = Math.max(2, Math.min(100, (risk / maxRisk) * 100));
+            const level = riskLevelKey(row);
+            const levelText = riskLevelText(row);
+            const rankCls = idx === 0 ? "top1" : idx === 1 ? "top2" : idx === 2 ? "top3" : "";
+            const tooltip =
+              "已完成: " + num(row.DONE) + " | 推进中: " + num(row.PROGRESS) +
+              " | 跟进中: " + num(row.FOLLOW) + " | 超期: " + num(row.OVERDUE);
+            return (
+              "<div class=\"leaderboard-item " + (row.ID === selectedId ? "active" : "") + "\" data-type=\"" + type + "\" data-id=\"" + row.ID + "\" title=\"" + esc(tooltip) + "\">" +
+              "<div class=\"leader-left\">" +
+                "<span class=\"rank-no " + rankCls + "\">" + (idx + 1) + "</span>" +
+                "<div>" +
+                  "<div class=\"leader-name\">" + esc(row.NAME || "-") + "</div>" +
+                  "<div class=\"leader-sub\">总量 " + esc(num(row.TOTAL)) + " | 风险分 " + esc(num(risk)) + "</div>" +
+                "</div>" +
+              "</div>" +
+              "<div class=\"leader-track\">" +
+                "<div class=\"leader-fill " + level + "\" style=\"width:" + riskPct.toFixed(2) + "%\"></div>" +
+              "</div>" +
+              "<div class=\"leader-right\">" +
+                "<span class=\"leader-pct\">" + riskPct.toFixed(0) + "%</span>" +
+                "<span class=\"risk-tag " + level + "\">" + levelText + "</span>" +
+              "</div>" +
+              "</div>"
+            );
+          })
+          .join("");
+
+        container.innerHTML = html;
+        container.querySelectorAll(".leaderboard-item").forEach((node) => {
+          node.addEventListener("click", () => {
+            const t = node.getAttribute("data-type");
+            const id = node.getAttribute("data-id");
+            state[t].selectedId = id;
+            renderAll();
+          });
+        });
+      }
+
+      function buildOrgTableRows() {
+        return state.org.rows.map((row) => {
+          const active = row.ID === state.org.selectedId ? "active" : "";
+          return (
+            "<tr class=\"" + active + "\" data-type=\"org\" data-id=\"" + row.ID + "\">" +
+            "<td class=\"text-link\">" + esc(row.NAME || "-") + "</td>" +
+            "<td>" + esc(num(row.TOTAL)) + "</td>" +
+            "<td>" + esc(num(row.WEEKLY)) + "</td>" +
+            "<td>" + esc(num(row.DONE)) + "</td>" +
+            "<td>" + esc(num(row.PROGRESS)) + "</td>" +
+            "<td>" + esc(num(row.FOLLOW)) + "</td>" +
+            "<td>" + esc(pct(row.RATE)) + "</td>" +
+            "<td>" + esc(num(row.CYCLE)) + "</td>" +
+            "<td>" + esc(num(row.OVERDUE)) + "</td>" +
+            "</tr>"
+          );
+        });
+      }
+
+      function buildOwnerTableRows() {
+        return state.owner.rows.map((row) => {
+          const active = row.ID === state.owner.selectedId ? "active" : "";
+          return (
+            "<tr class=\"" + active + "\" data-type=\"owner\" data-id=\"" + row.ID + "\">" +
+            "<td class=\"text-link\">" + esc(row.NAME || "-") + "</td>" +
+            "<td>" + esc(num(row.TOTAL)) + "</td>" +
+            "<td>" + esc(num(row.COMPANY)) + "</td>" +
+            "<td>" + esc(num(row.WEEKLY)) + "</td>" +
+            "<td>" + esc(num(row.DONE)) + "</td>" +
+            "<td>" + esc(num(row.PROGRESS)) + "</td>" +
+            "<td>" + esc(num(row.FOLLOW)) + "</td>" +
+            "<td>" + esc(pct(row.RATE)) + "</td>" +
+            "<td>" + esc(num(row.CYCLE)) + "</td>" +
+            "<td>" + esc(num(row.OVERDUE)) + "</td>" +
+            "</tr>"
+          );
+        });
+      }
+
+      function renderTables() {
+        el.orgTableHead.innerHTML = ["分支机构", "展业总数", "本周新增", "已完成", "推进中", "跟进中", "完成率", "平均周期", "超7天未跟进"]
+          .map((x) => "<th>" + x + "</th>")
+          .join("");
+
+        el.ownerTableHead.innerHTML = ["负责人", "展业总数", "跟进企业数", "本周新增", "已完成", "推进中", "跟进中", "完成率", "平均周期", "超7天未跟进"]
+          .map((x) => "<th>" + x + "</th>")
+          .join("");
+
+        if (!state.org.rows.length) {
+          el.orgTableBody.innerHTML = "<tr><td colspan=\"9\" class=\"empty\">暂无数据</td></tr>";
+        } else {
+          el.orgTableBody.innerHTML = buildOrgTableRows().join("");
+        }
+
+        if (!state.owner.rows.length) {
+          el.ownerTableBody.innerHTML = "<tr><td colspan=\"10\" class=\"empty\">暂无数据</td></tr>";
+        } else {
+          el.ownerTableBody.innerHTML = buildOwnerTableRows().join("");
+        }
+
+        document.querySelectorAll("tbody tr[data-type]").forEach((node) => {
+          node.addEventListener("click", () => {
+            const type = node.getAttribute("data-type");
+            const id = node.getAttribute("data-id");
+            state[type].selectedId = id;
+            renderAll();
+          });
+        });
+      }
+
+      function riskLevel(orgItem, ownerItem) {
+        const maxRank = Math.max(riskLevelRank(orgItem), riskLevelRank(ownerItem));
+        if (maxRank >= 3) {
+          return "高";
+        }
+        if (maxRank >= 2) {
+          return "中";
+        }
+        return "低";
+      }
+
+      function renderMatrixAndLists() {
+        const riskOrg = getTopRisk(state.org.rows);
+        const riskOwner = getTopRisk(state.owner.rows);
+        const bestOwner = getTopBest(state.owner.rows);
+        const selOrg = selectedRow("org");
+        const selOwner = selectedRow("owner");
+
+        const matrixSize = Math.max(riskOrg.length, riskOwner.length, 1);
+        const matrixRows = [];
+        for (let i = 0; i < matrixSize; i += 1) {
+          const o = riskOrg[i] || null;
+          const p = riskOwner[i] || null;
+          const lv = riskLevel(o, p);
+          const lvCls = lv === "高" ? "risk-high" : lv === "中" ? "risk-mid" : "risk-low";
+          matrixRows.push(
+            "<tr>" +
+              "<td>" + esc(o ? o.NAME : "-") + "</td>" +
+              "<td>" + esc(o ? num(o.OVERDUE) : "-") + "</td>" +
+              "<td>" + esc(o ? pct(o.RATE) : "-") + "</td>" +
+              "<td>" + esc(p ? p.NAME : "-") + "</td>" +
+              "<td>" + esc(p ? num(p.OVERDUE) : "-") + "</td>" +
+              "<td>" + esc(p ? pct(p.RATE) : "-") + "</td>" +
+              "<td class=\"" + lvCls + "\">" + lv + "</td>" +
+            "</tr>"
+          );
+        }
+
+        el.matrixBody.innerHTML = matrixRows.join("");
+
+        const issueRows = state.org.rows
+          .map((x) => ({ dim: "机构", row: x, score: riskScore(x) }))
+          .concat(state.owner.rows.map((x) => ({ dim: "负责人", row: x, score: riskScore(x) })))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10)
+          .map((it) => {
+            const x = it.row;
+            return (
+              "<tr>" +
+              "<td>" + esc(it.dim) + "</td>" +
+              "<td>" + esc(x.NAME) + "</td>" +
+              "<td>" + esc(num(x.TOTAL)) + "</td>" +
+              "<td>" + esc(num(x.PROGRESS)) + "</td>" +
+              "<td>" + esc(num(x.OVERDUE)) + "</td>" +
+              "<td>" + esc(pct(x.RATE)) + "</td>" +
+              "<td>" + esc(num(x.CYCLE)) + "</td>" +
+              "</tr>"
+            );
+          });
+        el.issueBody.innerHTML = issueRows.length ? issueRows.join("") : "<tr><td colspan=\"7\" class=\"empty\">暂无问题清单</td></tr>";
+
+        if (selOrg || selOwner) {
+          const orgPart = selOrg
+            ? "机构：<strong>" + esc(selOrg.NAME) + "</strong>（总量 " + esc(num(selOrg.TOTAL)) + "，超期 " + esc(num(selOrg.OVERDUE)) + "，完成率 " + esc(pct(selOrg.RATE)) + "）"
+            : "机构：-";
+          const ownerPart = selOwner
+            ? "负责人：<strong>" + esc(selOwner.NAME) + "</strong>（总量 " + esc(num(selOwner.TOTAL)) + "，超期 " + esc(num(selOwner.OVERDUE)) + "，完成率 " + esc(pct(selOwner.RATE)) + "）"
+            : "负责人：-";
+          el.selectedDetail.innerHTML =
+            "<div class=\"rank-item\" style=\"border-top:none;padding-top:0;display:block;line-height:1.7\">" +
+            "<div>" + orgPart + "</div>" +
+            "<div>" + ownerPart + "</div>" +
+            "</div>";
+        } else {
+          el.selectedDetail.innerHTML = "<div class=\"empty\">暂无选中明细</div>";
+        }
+
+        el.riskOrgList.innerHTML = riskOrg.length
+          ? riskOrg
+              .map((x, i) => {
+                return (
+                  "<div class=\"rank-item\">" +
+                  "<div><span class=\"tag\">" + (i + 1) + "</span>" + esc(x.NAME) + "</div>" +
+                  "<div><span class=\"risk-high\">超期 " + esc(num(x.OVERDUE)) + "</span> / 完成率 " + esc(pct(x.RATE)) + "</div>" +
+                  "</div>"
+                );
+              })
+              .join("")
+          : "<div class=\"empty\">暂无数据</div>";
+
+        el.riskOwnerList.innerHTML = riskOwner.length
+          ? riskOwner
+              .map((x, i) => {
+                return (
+                  "<div class=\"rank-item\">" +
+                  "<div><span class=\"tag\">" + (i + 1) + "</span>" + esc(x.NAME) + "</div>" +
+                  "<div><span class=\"risk-high\">超期 " + esc(num(x.OVERDUE)) + "</span> / 完成率 " + esc(pct(x.RATE)) + "</div>" +
+                  "</div>"
+                );
+              })
+              .join("")
+          : "<div class=\"empty\">暂无数据</div>";
+
+        el.bestOwnerList.innerHTML = bestOwner.length
+          ? bestOwner
+              .map((x, i) => {
+                return (
+                  "<div class=\"rank-item\">" +
+                  "<div><span class=\"tag\">" + (i + 1) + "</span>" + esc(x.NAME) + "</div>" +
+                  "<div><span class=\"risk-low\">完成率 " + esc(pct(x.RATE)) + "</span> / 周期 " + esc(num(x.CYCLE)) + " 天</div>" +
+                  "</div>"
+                );
+              })
+              .join("")
+          : "<div class=\"empty\">暂无数据</div>";
+      }
+
+      function renderAdvice() {
+        const orgRisk = getTopRisk(state.org.rows)[0];
+        const ownerRisk = getTopRisk(state.owner.rows)[0];
+        const ownerBest = getTopBest(state.owner.rows)[0];
+        const orgTotal = state.org.rows.reduce((s, x) => s + x.TOTAL, 0);
+        const orgDone = state.org.rows.reduce((s, x) => s + x.DONE, 0);
+        const overallRate = orgTotal > 0 ? orgDone / orgTotal : 0;
+
+        const p1 = orgRisk
+          ? "当前风险最集中的机构为“" + orgRisk.NAME + "”，超7天未跟进 " + num(orgRisk.OVERDUE) + " 条，建议优先安排周督办。"
+          : "当前未识别到高风险机构，可继续保持例行跟踪。";
+
+        const p2 = ownerRisk
+          ? "负责人维度中“" + ownerRisk.NAME + "”风险最高，完成率 " + pct(ownerRisk.RATE) + "，建议结合任务结构进行点对点拆解。"
+          : "负责人维度暂无显著风险聚集。";
+
+        const p3 = ownerBest
+          ? "可将“" + ownerBest.NAME + "”作为高效样板（完成率 " + pct(ownerBest.RATE) + "，周期 " + num(ownerBest.CYCLE) + " 天）进行经验复制。"
+          : "暂无高效样板数据。";
+
+        const p4 = "整体完成率为 " + pct(overallRate) + "。建议先盯高超期对象，再推动中风险对象转化，最后固化高效经验。";
+
+        el.adviceText.innerHTML = [p1, p2, p3, p4].map((x) => "<p>• " + esc(x) + "</p>").join("");
+      }
+
+      function renderAll() {
+        renderKpiCards();
+        syncSortButtons();
+        renderStackChart("org", el.orgChart);
+        renderStackChart("owner", el.ownerChart);
+        renderTables();
+        renderMatrixAndLists();
+        renderAdvice();
+      }
+
+      async function runQuery() {
+        if (!window.PageApi) {
+          setStatus("缺少 common/api.js，无法请求接口", true);
+          return;
+        }
+
+        if (state.loading) {
+          return;
+        }
+
+        state.loading = true;
+        el.btnSearch.disabled = true;
+        el.btnRefresh.disabled = true;
+        setStatus("正在加载机构与负责人数据...");
+
+        try {
+          await Promise.all([fetchTableData("org"), fetchTableData("owner")]);
+          const countInfo = "机构 " + state.org.rows.length + " 条，负责人 " + state.owner.rows.length + " 条";
+          setStatus("加载成功：" + countInfo);
+          renderAll();
+        } catch (err) {
+          console.error("[统计看板] 请求失败", err);
+          state.org.rows = [];
+          state.owner.rows = [];
+          state.org.selectedId = "";
+          state.owner.selectedId = "";
+          renderAll();
+          setStatus("加载失败，请检查代理路径与接口返回格式", true);
+        } finally {
+          state.loading = false;
+          el.btnSearch.disabled = false;
+          el.btnRefresh.disabled = false;
+        }
+      }
+
+      function resetDates() {
+        const t = todayText();
+        el.startDate.value = t;
+        el.endDate.value = t;
+      }
+
+      el.btnSearch.addEventListener("click", runQuery);
+      el.btnRefresh.addEventListener("click", runQuery);
+      el.btnReset.addEventListener("click", () => {
+        resetDates();
+        runQuery();
+      });
+
+      bindSortButtons();
+      resetDates();
+      runQuery();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1049 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分支机构展业统计-管理驾驶舱</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --line: #e4eaf3;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --green: #10b981;
+      --blue: #2563eb;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field {
+      height: 42px;
+      border: 1px solid #e3e9f4;
+      border-radius: 8px;
+      background: #f8faff;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+    }
+
+    .field label {
+      min-width: 72px;
+      color: #334155;
+      font-size: 15px;
+    }
+
+    .field input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .btn {
+      height: 42px;
+      min-width: 104px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn.primary { background: var(--primary); color: #fff; }
+    .btn.ghost { background: #f3f4f6; border-color: #e5e7eb; color: #111827; }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 12px 0 10px;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status-row.error { color: var(--red); }
+
+    .refresh-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #d8e1f1;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--primary);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .summary {
+      border: 1px solid #dce8ff;
+      background: linear-gradient(90deg, #eff5ff 0%, #f6fbff 100%);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .summary-title {
+      font-size: 12px;
+      color: #475569;
+      margin-bottom: 4px;
+      letter-spacing: 0.2px;
+    }
+
+    .summary-main {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.35;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .kpi-card {
+      border: 1px solid #e6edf7;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      min-height: 92px;
+    }
+
+    .kpi-label {
+      color: #64748b;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .kpi-sub {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1;
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .dim-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .dim-head {
+      padding: 10px 12px;
+      border-bottom: 1px dashed #e6edf7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dim-title {
+      margin: 0;
+      font-size: 21px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .dim-desc {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .charts-wrap {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .chart-box {
+      border: 1px solid #e8eef7;
+      border-radius: 10px;
+      background: #fcfdff;
+      padding: 10px;
+    }
+
+    .chart-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .chart-area {
+      min-height: 250px;
+      overflow: auto;
+    }
+
+    .svg-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .stack-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 170px) 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stack-name {
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stack-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #e7edf7;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .seg { height: 100%; min-width: 0; }
+    .seg.done { background: var(--green); }
+    .seg.progress { background: var(--blue); }
+    .seg.follow { background: var(--orange); }
+    .seg.risk { background: var(--red); }
+
+    .stack-meta {
+      font-size: 12px;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    .rate-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 170px) 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .rate-name {
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rate-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #e7edf7;
+      overflow: hidden;
+    }
+
+    .rate-fill {
+      height: 100%;
+      border-radius: inherit;
+      min-width: 2px;
+    }
+
+    .rate-fill.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .rate-fill.mid { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .rate-fill.low { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .rate-meta {
+      font-size: 12px;
+      color: #334155;
+      white-space: nowrap;
+      min-width: 54px;
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .legend {
+      margin-top: 6px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    .empty {
+      text-align: center;
+      color: #94a3b8;
+      padding: 34px 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar > :nth-child(3) { display: none; }
+      .analysis-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 8px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+      .summary-main { font-size: 18px; }
+      .dim-title { font-size: 18px; }
+      .kpi-value { font-size: 28px; }
+      .stack-row, .rate-row { grid-template-columns: 1fr; gap: 5px; }
+      .rate-meta, .stack-meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="field">
+          <label for="startDate">开始日期:</label>
+          <input id="startDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="endDate">结束日期:</label>
+          <input id="endDate" type="date" />
+        </div>
+        <div></div>
+        <button id="btnSearch" class="btn primary">查询</button>
+        <button id="btnReset" class="btn ghost">重置</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div id="statusRow" class="status-row">
+        <div id="statusText">等待查询</div>
+        <button id="btnRefresh" class="refresh-btn" title="刷新">↻</button>
+      </div>
+
+      <section class="summary">
+        <div class="summary-title">一句话结论</div>
+        <div id="summaryText" class="summary-main">等待数据加载...</div>
+      </section>
+
+      <section id="kpiGrid" class="kpi-grid"></section>
+
+      <section class="analysis-grid">
+        <article class="dim-card">
+          <div class="dim-head">
+            <h3 class="dim-title">机构维度</h3>
+            <span class="dim-desc">先看机构规模，再看机构状态结构</span>
+          </div>
+          <div class="charts-wrap">
+            <section class="chart-box">
+              <h4 class="chart-title">机构展业规模（柱状）</h4>
+              <div id="orgScaleChart" class="chart-area"></div>
+            </section>
+            <section class="chart-box">
+              <h4 class="chart-title">机构状态结构（堆叠条）</h4>
+              <div id="orgStackChart" class="chart-area"></div>
+              <div class="legend">
+                <span><i style="background:#10b981"></i>已完成</span>
+                <span><i style="background:#2563eb"></i>推进中</span>
+                <span><i style="background:#f59e0b"></i>跟进中</span>
+                <span><i style="background:#ef4444"></i>超7天未跟进</span>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="dim-card">
+          <div class="dim-head">
+            <h3 class="dim-title">负责人维度</h3>
+            <span class="dim-desc">先看负责人展业量，再看完成效率</span>
+          </div>
+          <div class="charts-wrap">
+            <section class="chart-box">
+              <h4 class="chart-title">负责人展业规模（柱状）</h4>
+              <div id="ownerScaleChart" class="chart-area"></div>
+            </section>
+            <section class="chart-box">
+              <h4 class="chart-title">负责人完成率（条形）</h4>
+              <div id="ownerRateChart" class="chart-area"></div>
+            </section>
+          </div>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <script src="./common/api.js"></script>
+  <script>
+    (function () {
+      const API_ENDPOINT = "/UIProcessor";
+      const TOP_N = 8;
+
+      const state = {
+        orgRows: [],
+        ownerRows: [],
+        loading: false
+      };
+
+      const el = {
+        startDate: document.getElementById("startDate"),
+        endDate: document.getElementById("endDate"),
+        btnSearch: document.getElementById("btnSearch"),
+        btnReset: document.getElementById("btnReset"),
+        btnRefresh: document.getElementById("btnRefresh"),
+        statusRow: document.getElementById("statusRow"),
+        statusText: document.getElementById("statusText"),
+        summaryText: document.getElementById("summaryText"),
+        kpiGrid: document.getElementById("kpiGrid"),
+        orgScaleChart: document.getElementById("orgScaleChart"),
+        orgStackChart: document.getElementById("orgStackChart"),
+        ownerScaleChart: document.getElementById("ownerScaleChart"),
+        ownerRateChart: document.getElementById("ownerRateChart")
+      };
+
+      function esc(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function setStatus(text, isError) {
+        el.statusText.textContent = text;
+        el.statusRow.className = isError ? "status-row error" : "status-row";
+      }
+
+      function todayText() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + day;
+      }
+
+      function toNumber(v) {
+        if (typeof v === "number") {
+          return Number.isFinite(v) ? v : 0;
+        }
+        if (v === null || v === undefined || v === "") {
+          return 0;
+        }
+        const n = parseFloat(String(v).replace(/,/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function fmtNum(v) {
+        return String(Math.round(toNumber(v) * 100) / 100);
+      }
+
+      function fmtPct(v) {
+        return (Math.max(0, toNumber(v)) * 100).toFixed(2) + "%";
+      }
+
+      function readValue(v) {
+        if (v === null || v === undefined) {
+          return "";
+        }
+        if (typeof v === "object") {
+          return String(v.text || v.value || "");
+        }
+        return String(v);
+      }
+
+      function sanitizeJsonText(text) {
+        if (!text) {
+          return "";
+        }
+        return String(text)
+          .replace(/^\uFEFF/, "")
+          .replace(/^\)\]\}',?\s*/, "")
+          .trim();
+      }
+
+      function findBracketEnd(text, start, openChar, closeChar) {
+        let depth = 0;
+        let inStr = false;
+        let strChar = "";
+        let escaped = false;
+        for (let i = start; i < text.length; i += 1) {
+          const ch = text[i];
+          if (inStr) {
+            if (escaped) {
+              escaped = false;
+              continue;
+            }
+            if (ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (ch === strChar) {
+              inStr = false;
+              strChar = "";
+            }
+            continue;
+          }
+          if (ch === "\"" || ch === "'") {
+            inStr = true;
+            strChar = ch;
+            continue;
+          }
+          if (ch === openChar) {
+            depth += 1;
+          } else if (ch === closeChar) {
+            depth -= 1;
+            if (depth === 0) {
+              return i;
+            }
+          }
+        }
+        return -1;
+      }
+
+      function tryParseJson(text) {
+        try {
+          const parsed = JSON.parse(sanitizeJsonText(text));
+          if (typeof parsed === "string") {
+            return JSON.parse(sanitizeJsonText(parsed));
+          }
+          return parsed;
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function extractFirstJsonObject(text) {
+        const start = text.indexOf("{");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "{", "}");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractFirstJsonArray(text) {
+        const start = text.indexOf("[");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+      function extractModelDataPair(text) {
+        const src = String(text || "");
+        const modelKeyIdx = src.indexOf("\"model\"");
+        if (modelKeyIdx < 0) {
+          return null;
+        }
+        const modelColon = src.indexOf(":", modelKeyIdx);
+        if (modelColon < 0) {
+          return null;
+        }
+        const modelStart = src.indexOf("{", modelColon);
+        if (modelStart < 0) {
+          return null;
+        }
+        const modelEnd = findBracketEnd(src, modelStart, "{", "}");
+        if (modelEnd < 0) {
+          return null;
+        }
+        const modelObj = tryParseJson(src.slice(modelStart, modelEnd + 1));
+        if (!modelObj || typeof modelObj !== "object") {
+          return null;
+        }
+
+        const dataTokenRegex = /\"data\"\s*:\s*\[/g;
+        dataTokenRegex.lastIndex = modelEnd;
+        const dataMatch = dataTokenRegex.exec(src);
+        if (!dataMatch) {
+          return null;
+        }
+
+        const dataStart = src.indexOf("[", dataMatch.index);
+        if (dataStart < 0) {
+          return null;
+        }
+        const dataEnd = findBracketEnd(src, dataStart, "[", "]");
+        if (dataEnd < 0) {
+          return null;
+        }
+
+        const dataArr = tryParseJson(src.slice(dataStart, dataEnd + 1));
+        if (!Array.isArray(dataArr)) {
+          return null;
+        }
+
+        return { model: modelObj, data: dataArr };
+      }
+
+      function parseInitPropsHtml(htmlText) {
+        const marker = /(var|let|const)\s+initProps\s*=/;
+        const m = marker.exec(htmlText || "");
+        if (!m) {
+          return null;
+        }
+        const eq = htmlText.indexOf("=", m.index);
+        const start = htmlText.indexOf("[", eq);
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(htmlText, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        const arr = tryParseJson(htmlText.slice(start, end + 1));
+        if (Array.isArray(arr)) {
+          return arr[0] || null;
+        }
+        return arr || null;
+      }
+
+      function parsePayload(rawText, contentType) {
+        const safe = sanitizeJsonText(rawText);
+        const direct = tryParseJson(safe);
+        if (direct) {
+          return Array.isArray(direct) ? direct[0] : direct;
+        }
+
+        const trimmed = String(safe || "").trim();
+        const lParen = trimmed.indexOf("(");
+        const rParen = trimmed.lastIndexOf(")");
+        if (lParen >= 0 && rParen > lParen) {
+          const inner = trimmed.slice(lParen + 1, rParen).trim();
+          const callback = tryParseJson(inner) || extractFirstJsonObject(inner) || extractFirstJsonArray(inner);
+          if (callback) {
+            return Array.isArray(callback) ? callback[0] : callback;
+          }
+        }
+
+        const modelData = extractModelDataPair(rawText);
+        if (modelData) {
+          return modelData;
+        }
+
+        const isHtml = /<html[\s>]/i.test(rawText || "") || (contentType || "").includes("text/html");
+        if (isHtml) {
+          const fromInitProps = parseInitPropsHtml(rawText);
+          if (fromInitProps) {
+            return fromInitProps;
+          }
+        }
+
+        return extractFirstJsonObject(rawText) || extractFirstJsonArray(rawText) || null;
+      }
+
+      function findGridElement(node) {
+        if (!node) {
+          return null;
+        }
+        if (Array.isArray(node)) {
+          for (let i = 0; i < node.length; i += 1) {
+            const hit = findGridElement(node[i]);
+            if (hit) {
+              return hit;
+            }
+          }
+          return null;
+        }
+        if (typeof node === "object") {
+          if (node.model && Array.isArray(node.data)) {
+            return { model: node.model, data: node.data };
+          }
+          if (node.model && node.data && Array.isArray(node.data.items)) {
+            return { model: node.model, data: node.data.items };
+          }
+          if (Array.isArray(node.fields) && Array.isArray(node.data)) {
+            return { model: { fields: node.fields }, data: node.data };
+          }
+          if (node.model && Array.isArray(node.rows)) {
+            return { model: node.model, data: node.rows };
+          }
+
+          const keys = Object.keys(node);
+          for (let i = 0; i < keys.length; i += 1) {
+            const hit = findGridElement(node[keys[i]]);
+            if (hit) {
+              return hit;
+            }
+          }
+        }
+        return null;
+      }
+
+      function fieldNameByLabel(fields, keyword, fallback) {
+        const f = (fields || []).find((it) => it && it.label && String(it.label).indexOf(keyword) >= 0);
+        return (f && f.name) || fallback || "";
+      }
+
+      function normalizeOrg(payload) {
+        const roots = [payload, payload && payload.result, payload && payload.data, payload && payload.response, payload && payload.page, payload && payload.body];
+        let grid = null;
+        for (let i = 0; i < roots.length; i += 1) {
+          grid = findGridElement(roots[i]);
+          if (grid) {
+            break;
+          }
+        }
+        if (!grid) {
+          throw new Error("机构接口未找到 grid 结构");
+        }
+
+        const rows = Array.isArray(grid.data) ? grid.data : [];
+        state.orgRows = rows.map((item, idx) => ({
+          id: String(item.ID || idx + 1),
+          name: readValue(item.F1),
+          total: toNumber(readValue(item.F2)),
+          done: toNumber(readValue(item.F3)),
+          progress: toNumber(readValue(item.F4)),
+          follow: toNumber(readValue(item.F5)),
+          rate: toNumber(readValue(item.F6)),
+          overdue: toNumber(readValue(item.F9))
+        }));
+      }
+
+      function normalizeOwner(payload) {
+        const roots = [payload, payload && payload.result, payload && payload.data, payload && payload.response, payload && payload.page, payload && payload.body];
+        let grid = null;
+        for (let i = 0; i < roots.length; i += 1) {
+          grid = findGridElement(roots[i]);
+          if (grid) {
+            break;
+          }
+        }
+        if (!grid) {
+          throw new Error("负责人接口未找到 grid 结构");
+        }
+
+        const fields = Array.isArray(grid.model && grid.model.fields) ? grid.model.fields : [];
+        const rows = Array.isArray(grid.data) ? grid.data : [];
+        const nameKey = fieldNameByLabel(fields, "负责人", "F1");
+        const totalKey = fieldNameByLabel(fields, "展业总数", "F2");
+        const doneKey = fieldNameByLabel(fields, "已完成", "F3");
+        const progressKey = fieldNameByLabel(fields, "推进中", "F4");
+        const followKey = fieldNameByLabel(fields, "跟进中", "F5");
+        const rateKey = fieldNameByLabel(fields, "完成率", "F8");
+        const overdueKey = fieldNameByLabel(fields, "超7天未跟进", "F10");
+
+        state.ownerRows = rows.map((item, idx) => ({
+          id: String(item.ID || idx + 1),
+          name: readValue(item[nameKey || "F1"]),
+          total: toNumber(readValue(item[totalKey || "F2"])),
+          done: toNumber(readValue(item[doneKey || "F3"])),
+          progress: toNumber(readValue(item[progressKey || "F4"])),
+          follow: toNumber(readValue(item[followKey || "F5"])),
+          rate: toNumber(readValue(item[rateKey || "F8"])),
+          overdue: toNumber(readValue(item[overdueKey || "F10"]))
+        }));
+      }
+
+      function buildRequestUrl(table) {
+        return window.PageApi.buildUIProcessorUrl(
+          {
+            Table: table,
+            P1: el.startDate.value,
+            P3: el.endDate.value,
+            ParamAction: "true"
+          },
+          API_ENDPOINT
+        );
+      }
+
+      async function fetchOne(table) {
+        const url = buildRequestUrl(table);
+        const resp = await window.PageApi.requestText(url, { timeoutMs: 20000 });
+        const payload = parsePayload(resp.text, resp.contentType);
+        if (!payload) {
+          throw new Error(table + " 接口解析失败");
+        }
+        return payload;
+      }
+
+      function riskLevel(item) {
+        if (item.overdue > 0) {
+          return "high";
+        }
+        if (item.follow > item.done) {
+          return "mid";
+        }
+        return "low";
+      }
+
+      function buildKpi() {
+        const total = state.orgRows.reduce((s, x) => s + x.total, 0);
+        const done = state.orgRows.reduce((s, x) => s + x.done, 0);
+        const overdue = state.orgRows.reduce((s, x) => s + x.overdue, 0);
+        const rate = total > 0 ? done / total : 0;
+        return { total, done, overdue, rate };
+      }
+
+      function buildSummary(kpi) {
+        const orgHigh = state.orgRows.filter((x) => riskLevel(x) === "high").length;
+        const ownerHigh = state.ownerRows.filter((x) => riskLevel(x) === "high").length;
+        const highCount = orgHigh + ownerHigh;
+
+        if (highCount > 0) {
+          return "当前完成率" + fmtPct(kpi.rate) + "，存在" + highCount + "个高风险对象，建议立即督办重点机构与负责人。";
+        }
+        if (kpi.rate >= 0.85) {
+          return "当前完成率" + fmtPct(kpi.rate) + "，暂无风险，无需干预。";
+        }
+        return "当前完成率" + fmtPct(kpi.rate) + "，整体可控，建议保持当前推进节奏并关注低效对象。";
+      }
+
+      function renderKpi(kpi) {
+        const cards = [
+          { label: "展业规模", sub: "总任务量", value: fmtNum(kpi.total) },
+          { label: "完成情况", sub: "已完成 / 总量", value: fmtNum(kpi.done) + " / " + fmtNum(kpi.total) },
+          { label: "完成率", sub: "整体达成率", value: fmtPct(kpi.rate) },
+          { label: "风险数量", sub: "超7天未跟进", value: fmtNum(kpi.overdue) }
+        ];
+
+        el.kpiGrid.innerHTML = cards
+          .map((it) => (
+            "<div class=\"kpi-card\">" +
+              "<div class=\"kpi-label\">" + esc(it.label) + "</div>" +
+              "<div class=\"kpi-sub\">" + esc(it.sub) + "</div>" +
+              "<div class=\"kpi-value\">" + esc(it.value) + "</div>" +
+            "</div>"
+          ))
+          .join("");
+      }
+
+      function truncateText(text, len) {
+        const s = String(text || "");
+        return s.length > len ? s.slice(0, len) + "..." : s;
+      }
+
+      function renderVerticalBarChart(container, rows, color) {
+        if (!rows.length) {
+          container.innerHTML = "<div class=\"empty\">暂无图表数据</div>";
+          return;
+        }
+
+        const width = Math.max(520, container.clientWidth || 520);
+        const height = 250;
+        const padL = 30;
+        const padR = 14;
+        const padT = 18;
+        const padB = 62;
+        const plotW = width - padL - padR;
+        const plotH = height - padT - padB;
+        const maxVal = Math.max(1, ...rows.map((x) => x.total));
+        const slotW = plotW / rows.length;
+        const barW = Math.min(42, Math.max(12, slotW * 0.58));
+
+        const svg = [];
+        svg.push("<svg width=\"" + width + "\" height=\"" + height + "\" viewBox=\"0 0 " + width + " " + height + "\">");
+        svg.push("<line x1=\"" + padL + "\" y1=\"" + (padT + plotH) + "\" x2=\"" + (padL + plotW) + "\" y2=\"" + (padT + plotH) + "\" stroke=\"#d8e1ef\" stroke-width=\"1\" />");
+
+        rows.forEach((row, idx) => {
+          const h = Math.max(2, (row.total / maxVal) * plotH);
+          const x = padL + idx * slotW + (slotW - barW) / 2;
+          const y = padT + plotH - h;
+          const cx = padL + idx * slotW + slotW / 2;
+          svg.push("<rect x=\"" + x.toFixed(2) + "\" y=\"" + y.toFixed(2) + "\" width=\"" + barW.toFixed(2) + "\" height=\"" + h.toFixed(2) + "\" rx=\"4\" fill=\"" + color + "\" />");
+          svg.push("<text x=\"" + cx.toFixed(2) + "\" y=\"" + (y - 4).toFixed(2) + "\" text-anchor=\"middle\" font-size=\"11\" fill=\"#334155\">" + esc(fmtNum(row.total)) + "</text>");
+          svg.push("<text x=\"" + cx.toFixed(2) + "\" y=\"" + (padT + plotH + 16).toFixed(2) + "\" text-anchor=\"middle\" font-size=\"11\" fill=\"#475569\">" + esc(truncateText(row.name, 6)) + "</text>");
+        });
+
+        svg.push("</svg>");
+        container.innerHTML = "<div class=\"svg-wrap\">" + svg.join("") + "</div>";
+      }
+
+      function renderOrgStackChart() {
+        const rows = state.orgRows.slice().sort((a, b) => b.total - a.total).slice(0, TOP_N);
+        if (!rows.length) {
+          el.orgStackChart.innerHTML = "<div class=\"empty\">暂无图表数据</div>";
+          return;
+        }
+
+        el.orgStackChart.innerHTML = rows.map((row) => {
+          const total = Math.max(1, row.total);
+          const pDone = Math.max(0, row.done / total * 100);
+          const pProgress = Math.max(0, row.progress / total * 100);
+          const pFollow = Math.max(0, row.follow / total * 100);
+          const pRisk = Math.max(0, row.overdue / total * 100);
+          return (
+            "<div class=\"stack-row\">" +
+              "<div class=\"stack-name\">" + esc(row.name || "-") + "</div>" +
+              "<div class=\"stack-track\">" +
+                "<div class=\"seg done\" style=\"width:" + pDone.toFixed(2) + "%\"></div>" +
+                "<div class=\"seg progress\" style=\"width:" + pProgress.toFixed(2) + "%\"></div>" +
+                "<div class=\"seg follow\" style=\"width:" + pFollow.toFixed(2) + "%\"></div>" +
+                "<div class=\"seg risk\" style=\"width:" + pRisk.toFixed(2) + "%\"></div>" +
+              "</div>" +
+              "<div class=\"stack-meta\">完成率 " + esc(fmtPct(row.rate)) + " / 风险 " + esc(fmtNum(row.overdue)) + "</div>" +
+            "</div>"
+          );
+        }).join("");
+      }
+
+      function renderOwnerRateChart() {
+        const rows = state.ownerRows.slice().sort((a, b) => {
+          if (a.rate !== b.rate) {
+            return a.rate - b.rate;
+          }
+          return b.total - a.total;
+        }).slice(0, TOP_N);
+
+        if (!rows.length) {
+          el.ownerRateChart.innerHTML = "<div class=\"empty\">暂无图表数据</div>";
+          return;
+        }
+
+        el.ownerRateChart.innerHTML = rows.map((row) => {
+          const pct = Math.max(0, Math.min(100, row.rate * 100));
+          const lv = row.overdue > 0 ? "high" : (row.rate < 0.6 ? "mid" : "low");
+          return (
+            "<div class=\"rate-row\">" +
+              "<div class=\"rate-name\">" + esc(row.name || "-") + "</div>" +
+              "<div class=\"rate-track\"><div class=\"rate-fill " + lv + "\" style=\"width:" + pct.toFixed(2) + "%\"></div></div>" +
+              "<div class=\"rate-meta\">" + esc(fmtPct(row.rate)) + "</div>" +
+            "</div>"
+          );
+        }).join("");
+      }
+
+      function renderAll() {
+        const kpi = buildKpi();
+        renderKpi(kpi);
+        el.summaryText.textContent = buildSummary(kpi);
+
+        const orgTop = state.orgRows.slice().sort((a, b) => b.total - a.total).slice(0, TOP_N);
+        const ownerTop = state.ownerRows.slice().sort((a, b) => b.total - a.total).slice(0, TOP_N);
+        renderVerticalBarChart(el.orgScaleChart, orgTop, "#2563eb");
+        renderVerticalBarChart(el.ownerScaleChart, ownerTop, "#0ea5a4");
+        renderOrgStackChart();
+        renderOwnerRateChart();
+      }
+
+      async function runQuery() {
+        if (!window.PageApi) {
+          setStatus("缺少 common/api.js，无法请求接口", true);
+          return;
+        }
+        if (state.loading) {
+          return;
+        }
+
+        state.loading = true;
+        el.btnSearch.disabled = true;
+        el.btnRefresh.disabled = true;
+        setStatus("正在加载驾驶舱数据...");
+
+        try {
+          const [orgPayload, ownerPayload] = await Promise.all([
+            fetchOne("XN_FZJG"),
+            fetchOne("XN_FZRY")
+          ]);
+          normalizeOrg(orgPayload);
+          normalizeOwner(ownerPayload);
+          renderAll();
+          setStatus("加载成功：机构 " + state.orgRows.length + " 条，负责人 " + state.ownerRows.length + " 条");
+        } catch (err) {
+          console.error("[管理驾驶舱] 请求失败", err);
+          state.orgRows = [];
+          state.ownerRows = [];
+          renderAll();
+          el.summaryText.textContent = "当前无可用数据，请检查接口或代理配置。";
+          setStatus("加载失败，请检查代理路径与接口返回格式", true);
+        } finally {
+          state.loading = false;
+          el.btnSearch.disabled = false;
+          el.btnRefresh.disabled = false;
+        }
+      }
+
+      function resetDates() {
+        const t = todayText();
+        el.startDate.value = t;
+        el.endDate.value = t;
+      }
+
+      el.btnSearch.addEventListener("click", runQuery);
+      el.btnRefresh.addEventListener("click", runQuery);
+      el.btnReset.addEventListener("click", function () {
+        resetDates();
+        runQuery();
+      });
+
+      resetDates();
+      runQuery();
+    })();
+  </script>
+</body>
+</html>

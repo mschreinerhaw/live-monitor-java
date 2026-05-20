@@ -1,0 +1,4398 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>两融客户信息概览</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f9ff 0%, #e6f3ff 50%, #dbefff 100%);
+            min-height: 100vh;
+            padding: 15px;
+            position: relative;
+        }
+        .bg-flow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.5;
+            background:
+                radial-gradient(circle at 10% 20%, rgba(102, 178, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(145, 212, 250, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(192, 230, 255, 0.08) 0%, transparent 50%);
+            animation: bgFlow 25s ease-in-out infinite;
+        }
+        @keyframes bgFlow {
+            0%, 100% { background-position: 0% 0%, 100% 100%, 50% 50%; }
+            50% { background-position: 100% 100%, 0% 0%, 50% 50%; }
+        }
+        .page-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .main-header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 10;
+        }
+        .main-title {
+            display: inline-block;
+            padding: 16px 50px;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a4d7a;
+            text-shadow: 0 2px 10px rgba(51, 126, 204, 0.2);
+            background: linear-gradient(135deg,
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(242, 248, 255, 0.92) 50%,
+                rgba(235, 245, 255, 0.90) 100%);
+            border: 2px solid rgba(102, 178, 255, 0.35);
+            border-radius: 12px;
+            box-shadow:
+                0 4px 20px rgba(102, 178, 255, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .main-title::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -200%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                transparent 30%,
+                rgba(102, 178, 255, 0.2) 45%,
+                rgba(145, 212, 250, 0.3) 50%,
+                rgba(102, 178, 255, 0.2) 55%,
+                transparent 70%,
+                transparent 100%);
+            animation: titleFlow 6s ease-in-out infinite;
+        }
+        @keyframes titleFlow {
+            0% { left: -200%; }
+            100% { left: 200%; }
+        }
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .section {
+            background: linear-gradient(180deg, rgba(102, 178, 255, 0.03) 0%, rgba(255, 255, 255, 0.88) 100%);
+            border: 1px solid rgba(102, 178, 255, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(102, 178, 255, 0.08);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .section:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(102, 178, 255, 0.15);
+            border-color: rgba(102, 178, 255, 0.45);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            background: linear-gradient(135deg,
+                rgba(102, 178, 255, 0.15) 0%,
+                rgba(145, 212, 250, 0.12) 100%);
+            border-bottom: 2px solid rgba(102, 178, 255, 0.35);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.1);
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #2a5a8a;
+            padding-top: 4px;
+        }
+        .section-title::before {
+            content: '';
+            width: 5px;
+            height: 20px;
+            background: linear-gradient(180deg,
+                #66b3ff 0%,
+                #91d4fa 40%,
+                #2f80ed 100%);
+            border-radius: 2.5px;
+            box-shadow: 0 0 10px rgba(102, 179, 255, 0.6),
+                        0 0 20px rgba(47, 128, 237, 0.32);
+            animation: glowBar 3s ease-in-out infinite;
+        }
+        @keyframes glowBar {
+            0%, 100% {
+                box-shadow: 0 0 10px rgba(102, 179, 255, 0.6),
+                            0 0 20px rgba(47, 128, 237, 0.32);
+            }
+            50% {
+                box-shadow: 0 0 15px rgba(102, 179, 255, 0.8),
+                            0 0 30px rgba(47, 128, 237, 0.5);
+            }
+        }
+        .toggle-btn {
+            background: rgba(102, 178, 255, 0.1);
+            border: 1px solid rgba(102, 178, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            color: #3385d6;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .toggle-btn:hover {
+            background: rgba(102, 178, 255, 0.25);
+            border-color: rgba(102, 178, 255, 0.6);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.15);
+        }
+        .toggle-btn svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toggle-btn.collapsed svg {
+            transform: rotate(-90deg);
+        }
+        .section-content {
+            padding: 18px;
+            display: block;
+            opacity: 1;
+            max-height: 5000px;
+            overflow: hidden;
+            transition: opacity 0.4s ease, max-height 0.4s ease, padding 0.4s ease;
+        }
+        .section-content.collapsed {
+            opacity: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+        .section:nth-child(1) .basic-info-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        .section:nth-child(1) .sub-module {
+            flex: 1;
+            min-width: 0;
+        }
+        .section:nth-child(1) .section-content {
+            padding: 12px;
+        }
+        .section:nth-child(2) .section-content {
+            padding: 12px;
+        }
+        .basic-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 18px;
+        }
+        .sub-module {
+            background: rgba(242, 248, 255, 0.6);
+            border: 1px solid rgba(102, 178, 255, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        .sub-module:hover {
+            background: rgba(242, 248, 255, 0.85);
+            border-color: rgba(102, 178, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 178, 255, 0.1);
+        }
+        .sub-module-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #336699;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(102, 178, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sub-module-title svg {
+            width: 18px;
+            height: 18px;
+            color: #66b3ff;
+        }
+        .info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            margin: 0 4px;
+        }
+        .info-item:hover {
+            background: rgba(102, 178, 255, 0.05);
+            padding: 6px 8px;
+        }
+        .info-label {
+            color: #5a7a9a;
+            font-weight: 500;
+        }
+        .info-value {
+            color: #2a4a6a;
+            font-weight: 600;
+            text-align: right;
+        }
+        .info-value.highlight {
+            color: #3385d6;
+        }
+        .info-value.success {
+            color: #81c784;
+        }
+        .info-value.warning {
+            color: #2f80ed;
+        }
+        .info-value.danger {
+            color: #e57373;
+        }
+        .liability-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .liability-summary-card {
+            background: rgba(242, 248, 255, 0.72);
+            border: 1px solid rgba(102, 178, 255, 0.18);
+            border-top: 4px solid #66b3ff;
+            border-radius: 8px;
+            padding: 14px 16px;
+            min-height: 96px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        .liability-summary-card:hover {
+            background: #ffffff;
+            border-color: rgba(102, 178, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 178, 255, 0.12);
+        }
+        .liability-summary-card.main {
+            border-top-color: #2f80ed;
+            background: linear-gradient(180deg, #ffffff 0%, #edf6ff 100%);
+        }
+        .liability-summary-label {
+            color: #5a7a9a;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .liability-summary-value {
+            color: #2a4a6a;
+            font-size: 1.28rem;
+            font-weight: 760;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+        }
+        .liability-summary-value.highlight {
+            color: #3385d6;
+        }
+        .liability-summary-value.warning {
+            color: #2f80ed;
+        }
+        .liability-summary-value.profit-gain {
+            color: #e57373;
+        }
+        .liability-summary-subrow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.88rem;
+        }
+        .liability-summary-subrow .liability-summary-label {
+            font-size: 0.78rem;
+        }
+        .liability-summary-subrow .liability-summary-value {
+            font-size: 0.98rem;
+        }
+        .profit-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .profit-overview-card {
+            align-items: center;
+            min-height: 88px;
+            text-align: center;
+        }
+        .profit-overview-grid .profit-overview-card:nth-child(n + 5) {
+            display: none;
+        }
+        .profit-overview-card > div:first-child {
+            color: #5a7a9a !important;
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
+            margin-bottom: 0 !important;
+        }
+        .profit-overview-card .liability-summary-value {
+            font-size: 1.3rem;
+        }
+        .profit-overview-card > div:last-child {
+            color: #e57373 !important;
+            font-size: 1.3rem !important;
+            font-weight: 760 !important;
+            line-height: 1.1 !important;
+            font-variant-numeric: tabular-nums;
+        }
+        @media (max-width: 1100px) {
+            .liability-summary-grid,
+            .profit-overview-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 640px) {
+            .liability-summary-grid,
+            .profit-overview-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+        .tag-primary {
+            background: rgba(102, 178, 255, 0.15);
+            color: #3385d6;
+            border: 1px solid rgba(102, 178, 255, 0.3);
+        }
+        .tag-primary:hover {
+            background: rgba(102, 178, 255, 0.25);
+            border-color: rgba(102, 178, 255, 0.5);
+        }
+        .tag-success {
+            background: rgba(76, 175, 80, 0.15);
+            color: #4caf50;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        .tag-success:hover {
+            background: rgba(76, 175, 80, 0.25);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+        .tag-warning {
+            background: rgba(47, 128, 237, 0.14);
+            color: #2f80ed;
+            border: 1px solid rgba(47, 128, 237, 0.28);
+        }
+        .tag-warning:hover {
+            background: rgba(47, 128, 237, 0.24);
+            border-color: rgba(47, 128, 237, 0.45);
+        }
+        .tag-danger {
+            background: rgba(244, 67, 54, 0.15);
+            color: #f44336;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+        .tag-danger:hover {
+            background: rgba(244, 67, 54, 0.25);
+            border-color: rgba(244, 67, 54, 0.5);
+        }
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 18px;
+        }
+        #profitDetailContent {
+            max-height: 1600px;
+            opacity: 1;
+            overflow: hidden;
+            transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease;
+        }
+        #profitDetailContent.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        #liabilityDetailContent {
+            margin-top: 18px;
+            max-height: 2200px;
+            opacity: 1;
+            overflow: hidden;
+            transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease;
+        }
+        #liabilityDetailContent.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .chart-box {
+            background: rgba(242, 248, 255, 0.6);
+            border: 1px solid rgba(102, 178, 255, 0.15);
+            border-radius: 8px;
+            padding: 18px;
+            min-height: 280px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .chart-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 178, 255, 0.15);
+            border-color: rgba(102, 178, 255, 0.3);
+        }
+        .chart-box-third {
+            flex: 0 0 33.33%;
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .chart-box-third:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 178, 255, 0.15);
+        }
+        .chart-box-two-thirds {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .chart-box-two-thirds:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 178, 255, 0.15);
+        }
+        .chart-box-third.chart-box-asset-focus {
+            flex: 0 0 42%;
+            min-width: 0;
+        }
+        .chart-box-two-thirds.chart-box-asset-trend {
+            flex: 1;
+            min-width: 0;
+        }
+        #liabilityAnalysisSection .liability-chart-layout {
+            display: flex;
+            gap: 18px;
+            align-items: stretch;
+        }
+        #liabilityAnalysisSection .liability-chart-main {
+            flex: 0 0 62%;
+            min-width: 0;
+        }
+        #liabilityAnalysisSection .liability-chart-side {
+            flex: 0 0 38%;
+            min-width: 0;
+        }
+        #liabilityAnalysisSection .liability-chart-main .line-chart-container {
+            min-height: 270px;
+        }
+        .line-chart-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 240px;
+        }
+        .line-chart {
+            width: 100%;
+            height: 100%;
+        }
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #336699;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-toggle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .chart-toggle-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #3385d6;
+            user-select: none;
+        }
+        .chart-toggle-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(102, 178, 255, 0.12);
+            border: 1px solid rgba(102, 178, 255, 0.22);
+            transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .chart-toggle-icon svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.3s ease;
+        }
+        .chart-toggle-trigger.collapsed .chart-toggle-icon svg {
+            transform: rotate(-90deg);
+        }
+        .chart-toggle-trigger:hover .chart-toggle-icon {
+            background: rgba(102, 178, 255, 0.2);
+            border-color: rgba(102, 178, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(51, 133, 214, 0.14);
+        }
+        .chart-collapsed-hint {
+            display: none;
+            font-size: 0.82rem;
+            color: #6d87a3;
+            font-weight: 500;
+        }
+        .chart-toggle-header .chart-title {
+            margin-bottom: 0;
+        }
+        .chart-title svg {
+            width: 18px;
+            height: 18px;
+            color: #66b3ff;
+        }
+        .chart-content {
+            flex: 1;
+            opacity: 1;
+            max-height: 1200px;
+            overflow: hidden;
+            transition: opacity 0.4s ease, max-height 0.4s ease, margin 0.4s ease;
+        }
+        .chart-content.collapsed {
+            opacity: 0;
+            max-height: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+        .mock-chart {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(180deg,
+                rgba(102, 178, 255, 0.05) 0%,
+                rgba(102, 178, 255, 0.02) 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar {
+            width: 40px;
+            background: linear-gradient(180deg, #66b3ff 0%, #3385d6 100%);
+            border-radius: 4px 4px 0 0;
+            position: absolute;
+            bottom: 50%;
+            animation: barGrow 1s ease-out forwards;
+            box-shadow: 0 2px 8px rgba(51, 133, 214, 0.3);
+        }
+        @keyframes barGrow {
+            from { height: 0; }
+        }
+        .pie-chart {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: conic-gradient(
+                #66b3ff 0deg 120deg,
+                #3385d6 120deg 200deg,
+                #91d4fa 200deg 280deg,
+                #4fc3f7 280deg 360deg
+            );
+            margin: 20px auto;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(51, 133, 214, 0.2);
+        }
+        .pie-chart::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(242, 248, 255, 0.9);
+            border-radius: 50%;
+        }
+        .pie-chart-wrapper {
+            position: relative;
+            margin: 20px auto;
+            width: 160px;
+            height: 160px;
+        }
+        .pie-center-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            z-index: 2;
+            pointer-events: none;
+            text-align: center;
+        }
+        .pie-center-label span {
+            font-size: 0.72rem;
+            color: #7b8fa6;
+            letter-spacing: 0.04em;
+        }
+        .pie-center-label strong {
+            font-size: 1rem;
+            color: #2a5a8a;
+            font-weight: 700;
+        }
+        /* 4*1横向居中布局 */
+        .pie-legend-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .pie-legend-row .legend-item {
+            flex: 0 0 auto;
+        }
+        .trade-chart-container {
+            padding: 15px;
+        }
+        .trade-chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        .trade-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #5a7a9a;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .trade-legend-item:hover {
+            background: rgba(102, 178, 255, 0.08);
+            color: #3385d6;
+        }
+        .trade-legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+        .trade-legend-color.buy {
+            background: linear-gradient(135deg, #e57373 0%, #d32f2f 100%);
+        }
+        .trade-legend-color.sell {
+            background: linear-gradient(135deg, #81c784 0%, #388e3c 100%);
+        }
+        .trade-chart-bars {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            gap: 8px;
+            height: 200px;
+            padding: 0 10px;
+            position: relative;
+            background: rgba(242, 248, 255, 0.3);
+            border-radius: 8px;
+        }
+        .trade-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            max-width: 60px;
+        }
+        .trade-day-label {
+            font-size: 0.75rem;
+            color: #5a7a9a;
+            margin-bottom: 8px;
+        }
+        .trade-bars {
+            display: flex;
+            gap: 4px;
+            height: 140px;
+            align-items: flex-end;
+        }
+        .trade-bar {
+            width: 18px;
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease;
+            position: relative;
+        }
+        .trade-bar.buy {
+            background: linear-gradient(180deg, #e57373, #d32f2f);
+            box-shadow: 0 2px 6px rgba(229, 115, 115, 0.2);
+        }
+        .trade-bar.sell {
+            background: linear-gradient(180deg, #81c784, #388e3c);
+            box-shadow: 0 2px 6px rgba(129, 199, 132, 0.2);
+        }
+        .trade-values {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            font-size: 0.75rem;
+        }
+        .buy-value {
+            color: #e57373;
+            font-weight: 600;
+        }
+        .sell-value {
+            color: #81c784;
+            font-weight: 600;
+        }
+        .pie-legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        /* 2*2网格布局 */
+        .pie-legend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px 20px;
+            justify-items: center;
+            margin-top: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: #5a7a9a;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .legend-item:hover {
+            background: rgba(102, 178, 255, 0.08);
+            color: #3385d6;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .line-path {
+            filter: drop-shadow(0 2px 4px rgba(102, 179, 255, 0.3));
+            animation: lineDraw 2s ease-out forwards;
+        }
+        @keyframes lineDraw {
+            from {
+                stroke-dasharray: 0 1000;
+                stroke-dashoffset: 1000;
+            }
+            to {
+                stroke-dasharray: 1000 0;
+                stroke-dashoffset: 0;
+            }
+        }
+        .line-glow {
+            animation: glowMove 3s linear infinite;
+        }
+        @keyframes glowMove {
+            0% {
+                stroke-dasharray: 50 500;
+                stroke-dashoffset: 500;
+            }
+            100% {
+                stroke-dasharray: 50 500;
+                stroke-dashoffset: -500;
+            }
+        }
+        .line-fill {
+            animation: fadeIn 2s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 0.3; }
+        }
+        .line-chart circle {
+            animation: pointFade 2s ease-out forwards;
+            opacity: 0;
+            cursor: pointer;
+            transition: r 0.2s;
+        }
+        .line-chart circle:hover {
+            r: 6;
+        }
+        .asset-trend-grid-line {
+            stroke: rgba(51, 102, 153, 0.12);
+            stroke-width: 1;
+            stroke-dasharray: 4 4;
+        }
+        .asset-trend-axis-label {
+            fill: #6b87a6;
+            font-size: 10px;
+        }
+        .asset-trend-axis-label.axis-right {
+            fill: #b17c16;
+        }
+        .asset-trend-legend-text {
+            fill: #336699;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .asset-trend-bar {
+            opacity: 0.95;
+        }
+        .asset-trend-point {
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        @keyframes pointFade {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(102, 178, 255, 0.15);
+        }
+        .data-table th {
+            background: rgba(102, 178, 255, 0.08);
+            color: #336699;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .data-table tr:hover {
+            background: rgba(102, 178, 255, 0.05);
+        }
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .data-table .success {
+            color: #81c784;
+            font-weight: 600;
+        }
+        .data-table .danger {
+            color: #e57373;
+            font-weight: 600;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            gap: 8px;
+            color: #66b3ff;
+            font-size: 0.9rem;
+        }
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #66b3ff;
+            border-radius: 50%;
+            animation: loadingBounce 1.4s ease-in-out infinite both;
+        }
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes loadingBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 1.5rem;
+                padding: 12px 30px;
+            }
+
+            .basic-info-grid,
+            .chart-container {
+                grid-template-columns: 1fr;
+            }
+
+            .section:nth-child(1) .basic-info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .toggle-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        .glow-line {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg,
+                transparent,
+                rgba(102, 178, 255, 0.6),
+                transparent);
+            animation: glowLine 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes glowLine {
+            0%, 100% { opacity: 0.3; transform: scaleX(0.8); }
+            50% { opacity: 0.8; transform: scaleX(1); }
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .action-btn {
+            background: rgba(102, 178, 255, 0.1);
+            border: 1px solid rgba(102, 178, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            color: #3385d6;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .action-btn:hover {
+            background: rgba(102, 178, 255, 0.2);
+            border-color: rgba(102, 178, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        .action-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+        .back-link {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(102, 178, 255, 0.28);
+            background: rgba(255, 255, 255, 0.86);
+            color: #2b6cb0;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(102, 178, 255, 0.12);
+            transition: all 0.25s ease;
+        }
+        .back-link:hover {
+            color: #1d4f8c;
+            border-color: rgba(102, 178, 255, 0.45);
+            background: rgba(242, 248, 255, 0.96);
+            transform: translateY(calc(-50% - 1px));
+        }
+        .back-link svg {
+            width: 14px;
+            height: 14px;
+        }
+        .asset-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(102, 178, 255, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 12px rgba(102, 178, 255, 0.08);
+        }
+        .asset-card:hover {
+            box-shadow: 0 4px 20px rgba(102, 178, 255, 0.15);
+            border-color: rgba(102, 178, 255, 0.4);
+        }
+        .asset-card-main {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.1) 0%, rgba(51, 133, 214, 0.08) 100%);
+            border-top: 4px solid #66b3ff;
+        }
+        .asset-card-sec {
+            background: rgba(242, 248, 255, 0.5);
+            border-top: 4px solid #91d4fa;
+        }
+        .asset-card-margin {
+            background: rgba(47, 128, 237, 0.08);
+            border-top: 4px solid #2f80ed;
+        }
+        .asset-card-option {
+            background: rgba(41, 182, 246, 0.06);
+            border-top: 4px solid #29b6f6;
+        }
+        .asset-card-financial {
+            background: rgba(126, 200, 227, 0.1);
+            border-top: 4px solid #7ec8e3;
+        }
+        .asset-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .asset-card-main .asset-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .asset-card-main .asset-summary-horizontal {
+            display: flex;
+            align-items: stretch;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            margin-top: 4px;
+        }
+        .asset-card-main .asset-summary-item {
+            background: transparent;
+            border: none;
+            padding: 4px 6px;
+            text-align: left;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .asset-card-main .asset-summary-item:first-child {
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.1) 0%, rgba(51, 133, 214, 0.05) 100%);
+            border-top: 3px solid #66b3ff;
+        }
+        .asset-card-main .asset-summary-item:first-child:hover {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.2) 0%, rgba(51, 133, 214, 0.12) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 178, 255, 0.2);
+        }
+        .asset-card-main .asset-summary-item:not(:first-child):hover {
+            background: rgba(242, 248, 255, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.1);
+        }
+        .asset-summary-horizontal {
+            display: flex !important;
+        }
+        .asset-card-main .asset-sub-items.collapsed {
+            display: none;
+        }
+        .asset-card-main .asset-sub-items:not(.collapsed) {
+            display: flex;
+            flex-direction: column;
+        }
+        .asset-card-main.asset-expanded .asset-item.total {
+            order: -1;
+            margin-bottom: 12px;
+        }
+        .asset-card-main.asset-expanded .asset-sub-items {
+            margin-top: 0;
+        }
+        .asset-card-main .asset-summary-label {
+            font-size: 0.78rem;
+            color: #5a7a9a;
+            margin-bottom: 2px;
+        }
+        .asset-card-main .asset-summary-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #3385d6;
+        }
+        .asset-card:not(.asset-card-main) .asset-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 10px 12px;
+        }
+        .asset-card:not(.asset-card-main) .asset-main-value-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .asset-card:not(.asset-card-main) .asset-main-value {
+            font-size: 1.1rem;
+            color: #2a4a6a;
+            display: block;
+            margin-bottom: 0;
+        }
+        .asset-card:not(.asset-card-main) .asset-summary {
+            display: none;
+        }
+        .asset-card-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(102, 178, 255, 0.1);
+            border: 1px solid rgba(102, 178, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .asset-card:not(.asset-card-main) .asset-card-toggle {
+            width: 24px;
+            height: 24px;
+        }
+        .asset-card-toggle svg {
+            width: 14px;
+            height: 14px;
+            color: #3385d6;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .asset-card:not(.asset-card-main) .asset-card-toggle svg {
+            width: 12px;
+            height: 12px;
+        }
+        .asset-card-toggle.collapsed svg {
+            transform: rotate(-90deg);
+        }
+        .asset-card-header:hover {
+            background: rgba(102, 178, 255, 0.08);
+        }
+        .asset-card-toggle:hover {
+            background: rgba(102, 178, 255, 0.25);
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.2);
+        }
+        .asset-card-body {
+            padding: 0 12px 12px;
+            display: block;
+            opacity: 1;
+            max-height: 2000px;
+            overflow: hidden;
+            transition: opacity 0.4s ease, max-height 0.4s ease, padding 0.4s ease;
+        }
+        .asset-card-body.collapsed {
+            opacity: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+        .asset-card-main .asset-card-body {
+            padding: 6px 12px 8px;
+        }
+        .asset-card-main .asset-sub-items {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 10px;
+            padding: 0;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.4s ease, margin-top 0.4s ease;
+        }
+        .asset-card-main .asset-sub-items:not(.collapsed) {
+            max-height: 500px;
+            opacity: 1;
+            margin-top: 8px;
+        }
+        .asset-card-main .asset-item.total {
+            display: flex;
+        }
+        .asset-card-main .asset-item.cash,
+        .asset-card-main .asset-item.market,
+        .asset-card-main .asset-item.debt {
+            flex: 1;
+            margin-left: 0;
+            background: rgba(248, 252, 255, 0.8);
+        }
+        .asset-card-main .asset-sub-items .asset-item {
+            width: 100%;
+        }
+        .asset-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .asset-summary-item {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(102, 178, 255, 0.15);
+            border-radius: 6px;
+            padding: 8px 6px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .asset-summary-item:hover {
+            background: rgba(242, 248, 255, 0.9);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.1);
+        }
+        .asset-summary-item.main {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.15) 0%, rgba(51, 133, 214, 0.1) 100%);
+            border-color: rgba(102, 178, 255, 0.3);
+        }
+        .asset-summary-label {
+            font-size: 0.75rem;
+            color: #5a7a9a;
+            margin-bottom: 4px;
+        }
+        .asset-summary-value {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #2a4a6a;
+        }
+        .asset-summary-value.highlight {
+            color: #3385d6;
+            font-size: 1.4rem;
+        }
+        .asset-summary-value.danger {
+            color: #e57373;
+        }
+        .asset-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .asset-detail-item {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 6px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .asset-detail-item:hover {
+            background: rgba(242, 248, 255, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 178, 255, 0.1);
+        }
+        .asset-detail-label {
+            font-size: 0.85rem;
+            color: #5a7a9a;
+        }
+        .asset-detail-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #2a4a6a;
+        }
+        .asset-detail-value.highlight {
+            color: #3385d6;
+        }
+        .asset-detail-value.danger {
+            color: #e57373;
+        }
+        .asset-horizontal-container {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: stretch;
+            gap: 12px;
+            margin-bottom: 0;
+            transition: all 0.5s ease;
+            min-height: auto;
+            height: fit-content;
+        }
+        .asset-horizontal-container.expanded {
+            justify-content: flex-start;
+        }
+        .asset-horizontal-container.expanded .asset-card:not(.asset-card-main) {
+            width: calc(33.333% - 8px);
+        }
+        @media (max-width: 1400px) {
+            .asset-horizontal-container.expanded .asset-card:not(.asset-card-main) {
+                width: calc(33.333% - 6px);
+            }
+        }
+        @media (max-width: 1200px) {
+            .asset-horizontal-container.expanded .asset-card:not(.asset-card-main) {
+                width: calc(50% - 6px);
+            }
+        }
+        @media (max-width: 768px) {
+            .asset-horizontal-container.expanded .asset-card:not(.asset-card-main) {
+                width: 100%;
+            }
+        }
+        .asset-card {
+            width: calc(33.333% - 8px);
+            max-width: none;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(102, 178, 255, 0.2);
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 12px rgba(102, 178, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 100%;
+        }
+        .asset-card.hidden-card {
+            opacity: 0;
+            transform: translateX(-30px);
+            pointer-events: none;
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .asset-card-main {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.12) 0%, rgba(51, 133, 214, 0.08) 100%);
+            border: 2px solid rgba(102, 178, 255, 0.35);
+            box-shadow: 0 4px 20px rgba(102, 178, 255, 0.15);
+        }
+        #assetCompositionSection .asset-card.is-active {
+            border-color: rgba(30, 99, 182, 0.4);
+            box-shadow: 0 14px 30px rgba(30, 99, 182, 0.14);
+        }
+        #assetCompositionSection .asset-card.is-active .asset-card-header {
+            background: linear-gradient(180deg, rgba(240, 247, 255, 0.98) 0%, rgba(228, 239, 251, 0.96) 100%);
+        }
+        .asset-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .asset-card-header:hover {
+            background: rgba(102, 178, 255, 0.08);
+        }
+        .asset-card-main .asset-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 6px 12px;
+        }
+        #assetCompositionSection .asset-card {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+        }
+        #assetCompositionSection .asset-card:hover,
+        #assetCompositionSection .asset-card.is-active {
+            border: none;
+            box-shadow: none;
+            transform: none;
+        }
+        #assetCompositionSection .asset-card-main {
+            background: transparent;
+        }
+        #assetCompositionSection .asset-card-header {
+            display: none;
+        }
+        #assetCompositionSection .asset-card-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 0;
+        }
+        #assetCompositionSection .asset-card-main .asset-card-body {
+            padding: 0;
+        }
+        #profitAnalysisSection .sub-module {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+        }
+        #profitAnalysisSection .sub-module:hover {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            transform: none;
+        }
+        #profitAnalysisSection .sub-module-title,
+        #liabilityAnalysisSection .sub-module-title {
+            display: none;
+        }
+        .asset-card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #2a5a8a;
+        }
+        .asset-card-title svg {
+            width: 18px;
+            height: 18px;
+            color: #66b3ff;
+        }
+        .asset-card-main .asset-card-title {
+            font-size: 1rem;
+        }
+        .asset-card-main .asset-card-title svg {
+            width: 20px;
+            height: 20px;
+        }
+        .asset-sub-items {
+            max-height: 520px;
+            overflow: hidden;
+            opacity: 1;
+            transform: translateY(0);
+            transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.3s ease, margin-top 0.35s ease;
+        }
+        .asset-sub-items.collapsed {
+            max-height: 0;
+            margin-top: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+        .asset-sub-items:not(.collapsed) {
+            margin-top: 8px;
+        }
+        .asset-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 12px 8px 12px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            border-top: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .asset-item.total {
+            padding: 14px 12px 10px 12px;
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.15) 0%, rgba(51, 133, 214, 0.08) 100%);
+            border-top-color: #66b3ff;
+            margin-bottom: 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .asset-item.total:hover {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.3) 0%, rgba(51, 133, 214, 0.2) 100%) !important;
+            transform: translateY(-3px) !important;
+            box-shadow: 0 6px 16px rgba(102, 178, 255, 0.25) !important;
+        }
+        .asset-card:not(.asset-card-main) .asset-item.total:hover {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.25) 0%, rgba(51, 133, 214, 0.15) 100%) !important;
+            transform: translateY(-3px) !important;
+            box-shadow: 0 6px 16px rgba(102, 178, 255, 0.25) !important;
+        }
+        .asset-item.cash,
+        .asset-item.market,
+        .asset-item.debt {
+            margin-left: 8px;
+            background: rgba(248, 252, 255, 0.8);
+        }
+        .asset-item.cash {
+            border-top-color: #7ec8e3;
+        }
+        .asset-item.market {
+            border-top-color: #5aa9ff;
+        }
+        .asset-item.debt {
+            border-top-color: #2f80ed;
+        }
+        .asset-item.cash:hover,
+        .asset-item.market:hover,
+        .asset-item.debt:hover {
+            background: rgba(255, 255, 255, 1) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(102, 178, 255, 0.15) !important;
+        }
+        .asset-card:not(.asset-card-main) .asset-item.cash:hover,
+        .asset-card:not(.asset-card-main) .asset-item.market:hover,
+        .asset-card:not(.asset-card-main) .asset-item.debt:hover {
+            background: rgba(255, 255, 255, 1) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(102, 178, 255, 0.15) !important;
+        }
+        .asset-item.danger {
+            border-top-color: #90a4ae;
+        }
+        .asset-item-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dot-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-large {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-orange {
+            background-color: #7db7ff;
+        }
+        .dot-blue {
+            background-color: #64b5f6;
+        }
+        .dot-orange-light {
+            background-color: #b9dcff;
+        }
+        .dot-cyan {
+            background-color: #4dd0e1;
+        }
+        .dot-green {
+            background-color: #81c784;
+        }
+        .dot-cash {
+            background-color: #7ec8e3;
+        }
+        .dot-market {
+            background-color: #5aa9ff;
+        }
+        .dot-debt {
+            background-color: #2f80ed;
+        }
+        .asset-item.total .asset-item-label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #3385d6;
+        }
+        .asset-item.total .asset-item-label::before {
+            width: 8px;
+            height: 8px;
+            background: #2f80ed;
+        }
+        .asset-item.cash .asset-item-label::before {
+            background: #4fc3f7;
+        }
+        .asset-item.market .asset-item-label::before {
+            background: #5aa9ff;
+        }
+        .asset-item.debt .asset-item-label::before {
+            background: #2f80ed;
+        }
+        .asset-item-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #2a4a6a;
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .asset-item.total .asset-item-value {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #3385d6;
+        }
+        .asset-item-value.highlight {
+            color: #3385d6;
+            font-size: 1.15rem;
+        }
+        .asset-item-value.danger {
+            color: #66bb6a;
+        }
+        .charts-horizontal-container {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            overflow: hidden;
+            max-height: 1400px;
+            opacity: 1;
+            transform: translateY(0);
+            transition: max-height 0.45s ease, opacity 0.3s ease, transform 0.35s ease, margin-top 0.35s ease;
+        }
+        .charts-horizontal-container.collapsed {
+            max-height: 0;
+            opacity: 0;
+            transform: translateY(-12px);
+            margin-top: 0;
+            pointer-events: none;
+        }
+    </style>
+    <style>
+        :root {
+            --fin-bg: #eef2f6;
+            --fin-grid: rgba(30, 58, 95, 0.045);
+            --fin-surface: #ffffff;
+            --fin-surface-soft: #f6f8fb;
+            --fin-surface-blue: #f0f5fb;
+            --fin-line: #d7e0ea;
+            --fin-line-strong: #aebdcb;
+            --fin-text: #152033;
+            --fin-muted: #64748b;
+            --fin-navy: #17365d;
+            --fin-blue: #1e63b6;
+            --fin-blue-dark: #164b8a;
+            --fin-red: #c62828;
+            --fin-green: #16834a;
+            --fin-amber: #2f80ed;
+            --fin-cyan: #2f9bd6;
+            --fin-violet: #4f8dd3;
+            --fin-shadow: 0 10px 28px rgba(21, 32, 51, 0.08);
+            --fin-shadow-lg: 0 18px 48px rgba(21, 32, 51, 0.13);
+        }
+
+        * {
+            letter-spacing: 0;
+        }
+
+        body {
+            color: var(--fin-text);
+            background:
+                linear-gradient(135deg, #f5f9ff 0%, #e6f3ff 50%, #dbefff 100%);
+            padding: 15px;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        .bg-flow {
+            opacity: 0.5;
+            background:
+                radial-gradient(circle at 10% 20%, rgba(102, 178, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(145, 212, 250, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(192, 230, 255, 0.08) 0%, transparent 50%);
+            animation: bgFlow 25s ease-in-out infinite;
+        }
+
+        .page-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .main-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .main-title {
+            display: inline-block;
+            max-width: 100%;
+            padding: 16px 50px;
+            color: var(--fin-text);
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(30, 99, 182, 0.22);
+            border-bottom: 4px solid var(--fin-blue);
+            border-radius: 8px;
+            box-shadow: var(--fin-shadow);
+            text-shadow: none;
+            font-size: clamp(1.65rem, 2vw, 2.25rem);
+            font-weight: 760;
+            line-height: 1.2;
+        }
+
+        .main-title::before,
+        .glow-line {
+            display: none;
+        }
+
+        .content-area {
+            gap: 14px;
+        }
+
+        .section,
+        .sub-module,
+        .chart-box,
+        .asset-card {
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid var(--fin-line);
+            box-shadow: var(--fin-shadow);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .section {
+            overflow: hidden;
+            transition: box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .section:hover,
+        .sub-module:hover,
+        .chart-box:hover,
+        .chart-box-third:hover,
+        .chart-box-two-thirds:hover,
+        .asset-card:hover {
+            transform: none;
+            border-color: var(--fin-line-strong);
+            box-shadow: var(--fin-shadow-lg);
+        }
+
+        .section-header {
+            min-height: 48px;
+            padding: 12px 16px;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
+            border-bottom: 1px solid var(--fin-line);
+            box-shadow: none;
+        }
+
+        .section-title {
+            gap: 9px;
+            color: var(--fin-navy);
+            font-size: 1rem;
+            font-weight: 760;
+        }
+
+        .section-title::before {
+            width: 4px;
+            height: 18px;
+            background: var(--fin-blue);
+            border-radius: 999px;
+            box-shadow: none;
+            animation: none;
+        }
+
+        .section-content {
+            padding: 14px;
+        }
+
+        .section:nth-child(1) .section-content,
+        .section:nth-child(2) .section-content {
+            padding: 14px;
+        }
+
+        .section:nth-child(1) .basic-info-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .basic-info-grid,
+        .chart-container {
+            gap: 14px;
+        }
+
+        .sub-module {
+            padding: 14px;
+            background: var(--fin-surface);
+        }
+
+        .sub-module-title,
+        .chart-title,
+        .asset-card-title {
+            color: var(--fin-navy);
+            font-size: 0.92rem;
+            font-weight: 760;
+        }
+
+        .sub-module-title {
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--fin-line);
+        }
+
+        .sub-module-title svg,
+        .chart-title svg,
+        .asset-card-title svg {
+            color: var(--fin-blue);
+        }
+
+        .info-list {
+            gap: 2px;
+        }
+
+        .info-item {
+            min-height: 32px;
+            margin: 0;
+            padding: 6px 0;
+            border-bottom: 1px dashed #e4eaf1;
+            border-radius: 0;
+        }
+
+        .info-item:last-child {
+            border-bottom: 0;
+        }
+
+        .info-item:hover {
+            background: var(--fin-surface-soft);
+            padding: 6px 8px;
+        }
+
+        .info-label,
+        .asset-summary-label,
+        .asset-detail-label,
+        .trade-legend-item,
+        .legend-item,
+        .trade-day-label {
+            color: var(--fin-muted);
+            font-weight: 560;
+        }
+
+        .info-value,
+        .asset-summary-value,
+        .asset-detail-value,
+        .asset-item-value {
+            color: var(--fin-text);
+            font-weight: 720;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .info-value.highlight,
+        .asset-summary-value.highlight,
+        .asset-detail-value.highlight,
+        .asset-item-value.highlight,
+        .asset-item.total .asset-item-value,
+        .asset-card-main .asset-summary-value {
+            color: var(--fin-blue);
+        }
+
+        .info-value.success,
+        .data-table .success,
+        .buy-value,
+        .asset-item-value.danger {
+            color: var(--fin-red);
+        }
+
+        .info-value.warning,
+        .tag-warning {
+            color: var(--fin-amber);
+        }
+
+        .info-value.danger,
+        .data-table .danger,
+        .sell-value,
+        .asset-detail-value.danger,
+        .asset-summary-value.danger {
+            color: var(--fin-green);
+        }
+
+        .toggle-btn,
+        .action-btn,
+        .asset-card-toggle {
+            color: var(--fin-blue-dark);
+            background: #ffffff;
+            border: 1px solid var(--fin-line);
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(21, 32, 51, 0.05);
+        }
+
+        .toggle-btn:hover,
+        .action-btn:hover,
+        .asset-card-toggle:hover {
+            color: var(--fin-blue-dark);
+            background: #eaf2ff;
+            border-color: #abc2df;
+            transform: none;
+            box-shadow: 0 6px 16px rgba(30, 99, 182, 0.12);
+        }
+        .chart-toggle-trigger {
+            flex-shrink: 0;
+        }
+        #assetCompositionSection .asset-card-header,
+        #assetCompositionSection .asset-item.total {
+            cursor: default;
+        }
+        #assetCompositionSection .asset-card-header:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        #assetCompositionSection .asset-item.total:hover {
+            background: linear-gradient(135deg, rgba(102, 178, 255, 0.15) 0%, rgba(51, 133, 214, 0.08) 100%) !important;
+            transform: none !important;
+        }
+
+        .tag {
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.76rem;
+            font-weight: 720;
+        }
+
+        .tag-primary {
+            color: var(--fin-blue-dark);
+            background: #eaf2ff;
+            border-color: #bdd2ef;
+        }
+
+        .tag-success {
+            color: var(--fin-green);
+            background: #e9f7ef;
+            border-color: #bfe4cc;
+        }
+
+        .tag-warning {
+            background: #fff7e8;
+            border-color: #efd39a;
+        }
+
+        .tag-danger {
+            color: var(--fin-red);
+            background: #fff0f0;
+            border-color: #efc1c1;
+        }
+
+        .asset-horizontal-container {
+            gap: 12px;
+            justify-content: flex-start;
+        }
+
+        .asset-card {
+            background: var(--fin-surface);
+            border-top: 4px solid var(--fin-line-strong);
+        }
+
+        .asset-card-main {
+            background: linear-gradient(180deg, #ffffff 0%, #f0f5fb 100%);
+            border: 1px solid #b9c9dd;
+            border-top: 4px solid var(--fin-blue);
+        }
+
+        .asset-card-sec { border-top-color: var(--fin-cyan); }
+        .asset-card-margin { border-top-color: var(--fin-amber); }
+        .asset-card-option { border-top-color: var(--fin-violet); }
+        .asset-card-financial { border-top-color: var(--fin-green); }
+
+        .asset-card-header,
+        .asset-card-main .asset-card-header {
+            background: var(--fin-surface);
+            padding: 10px 12px;
+        }
+
+        .asset-card-header:hover {
+            background: var(--fin-surface-blue);
+        }
+
+        .asset-summary-item,
+        .asset-detail-item,
+        .asset-item {
+            background: var(--fin-surface-soft);
+            border: 1px solid #e4eaf1;
+            border-radius: 8px;
+            box-shadow: none;
+        }
+
+        .asset-summary-item.main,
+        .asset-card-main .asset-summary-item:first-child,
+        .asset-item.total {
+            background: linear-gradient(180deg, #f6f9fd 0%, #edf4fc 100%);
+            border-color: #c8d8eb;
+            border-top-color: var(--fin-blue);
+        }
+
+        .asset-summary-item:hover,
+        .asset-detail-item:hover,
+        .asset-item.total:hover,
+        .asset-item.cash:hover,
+        .asset-item.market:hover,
+        .asset-item.debt:hover {
+            background: #ffffff !important;
+            transform: none !important;
+            box-shadow: 0 8px 18px rgba(21, 32, 51, 0.08) !important;
+        }
+
+        .asset-item.cash { border-top-color: var(--fin-cyan); }
+        .asset-item.market { border-top-color: var(--fin-violet); }
+        .asset-item.debt { border-top-color: var(--fin-red); }
+
+        .dot-orange,
+        .trade-legend-color.buy,
+        .trade-bar.buy {
+            background: linear-gradient(180deg, #e45757, var(--fin-red));
+        }
+
+        .dot-green,
+        .trade-legend-color.sell,
+        .trade-bar.sell {
+            background: linear-gradient(180deg, #30a66b, var(--fin-green));
+        }
+
+        .dot-blue,
+        .dot-cash {
+            background: var(--fin-blue);
+        }
+
+        .dot-cyan {
+            background: var(--fin-cyan);
+        }
+
+        .dot-market {
+            background: var(--fin-violet);
+        }
+
+        .dot-debt {
+            background: var(--fin-red);
+        }
+
+        .chart-box,
+        .chart-box-third,
+        .chart-box-two-thirds {
+            background: var(--fin-surface);
+            border: 1px solid var(--fin-line);
+            border-radius: 8px;
+            box-shadow: var(--fin-shadow);
+        }
+        .chart-box.text-collapsed,
+        .chart-box-third.text-collapsed,
+        .chart-box-two-thirds.text-collapsed {
+            min-height: auto;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+            border-color: #d6e1ee;
+            box-shadow: 0 8px 20px rgba(21, 32, 51, 0.06);
+            cursor: pointer;
+        }
+        .chart-box.text-collapsed:hover,
+        .chart-box-third.text-collapsed:hover,
+        .chart-box-two-thirds.text-collapsed:hover {
+            border-color: #b8cae0;
+            box-shadow: 0 12px 24px rgba(30, 99, 182, 0.12);
+        }
+        .chart-box.text-collapsed .chart-toggle-header,
+        .chart-box-third.text-collapsed .chart-toggle-header,
+        .chart-box-two-thirds.text-collapsed .chart-toggle-header {
+            margin-bottom: 0;
+            padding: 0;
+        }
+        .chart-box.text-collapsed .chart-collapsed-hint,
+        .chart-box-third.text-collapsed .chart-collapsed-hint,
+        .chart-box-two-thirds.text-collapsed .chart-collapsed-hint {
+            display: inline;
+        }
+
+        .mock-chart,
+        .trade-chart-bars {
+            background:
+                linear-gradient(90deg, rgba(30, 99, 182, 0.06) 1px, transparent 1px),
+                linear-gradient(0deg, rgba(30, 99, 182, 0.06) 1px, transparent 1px),
+                #f7f9fc;
+            background-size: 34px 34px;
+            border: 1px solid #e4eaf1;
+        }
+
+        .bar {
+            background: linear-gradient(180deg, #4f8dd3 0%, var(--fin-blue) 100%);
+            box-shadow: 0 4px 10px rgba(30, 99, 182, 0.18);
+        }
+
+        .pie-chart {
+            background: conic-gradient(
+                var(--fin-blue) 0deg 120deg,
+                var(--fin-amber) 120deg 200deg,
+                var(--fin-cyan) 200deg 280deg,
+                var(--fin-violet) 280deg 360deg
+            );
+            box-shadow: 0 10px 24px rgba(21, 32, 51, 0.12);
+        }
+
+        .pie-chart::before {
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px #e4eaf1;
+        }
+
+        .pie-scale-panel {
+            container-type: inline-size;
+        }
+
+        .pie-scale-panel .pie-chart-wrapper {
+            width: clamp(168px, 42cqw, 220px);
+            height: clamp(168px, 42cqw, 220px);
+            margin: 18px auto 0;
+        }
+
+        .pie-scale-panel .pie-chart {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            box-shadow: 0 12px 28px rgba(21, 32, 51, 0.14);
+        }
+
+        .pie-scale-panel .pie-chart::before {
+            width: clamp(70px, 18cqw, 88px);
+            height: clamp(70px, 18cqw, 88px);
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px #dbe5f0;
+        }
+
+        .pie-scale-panel .pie-center-label span {
+            font-size: clamp(0.78rem, 3.2cqw, 0.96rem);
+        }
+
+        .pie-scale-panel .pie-center-label strong {
+            font-size: clamp(1.05rem, 4.6cqw, 1.4rem);
+        }
+
+        .pie-scale-panel .pie-legend-row,
+        .pie-scale-panel .pie-legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: clamp(10px, 3cqw, 16px);
+            width: 100%;
+            margin-top: clamp(16px, 3.5cqw, 24px);
+        }
+
+        .pie-scale-panel .legend-item {
+            width: 100%;
+            min-height: clamp(44px, 10cqw, 56px);
+            justify-content: flex-start;
+            gap: clamp(8px, 2.4cqw, 12px);
+            padding: clamp(8px, 2.2cqw, 12px) clamp(10px, 3cqw, 14px);
+            font-size: clamp(0.9rem, 3.3cqw, 1.08rem);
+            line-height: 1.35;
+            border-radius: 10px;
+            background: rgba(247, 251, 255, 0.95);
+            border: 1px solid rgba(30, 99, 182, 0.12);
+        }
+
+        .pie-scale-panel .legend-item span {
+            font-weight: 600;
+            color: #476a8f;
+        }
+
+        .pie-scale-panel .legend-color {
+            width: clamp(14px, 4cqw, 18px);
+            height: clamp(14px, 4cqw, 18px);
+            border-radius: 5px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(21, 32, 51, 0.12);
+        }
+
+        .asset-structure-pie {
+            background: conic-gradient(
+                #1f6fd5 0deg 117deg,
+                #ffffff 117deg 120deg,
+                #f59e0b 120deg 196deg,
+                #ffffff 196deg 199deg,
+                #17a398 199deg 275deg,
+                #ffffff 275deg 278deg,
+                #7c5cff 278deg 360deg
+            );
+        }
+
+        .asset-structure-pie::before {
+            display: block;
+        }
+
+        .liability-ratio-pie {
+            background: conic-gradient(
+                #225ea8 0deg 217deg,
+                #ffffff 217deg 220deg,
+                #ff8c42 220deg 296deg,
+                #ffffff 296deg 299deg,
+                #2a9d8f 299deg 338deg,
+                #ffffff 338deg 341deg,
+                #d1495b 341deg 360deg
+            );
+        }
+
+        #assetStructureChartContent {
+            overflow: visible;
+        }
+
+        #assetStructureChartContent .asset-structure-annotated {
+            position: relative;
+            width: min(100%, 620px);
+            aspect-ratio: 560 / 360;
+            margin: 8px auto 0;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-panel {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: min(188px, 36%);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            z-index: 3;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-link {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            width: 100%;
+            border: none;
+            background: none;
+            padding: 2px 0;
+            text-align: left;
+            font-size: 0.84rem;
+            line-height: 1.25;
+            font-weight: 600;
+            color: #111111;
+            opacity: 0.72;
+            cursor: pointer;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-link:hover {
+            opacity: 0.9;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-link.is-active {
+            opacity: 1;
+            transform: translateY(-1px);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-thickness: 1.5px;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-name {
+            color: #111111;
+            letter-spacing: 0.01em;
+        }
+
+        #assetStructureChartContent .asset-structure-legend-meta {
+            color: #111111;
+            opacity: 0.72;
+            font-size: 0.76rem;
+            font-weight: 500;
+            margin-left: auto;
+            white-space: nowrap;
+        }
+
+        #assetStructureChartContent .pie-chart-wrapper {
+            position: absolute;
+            left: 36%;
+            top: 54%;
+            width: 46%;
+            height: auto;
+            aspect-ratio: 1;
+            margin: 0;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        #assetStructureChartContent .pie-chart::before {
+            width: 45%;
+            height: 45%;
+        }
+
+        #assetStructureChartContent .pie-center-label {
+            gap: clamp(2px, 0.7cqw, 4px);
+        }
+
+        #assetStructureChartContent .pie-center-label span {
+            font-size: clamp(0.8rem, 2.5cqw, 0.98rem);
+            font-weight: 600;
+            color: #607d98;
+        }
+
+        #assetStructureChartContent .pie-center-label strong {
+            font-size: clamp(1.18rem, 4.6cqw, 1.65rem);
+            line-height: 1.08;
+        }
+
+        #assetStructureChartContent .pie-center-label em {
+            font-style: normal;
+            font-size: clamp(0.74rem, 2.2cqw, 0.9rem);
+            color: #7f92a8;
+        }
+
+        @container (max-width: 430px) {
+            #assetStructureChartContent .asset-structure-legend-panel {
+                top: 0;
+                right: 0;
+                width: 44%;
+                gap: 6px;
+            }
+
+            #assetStructureChartContent .asset-structure-legend-link {
+                font-size: 0.74rem;
+                gap: 6px;
+            }
+
+            #assetStructureChartContent .asset-structure-legend-meta {
+                font-size: 0.68rem;
+            }
+
+            #assetStructureChartContent .pie-chart-wrapper {
+                left: 34%;
+                top: 56%;
+                width: 48%;
+            }
+        }
+
+        #liabilityRatioChartContent .pie-chart-wrapper {
+            width: clamp(132px, 31cqw, 176px);
+            height: clamp(132px, 31cqw, 176px);
+            margin-top: 8px;
+        }
+
+        #liabilityRatioChartContent .pie-chart::before {
+            width: clamp(58px, 13cqw, 72px);
+            height: clamp(58px, 13cqw, 72px);
+        }
+
+        #liabilityRatioChartContent .pie-center-label span {
+            font-size: clamp(0.72rem, 2.4cqw, 0.86rem);
+        }
+
+        #liabilityRatioChartContent .pie-center-label strong {
+            font-size: clamp(0.98rem, 3.4cqw, 1.22rem);
+        }
+
+        #liabilityRatioChartContent .pie-legend-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        #liabilityRatioChartContent .legend-item {
+            min-height: 40px;
+            padding: 8px 10px;
+        }
+
+        #liabilityTrendChartContent .line-chart-container {
+            min-height: 270px;
+        }
+
+        .legend-item:hover,
+        .trade-legend-item:hover {
+            color: var(--fin-blue-dark);
+            background: #eaf2ff;
+        }
+
+        .line-path {
+            filter: drop-shadow(0 2px 4px rgba(30, 99, 182, 0.22));
+        }
+
+        .data-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.88rem;
+            overflow: hidden;
+            border: 1px solid var(--fin-line);
+            border-radius: 8px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e7edf4;
+        }
+
+        .data-table th {
+            color: var(--fin-navy);
+            background: #eef3f8;
+            font-weight: 760;
+        }
+
+        .data-table tr:hover {
+            background: #f7fbff;
+        }
+
+        .loading {
+            color: var(--fin-blue);
+        }
+
+        .loading-dot {
+            background: var(--fin-blue);
+        }
+
+        .trade-detail-box.hidden {
+            display: none;
+        }
+
+        @media (max-width: 1200px) {
+            .section:nth-child(1) .basic-info-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .main-header {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .main-title {
+                font-size: 1.45rem;
+                padding: 12px 30px;
+                align-self: center;
+            }
+
+            .back-link {
+                position: static;
+                transform: none;
+            }
+
+            .back-link:hover {
+                transform: translateY(-1px);
+            }
+
+            .section:nth-child(1) .basic-info-grid,
+            .basic-info-grid,
+            .chart-container {
+                grid-template-columns: 1fr;
+            }
+
+            .asset-horizontal-container,
+            .charts-horizontal-container {
+                flex-direction: column;
+            }
+
+            .asset-card,
+            .asset-horizontal-container.expanded .asset-card:not(.asset-card-main) {
+                width: 100%;
+            }
+
+            #liabilityAnalysisSection .liability-chart-layout {
+                flex-direction: column;
+            }
+
+            #liabilityAnalysisSection .liability-chart-main,
+            #liabilityAnalysisSection .liability-chart-side,
+            .chart-box-third.chart-box-asset-focus,
+            .chart-box-two-thirds.chart-box-asset-trend {
+                flex: 1 1 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 流动背景 -->
+    <div class="bg-flow"></div>
+
+    <div class="page-wrapper">
+        <!-- 主标题 -->
+        <div class="main-header">
+            <a class="back-link" href="306khqj_修正.html" onclick="returnToOverview(event)" aria-label="返回两融客户管理总览">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+                返回总览
+            </a>
+            <h1 class="main-title">两融客户信息概览</h1>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="content-area">
+
+<!-- 客户基本信息模块 -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">客户基本信息</span>
+                    <div class="action-buttons">
+                        <button class="action-btn" title="刷新" onclick="loadBasicInfoData()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="toggle-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"/>
+                            </svg>
+                            收起详情
+                        </button>
+                    </div>
+                </div>
+                <div class="section-content">
+                    <div class="basic-info-grid">
+                        <!-- 客户基本信息 -->
+                        <div class="sub-module">
+                            <div class="sub-module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                </svg>
+                                基本资料
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">客户姓名</span>
+                                    <span id="customerName" class="info-value highlight">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">客户编号</span>
+                                    <span id="customerId" class="info-value">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">证件类型</span>
+                                    <span id="idType" class="info-value">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">证件号码</span>
+                                    <span class="info-value"><span id="idNumber">-</span></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">客户等级</span>
+                                    <span class="info-value"><span id="customerLevel" class="tag tag-primary">-</span></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">开户日期</span>
+                                    <span class="info-value"><span id="openDate">-</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 账户信息 -->
+                        <div class="sub-module">
+                            <div class="sub-module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                    <line x1="8" y1="21" x2="16" y2="21"/>
+                                    <line x1="12" y1="17" x2="12" y2="21"/>
+                                </svg>
+                                账户信息
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">资金账号</span>
+                                    <span class="info-value">88****6666</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">账户类型</span>
+                                    <span class="info-value">普通资金账户</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">账户状态</span>
+                                    <span class="info-value"><span class="tag tag-success">正常</span></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">授信额度</span>
+                                    <span class="info-value">¥500.0万</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 风险信息 -->
+                        <div class="sub-module">
+                            <div class="sub-module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                风险信息
+                            </div>
+                            <div class="info-list">
+                                <div class="info-item">
+                                    <span class="info-label">风险等级</span>
+                                    <span id="riskLevel" class="info-value warning">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">风险承受能力</span>
+                                    <span id="riskTolerance" class="info-value">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">投资者类型</span>
+                                    <span id="investorType" class="info-value">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">风险评估日期</span>
+                                    <span id="riskAssessmentDate" class="info-value">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 个性化标签 -->
+                        <div class="sub-module">
+                            <div class="sub-module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                                    <line x1="7" y1="7" x2="7.01" y2="7"/>
+                                </svg>
+                                个性化标签
+                            </div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <span class="tag tag-primary">长期投资者</span>
+                                <span class="tag tag-success">高净值客户</span>
+                                <span class="tag tag-warning">偏好科技股</span>
+                                <span class="tag tag-primary">价值投资</span>
+                                <span class="tag tag-success">风险可控</span>
+                                <span class="tag tag-primary">高频交易</span>
+                                <span class="tag tag-warning">定期理财</span>
+                                <span class="tag tag-success">信用良好</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<!-- 客户资产构成模块 -->
+            <div class="section" id="assetCompositionSection">
+                <div class="section-header">
+                    <span class="section-title">客户资产构成</span>
+                    <div class="action-buttons">
+                        <button class="action-btn" title="刷新" onclick="loadAssetData()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="toggle-btn collapsed asset-section-toggle-btn" id="assetSectionToggleBtn" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                            详情展开
+                        </button>
+                    </div>
+                </div>
+                <div class="section-content">
+                    <!-- 横向资产卡片布局 -->
+                    <div class="asset-horizontal-container">
+
+                        <!-- 资产汇总卡片 -->
+                        <div class="asset-card asset-card-main" data-card-type="totalAsset">
+                            <div class="asset-card-header">
+                                <div class="asset-card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                    </svg>
+                                    资产汇总
+                                </div>
+                            </div>
+                            <div class="asset-card-body" id="totalAsset-body">
+                                <div class="asset-item total highlight" id="totalAsset-main">
+                                    <div class="asset-item-label">
+                                        <span class="dot-large dot-orange"></span>
+                                        总资产
+                                    </div>
+                                    <div class="asset-item-value highlight" id="totalAsset">¥0.0万</div>
+                                </div>
+                                <div class="asset-sub-items collapsed" id="totalAsset-sub">
+                                    <div class="asset-item market">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-market"></span>
+                                            证券资产市值
+                                        </div>
+                                        <div class="asset-item-value" id="securityAssetMarketValue">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item cash">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-cash"></span>
+                                            账户可用资金
+                                        </div>
+                                        <div class="asset-item-value" id="availableCash">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item market">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-market"></span>
+                                            在途清算资产
+                                        </div>
+                                        <div class="asset-item-value" id="clearingAsset">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item debt">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-debt"></span>
+                                            净资产估值
+                                        </div>
+                                        <div class="asset-item-value" id="netAssetEstimate">¥0.0万</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 资产变动卡片 -->
+                        <div class="asset-card" data-card-type="assetChange">
+                            <div class="asset-card-header">
+                                <div class="asset-card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                    资产变动
+                                </div>
+                            </div>
+                            <div class="asset-card-body" id="assetChange-body">
+                                <div class="asset-item total highlight">
+                                    <div class="asset-item-label">
+                                        <span class="dot-large dot-blue"></span>
+                                        净资金流入
+                                    </div>
+                                    <div class="asset-item-value highlight" id="assetNetInflow">¥0.0万</div>
+                                </div>
+                                <div class="asset-sub-items collapsed" id="assetChange-sub">
+                                    <div class="asset-item cash">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-cash"></span>
+                                            银证转入资金
+                                        </div>
+                                        <div class="asset-item-value" id="bankSecurityIn">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item market">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-market"></span>
+                                            银证转出资金
+                                        </div>
+                                        <div class="asset-item-value" id="bankSecurityOut">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item cash">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-cash"></span>
+                                            转入证券市值
+                                        </div>
+                                        <div class="asset-item-value" id="securitiesInMarketValue">¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item market">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-market"></span>
+                                            转出证券市值
+                                        </div>
+                                        <div class="asset-item-value" id="securitiesOutMarketValue">¥0.0万</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 负债构成卡片 -->
+                        <div class="asset-card" data-card-type="liability">
+                            <div class="asset-card-header">
+                                <div class="asset-card-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 6v6l4 2"/>
+                                    </svg>
+                                    负债构成
+                                </div>
+                            </div>
+                            <div class="asset-card-body" id="liability-body">
+                                <div class="asset-item total highlight">
+                                    <div class="asset-item-label">
+                                        <span class="dot-large dot-orange-light"></span>
+                                        总负债
+                                    </div>
+                                    <div class="asset-item-value highlight danger" id="totalLiability">-¥0.0万</div>
+                                </div>
+                                <div class="asset-sub-items collapsed" id="liability-sub">
+                                    <div class="asset-item cash">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-cash"></span>
+                                            融资负债余额
+                                        </div>
+                                        <div class="asset-item-value danger" id="financingLiability">-¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item market">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-market"></span>
+                                            融券负债余额
+                                        </div>
+                                        <div class="asset-item-value danger" id="securitiesLendingLiability">-¥0.0万</div>
+                                    </div>
+                                    <div class="asset-item debt">
+                                        <div class="asset-item-label">
+                                            <span class="dot-dot dot-debt"></span>
+                                            维持担保比例
+                                        </div>
+                                        <div class="asset-item-value" id="maintenanceMarginRatio">0.00%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 下部图表区域：资产结构占比（1/3）+ 资产走势（2/3） -->
+                    <div class="charts-horizontal-container collapsed" id="assetChartsContainer">
+                        <!-- 资产结构占比 - 1/3宽度 -->
+                        <div class="chart-box chart-box-third chart-box-asset-focus">
+                            <div class="chart-toggle-header">
+                                <div class="chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    </svg>
+                                    资产结构占比
+                                </div>
+                            </div>
+                            <div class="chart-content pie-scale-panel" id="assetStructureChartContent">
+                                <div class="asset-structure-annotated">
+                                    <div class="asset-structure-legend-panel" id="assetStructureLegendPanel"></div>
+                                    <div class="pie-chart-wrapper">
+                                        <div class="pie-chart asset-structure-pie" id="assetStructurePie"></div>
+                                        <div class="pie-center-label">
+                                            <span id="assetStructureCenterLabel">总资产</span>
+                                            <strong id="assetStructureCenterValue">¥0.0万</strong>
+                                            <em id="assetStructureCenterShare">(100%)</em>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 资产走势 - 2/3宽度，自适应高度 -->
+                        <div class="chart-box chart-box-two-thirds chart-box-asset-trend">
+                            <div class="chart-toggle-header">
+                                <div class="chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                    </svg>
+                                    资产走势
+                                </div>
+                            </div>
+                            <div class="chart-content" id="assetTrendChartContent">
+                                <div class="line-chart-container">
+                                    <svg class="line-chart" id="assetTrendChart" viewBox="0 0 600 260">
+                                    <g id="assetTrendLegend"></g>
+                                    <g id="assetTrendGrid"></g>
+                                    <g id="assetTrendBars"></g>
+                                    <!-- 折线路径 -->
+                                    <path class="line-fill" id="assetTrendFill" d="" fill="url(#lineGradient)" opacity="0.18"/>
+                                    <path class="line-path" id="assetTrendPath" d="" fill="none" stroke="url(#lineStrokeGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <!-- 填充区域 -->
+                                    <!-- 数据点 -->
+                                    <path class="line-glow" id="assetTrendGlow" d="" fill="none" stroke="url(#glowGradient)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 1000" stroke-dashoffset="1000"/>
+                                    <g id="assetTrendPoints"></g>
+                                    <!-- 数据标签 -->
+                                    <g id="assetTrendBarLabels"></g>
+                                    <g id="assetTrendLineLabels"></g>
+                                    <g id="assetTrendAxisLabelsLeft"></g>
+                                    <g id="assetTrendAxisLabelsRight"></g>
+                                    <!-- X轴近7天标签 -->
+                                    <g id="assetTrendDateLabels"></g>
+                                    <defs>
+                                        <linearGradient id="assetTrendBarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#8fc4ff;stop-opacity:0.95"/>
+                                            <stop offset="100%" style="stop-color:#2f80ed;stop-opacity:0.92"/>
+                                        </linearGradient>
+                                        <linearGradient id="assetTrendBarGradientActive" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#66d4ff;stop-opacity:1"/>
+                                            <stop offset="100%" style="stop-color:#1663d6;stop-opacity:1"/>
+                                        </linearGradient>
+                                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#f5b441;stop-opacity:0.35"/>
+                                            <stop offset="100%" style="stop-color:#f5b441;stop-opacity:0"/>
+                                        </linearGradient>
+                                        <linearGradient id="lineStrokeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style="stop-color:#f0a61a"/>
+                                            <stop offset="50%" style="stop-color:#ffbf47"/>
+                                            <stop offset="100%" style="stop-color:#d58a00"/>
+                                        </linearGradient>
+                                        <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
+                                            <stop offset="0%" style="stop-color:#f5b441;stop-opacity:0.8"/>
+                                            <stop offset="100%" style="stop-color:#f5b441;stop-opacity:0"/>
+                                        </radialGradient>
+                                    </defs>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<!-- 客户盈亏分析模块 -->
+            <div class="section" id="profitAnalysisSection">
+                <div class="section-header">
+                    <span class="section-title">客户盈亏分析</span>
+                    <div class="action-buttons">
+                        <button class="action-btn" title="刷新" onclick="loadProfitData()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="toggle-btn collapsed" id="profitSectionToggleBtn" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                            详情展开
+                        </button>
+                    </div>
+                </div>
+                <div class="section-content">
+                    <!-- 盈亏总览 -->
+                    <div class="basic-info-grid" style="margin-bottom: 18px;">
+                        <!-- 盈亏总览 -->
+                        <div class="sub-module" style="grid-column: 1 / -1;">
+                            <div class="sub-module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="1" x2="12" y2="23"/>
+                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                </svg>
+                                盈亏总览
+                            </div>
+                            <div class="profit-overview-grid">
+                                <div class="liability-summary-card profit-overview-card">
+                                    <div style="font-size: 0.85rem; color: #5a7a9a; margin-bottom: 8px;">今日收益率</div>
+                                    <div style="font-size: 1.3rem; color: #e57373; font-weight: 700;">+0.96%</div>
+                                </div>
+                                <div class="liability-summary-card profit-overview-card">
+                                    <div style="font-size: 0.85rem; color: #5a7a9a; margin-bottom: 8px;">今日盈亏</div>
+                                    <div style="font-size: 1.3rem; color: #e57373; font-weight: 700;">+¥12.3万</div>
+                                </div>
+                                <div class="liability-summary-card profit-overview-card">
+                                    <div style="font-size: 0.85rem; color: #5a7a9a; margin-bottom: 8px;">今日浮动盈亏</div>
+                                    <div style="font-size: 1.3rem; color: #e57373; font-weight: 700;">+¥8.7万</div>
+                                </div>
+                                <div class="liability-summary-card profit-overview-card">
+                                    <div style="font-size: 0.85rem; color: #5a7a9a; margin-bottom: 8px;">累计盈亏</div>
+                                    <div style="font-size: 1.3rem; color: #e57373; font-weight: 700;">+¥280.5万</div>
+                                </div>
+                                <div class="liability-summary-card profit-overview-card">
+                                    <div style="font-size: 0.85rem; color: #5a7a9a; margin-bottom: 8px;">累计浮动盈亏</div>
+                                    <div style="font-size: 1.3rem; color: #e57373; font-weight: 700;">+¥56.2万</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container collapsed" id="profitDetailContent">
+                        <!-- 盈亏趋势 -->
+                        <div class="chart-box">
+                            <div class="chart-toggle-header">
+                                <div class="chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                    </svg>
+                                    盈亏趋势
+                                </div>
+                            </div>
+                            <div class="chart-content" id="profitTrendChartContent">
+                                <div class="line-chart-container" style="height: 220px; position: relative;">
+                                    <svg class="line-chart" viewBox="0 0 1400 200">
+                                    <!-- 0轴参考线 -->
+                                    <line x1="50" y1="100" x2="1350" y2="100" stroke="#336699" stroke-width="1" stroke-dasharray="5,3" opacity="0.6"/>
+                                    <!-- 盈利区域填充 -->
+                                    <path class="line-fill" d="M 50,72 L 266,58 L 418,100 L 537,100 L 700,45 L 917,62 L 1134,35 L 1350,52 L 1350,100 L 50,100 Z" fill="url(#profitPositiveFill)" opacity="0.3"/>
+                                    <!-- 亏损区域填充 -->
+                                    <path class="line-fill" d="M 418,100 L 483,118 L 537,100 L 537,100 L 418,100 Z" fill="url(#profitNegativeFill)" opacity="0.3"/>
+                                    <!-- 按图例颜色绘制折线：红色盈利，绿色亏损 -->
+                                    <path class="line-path" d="M 50,72 L 266,58 L 418,100" fill="none" stroke="#e57373" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 8px rgba(229, 115, 115, 0.45))"/>
+                                    <path class="line-path" d="M 418,100 L 483,118 L 537,100" fill="none" stroke="#81c784" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 8px rgba(129, 199, 132, 0.45))"/>
+                                    <path class="line-path" d="M 537,100 L 700,45 L 917,62 L 1134,35 L 1350,52" fill="none" stroke="url(#profitPositiveStroke)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 8px rgba(229, 115, 115, 0.45))"/>
+                                    <!-- 柔和光效路径 -->
+                                    <path class="line-glow" d="M 50,72 L 266,58 L 418,100" fill="none" stroke="url(#profitPositiveGlow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 1000" stroke-dashoffset="1000"/>
+                                    <path class="line-glow" d="M 418,100 L 483,118 L 537,100" fill="none" stroke="url(#profitNegativeGlow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 1000" stroke-dashoffset="1000"/>
+                                    <path class="line-glow" d="M 537,100 L 700,45 L 917,62 L 1134,35 L 1350,52" fill="none" stroke="url(#profitPositiveGlow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 1000" stroke-dashoffset="1000"/>
+                                    <!-- 数据点 - 盈利(红色) -->
+                                    <circle cx="50" cy="72" r="5" fill="#e57373" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(229, 115, 115, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="266" cy="58" r="5" fill="#e57373" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(229, 115, 115, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="0.3s"/>
+                                    </circle>
+                                    <circle cx="700" cy="45" r="5" fill="#e57373" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(229, 115, 115, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="0.6s"/>
+                                    </circle>
+                                    <circle cx="917" cy="62" r="5" fill="#e57373" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(229, 115, 115, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="0.9s"/>
+                                    </circle>
+                                    <circle cx="1134" cy="35" r="5" fill="#e57373" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(229, 115, 115, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="1.2s"/>
+                                    </circle>
+                                    <circle cx="1350" cy="52" r="6" fill="#2f80ed" stroke="white" stroke-width="2" filter="drop-shadow(0 0 10px rgba(47, 128, 237, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="1.5s"/>
+                                    </circle>
+                                    <!-- 数据点 - 亏损(绿色) -->
+                                    <circle cx="483" cy="118" r="5" fill="#81c784" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(129, 199, 132, 0.8))">
+                                        <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" begin="0.4s"/>
+                                    </circle>
+                                    <!-- 数据标签 -->
+                                    <text x="50" y="58" font-size="9" fill="#e57373" text-anchor="middle" font-weight="600">+8.6万</text>
+                                    <text x="266" y="44" font-size="9" fill="#e57373" text-anchor="middle" font-weight="600">+12.3万</text>
+                                    <text x="483" y="136" font-size="9" fill="#81c784" text-anchor="middle" font-weight="600">-3.8万</text>
+                                    <text x="700" y="31" font-size="9" fill="#e57373" text-anchor="middle" font-weight="600">+15.6万</text>
+                                    <text x="917" y="48" font-size="9" fill="#e57373" text-anchor="middle" font-weight="600">+10.2万</text>
+                                    <text x="1134" y="21" font-size="9" fill="#e57373" text-anchor="middle" font-weight="600">+18.9万</text>
+                                    <text x="1350" y="38" font-size="9" fill="#2f80ed" text-anchor="middle" font-weight="600">+12.3万</text>
+                                    <!-- X轴近7天标签 -->
+                                    <text x="50" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">7日前</text>
+                                    <text x="266" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">6日前</text>
+                                    <text x="483" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">5日前</text>
+                                    <text x="700" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">4日前</text>
+                                    <text x="917" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">3日前</text>
+                                    <text x="1134" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">昨日</text>
+                                    <text x="1350" y="185" font-size="11" fill="#5a7a9a" text-anchor="middle">今日</text>
+                                    <defs>
+                                        <linearGradient id="profitPositiveFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#e57373;stop-opacity:0.4"/>
+                                            <stop offset="100%" style="stop-color:#e57373;stop-opacity:0.05"/>
+                                        </linearGradient>
+                                        <linearGradient id="profitNegativeFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#81c784;stop-opacity:0.05"/>
+                                            <stop offset="100%" style="stop-color:#81c784;stop-opacity:0.4"/>
+                                        </linearGradient>
+                                        <linearGradient id="profitPositiveStroke" x1="537" y1="0" x2="1350" y2="0" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" style="stop-color:#e57373"/>
+                                            <stop offset="74%" style="stop-color:#e57373"/>
+                                            <stop offset="100%" style="stop-color:#2f80ed"/>
+                                        </linearGradient>
+                                        <linearGradient id="profitPositiveGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style="stop-color:#e57373;stop-opacity:0"/>
+                                            <stop offset="50%" style="stop-color:#2f80ed;stop-opacity:0.95"/>
+                                            <stop offset="100%" style="stop-color:#e57373;stop-opacity:0"/>
+                                        </linearGradient>
+                                        <linearGradient id="profitNegativeGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style="stop-color:#81c784;stop-opacity:0"/>
+                                            <stop offset="50%" style="stop-color:#b8f59f;stop-opacity:0.95"/>
+                                            <stop offset="100%" style="stop-color:#81c784;stop-opacity:0"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            </div>
+                                <div style="display: flex; justify-content: space-between; padding: 5px 10px; font-size: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="width: 10px; height: 10px; background: #e57373; border-radius: 50%;"></div>
+                                    <span style="color: #e57373; font-weight: 500;">盈利</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="width: 10px; height: 10px; background: #81c784; border-radius: 50%;"></div>
+                                    <span style="color: #81c784; font-weight: 500;">亏损</span>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+<!-- 客户资产负债分析模块 -->
+            <div class="section" id="liabilityAnalysisSection">
+                <div class="section-header">
+                    <span class="section-title">客户资产负债分析</span>
+                    <div class="action-buttons">
+                        <button class="action-btn" title="刷新" onclick="loadTradeData()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6M1 20v-6h6"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        </button>
+                        <button class="toggle-btn collapsed liability-section-toggle-btn" id="liabilitySectionToggleBtn" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                            详情展开
+                        </button>
+                    </div>
+                </div>
+                <div class="section-content">
+                    <!-- 汇总信息 -->
+                    <div class="sub-module-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18"/>
+                            <path d="M7 14l4-4 3 3 5-6"/>
+                        </svg>
+                        汇总信息
+                    </div>
+                    <div class="liability-summary-grid">
+                        <div class="liability-summary-card main">
+                            <div class="liability-summary-label">总负债</div>
+                            <div class="liability-summary-value highlight">¥356.8万</div>
+                        </div>
+                        <div class="liability-summary-card">
+                            <div class="liability-summary-label">融资余额</div>
+                            <div class="liability-summary-value">¥286.5万</div>
+                        </div>
+                        <div class="liability-summary-card">
+                            <div class="liability-summary-label">融资市值</div>
+                            <div class="liability-summary-value">¥512.4万</div>
+                        </div>
+                        <div class="liability-summary-card">
+                            <div class="liability-summary-label">待还利息</div>
+                            <div class="liability-summary-value warning">¥3.2万</div>
+                        </div>
+                    </div>
+
+                    <div id="liabilityDetailContent" class="collapsed">
+                        <div class="chart-container liability-chart-layout" style="margin-bottom: 18px;">
+                        <!-- 负债走势7天折线图 -->
+                        <div class="chart-box liability-chart-main">
+                            <div class="chart-toggle-header">
+                                <div class="chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 17 8 12 12 15 18 8 21 11"/>
+                                        <polyline points="18 8 21 8 21 11"/>
+                                    </svg>
+                                    负债走势7天折线图
+                                </div>
+                            </div>
+                            <div class="chart-content" id="liabilityTrendChartContent">
+                                <div class="line-chart-container">
+                                    <svg class="line-chart" viewBox="0 0 620 240" preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="liabilityTrendFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stop-color="#66b3ff" stop-opacity="0.42"/>
+                                            <stop offset="100%" stop-color="#66b3ff" stop-opacity="0.04"/>
+                                        </linearGradient>
+                                        <linearGradient id="liabilityTrendStroke" x1="40" y1="0" x2="580" y2="0" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0%" stop-color="#66b3ff"/>
+                                            <stop offset="68%" stop-color="#66b3ff"/>
+                                            <stop offset="100%" stop-color="#2f80ed"/>
+                                        </linearGradient>
+                                        <linearGradient id="liabilityTrendGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#66b3ff" stop-opacity="0"/>
+                                            <stop offset="50%" stop-color="#2f80ed" stop-opacity="0.95"/>
+                                            <stop offset="100%" stop-color="#66b3ff" stop-opacity="0"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <g stroke="rgba(102, 178, 255, 0.18)" stroke-width="1">
+                                        <line x1="40" y1="40" x2="580" y2="40"/>
+                                        <line x1="40" y1="90" x2="580" y2="90"/>
+                                        <line x1="40" y1="140" x2="580" y2="140"/>
+                                        <line x1="40" y1="190" x2="580" y2="190"/>
+                                    </g>
+                                    <path class="line-fill" d="M40,165 L130,152 L220,158 L310,128 L400,116 L490,96 L580,82 L580,205 L40,205 Z" fill="url(#liabilityTrendFill)" opacity="0.3"/>
+                                    <path class="line-path" d="M40,165 L130,152 L220,158 L310,128 L400,116 L490,96 L580,82" fill="none" stroke="url(#liabilityTrendStroke)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path class="line-glow" d="M40,165 L130,152 L220,158 L310,128 L400,116 L490,96 L580,82" fill="none" stroke="url(#liabilityTrendGlow)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 1000" stroke-dashoffset="1000"/>
+                                    <g fill="#66b3ff">
+                                        <circle cx="40" cy="165" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="130" cy="152" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="220" cy="158" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="310" cy="128" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="400" cy="116" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="490" cy="96" r="4" stroke="white" stroke-width="2" filter="drop-shadow(0 0 6px rgba(102, 179, 255, 0.5))"/>
+                                        <circle cx="580" cy="82" r="6" fill="#2f80ed" stroke="white" stroke-width="2" filter="drop-shadow(0 0 10px rgba(47, 128, 237, 0.6))"/>
+                                    </g>
+                                    <g font-size="10" fill="#5a7a9a" text-anchor="middle">
+                                        <text x="40" y="224">7天前</text>
+                                        <text x="130" y="224">6天前</text>
+                                        <text x="220" y="224">5天前</text>
+                                        <text x="310" y="224">4天前</text>
+                                        <text x="400" y="224">3天前</text>
+                                        <text x="490" y="224">昨日</text>
+                                        <text x="580" y="224">今日</text>
+                                    </g>
+                                    <g font-size="10" fill="#3385d6" text-anchor="middle" font-weight="600">
+                                        <text x="40" y="153">320</text>
+                                        <text x="130" y="140">332</text>
+                                        <text x="220" y="146">326</text>
+                                        <text x="310" y="116">348</text>
+                                        <text x="400" y="104">356</text>
+                                        <text x="490" y="84">368</text>
+                                        <text x="580" y="70" fill="#2f80ed">376</text>
+                                    </g>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 负债占比环图 -->
+                        <div class="chart-box liability-chart-side">
+                            <div class="chart-toggle-header">
+                                <div class="chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                                        <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                                    </svg>
+                                    负债占比环图
+                                </div>
+                            </div>
+                            <div class="chart-content pie-scale-panel" id="liabilityRatioChartContent">
+                                <div class="pie-chart-wrapper">
+                                    <div class="pie-chart liability-ratio-pie"></div>
+                                    <div class="pie-center-label">
+                                        <span>负债核心</span>
+                                        <strong>61%</strong>
+                                    </div>
+                                </div>
+                                <div class="pie-legend-grid">
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #225ea8;"></div>
+                                        <span>融资负债 61%</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #ff8c42;"></div>
+                                        <span>融券负债 22%</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #2a9d8f;"></div>
+                                        <span>待还利息 12%</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color" style="background: #d1495b;"></div>
+                                        <span>其他负债 5%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 负债明细表格 -->
+                    <div class="chart-box trade-detail-box" id="tradeDetailBox">
+                        <div class="chart-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="8" y1="6" x2="21" y2="6"/>
+                                <line x1="8" y1="12" x2="21" y2="12"/>
+                                <line x1="8" y1="18" x2="21" y2="18"/>
+                                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                                <line x1="3" y1="18" x2="3.01" y2="18"/>
+                            </svg>
+                            近期负债明细（最近5笔）
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>负债类型</th>
+                                        <th>标的证券</th>
+                                        <th>融资余额</th>
+                                        <th>融资市值</th>
+                                        <th>待还利息</th>
+                                        <th>负债占比</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>2024-01-15</td>
+                                        <td>融资负债</td>
+                                        <td>平安银行</td>
+                                        <td>¥86.5万</td>
+                                        <td>¥124.8万</td>
+                                        <td>¥0.8万</td>
+                                        <td>24.2%</td>
+                                        <td><span class="tag tag-success">正常</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-14</td>
+                                        <td>融资负债</td>
+                                        <td>贵州茅台</td>
+                                        <td>¥72.0万</td>
+                                        <td>¥118.5万</td>
+                                        <td>¥0.7万</td>
+                                        <td>20.2%</td>
+                                        <td><span class="tag tag-success">正常</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-12</td>
+                                        <td>融券负债</td>
+                                        <td>万科A</td>
+                                        <td>¥48.6万</td>
+                                        <td>¥63.2万</td>
+                                        <td>¥0.5万</td>
+                                        <td>13.6%</td>
+                                        <td><span class="tag tag-warning">关注</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-10</td>
+                                        <td>融资负债</td>
+                                        <td>五粮液</td>
+                                        <td>¥45.8万</td>
+                                        <td>¥82.4万</td>
+                                        <td>¥0.6万</td>
+                                        <td>12.8%</td>
+                                        <td><span class="tag tag-success">正常</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2024-01-08</td>
+                                        <td>其他负债</td>
+                                        <td>中国平安</td>
+                                        <td>¥33.6万</td>
+                                        <td>¥58.1万</td>
+                                        <td>¥0.6万</td>
+                                        <td>9.4%</td>
+                                        <td><span class="tag tag-success">正常</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<!-- JavaScript 代码 -->
+
+
+    <script>
+        // ========== 公共配置和工具函数 ==========
+        const CONFIG = {
+            API_BASE_URL: '/api',  // API基础路径
+            DEFAULT_CUSTOMER_ID: 'KH2024010001',  // 默认客户ID
+            AUTO_FALLBACK_TO_MOCK: true,  // API失败时是否自动使用模拟数据
+            MOCK_MODE: true,  // 模拟数据模式开关
+            GLOW_LINE_INTERVAL: 5000,  // 动画间隔(毫秒)
+            GLOW_LINE_DURATION: 3000,  // 动画持续时间(毫秒)
+            DATA_TOLERANCE: 0.01  // 数据验证容差
+        };
+
+        // 从URL参数获取客户ID,未指定则使用默认值
+        function getCustomerIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('customerId') || CONFIG.DEFAULT_CUSTOMER_ID;
+        }
+
+        function returnToOverview(event) {
+            const overviewPage = '306khqj_修正.html';
+            const referrer = document.referrer || '';
+
+            if (referrer.includes(overviewPage) && window.history.length > 1) {
+                event.preventDefault();
+                window.history.back();
+                return;
+            }
+
+            window.location.href = overviewPage;
+        }
+
+        // 解析元素文本为数值,用于数据验证
+        function parseValue(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return 0;
+            const text = element.textContent.trim();
+            const value = parseFloat(text.replace(/[^\d.-]/g, ''));
+            return isNaN(value) ? 0 : value;
+        }
+
+        // ========== 通用数据加载函数 ==========
+        // 从API加载数据,失败时自动回退到模拟数据
+        async function fetchData(endpoint, mockFallbackFn, moduleName) {
+            try {
+                const customerId = getCustomerIdFromUrl();  // 获取客户ID
+                const response = await fetch(`${CONFIG.API_BASE_URL}${endpoint}?customerId=${customerId}`);  // 发起API请求
+                if (!response.ok) {  // 检查HTTP状态码
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const result = await response.json();  // 解析JSON响应
+                if (result.success && result.data && result.data.length > 0) {
+                    console.log(`${moduleName}: 数据加载完成`, result);
+                    return result.data[0];  // 返回第一条数据
+                } else if (CONFIG.AUTO_FALLBACK_TO_MOCK) {
+                    console.log(`${moduleName}: API返回空数据,使用模拟数据`);
+                    if (mockFallbackFn) mockFallbackFn();  // 调用模拟数据函数
+                    return null;
+                }
+            } catch (error) {
+                console.error(`${moduleName}: 加载失败,切换到模拟数据`, error);
+                if (CONFIG.AUTO_FALLBACK_TO_MOCK) {
+                    if (mockFallbackFn) mockFallbackFn();
+                }
+                return null;
+            }
+        }
+
+        // ========== 通用数据绑定函数 ==========
+        // 绑定文本值到DOM元素
+        function bindField(elementId, value, formatter = null) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            element.textContent = formatter ? formatter(value) : (value || '-');  // 使用格式化函数或直接赋值
+        }
+
+        // 绑定标签值到DOM元素,自动添加标签样式
+        function bindTag(elementId, value, tagClass = 'tag-primary') {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            if (value) {
+                element.innerHTML = `<span class="tag ${tagClass}">${value}</span>`;  // 创建带样式的标签
+            } else {
+                element.textContent = '-';
+            }
+        }
+
+
+        // ========== 模拟数据 ==========
+        // 用于前端展示的模拟数据,实际部署时应该从API获取真实数据
+        const MOCK_DATA = {
+            basicInfo: {  // 客户基本信息
+                customer_name: '张三',
+                customer_id: 'KH2024010001',
+                id_type: '身份证',
+                id_number: '110***********1234',
+                customer_level: '白金客户',
+                open_date: '2020-03-15'
+            },
+            riskInfo: {  // 风险信息
+                risk_level: 'C4 (中高风险)',
+                risk_tolerance: '较强',
+                investor_type: '专业投资者',
+                assessment_date: '2023-12-01'
+            },
+            contactInfo: {  // 联系信息
+                phone: '138****5678',
+                landline: '010-88****66',
+                email: 'zhang***@email.com',
+                address: '北京市朝阳区****'
+            },
+            brokerInfo: {  // 经纪人信息
+                broker_name: '李四',
+                broker_id: 'GW00123',
+                broker_phone: '139****6666',
+                service_branch: '北京朝阳营业部',
+                service_rating: '五星级'
+            },
+            assets: {  // 资产数据(单位:万)
+                total_assets: 1350.0,
+                available_cash: 150.0,
+                market_value: 1200.0,
+                clearing_assets: 0.0,
+                net_asset_estimate: 1300.0,
+                debt_amount: 50.0,
+                net_capital_inflow: 28.0,
+                bank_security_in: 120.0,
+                bank_security_out: 92.0,
+                securities_in_market_value: 45.0,
+                securities_out_market_value: 18.0,
+                financing_liability: 35.0,
+                securities_lending_liability: 15.0,
+                maintenance_margin_ratio: 268.35,
+                centralized_total: 800.0,
+                centralized_cash: 100.0,
+                centralized_market: 700.0,
+                centralized_liability: 30.0,
+                margin_total: 350.0,
+                margin_cash: 35.0,
+                margin_market: 315.0,
+                margin_liability: 15.0,
+                stock_option_total: 120.0,
+                stock_option_cash: 10.0,
+                stock_option_market: 110.0,
+                stock_option_liability: 5.0,
+                financial_product_total: 80.0,
+                financial_product_market: 80.0,
+                asset_trend_7d: [
+                    { label: '7日前', value: 1298.0 },
+                    { label: '6日前', value: 1310.0 },
+                    { label: '5日前', value: 1305.0 },
+                    { label: '4日前', value: 1324.0 },
+                    { label: '3日前', value: 1336.0 },
+                    { label: '昨日', value: 1348.0 },
+                    { label: '今日', value: 1350.0 }
+                ],
+                market_value_trend_7d: [
+                    { label: '7日前', value: 1148.0 },
+                    { label: '6日前', value: 1162.0 },
+                    { label: '5日前', value: 1158.0 },
+                    { label: '4日前', value: 1174.0 },
+                    { label: '3日前', value: 1186.0 },
+                    { label: '昨日', value: 1196.0 },
+                    { label: '今日', value: 1200.0 }
+                ]
+            },
+            profit: {
+                initial_investment: 1000.0,
+                current_value: 1280.5,
+                today_profit: 12.3
+            },
+            accountInfo: {
+                account_number: '88****6666',
+                account_type: '普通资金账户',
+                account_status: '正常',
+                credit_limit: 500.0
+            },
+            serviceRecords: {
+                last_service_date: '2024-01-10',
+                annual_service_count: 36,
+                customer_satisfaction: 4.8,
+                next_service_date: '2024-01-25'
+            }
+        };
+
+        // 统一数据加载入口
+        async function loadAllData() {
+            console.log('开始加载所有模块数据...');
+            // 使用模拟数据初始化页面,因为API可能不可用
+            if (CONFIG.MOCK_MODE) {
+                console.log('自动使用模拟数据模式');
+                applyMockBasicInfo();
+                applyMockRiskInfo();
+                applyMockAssetInfo();
+                return;
+            }
+            await Promise.all([
+                loadBasicInfoData(),
+                loadAssetData(),
+                loadProfitData(),
+                loadTradeData()
+            ]);
+            console.log('所有模块数据加载完成');
+        }
+
+        // 客户基本信息模块 - 数据加载
+        async function loadBasicInfo() {
+            const data = await fetchData('/customer/basic-info', applyMockBasicInfo, '客户基本信息');
+            if (data) {
+                bindField('customerName', data.customer_name);
+                bindField('customerId', data.customer_id);
+                bindField('idType', data.id_type);
+                bindField('idNumber', data.id_number);
+                bindTag('customerLevel', data.customer_level, 'tag-primary');
+                bindField('openDate', data.open_date);
+            }
+        }
+
+        function applyMockBasicInfo() {
+            const data = MOCK_DATA.basicInfo;
+            bindField('customerName', data.customer_name);
+            bindField('customerId', data.customer_id);
+            bindField('idType', data.id_type);
+            bindField('idNumber', data.id_number);
+            bindTag('customerLevel', data.customer_level, 'tag-primary');
+            bindField('openDate', data.open_date);
+        }
+
+        async function loadBasicInfoData() {
+            await Promise.all([
+                loadBasicInfo(),
+                loadRiskInfo()
+            ]);
+        }
+
+
+        // 风险信息模块 - 数据加载
+        async function loadRiskInfo() {
+            const data = await fetchData('/customer/risk-info', applyMockRiskInfo, '风险信息');
+            if (data) {
+                bindField('riskLevel', data.risk_level);
+                bindField('riskTolerance', data.risk_tolerance);
+                bindField('investorType', data.investor_type);
+                bindField('riskAssessmentDate', data.assessment_date);
+            }
+        }
+
+        function applyMockRiskInfo() {
+            const data = MOCK_DATA.riskInfo;
+            bindField('riskLevel', data.risk_level);
+            bindField('riskTolerance', data.risk_tolerance);
+            bindField('investorType', data.investor_type);
+            bindField('riskAssessmentDate', data.assessment_date);
+        }
+
+        function applyMockAssetInfo() {
+            bindAssetData(MOCK_DATA.assets);
+            validateAssetRelations();
+        }
+
+        // 客户资产构成模块 - 数据加载和交互
+        const formatMoney = (value) => value ? `¥${Number(value).toLocaleString()}万` : '¥0.0万';
+        const formatPercent = (value) => value ? `${Number(value).toFixed(2)}%` : '0.00%';
+        const ASSET_STRUCTURE_SEGMENTS = [
+            { key: 'centralized_total', label: '集中交易', color: '#1f6fd5' },
+            { key: 'margin_total', label: '融资融券', color: '#f59e0b' },
+            { key: 'stock_option_total', label: '个股期权', color: '#17a398' },
+            { key: 'financial_product_total', label: '金融产品', color: '#7c5cff' }
+        ];
+
+        const ASSET_BINDINGS = [
+            { id: 'totalAsset', key: 'total_assets' },
+            { id: 'securityAssetMarketValue', key: 'market_value' },
+            { id: 'availableCash', key: 'available_cash' },
+            { id: 'clearingAsset', key: 'clearing_assets' },
+            { id: 'netAssetEstimate', key: 'net_asset_estimate' },
+            { id: 'assetNetInflow', key: 'net_capital_inflow' },
+            { id: 'bankSecurityIn', key: 'bank_security_in' },
+            { id: 'bankSecurityOut', key: 'bank_security_out' },
+            { id: 'securitiesInMarketValue', key: 'securities_in_market_value' },
+            { id: 'securitiesOutMarketValue', key: 'securities_out_market_value' },
+            { id: 'totalLiability', key: 'debt_amount' },
+            { id: 'financingLiability', key: 'financing_liability' },
+            { id: 'securitiesLendingLiability', key: 'securities_lending_liability' },
+            { id: 'maintenanceMarginRatio', key: 'maintenance_margin_ratio', formatter: formatPercent }
+        ];
+
+        function bindAssetData(data) {
+            ASSET_BINDINGS.forEach(({ id, key, formatter = formatMoney }) => {
+                bindField(id, data[key], formatter);
+            });
+            renderAssetStructure(data);
+            renderAssetTrend(data || MOCK_DATA.assets);
+        }
+
+        function formatSharePercent(value, total) {
+            if (!total) return '0';
+            return ((value / total) * 100).toFixed(1).replace(/\.0$/, '');
+        }
+
+        function getAssetStructureItems(data) {
+            const source = data || MOCK_DATA.assets;
+            const items = ASSET_STRUCTURE_SEGMENTS.map(segment => ({
+                ...segment,
+                value: Math.max(0, Number(source?.[segment.key]) || 0)
+            }));
+            const total = items.reduce((sum, item) => sum + item.value, 0);
+
+            if (total > 0) {
+                return items.filter(item => item.value > 0);
+            }
+
+            return ASSET_STRUCTURE_SEGMENTS.map(segment => ({
+                ...segment,
+                value: Math.max(0, Number(MOCK_DATA.assets?.[segment.key]) || 0)
+            })).filter(item => item.value > 0);
+        }
+
+        let assetStructureSelectionKey = null;
+        let assetStructureSnapshot = null;
+
+        function lightenHexColor(hex, mixRatio = 0.78) {
+            const normalized = String(hex || '').replace('#', '');
+            if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return hex;
+
+            const red = parseInt(normalized.slice(0, 2), 16);
+            const green = parseInt(normalized.slice(2, 4), 16);
+            const blue = parseInt(normalized.slice(4, 6), 16);
+            const mixChannel = (channel) => Math.round(channel + (255 - channel) * mixRatio);
+
+            return `rgb(${mixChannel(red)}, ${mixChannel(green)}, ${mixChannel(blue)})`;
+        }
+
+        function buildAssetStructureGradient(items, total) {
+            const gapSize = items.length > 1 ? 2 : 0;
+            let currentAngle = 0;
+            const gradientStops = [];
+
+            items.forEach((item, index) => {
+                const rawAngle = total > 0 ? (item.value / total) * 360 : 360 / items.length;
+                const segmentStart = currentAngle;
+                const segmentEnd = index === items.length - 1 ? 360 : Math.max(segmentStart, currentAngle + rawAngle - gapSize);
+                const color = assetStructureSelectionKey
+                    ? (item.key === assetStructureSelectionKey ? item.color : lightenHexColor(item.color))
+                    : item.color;
+
+                gradientStops.push(`${color} ${segmentStart.toFixed(2)}deg ${segmentEnd.toFixed(2)}deg`);
+
+                if (gapSize && index !== items.length - 1) {
+                    const gapEnd = Math.min(360, segmentEnd + gapSize);
+                    gradientStops.push(`#ffffff ${segmentEnd.toFixed(2)}deg ${gapEnd.toFixed(2)}deg`);
+                    currentAngle = gapEnd;
+                } else {
+                    currentAngle = segmentEnd;
+                }
+            });
+
+            return `conic-gradient(${gradientStops.join(', ')})`;
+        }
+
+        function renderAssetStructureCenter(item, total, totalAssetValue) {
+            const centerLabel = document.getElementById('assetStructureCenterLabel');
+            const centerValue = document.getElementById('assetStructureCenterValue');
+            const centerShare = document.getElementById('assetStructureCenterShare');
+            if (!centerLabel || !centerValue || !centerShare) return;
+
+            if (!item) {
+                centerLabel.textContent = '总资产';
+                centerValue.textContent = formatMoney(totalAssetValue);
+                centerShare.textContent = '(100%)';
+                return;
+            }
+
+            centerLabel.textContent = item.label;
+            centerValue.textContent = formatMoney(item.value);
+            centerShare.textContent = `(${formatSharePercent(item.value, total)}%)`;
+        }
+
+        function renderAssetStructureLegend(items, total) {
+            const legendPanel = document.getElementById('assetStructureLegendPanel');
+            if (!legendPanel) return;
+
+            legendPanel.innerHTML = items.map(item => {
+                const isActive = item.key === assetStructureSelectionKey;
+                return `
+                    <button type="button" class="asset-structure-legend-link${isActive ? ' is-active' : ''}" data-key="${item.key}" style="--legend-color:${item.color};">
+                        <span class="asset-structure-legend-swatch" style="background:${item.color};"></span>
+                        <span class="asset-structure-legend-name">${item.label}</span>
+                        <span class="asset-structure-legend-meta">${formatSharePercent(item.value, total)}%</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function updateAssetStructureSelection() {
+            if (!assetStructureSnapshot) return;
+
+            const pie = document.getElementById('assetStructurePie');
+            if (!pie) return;
+
+            const { items, total, totalAssetValue } = assetStructureSnapshot;
+            pie.style.background = buildAssetStructureGradient(items, total);
+            renderAssetStructureLegend(items, total);
+
+            const selectedItem = items.find(item => item.key === assetStructureSelectionKey) || null;
+            renderAssetStructureCenter(selectedItem, total, totalAssetValue);
+        }
+
+        function renderAssetStructure(data) {
+            const legendPanel = document.getElementById('assetStructureLegendPanel');
+            if (!legendPanel) return;
+
+            const items = getAssetStructureItems(data);
+            if (items.length === 0) return;
+
+            const total = items.reduce((sum, item) => sum + item.value, 0);
+            const totalAssetValue = Number(data?.total_assets) > 0 ? Number(data.total_assets) : total;
+            assetStructureSnapshot = { items, total, totalAssetValue };
+
+            if (assetStructureSelectionKey && !items.some(item => item.key === assetStructureSelectionKey)) {
+                assetStructureSelectionKey = null;
+            }
+
+            updateAssetStructureSelection();
+        }
+
+        function getRecentDayLabel(index, length = 7) {
+            const daysAgo = length - index - 1;
+            if (daysAgo === 0) return '今日';
+            if (daysAgo === 1) return '昨日';
+            return `${daysAgo + 1}日前`;
+        }
+
+        function escapeSvgText(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function readTrendMetric(item, keys) {
+            if (typeof item === 'number') {
+                const numericValue = Number(item);
+                return Number.isFinite(numericValue) ? numericValue : NaN;
+            }
+            if (!item || typeof item !== 'object') return NaN;
+
+            for (const key of keys) {
+                const numericValue = Number(item[key]);
+                if (Number.isFinite(numericValue)) {
+                    return numericValue;
+                }
+            }
+            return NaN;
+        }
+
+        function normalizeAssetTrend(rawTrendSource) {
+            const source = Array.isArray(rawTrendSource)
+                ? { asset_trend_7d: rawTrendSource }
+                : (rawTrendSource || {});
+
+            const assetTrend = Array.isArray(source.asset_trend_7d) ? source.asset_trend_7d.slice(-7)
+                : Array.isArray(source.asset_trend) ? source.asset_trend.slice(-7)
+                : Array.isArray(source.total_asset_trend_7d) ? source.total_asset_trend_7d.slice(-7)
+                : Array.isArray(source.total_asset_trend) ? source.total_asset_trend.slice(-7)
+                : [];
+            const marketTrend = Array.isArray(source.market_value_trend_7d) ? source.market_value_trend_7d.slice(-7)
+                : Array.isArray(source.market_value_trend) ? source.market_value_trend.slice(-7)
+                : Array.isArray(source.total_market_value_trend_7d) ? source.total_market_value_trend_7d.slice(-7)
+                : Array.isArray(source.total_market_value_trend) ? source.total_market_value_trend.slice(-7)
+                : [];
+
+            const assetKeys = ['value', 'total_assets', 'asset', 'totalAsset', 'total_assets_value'];
+            const marketKeys = ['value', 'market_value', 'marketValue', 'market', 'total_market_value', 'totalMarketValue', 'security_market_value'];
+            const length = Math.max(assetTrend.length, marketTrend.length);
+            if (length === 0) return [];
+
+            const trend = Array.from({ length }, (_, index) => {
+                const assetItem = assetTrend[index];
+                const marketItem = marketTrend[index];
+                const baseItem = assetItem || marketItem || {};
+
+                return {
+                    label: baseItem.label || baseItem.date || getRecentDayLabel(index, length),
+                    totalAssets: readTrendMetric(assetItem ?? baseItem, assetKeys),
+                    totalMarketValue: readTrendMetric(marketItem ?? baseItem, marketKeys)
+                };
+            });
+
+            const ratioCandidates = [];
+            const sourceTotalAssets = Number(source.total_assets);
+            const sourceMarketValue = Number(source.market_value);
+            if (Number.isFinite(sourceTotalAssets) && sourceTotalAssets > 0 && Number.isFinite(sourceMarketValue) && sourceMarketValue > 0) {
+                ratioCandidates.push(sourceMarketValue / sourceTotalAssets);
+            }
+
+            trend.forEach(item => {
+                if (Number.isFinite(item.totalAssets) && item.totalAssets > 0 && Number.isFinite(item.totalMarketValue) && item.totalMarketValue > 0) {
+                    ratioCandidates.push(item.totalMarketValue / item.totalAssets);
+                }
+            });
+
+            const mockAssetRatio = Number(MOCK_DATA.assets?.market_value) > 0 && Number(MOCK_DATA.assets?.total_assets) > 0
+                ? Number(MOCK_DATA.assets.market_value) / Number(MOCK_DATA.assets.total_assets)
+                : NaN;
+            if (Number.isFinite(mockAssetRatio) && mockAssetRatio > 0) {
+                ratioCandidates.push(mockAssetRatio);
+            }
+
+            const fallbackRatio = ratioCandidates.find(value => Number.isFinite(value) && value > 0) || 0.88;
+
+            return trend
+                .map(item => {
+                    let totalAssets = item.totalAssets;
+                    let totalMarketValue = item.totalMarketValue;
+
+                    if (!Number.isFinite(totalAssets) && Number.isFinite(totalMarketValue)) {
+                        totalAssets = totalMarketValue / fallbackRatio;
+                    }
+                    if (!Number.isFinite(totalMarketValue) && Number.isFinite(totalAssets)) {
+                        totalMarketValue = totalAssets * fallbackRatio;
+                    }
+
+                    return {
+                        label: item.label,
+                        totalAssets,
+                        totalMarketValue
+                    };
+                })
+                .filter(item => Number.isFinite(item.totalAssets) && Number.isFinite(item.totalMarketValue));
+        }
+
+        function createTrendAxis(values, paddingRatio = 0.08) {
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const range = maxValue - minValue;
+            const padding = Math.max(range * paddingRatio, maxValue * 0.03, 1);
+            const axisMin = Math.max(0, minValue - padding);
+            const axisMax = maxValue + padding;
+
+            return {
+                min: axisMin,
+                max: axisMax,
+                range: axisMax - axisMin || 1
+            };
+        }
+
+        function formatTrendAxisValue(value) {
+            return `${Math.round(value)}`;
+        }
+
+        function renderAssetTrend(rawTrendSource) {
+            const trend = normalizeAssetTrend(rawTrendSource);
+            if (trend.length === 0) return;
+
+            const legendGroup = document.getElementById('assetTrendLegend');
+            const gridGroup = document.getElementById('assetTrendGrid');
+            const barGroup = document.getElementById('assetTrendBars');
+            const pointGroup = document.getElementById('assetTrendPoints');
+            const barLabelGroup = document.getElementById('assetTrendBarLabels');
+            const lineLabelGroup = document.getElementById('assetTrendLineLabels');
+            const leftAxisGroup = document.getElementById('assetTrendAxisLabelsLeft');
+            const rightAxisGroup = document.getElementById('assetTrendAxisLabelsRight');
+            const dateLabelGroup = document.getElementById('assetTrendDateLabels');
+            const linePath = document.getElementById('assetTrendPath');
+            const fillPath = document.getElementById('assetTrendFill');
+            const glowPath = document.getElementById('assetTrendGlow');
+
+            if (!legendGroup || !gridGroup || !barGroup || !pointGroup || !barLabelGroup || !lineLabelGroup || !leftAxisGroup || !rightAxisGroup || !dateLabelGroup || !linePath || !fillPath || !glowPath) return;
+
+            const chartLeft = 58;
+            const chartRight = 542;
+            const chartTop = 44;
+            const chartBottom = 186;
+            const axisTickCount = 4;
+            const chartHeight = chartBottom - chartTop;
+            const slotWidth = (chartRight - chartLeft) / trend.length;
+            const barWidth = Math.min(38, slotWidth * 0.52);
+
+            const assetAxis = createTrendAxis(trend.map(item => item.totalAssets));
+            const marketAxis = createTrendAxis(trend.map(item => item.totalMarketValue));
+            const assetScaleY = (value) => chartBottom - ((value - assetAxis.min) / assetAxis.range) * chartHeight;
+            const marketScaleY = (value) => chartBottom - ((value - marketAxis.min) / marketAxis.range) * chartHeight;
+
+            const points = trend.map((item, index) => {
+                const x = chartLeft + slotWidth * index + slotWidth / 2;
+                return {
+                    ...item,
+                    x,
+                    barY: assetScaleY(item.totalAssets),
+                    lineY: marketScaleY(item.totalMarketValue)
+                };
+            });
+
+            const lineD = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)},${point.lineY.toFixed(1)}`).join(' ');
+            const fillD = `${lineD} L ${points[points.length - 1].x.toFixed(1)},${chartBottom} L ${points[0].x.toFixed(1)},${chartBottom} Z`;
+
+            linePath.setAttribute('d', lineD);
+            fillPath.setAttribute('d', fillD);
+            glowPath.setAttribute('d', lineD);
+
+            legendGroup.innerHTML = `
+                <rect x="58" y="16" width="14" height="10" rx="2" fill="url(#assetTrendBarGradient)"></rect>
+                <text x="78" y="25" class="asset-trend-legend-text">总资产</text>
+                <line x1="176" y1="21" x2="196" y2="21" stroke="url(#lineStrokeGradient)" stroke-width="3" stroke-linecap="round"></line>
+                <circle cx="186" cy="21" r="3.5" fill="#f5b441" class="asset-trend-point"></circle>
+                <text x="204" y="25" class="asset-trend-legend-text">证券市值</text>
+            `;
+
+            gridGroup.innerHTML = Array.from({ length: axisTickCount + 1 }, (_, index) => {
+                const ratio = index / axisTickCount;
+                const y = chartTop + chartHeight * ratio;
+                return `<line x1="${chartLeft}" y1="${y.toFixed(1)}" x2="${chartRight}" y2="${y.toFixed(1)}" class="asset-trend-grid-line"></line>`;
+            }).join('');
+
+            leftAxisGroup.innerHTML = Array.from({ length: axisTickCount + 1 }, (_, index) => {
+                const ratio = 1 - (index / axisTickCount);
+                const y = chartTop + chartHeight * (index / axisTickCount);
+                const value = assetAxis.min + assetAxis.range * ratio;
+                return `<text x="${chartLeft - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="asset-trend-axis-label">${formatTrendAxisValue(value)}</text>`;
+            }).join('') + `<text x="${chartLeft - 10}" y="28" text-anchor="end" class="asset-trend-axis-label">总资产</text>`;
+
+            rightAxisGroup.innerHTML = Array.from({ length: axisTickCount + 1 }, (_, index) => {
+                const ratio = 1 - (index / axisTickCount);
+                const y = chartTop + chartHeight * (index / axisTickCount);
+                const value = marketAxis.min + marketAxis.range * ratio;
+                return `<text x="${chartRight + 10}" y="${(y + 4).toFixed(1)}" text-anchor="start" class="asset-trend-axis-label axis-right">${formatTrendAxisValue(value)}</text>`;
+            }).join('') + `<text x="${chartRight + 10}" y="28" text-anchor="start" class="asset-trend-axis-label axis-right">证券市值</text>`;
+
+            barGroup.innerHTML = points.map((point, index) => {
+                const x = point.x - barWidth / 2;
+                const height = Math.max(6, chartBottom - point.barY);
+                const fill = index === points.length - 1 ? 'url(#assetTrendBarGradientActive)' : 'url(#assetTrendBarGradient)';
+                return `<rect x="${x.toFixed(1)}" y="${point.barY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${height.toFixed(1)}" rx="5" class="asset-trend-bar" fill="${fill}"></rect>`;
+            }).join('');
+
+            pointGroup.innerHTML = points.map((point, index) => {
+                const fill = index === points.length - 1 ? '#d58a00' : '#f5b441';
+                return `<circle cx="${point.x.toFixed(1)}" cy="${point.lineY.toFixed(1)}" r="4.2" fill="${fill}" class="asset-trend-point"></circle>`;
+            }).join('');
+
+            barLabelGroup.innerHTML = points.map(point => {
+                const y = Math.max(chartTop + 12, point.barY - 8);
+                return `<text x="${point.x.toFixed(1)}" y="${y.toFixed(1)}" font-size="10" fill="#2f80ed" text-anchor="middle" font-weight="600">${formatTrendAxisValue(point.totalAssets)}</text>`;
+            }).join('');
+
+            lineLabelGroup.innerHTML = points.map(point => {
+                const y = Math.max(chartTop + 12, point.lineY - 10);
+                return `<text x="${(point.x + 2).toFixed(1)}" y="${y.toFixed(1)}" font-size="10" fill="#c58200" text-anchor="start" font-weight="600">${formatTrendAxisValue(point.totalMarketValue)}</text>`;
+            }).join('');
+
+            dateLabelGroup.innerHTML = points.map(point => (
+                `<text x="${point.x.toFixed(1)}" y="222" font-size="10" fill="#5a7a9a" text-anchor="middle">${escapeSvgText(point.label)}</text>`
+            )).join('');
+        }
+
+        async function loadAssetData() {
+            if (CONFIG.MOCK_MODE) {
+                console.log('MODULE 2: 客户资产构成 - 模拟模式');
+                applyMockAssetInfo();
+                return;
+            }
+            const data = await fetchData('/account/info', null, '客户资产构成');
+            if (data) {
+                bindAssetData(data);
+            }
+            validateAssetRelations();
+        }
+        function getAssetDetailSections() {
+            return [
+                document.getElementById('totalAsset-sub'),
+                document.getElementById('assetChange-sub'),
+                document.getElementById('liability-sub'),
+                document.getElementById('assetChartsContainer')
+            ].filter(Boolean);
+        }
+        function getLiabilityChartSections() {
+            return [
+                document.getElementById('liabilityDetailContent')
+            ].filter(Boolean);
+        }
+        function getProfitDetailSections() {
+            return [
+                document.getElementById('profitDetailContent')
+            ].filter(Boolean);
+        }
+        function syncChartBoxState(content) {
+            if (!content) return;
+            const chartBox = content.closest('.chart-box');
+            if (!chartBox) return;
+
+            chartBox.classList.toggle('text-collapsed', content.classList.contains('collapsed'));
+        }
+        function syncChartToggleTriggerState(content) {
+            if (!content || !content.id) return;
+            const trigger = document.querySelector(`.chart-toggle-trigger[data-target="${content.id}"]`);
+            if (!trigger) return;
+
+            const isCollapsed = content.classList.contains('collapsed');
+            trigger.classList.toggle('collapsed', isCollapsed);
+            trigger.setAttribute('aria-expanded', String(!isCollapsed));
+        }
+        function syncAssetSectionToggleState() {
+            const toggleBtn = document.getElementById('assetSectionToggleBtn');
+            const detailSections = getAssetDetailSections();
+            if (!toggleBtn || detailSections.length === 0) return;
+
+            const allExpanded = detailSections.every(section => !section.classList.contains('collapsed'));
+            setToggleButtonState(toggleBtn, !allExpanded);
+        }
+        function syncLiabilitySectionToggleState() {
+            const toggleBtn = document.getElementById('liabilitySectionToggleBtn');
+            const chartSections = getLiabilityChartSections();
+            if (!toggleBtn || chartSections.length === 0) return;
+
+            const allExpanded = chartSections.every(section => !section.classList.contains('collapsed'));
+            setToggleButtonState(toggleBtn, !allExpanded);
+        }
+        function syncProfitSectionToggleState() {
+            const toggleBtn = document.getElementById('profitSectionToggleBtn');
+            const detailSections = getProfitDetailSections();
+            if (!toggleBtn || detailSections.length === 0) return;
+
+            const allExpanded = detailSections.every(section => !section.classList.contains('collapsed'));
+            setToggleButtonState(toggleBtn, !allExpanded);
+        }
+        function setAssetSectionExpanded(expanded) {
+            ['totalAsset', 'assetChange', 'liability'].forEach(cardType => {
+                setAssetCardExpanded(cardType, expanded);
+            });
+            const chartsContainer = document.getElementById('assetChartsContainer');
+            if (chartsContainer) {
+                chartsContainer.classList.toggle('collapsed', !expanded);
+            }
+            syncAssetSectionToggleState();
+        }
+        function setLiabilitySectionExpanded(expanded) {
+            getLiabilityChartSections().forEach(section => {
+                section.classList.toggle('collapsed', !expanded);
+            });
+            syncLiabilitySectionToggleState();
+        }
+        function setProfitSectionExpanded(expanded) {
+            getProfitDetailSections().forEach(section => {
+                section.classList.toggle('collapsed', !expanded);
+            });
+            syncProfitSectionToggleState();
+        }
+        function getAssetCardElement(cardType) {
+            return document.querySelector(`#assetCompositionSection .asset-card[data-card-type="${cardType}"]`);
+        }
+        function setAssetCardExpanded(cardType, expanded) {
+            const subItems = document.getElementById(`${cardType}-sub`);
+            const card = getAssetCardElement(cardType);
+            if (!subItems || !card) return;
+
+            subItems.classList.toggle('collapsed', !expanded);
+            card.classList.toggle('is-active', expanded);
+            card.setAttribute('aria-expanded', String(expanded));
+            syncAssetSectionToggleState();
+        }
+        function toggleAssetCard(cardType) {
+            const subItems = document.getElementById(`${cardType}-sub`);
+            if (!subItems) return;
+
+            setAssetCardExpanded(cardType, subItems.classList.contains('collapsed'));
+        }
+        function initAssetCardInteractions() {
+            document.querySelectorAll('#assetCompositionSection .asset-card[data-card-type]').forEach(card => {
+                const cardType = card.dataset.cardType;
+                const clickTargets = card.querySelectorAll('.asset-card-header, .asset-item.total');
+
+                clickTargets.forEach(target => {
+                    target.addEventListener('click', function() {
+                        toggleAssetCard(cardType);
+                    });
+                });
+
+                const subItems = document.getElementById(`${cardType}-sub`);
+                const isExpanded = Boolean(subItems) && !subItems.classList.contains('collapsed');
+                card.classList.toggle('is-active', isExpanded);
+                card.setAttribute('aria-expanded', String(isExpanded));
+            });
+
+            syncAssetSectionToggleState();
+        }
+        function validateAssetRelations() {
+            const totalAsset = parseValue('totalAsset');
+            const securityAssetMarketValue = parseValue('securityAssetMarketValue');
+            const availableCash = parseValue('availableCash');
+            const clearingAsset = parseValue('clearingAsset');
+            const netAssetEstimate = parseValue('netAssetEstimate');
+            const totalLiability = parseValue('totalLiability');
+            const financingLiability = parseValue('financingLiability');
+            const securitiesLendingLiability = parseValue('securitiesLendingLiability');
+            const assetNetInflow = parseValue('assetNetInflow');
+            const bankSecurityIn = parseValue('bankSecurityIn');
+            const bankSecurityOut = parseValue('bankSecurityOut');
+
+            const calculatedNetAsset = totalAsset - totalLiability;
+            const calculatedLiability = financingLiability + securitiesLendingLiability;
+            const calculatedNetInflow = bankSecurityIn - bankSecurityOut;
+
+            console.log('=== 数据勾稽关系验证 ===');
+            console.log(`总资产: ${totalAsset.toFixed(2)}万`);
+            console.log(`证券资产市值: ${securityAssetMarketValue.toFixed(2)}万`);
+            console.log(`账户可用资金: ${availableCash.toFixed(2)}万`);
+            console.log(`在途清算资产: ${clearingAsset.toFixed(2)}万`);
+            console.log(`净资产估值: ${netAssetEstimate.toFixed(2)}万 (计算值: ${calculatedNetAsset.toFixed(2)}万)`);
+            console.log(`净资金流入: ${assetNetInflow.toFixed(2)}万 (计算值: ${calculatedNetInflow.toFixed(2)}万)`);
+            console.log(`总负债: ${totalLiability.toFixed(2)}万 (计算值: ${calculatedLiability.toFixed(2)}万)`);
+
+            const tolerance = CONFIG.DATA_TOLERANCE;
+
+            if (Math.abs(netAssetEstimate - calculatedNetAsset) > tolerance) {
+                console.warn(`净资产估值勾稽关系不匹配！差异: ${(netAssetEstimate - calculatedNetAsset).toFixed(2)}万`);
+            }
+            
+            if (Math.abs(totalLiability - calculatedLiability) > tolerance) {
+                console.warn(`总负债勾稽关系不匹配！差异: ${(totalLiability - calculatedLiability).toFixed(2)}万`);
+            }
+
+            if (Math.abs(assetNetInflow - calculatedNetInflow) > tolerance) {
+                console.warn(`净资金流入勾稽关系不匹配！差异: ${(assetNetInflow - calculatedNetInflow).toFixed(2)}万`);
+            }
+        }
+        // 客户盈亏分析模块 - 数据加载
+        async function loadProfitData() {
+            if (CONFIG.MOCK_MODE) {
+                console.log('MODULE 3: 客户盈亏分析 - 模拟模式');
+                return;
+            }
+            await fetchData('/profit/overview', null, '客户盈亏分析');
+        }
+
+        // 客户交易行为分析模块 - 数据加载
+        async function loadTradeData() {
+            if (CONFIG.MOCK_MODE) {
+                console.log('MODULE 4: 客户交易行为分析 - 模拟模式');
+                return;
+            }
+            await fetchData('/trade/stats', null, '客户交易行为分析');
+        }
+
+        // 通用交互功能
+        function setToggleButtonState(button, isCollapsed) {
+            if (!button) return;
+
+            button.classList.toggle('collapsed', isCollapsed);
+
+            const icon = isCollapsed
+                ? '<polyline points="6 9 12 15 18 9"/>'
+                : '<polyline points="18 15 12 9 6 15"/>';
+
+            const text = isCollapsed ? '详情展开' : '收起详情';
+
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${icon}
+                </svg>
+                ${text}
+            `;
+        }
+
+        function initToggleButtons() {
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                if (
+                    btn.classList.contains('asset-section-toggle-btn') ||
+                    btn.classList.contains('liability-section-toggle-btn') ||
+                    btn.id === 'profitSectionToggleBtn'
+                ) return;
+
+                btn.addEventListener('click', function() {
+                    const section = this.closest('.section');
+                    const content = section.querySelector('.section-content');
+                    if (!content) return;
+
+                    content.classList.toggle('collapsed');
+                    setToggleButtonState(this, content.classList.contains('collapsed'));
+                });
+            });
+        }
+
+        function initAssetSectionToggleButton() {
+            const toggleBtn = document.getElementById('assetSectionToggleBtn');
+            if (!toggleBtn) return;
+
+            toggleBtn.addEventListener('click', function() {
+                const shouldExpandAll = this.classList.contains('collapsed');
+                setAssetSectionExpanded(shouldExpandAll);
+            });
+
+            syncAssetSectionToggleState();
+        }
+        function initLiabilitySectionToggleButton() {
+            const toggleBtn = document.getElementById('liabilitySectionToggleBtn');
+            if (!toggleBtn) return;
+
+            toggleBtn.addEventListener('click', function() {
+                const shouldExpandAll = this.classList.contains('collapsed');
+                setLiabilitySectionExpanded(shouldExpandAll);
+            });
+
+            syncLiabilitySectionToggleState();
+        }
+        function initProfitSectionToggleButton() {
+            const toggleBtn = document.getElementById('profitSectionToggleBtn');
+            if (!toggleBtn) return;
+
+            toggleBtn.addEventListener('click', function() {
+                const shouldExpandAll = this.classList.contains('collapsed');
+                setProfitSectionExpanded(shouldExpandAll);
+            });
+
+            syncProfitSectionToggleState();
+        }
+
+        function initChartToggleButtons() {
+            document.querySelectorAll('.chart-toggle-trigger').forEach(trigger => {
+                const targetId = trigger.dataset.target;
+                const content = targetId ? document.getElementById(targetId) : null;
+                const chartBox = trigger.closest('.chart-box');
+
+                const toggleContent = () => {
+                    if (!content) return;
+
+                    content.classList.toggle('collapsed');
+                    syncChartBoxState(content);
+                    syncChartToggleTriggerState(content);
+                    syncAssetSectionToggleState();
+                    syncLiabilitySectionToggleState();
+                };
+
+                trigger.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    toggleContent();
+                });
+
+                trigger.addEventListener('keydown', function(event) {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    toggleContent();
+                });
+
+                if (chartBox) {
+                    chartBox.addEventListener('click', function(event) {
+                        if (!chartBox.classList.contains('text-collapsed')) return;
+                        if (content && content.contains(event.target)) return;
+                        toggleContent();
+                    });
+                }
+
+                syncChartBoxState(content);
+                syncChartToggleTriggerState(content);
+            });
+        }
+
+        function initActionButtons() {
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.style.transform = 'translateY(-2px) scale(1.05)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 150);
+                });
+            });
+        }
+
+        function initAssetStructureLegendPanel() {
+            const legendPanel = document.getElementById('assetStructureLegendPanel');
+            if (!legendPanel) return;
+
+            legendPanel.addEventListener('click', function(event) {
+                const button = event.target.closest('.asset-structure-legend-link');
+                if (!button || !assetStructureSnapshot) return;
+
+                const nextKey = button.dataset.key || null;
+                assetStructureSelectionKey = assetStructureSelectionKey === nextKey ? null : nextKey;
+                updateAssetStructureSelection();
+            });
+        }
+
+        function createGlowLine() {
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                let line = section.querySelector('.glow-line');
+                if (!line) {
+                    line = document.createElement('div');
+                    line.className = 'glow-line';
+                    section.appendChild(line);
+                }
+                line.style.top = '0';
+                line.style.left = '0';
+                line.style.width = '100%';
+                line.style.opacity = Math.random() * 0.3 + 0.2;
+                line.style.transition = 'opacity 0.5s ease';
+            });
+        }
+
+        // 页面初始化
+        function initPage() {
+            const container = document.querySelector('.asset-horizontal-container');
+            if (container) {
+                container.classList.add('expanded');
+            }
+            console.log('高净值客户信息概览页面加载完成');
+
+            initToggleButtons();
+            initAssetSectionToggleButton();
+            initAssetCardInteractions();
+            initProfitSectionToggleButton();
+            initLiabilitySectionToggleButton();
+            initChartToggleButtons();
+            initActionButtons();
+            initAssetStructureLegendPanel();
+
+            window.glowLineInterval = setInterval(createGlowLine, CONFIG.GLOW_LINE_INTERVAL);
+
+            loadAllData();
+
+            window.addEventListener('beforeunload', () => {
+                if (window.glowLineInterval) {
+                    clearInterval(window.glowLineInterval);
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+<!-- 
+版本信息:
+v3.0 - 单文件整合版本 (2026-02-25)
+- 所有模块整合到一个HTML文件中
+- 按模块分类,用长分隔符区分
+- CSS、JS按模块组织
+- API调用和SQL文件按模块标注
+
+v2.1 - 图表优化版本 (2026-02-11)
+- 盈亏趋势图缩小30%
+- 资产结构占比增加橙色元素，改为3D饼图效果
+v2.0 - 自适应图表版本 (2026-02-11)
+- 所有图表改为按页面和section自适应大小
+- 盈亏颜色调整: 盈利用柔和红色(#e57373), 亏损用柔和绿色(#81c784)
+- 图表容器使用flex和grid自适应布局,避免超模和堆叠
+- 饼图使用max-width和aspect-ratio保持比例
+- 柱状图使用百分比定位实现自适应
+v1.0 - 初始版本
+-->
+</html>
+

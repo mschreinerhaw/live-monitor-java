@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分支机构统计</title>
+  <style>
+    :root {
+      --bg: #f2f4f8;
+      --panel: #ffffff;
+      --line: #d9dee7;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #165dff;
+      --ok: #00a870;
+      --warn: #ed7b2f;
+      --danger: #d03050;
+      --th: #f5f7fb;
+      --shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      background: #f5f7fb;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .page {
+      padding: clamp(6px, 0.9vw, 12px);
+      max-width: 1640px;
+      margin: 0 auto;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1vw, 12px);
+      font-size: clamp(22px, 2.1vw, 34px);
+      font-weight: 700;
+      margin-bottom: clamp(10px, 1.2vw, 16px);
+      letter-spacing: 0.2px;
+    }
+
+    .title-mark {
+      width: 6px;
+      height: clamp(20px, 2vw, 30px);
+      border-radius: 4px;
+      background: var(--primary);
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: 12px;
+      border: 1px solid #e9edf4;
+      padding: clamp(8px, 0.8vw, 12px);
+      min-height: 52vh;
+      box-shadow: var(--shadow);
+    }
+
+    .query-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 1fr auto auto;
+      gap: clamp(8px, 0.8vw, 12px);
+      align-items: center;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      background: #f7f9fc;
+      border: 1px solid #e8edf5;
+      border-radius: 6px;
+      height: clamp(34px, 3.4vw, 40px);
+      padding: 0 clamp(8px, 0.7vw, 10px);
+      gap: 8px;
+    }
+
+    .field label {
+      color: #374151;
+      font-size: clamp(12px, 0.85vw, 15px);
+      min-width: clamp(68px, 5.2vw, 90px);
+      line-height: 1.2;
+    }
+
+    .field input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: clamp(12px, 0.95vw, 16px);
+      color: #111827;
+      min-width: 0;
+    }
+
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 6px;
+      height: clamp(34px, 3.4vw, 40px);
+      min-width: clamp(82px, 5.8vw, 110px);
+      font-size: clamp(14px, 0.95vw, 17px);
+      cursor: pointer;
+      padding: 0 clamp(10px, 1vw, 16px);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(22, 93, 255, 0.14);
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn.ghost {
+      background: #f4f6fa;
+      color: #111827;
+      border-color: #e8edf5;
+    }
+
+    .split {
+      margin: clamp(8px, 1vw, 12px) 0 clamp(8px, 1vw, 10px);
+      border: none;
+      border-top: 1px solid var(--line);
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .status {
+      font-size: clamp(12px, 0.85vw, 14px);
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .ops {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: clamp(26px, 2vw, 32px);
+      height: clamp(26px, 2vw, 32px);
+      border-radius: 50%;
+      border: 1px solid #dbe2f1;
+      background: #fff;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: clamp(12px, 0.9vw, 15px);
+      line-height: 1;
+    }
+
+    .table-wrap {
+      border: 1px solid #e7edf6;
+      background: #fff;
+      overflow-x: auto;
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    thead th {
+      background: var(--th);
+      font-size: clamp(12px, 0.85vw, 15px);
+      font-weight: 700;
+      color: #111827;
+      text-align: left;
+      padding: clamp(6px, 0.6vw, 8px) clamp(6px, 0.6vw, 8px);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      font-size: clamp(12px, 0.85vw, 15px);
+      color: #1f2937;
+      padding: clamp(6px, 0.6vw, 8px) clamp(6px, 0.6vw, 8px);
+      border-top: 1px solid #edf1f6;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background-color 0.16s ease;
+    }
+
+    tbody tr:hover {
+      background: #f8fbff;
+    }
+
+    tbody tr.active {
+      background: #eaf1ff;
+    }
+
+    tbody tr.active td:first-child {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .charts {
+      margin-top: clamp(8px, 1vw, 12px);
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: clamp(8px, 0.8vw, 12px);
+    }
+
+    .chart-card {
+      border: 1px solid #e7edf6;
+      border-radius: 12px;
+      background: #fcfdff;
+      padding: clamp(8px, 0.8vw, 10px);
+      min-height: clamp(220px, 22vw, 280px);
+    }
+
+    .card-title {
+      font-size: clamp(15px, 1vw, 20px);
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      display: flex;
+      gap: clamp(8px, 0.8vw, 12px);
+      font-size: clamp(11px, 0.75vw, 13px);
+      color: var(--muted);
+      font-weight: 400;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-btn {
+      border: 1px solid #dbe3f2;
+      background: #f8faff;
+      color: #334155;
+      border-radius: 999px;
+      padding: 3px 9px;
+      cursor: pointer;
+      font-size: clamp(11px, 0.75vw, 13px);
+      line-height: 1.2;
+      transition: all 0.16s ease;
+    }
+
+    .legend-btn:hover {
+      border-color: #8fb3ff;
+      background: #edf3ff;
+      color: #1e40af;
+    }
+
+    .legend-btn.active {
+      border-color: #165dff;
+      background: #eaf1ff;
+      color: #0b3fb8;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .svg-wrap {
+      overflow-x: auto;
+      border-top: 1px dashed #edf1f7;
+      padding-top: 8px;
+    }
+
+    .pie-slice {
+      cursor: pointer;
+      transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+
+    .empty {
+      color: #9aa4b2;
+      font-size: clamp(12px, 0.85vw, 14px);
+      text-align: center;
+      padding: clamp(18px, 2.2vw, 28px) 0;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: minmax(92px, 160px) 1fr;
+      row-gap: clamp(6px, 0.8vw, 10px);
+      column-gap: clamp(6px, 0.7vw, 10px);
+      align-items: center;
+      margin-top: 8px;
+      font-size: clamp(12px, 0.85vw, 15px);
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #eef2f8;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .row-val {
+      font-size: clamp(11px, 0.75vw, 13px);
+      color: #4b5563;
+      min-width: 52px;
+      text-align: right;
+      margin-left: 8px;
+      display: inline-block;
+    }
+
+    .rate {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: clamp(12px, 0.85vw, 15px);
+      color: #374151;
+      flex-wrap: wrap;
+    }
+
+    .rate-pill {
+      background: #eef4ff;
+      color: var(--primary);
+      border: 1px solid #dce8ff;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: clamp(11px, 0.75vw, 13px);
+    }
+
+    .detail-name {
+      font-size: clamp(16px, 1vw, 20px);
+      font-weight: 700;
+      color: #111827;
+    }
+
+    @media (max-width: 1200px) {
+      .query-row {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .query-row > :nth-child(3) {
+        display: none;
+      }
+
+      .query-row .btn {
+        width: 100%;
+      }
+
+      .charts {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .page {
+        padding: 12px;
+      }
+
+      .panel {
+        min-height: 0;
+      }
+
+      .query-row {
+        grid-template-columns: 1fr;
+      }
+
+      .field {
+        height: 36px;
+      }
+
+      .table-wrap {
+        border-radius: 8px;
+      }
+
+      table {
+        min-width: 760px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .title {
+        font-size: 22px;
+      }
+
+      .status-bar {
+        margin-bottom: 8px;
+      }
+
+      .charts {
+        gap: 10px;
+      }
+
+      .card-title {
+        margin-bottom: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="panel">
+      <div class="query-row">
+        <div class="field">
+          <label for="startDate">开始日期:</label>
+          <input id="startDate" type="date">
+        </div>
+        <div class="field">
+          <label for="endDate">结束日期:</label>
+          <input id="endDate" type="date">
+        </div>
+        <div></div>
+        <button id="btnSearch" class="btn primary">查询</button>
+        <button id="btnReset" class="btn ghost">重置</button>
+      </div>
+
+      <hr class="split">
+
+      <div class="status-bar">
+        <div id="status" class="status">等待查询</div>
+        <div class="ops">
+          <button id="btnRefresh" class="icon-btn" title="刷新">↻</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr id="tableHead"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="charts">
+        <div class="chart-card">
+          <div class="card-title">
+            <span>机构展业占比（饼图）</span>
+            <span id="overviewLegend" class="legend"></span>
+          </div>
+          <div id="overviewChart" class="svg-wrap"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-title">
+            <span>选中机构详情</span>
+          </div>
+          <div id="detailChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./common/api.js"></script>
+  <script>
+    (function () {
+      const API_ENDPOINT = "/UIProcessor";
+
+      const FIELD_ORDER = ["F1", "F2", "F7", "F3", "F4", "F5", "F6", "F8", "F9"];
+      const FIELD_LABELS = {
+        F1: "分支机构",
+        F2: "展业总数",
+        F7: "本周新增",
+        F3: "已完成",
+        F4: "推进中",
+        F5: "跟进中",
+        F6: "完成率",
+        F8: "平均周期",
+        F9: "超7天未跟进"
+      };
+
+      const state = {
+        rows: [],
+        fields: FIELD_ORDER.map((name) => ({ name, label: FIELD_LABELS[name] })),
+        selectedId: null
+      };
+
+      const STATUS_TEXT = {
+        idle: "等待查询",
+        loading: "正在加载...",
+        okPrefix: "数据加载成功，共 ",
+        okSuffix: " 条记录",
+        empty: "暂无数据"
+      };
+
+      const el = {
+        startDate: document.getElementById("startDate"),
+        endDate: document.getElementById("endDate"),
+        btnSearch: document.getElementById("btnSearch"),
+        btnReset: document.getElementById("btnReset"),
+        btnRefresh: document.getElementById("btnRefresh"),
+        status: document.getElementById("status"),
+        tableHead: document.getElementById("tableHead"),
+        tableBody: document.getElementById("tableBody"),
+        overviewLegend: document.getElementById("overviewLegend"),
+        overviewChart: document.getElementById("overviewChart"),
+        detailChart: document.getElementById("detailChart")
+      };
+
+      function todayText() {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return yyyy + "-" + mm + "-" + dd;
+      }
+
+      function toNumber(v) {
+        if (typeof v === "number") {
+          return Number.isFinite(v) ? v : 0;
+        }
+        if (v === null || v === undefined || v === "") {
+          return 0;
+        }
+        const n = parseFloat(String(v).replace(/,/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function readValue(v) {
+        if (v === null || v === undefined) {
+          return "";
+        }
+        if (typeof v === "object") {
+          return String(v.text || v.value || "");
+        }
+        return String(v);
+      }
+
+      function setStatus(text, isError) {
+        el.status.textContent = text;
+        el.status.className = isError ? "status error" : "status";
+      }
+
+      function findGridElement(node) {
+        if (!node) {
+          return null;
+        }
+        if (Array.isArray(node)) {
+          for (let i = 0; i < node.length; i += 1) {
+            const hit = findGridElement(node[i]);
+            if (hit) {
+              return hit;
+            }
+          }
+          return null;
+        }
+        if (typeof node === "object") {
+          const gridCandidate = toGridCandidate(node);
+          if (gridCandidate) {
+            return gridCandidate;
+          }
+          const keys = Object.keys(node);
+          for (let i = 0; i < keys.length; i += 1) {
+            const hit = findGridElement(node[keys[i]]);
+            if (hit) {
+              return hit;
+            }
+          }
+        }
+        return null;
+      }
+
+      function toGridCandidate(node) {
+        if (!node || typeof node !== "object") {
+          return null;
+        }
+
+        if (node.model && Array.isArray(node.data)) {
+          return { model: node.model, data: node.data };
+        }
+
+        if (node.model && node.data && Array.isArray(node.data.items)) {
+          return { model: node.model, data: node.data.items };
+        }
+
+        if (Array.isArray(node.fields) && Array.isArray(node.data)) {
+          return { model: { fields: node.fields }, data: node.data };
+        }
+
+        if (node.model && Array.isArray(node.rows)) {
+          return { model: node.model, data: node.rows };
+        }
+
+        return null;
+      }
+
+      function parseInitPropsHtml(htmlText) {
+        const arrayText = extractInitPropsArrayText(htmlText);
+        if (!arrayText) {
+          return null;
+        }
+        try {
+          const arr = parseLooseJsonArray(arrayText);
+          if (Array.isArray(arr)) {
+            return arr[0] || null;
+          }
+          if (arr && typeof arr === "object") {
+            return arr;
+          }
+          return null;
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function extractInitPropsArrayText(htmlText) {
+        if (!htmlText) {
+          return null;
+        }
+        const marker = /(var|let|const)\s+initProps\s*=/;
+        const m = marker.exec(htmlText);
+        if (!m) {
+          return null;
+        }
+        const eqIndex = htmlText.indexOf("=", m.index);
+        const start = htmlText.indexOf("[", eqIndex);
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(htmlText, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        return htmlText.slice(start, end + 1);
+      }
+
+      function findBracketEnd(text, start, openChar, closeChar) {
+        let depth = 0;
+        let inStr = false;
+        let strChar = "";
+        let escaped = false;
+        for (let i = start; i < text.length; i += 1) {
+          const ch = text[i];
+          if (inStr) {
+            if (escaped) {
+              escaped = false;
+              continue;
+            }
+            if (ch === "\\") {
+              escaped = true;
+              continue;
+            }
+            if (ch === strChar) {
+              inStr = false;
+              strChar = "";
+            }
+            continue;
+          }
+
+          if (ch === "\"" || ch === "'") {
+            inStr = true;
+            strChar = ch;
+            continue;
+          }
+
+          if (ch === openChar) {
+            depth += 1;
+          } else if (ch === closeChar) {
+            depth -= 1;
+            if (depth === 0) {
+              return i;
+            }
+          }
+        }
+        return -1;
+      }
+
+      function sanitizeJsonText(text) {
+        if (!text) {
+          return "";
+        }
+        return String(text)
+          .replace(/^\uFEFF/, "")
+          .replace(/^\)\]\}',?\s*/, "")
+          .trim();
+      }
+
+      function parseLooseJsonArray(arrayText) {
+        const cleaned = sanitizeJsonText(arrayText);
+        try {
+          return JSON.parse(cleaned);
+        } catch (e) {
+          // 内网已知结构兜底：某些返回是 JS 对象字面量而非严格 JSON
+          return Function("return (" + cleaned + ");")();
+        }
+      }
+
+      function parsePayload(rawText, contentType) {
+        const safeText = sanitizeJsonText(rawText);
+        const isLikelyHtml =
+          /<html[\s>]/i.test(rawText || "") ||
+          /<script[\s>]/i.test(rawText || "") ||
+          (contentType || "").includes("text/html");
+
+        if (isLikelyHtml) {
+          const fromInitProps = parseInitPropsHtml(rawText);
+          if (fromInitProps) {
+            return fromInitProps;
+          }
+          const fromModelData = extractModelDataPair(rawText);
+          if (fromModelData) {
+            return fromModelData;
+          }
+        }
+
+        if ((contentType || "").includes("application/json")) {
+          const parsed = tryParseJson(safeText);
+          if (Array.isArray(parsed)) {
+            return parsed[0] || null;
+          }
+          if (parsed && typeof parsed === "object") {
+            return parsed;
+          }
+        }
+
+        const directJson = tryParseJson(safeText);
+        if (directJson) {
+          return Array.isArray(directJson) ? directJson[0] : directJson;
+        }
+
+        const callbackJson = parseCallbackPayload(safeText);
+        if (callbackJson) {
+          return Array.isArray(callbackJson) ? callbackJson[0] : callbackJson;
+        }
+
+        const fromModelData = extractModelDataPair(rawText);
+        if (fromModelData) {
+          return fromModelData;
+        }
+
+        return isLikelyHtml ? parseInitPropsHtml(rawText) : null;
+      }
+
+      function extractModelDataPair(text) {
+        if (!text) {
+          return null;
+        }
+
+        const source = String(text);
+        const modelKeyIdx = source.indexOf("\"model\"");
+        if (modelKeyIdx < 0) {
+          return null;
+        }
+
+        const modelColonIdx = source.indexOf(":", modelKeyIdx);
+        if (modelColonIdx < 0) {
+          return null;
+        }
+
+        const modelStart = source.indexOf("{", modelColonIdx);
+        if (modelStart < 0) {
+          return null;
+        }
+
+        const modelEnd = findBracketEnd(source, modelStart, "{", "}");
+        if (modelEnd < 0) {
+          return null;
+        }
+
+        const modelObj = tryParseJson(source.slice(modelStart, modelEnd + 1));
+        if (!modelObj || typeof modelObj !== "object") {
+          return null;
+        }
+
+        const dataTokenRegex = /"data"\s*:\s*\[/g;
+        dataTokenRegex.lastIndex = modelEnd;
+        const dataMatch = dataTokenRegex.exec(source);
+        if (!dataMatch) {
+          return null;
+        }
+
+        const dataBracketPos = source.indexOf("[", dataMatch.index);
+        if (dataBracketPos < 0) {
+          return null;
+        }
+        const dataEnd = findBracketEnd(source, dataBracketPos, "[", "]");
+        if (dataEnd < 0) {
+          return null;
+        }
+
+        const dataArr = tryParseJson(source.slice(dataBracketPos, dataEnd + 1));
+        if (!Array.isArray(dataArr)) {
+          return null;
+        }
+
+        return { model: modelObj, data: dataArr };
+      }
+
+      function parseCallbackPayload(text) {
+        if (!text) {
+          return null;
+        }
+
+        const trimmed = String(text).trim();
+        if (!trimmed) {
+          return null;
+        }
+
+        const lParen = trimmed.indexOf("(");
+        const rParen = trimmed.lastIndexOf(")");
+        if (lParen >= 0 && rParen > lParen) {
+          const inner = trimmed.slice(lParen + 1, rParen).trim();
+          const parsedInner = tryParseJson(inner);
+          if (parsedInner) {
+            return parsedInner;
+          }
+          const innerObj = extractFirstJsonObject(inner);
+          if (innerObj) {
+            return innerObj;
+          }
+          const innerArr = extractFirstJsonArray(inner);
+          if (innerArr) {
+            return innerArr;
+          }
+        }
+
+        const obj = extractFirstJsonObject(trimmed);
+        if (obj) {
+          return obj;
+        }
+        return extractFirstJsonArray(trimmed);
+      }
+
+      function extractFirstJsonObject(text) {
+        const start = text.indexOf("{");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "{", "}");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function extractFirstJsonArray(text) {
+        const start = text.indexOf("[");
+        if (start < 0) {
+          return null;
+        }
+        const end = findBracketEnd(text, start, "[", "]");
+        if (end < 0) {
+          return null;
+        }
+        return tryParseJson(text.slice(start, end + 1));
+      }
+
+      function tryParseJson(text) {
+        try {
+          const parsed = JSON.parse(sanitizeJsonText(text));
+          if (typeof parsed === "string") {
+            return JSON.parse(sanitizeJsonText(parsed));
+          }
+          return parsed;
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function normalizeData(payload) {
+        const candidateRoots = [
+          payload,
+          payload && payload.page,
+          payload && payload.result,
+          payload && payload.data,
+          payload && payload.response,
+          payload && payload.body
+        ];
+
+        let grid = null;
+        for (let i = 0; i < candidateRoots.length; i += 1) {
+          grid = findGridElement(candidateRoots[i]);
+          if (grid) {
+            break;
+          }
+        }
+
+        if (!grid) {
+          throw new Error("未在返回结果中找到 grid 数据结构");
+        }
+
+        const modelFields = Array.isArray(grid.model && grid.model.fields) ? grid.model.fields : [];
+        const fieldsMap = {};
+        for (let i = 0; i < modelFields.length; i += 1) {
+          const f = modelFields[i];
+          if (f && f.name) {
+            fieldsMap[f.name] = f.label || FIELD_LABELS[f.name] || f.name;
+          }
+        }
+
+        state.fields = FIELD_ORDER.map((name) => ({
+          name,
+          label: fieldsMap[name] || FIELD_LABELS[name] || name
+        }));
+
+        const rawRows = Array.isArray(grid.data) ? grid.data : [];
+        state.rows = rawRows.map((item, idx) => {
+          const row = {
+            ID: String(item.ID || idx + 1)
+          };
+          for (let i = 0; i < FIELD_ORDER.length; i += 1) {
+            const key = FIELD_ORDER[i];
+            row[key] = readValue(item[key]);
+          }
+          return row;
+        });
+
+        if (!state.rows.length) {
+          state.selectedId = null;
+          return;
+        }
+        if (!state.selectedId || !state.rows.some((r) => r.ID === state.selectedId)) {
+          state.selectedId = state.rows[0].ID;
+        }
+      }
+
+      function buildRequestUrl(startDate, endDate) {
+        return window.PageApi.buildUIProcessorUrl({
+          Table: "XN_FZJG",
+          P1: startDate,
+          P3: endDate,
+          ParamAction: "true"
+        }, API_ENDPOINT);
+      }
+
+      function buildFetchHint(lastError, url) {
+        const errText = lastError && lastError.message ? lastError.message : "UnknownError";
+        return "请求失败 [" + errText + "] " + url;
+      }
+
+      async function fetchPayloadFromUrl(url) {
+        const resp = await window.PageApi.requestText(url, { timeoutMs: 15000 });
+        const payload = parsePayload(resp.text, resp.contentType);
+        if (!payload) {
+          console.warn("[分支机构统计] 原始响应片段:", (resp.text || "").slice(0, 300));
+          throw new Error("解析接口结果失败");
+        }
+        return payload;
+      }
+
+      async function fetchPayload() {
+        if (!window.PageApi) {
+          console.error("[分支机构统计] 缺少 common/api.js，无法请求接口");
+          setStatus(STATUS_TEXT.empty);
+          return;
+        }
+
+        const startDate = el.startDate.value;
+        const endDate = el.endDate.value;
+        const url = buildRequestUrl(startDate, endDate);
+
+        setStatus(STATUS_TEXT.loading);
+
+        try {
+          const payload = await fetchPayloadFromUrl(url);
+          normalizeData(payload);
+          if (!state.rows.length) {
+            setStatus(STATUS_TEXT.empty);
+          } else {
+            setStatus(STATUS_TEXT.okPrefix + state.rows.length + STATUS_TEXT.okSuffix);
+          }
+          renderAll();
+        } catch (err) {
+          const debugHint = buildFetchHint(err, url);
+          console.error("[分支机构统计] 接口请求失败:", debugHint, err);
+          state.rows = [];
+          state.selectedId = null;
+          renderAll();
+          setStatus(STATUS_TEXT.empty);
+        }
+      }
+
+      function renderTable() {
+        el.tableHead.innerHTML = state.fields
+          .map((f) => "<th>" + escapeHtml(f.label) + "</th>")
+          .join("");
+
+        if (!state.rows.length) {
+          el.tableBody.innerHTML = "<tr><td colspan=\"" + state.fields.length + "\" class=\"empty\">暂无数据</td></tr>";
+          return;
+        }
+
+        const html = state.rows.map((row) => {
+          const cells = FIELD_ORDER.map((key) => {
+            return "<td>" + escapeHtml(formatCell(key, row[key])) + "</td>";
+          }).join("");
+          const activeCls = row.ID === state.selectedId ? "active" : "";
+          return "<tr data-row-id=\"" + row.ID + "\" class=\"" + activeCls + "\">" + cells + "</tr>";
+        }).join("");
+
+        el.tableBody.innerHTML = html;
+        const trs = el.tableBody.querySelectorAll("tr[data-row-id]");
+        trs.forEach((tr) => {
+          tr.addEventListener("click", () => {
+            selectRow(tr.getAttribute("data-row-id"));
+          });
+        });
+      }
+
+      function formatCell(key, value) {
+        if (key === "F6") {
+          const num = toNumber(value);
+          return (num * 100).toFixed(2) + "%";
+        }
+        return value;
+      }
+
+      function renderOverviewChart() {
+        if (!state.rows.length) {
+          el.overviewChart.innerHTML = "<div class=\"empty\">暂无可视化数据</div>";
+          if (el.overviewLegend) {
+            el.overviewLegend.innerHTML = "";
+          }
+          return;
+        }
+
+        const palette = ["#165dff", "#00a870", "#ed7b2f", "#7b61ff", "#2ca58d", "#f08c2e", "#5c7cfa", "#0ea5e9"];
+        const pieRows = state.rows.map((row, idx) => {
+          const raw = Math.max(0, toNumber(row.F2));
+          return {
+            id: row.ID,
+            name: row.F1 || row.ID,
+            raw,
+            value: raw,
+            color: palette[idx % palette.length]
+          };
+        });
+
+        let total = pieRows.reduce((sum, item) => sum + item.value, 0);
+        const rawTotal = pieRows.reduce((sum, item) => sum + item.raw, 0);
+        if (total <= 0) {
+          pieRows.forEach((item) => {
+            item.value = 1;
+          });
+          total = pieRows.length;
+        }
+
+        const selected = pieRows.find((item) => item.id === state.selectedId) || pieRows[0];
+        const selectedPct = rawTotal > 0 ? ((selected.raw / rawTotal) * 100).toFixed(1) + "%" : "--";
+
+        const width = Math.max(500, Math.min(780, el.overviewChart.clientWidth || 700));
+        const height = 280;
+        const cx = Math.round(width * 0.5);
+        const cy = 148;
+        const outerR = Math.max(84, Math.min(112, Math.round(width * 0.14)));
+        const innerR = Math.round(outerR * 0.62);
+
+        const svg = [];
+        svg.push("<svg width=\"" + width + "\" height=\"" + height + "\" viewBox=\"0 0 " + width + " " + height + "\">");
+        let startAngle = -90;
+        for (let i = 0; i < pieRows.length; i += 1) {
+          const item = pieRows[i];
+          const ratio = item.value / total;
+          const sweep = Math.max(0.001, ratio * 360);
+          const endAngle = startAngle + sweep;
+          const active = item.id === state.selectedId;
+          const isFullCircle = sweep >= 359.999;
+          const pathD = isFullCircle
+            ? buildFullDonutPath(cx, cy, outerR, innerR)
+            : buildDonutPath(cx, cy, outerR, innerR, startAngle, endAngle);
+
+          svg.push(
+            "<path class=\"pie-slice\" data-row-id=\"" + item.id +
+            "\" d=\"" + pathD +
+            "\" fill=\"" + item.color +
+            "\" opacity=\"" + (active ? "1" : "0.9") +
+            "\" stroke=\"" + (active ? "#dbe8ff" : "#ffffff") +
+            "\" stroke-width=\"" + (active ? "2.2" : "1.2") + "\"></path>"
+          );
+
+          if (!isFullCircle && sweep >= 26) {
+            const mid = startAngle + sweep / 2;
+            const labelPos = polarToCartesian(cx, cy, (outerR + innerR) / 2, mid);
+            svg.push(
+              "<text x=\"" + labelPos.x.toFixed(1) + "\" y=\"" + labelPos.y.toFixed(1) +
+              "\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"11\" fill=\"#0f172a\">" +
+              (rawTotal > 0 ? (ratio * 100).toFixed(0) + "%" : "--") +
+              "</text>"
+            );
+          }
+
+          startAngle = endAngle;
+        }
+
+        svg.push("<circle cx=\"" + cx + "\" cy=\"" + cy + "\" r=\"" + (innerR - 1) + "\" fill=\"#ffffff\"></circle>");
+        svg.push(
+          "<text x=\"" + cx + "\" y=\"" + (cy - 16) +
+          "\" text-anchor=\"middle\" font-size=\"12\" fill=\"#64748b\">当前机构</text>"
+        );
+        svg.push(
+          "<text x=\"" + cx + "\" y=\"" + (cy + 6) +
+          "\" text-anchor=\"middle\" font-size=\"18\" font-weight=\"700\" fill=\"#0f172a\">" +
+          escapeXml(truncate(selected.name, 8)) + "</text>"
+        );
+        svg.push(
+          "<text x=\"" + cx + "\" y=\"" + (cy + 28) +
+          "\" text-anchor=\"middle\" font-size=\"13\" fill=\"#165dff\">占比 " + selectedPct + "</text>"
+        );
+        svg.push("</svg>");
+        el.overviewChart.innerHTML = svg.join("");
+
+        const slices = el.overviewChart.querySelectorAll(".pie-slice");
+        slices.forEach((slice) => {
+          slice.addEventListener("click", () => {
+            selectRow(slice.getAttribute("data-row-id"));
+          });
+        });
+
+        if (el.overviewLegend) {
+          const legendHtml = pieRows.map((item) => {
+            const active = item.id === state.selectedId;
+            const ratio = rawTotal > 0 ? ((item.raw / rawTotal) * 100).toFixed(1) + "%" : "--";
+            return (
+              "<button type=\"button\" class=\"legend-item legend-btn " + (active ? "active" : "") +
+              "\" data-row-id=\"" + item.id + "\">" +
+              "<span class=\"dot\" style=\"background:" + item.color + "\"></span>" +
+              escapeHtml(truncate(item.name, 8)) + " " + ratio +
+              "</button>"
+            );
+          }).join("");
+          el.overviewLegend.innerHTML = legendHtml;
+          const legendBtns = el.overviewLegend.querySelectorAll(".legend-btn");
+          legendBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+              selectRow(btn.getAttribute("data-row-id"));
+            });
+          });
+        }
+      }
+
+      function polarToCartesian(cx, cy, radius, angleDeg) {
+        const rad = (angleDeg - 90) * Math.PI / 180;
+        return {
+          x: cx + radius * Math.cos(rad),
+          y: cy + radius * Math.sin(rad)
+        };
+      }
+
+      function buildDonutPath(cx, cy, outerR, innerR, startAngle, endAngle) {
+        const outerStart = polarToCartesian(cx, cy, outerR, endAngle);
+        const outerEnd = polarToCartesian(cx, cy, outerR, startAngle);
+        const innerStart = polarToCartesian(cx, cy, innerR, startAngle);
+        const innerEnd = polarToCartesian(cx, cy, innerR, endAngle);
+        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+        return [
+          "M", outerStart.x, outerStart.y,
+          "A", outerR, outerR, 0, largeArc, 0, outerEnd.x, outerEnd.y,
+          "L", innerStart.x, innerStart.y,
+          "A", innerR, innerR, 0, largeArc, 1, innerEnd.x, innerEnd.y,
+          "Z"
+        ].join(" ");
+      }
+
+      function buildFullDonutPath(cx, cy, outerR, innerR) {
+        const outerTop = polarToCartesian(cx, cy, outerR, -90);
+        const outerBottom = polarToCartesian(cx, cy, outerR, 90);
+        const innerTop = polarToCartesian(cx, cy, innerR, -90);
+        const innerBottom = polarToCartesian(cx, cy, innerR, 90);
+        return [
+          "M", outerTop.x, outerTop.y,
+          "A", outerR, outerR, 0, 1, 1, outerBottom.x, outerBottom.y,
+          "A", outerR, outerR, 0, 1, 1, outerTop.x, outerTop.y,
+          "L", innerTop.x, innerTop.y,
+          "A", innerR, innerR, 0, 1, 0, innerBottom.x, innerBottom.y,
+          "A", innerR, innerR, 0, 1, 0, innerTop.x, innerTop.y,
+          "Z"
+        ].join(" ");
+      }
+
+      function renderDetailChart() {
+        if (!state.rows.length) {
+          el.detailChart.innerHTML = "<div class=\"empty\">暂无机构详情</div>";
+          return;
+        }
+        const row = state.rows.find((r) => r.ID === state.selectedId) || state.rows[0];
+        if (!row) {
+          el.detailChart.innerHTML = "<div class=\"empty\">暂无机构详情</div>";
+          return;
+        }
+
+        const items = [
+          { key: "F3", label: "已完成", color: "#00a870" },
+          { key: "F4", label: "推进中", color: "#165dff" },
+          { key: "F5", label: "跟进中", color: "#ed7b2f" },
+          { key: "F9", label: "超7天未跟进", color: "#d03050" }
+        ];
+        const values = items.map((i) => toNumber(row[i.key]));
+        const maxVal = Math.max(1, ...values);
+        const pct = Math.max(0, Math.min(100, toNumber(row.F6) * 100));
+
+        const lines = items.map((item, idx) => {
+          const v = values[idx];
+          const w = (v / maxVal) * 100;
+          return (
+            "<div>" + item.label + "</div>" +
+            "<div>" +
+            "<div class=\"bar-track\">" +
+            "<div class=\"bar-fill\" style=\"width:" + w.toFixed(2) + "%;background:" + item.color + ";\"></div>" +
+            "</div>" +
+            "<span class=\"row-val\">" + escapeHtml(String(v)) + "</span>" +
+            "</div>"
+          );
+        }).join("");
+
+        el.detailChart.innerHTML =
+          "<div class=\"detail-name\">" + escapeHtml(row.F1 || row.ID) + "</div>" +
+          "<div class=\"detail-grid\">" + lines + "</div>" +
+          "<div class=\"rate\">完成率 <span class=\"rate-pill\">" + pct.toFixed(2) + "%</span> 平均周期 " + escapeHtml(row.F8 || "0") + " 天</div>";
+      }
+
+      function renderAll() {
+        renderTable();
+        renderOverviewChart();
+        renderDetailChart();
+      }
+
+      function selectRow(id) {
+        if (!id) {
+          return;
+        }
+        state.selectedId = id;
+        renderAll();
+        const tr = el.tableBody.querySelector("tr[data-row-id=\"" + id + "\"]");
+        if (tr) {
+          tr.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeXml(str) {
+        return escapeHtml(str);
+      }
+
+      function truncate(str, n) {
+        const s = String(str || "");
+        if (s.length <= n) {
+          return s;
+        }
+        return s.slice(0, n) + "...";
+      }
+
+      async function runQuery() {
+        el.btnSearch.disabled = true;
+        el.btnRefresh.disabled = true;
+        try {
+          await fetchPayload();
+        } catch (err) {
+          console.error("[分支机构统计] 查询执行异常:", err);
+          state.rows = [];
+          state.selectedId = null;
+          renderAll();
+          setStatus(STATUS_TEXT.empty);
+        } finally {
+          el.btnSearch.disabled = false;
+          el.btnRefresh.disabled = false;
+        }
+      }
+
+      function resetDates() {
+        const t = todayText();
+        el.startDate.value = t;
+        el.endDate.value = t;
+      }
+
+      el.btnSearch.addEventListener("click", runQuery);
+      el.btnRefresh.addEventListener("click", runQuery);
+      el.btnReset.addEventListener("click", () => {
+        resetDates();
+        runQuery();
+      });
+
+      resetDates();
+      runQuery();
+    })();
+  </script>
+</body>
+</html>

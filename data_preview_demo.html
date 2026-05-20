@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数据预览演示页面</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f3f5f7;
+      color: #1f2329;
+    }
+
+    .page {
+      max-width: 1050px;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e8eaec;
+    }
+
+    .header {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid #edf0f2;
+      background: #fafafa;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .sub-title {
+      font-size: 14px;
+      color: #8c959f;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #4b5563;
+      transition: all .2s ease;
+    }
+
+    .icon-btn:hover {
+      background: #eef2ff;
+      color: #2563eb;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 18px;
+      height: 58px;
+      border-bottom: 1px solid #edf0f2;
+      overflow-x: auto;
+      white-space: nowrap;
+      background: #fff;
+    }
+
+    .back {
+      font-size: 28px;
+      line-height: 1;
+      color: #444;
+      margin-right: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .tab {
+      position: relative;
+      padding: 0 18px;
+      height: 58px;
+      line-height: 58px;
+      font-size: 15px;
+      color: #333;
+      cursor: pointer;
+      transition: color .2s ease;
+      flex: 0 0 auto;
+    }
+
+    .tab:hover { color: #2563eb; }
+
+    .tab.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 0;
+      height: 3px;
+      border-radius: 999px;
+      background: #2563eb;
+    }
+
+    .tab-next {
+      margin-left: auto;
+      color: #98a2b3;
+      font-size: 24px;
+      padding: 0 4px;
+    }
+
+    .content {
+      padding: 14px 18px 24px;
+      background: #f7f8fa;
+      min-height: 720px;
+    }
+
+    .error-line {
+      color: #111;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .demo-box {
+      background: #f4f4f4;
+      border: 4px solid #ff5a52;
+      border-radius: 2px;
+      min-height: 390px;
+      padding: 48px 54px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .demo-box.small {
+      min-height: 370px;
+      padding-top: 30px;
+    }
+
+    .placeholder-text {
+      color: #ff5a52;
+      font-size: 22px;
+      line-height: 1.6;
+      letter-spacing: .5px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0 0 12px;
+    }
+
+    .field-toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .tag {
+      padding: 6px 12px;
+      border: 1px solid #dbe2ea;
+      border-radius: 999px;
+      background: #fff;
+      color: #475467;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .tag.active {
+      color: #2563eb;
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+
+    .meta-table th,
+    .meta-table td {
+      border-bottom: 1px solid #edf0f2;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    .meta-table th {
+      background: #f8fafc;
+      color: #344054;
+      font-weight: 600;
+    }
+
+    .meta-table tr:last-child td { border-bottom: none; }
+
+    .level {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .preview-panel {
+      background: #fff;
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+
+    .preview-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .checkbox-group {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: #344054;
+    }
+
+    .btn {
+      border: 1px solid #cfe0ff;
+      background: #2563eb;
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      background: #fff;
+      color: #344054;
+      border-color: #d0d5dd;
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .preview-table th,
+    .preview-table td {
+      border: 1px solid #edf0f2;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    .preview-table th {
+      background: #f8fafc;
+      color: #344054;
+    }
+
+    .empty-tip {
+      text-align: center;
+      color: #98a2b3;
+      padding: 40px 0 14px;
+      font-size: 14px;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 768px) {
+      .page { margin: 0; border-radius: 0; }
+      .header { padding: 0 14px; }
+      .content { padding: 12px; }
+      .demo-box { padding: 24px 18px; min-height: 300px; }
+      .placeholder-text { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title-wrap">
+        <div class="title">DB0900</div>
+        <div class="sub-title">1131DB</div>
+      </div>
+      <div class="toolbar">
+        <div class="icon-btn" title="全屏">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </div>
+        <div class="icon-btn" title="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <div class="back">‹</div>
+      <div class="tab">数据质检日志</div>
+      <div class="tab">数据质检规则</div>
+      <div class="tab">表资源版本信息</div>
+      <div class="tab">表资源反馈</div>
+      <div class="tab">血缘关系</div>
+      <div class="tab active" data-panel="preview">数据预览</div>
+      <div class="tab-next">›</div>
+    </div>
+
+    <div class="content">
+      <div class="error-line">加载扩展页面出错 - /riskServer/dataAnalysis.html</div>
+
+      <div id="placeholderView">
+        <div class="demo-box">
+          <div class="placeholder-text">
+            字段信息,包括 数据源　字段名称　字段数据类型　字段中文含义 分级信息
+          </div>
+        </div>
+
+        <div class="demo-box small">
+          <div class="placeholder-text">
+            数据预览,用户可以自定义勾选字段查看数据内容
+          </div>
+        </div>
+      </div>
+
+      <div id="richView" class="hidden">
+        <div class="demo-box" style="border-color:#e4e7ec;background:#f9fafb;">
+          <h3 class="section-title">字段信息</h3>
+          <div class="field-toolbar" id="fieldToolbar"></div>
+          <table class="meta-table">
+            <thead>
+              <tr>
+                <th>数据源</th>
+                <th>字段名称</th>
+                <th>字段类型</th>
+                <th>字段中文含义</th>
+                <th>分级信息</th>
+              </tr>
+            </thead>
+            <tbody id="metaTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="demo-box small" style="border-color:#e4e7ec;background:#f9fafb;">
+          <h3 class="section-title">数据预览</h3>
+          <div class="preview-panel">
+            <div class="preview-actions">
+              <div class="checkbox-group" id="checkboxGroup"></div>
+              <div>
+                <button class="btn secondary" id="resetBtn">重置</button>
+                <button class="btn" id="applyBtn">刷新预览</button>
+              </div>
+            </div>
+            <div class="empty-tip" id="emptyTip">至少选择一个字段后展示数据预览</div>
+            <div style="overflow:auto;">
+              <table class="preview-table hidden" id="previewTable">
+                <thead>
+                  <tr id="previewHead"></tr>
+                </thead>
+                <tbody id="previewBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fields = [
+      { key: 'cust_no', source: 'CRM客户主表', name: 'cust_no', type: 'VARCHAR(32)', label: '客户号', level: '内部' },
+      { key: 'cust_name', source: 'CRM客户主表', name: 'cust_name', type: 'VARCHAR(100)', label: '客户名称', level: '敏感' },
+      { key: 'risk_level', source: '风险评级表', name: 'risk_level', type: 'VARCHAR(10)', label: '风险等级', level: '内部' },
+      { key: 'mobile', source: '客户联系方式表', name: 'mobile', type: 'VARCHAR(20)', label: '手机号', level: '敏感' },
+      { key: 'mgr_name', source: '客户经理表', name: 'mgr_name', type: 'VARCHAR(50)', label: '客户经理', level: '内部' },
+      { key: 'asset_amt', source: '资产汇总表', name: 'asset_amt', type: 'DECIMAL(18,2)', label: '总资产', level: '重要' },
+      { key: 'update_time', source: '资产汇总表', name: 'update_time', type: 'DATETIME', label: '更新时间', level: '公开' }
+    ];
+
+    const rows = [
+      {
+        cust_no: 'C20260001',
+        cust_name: '张三',
+        risk_level: 'R3',
+        mobile: '138****8899',
+        mgr_name: '李经理',
+        asset_amt: '1,286,000.00',
+        update_time: '2026-04-13 09:23:18'
+      },
+      {
+        cust_no: 'C20260002',
+        cust_name: '王敏',
+        risk_level: 'R2',
+        mobile: '139****6677',
+        mgr_name: '陈经理',
+        asset_amt: '856,300.00',
+        update_time: '2026-04-13 09:25:41'
+      },
+      {
+        cust_no: 'C20260003',
+        cust_name: '林峰',
+        risk_level: 'R4',
+        mobile: '136****2518',
+        mgr_name: '赵经理',
+        asset_amt: '2,908,500.00',
+        update_time: '2026-04-13 09:28:07'
+      }
+    ];
+
+    const placeholderView = document.getElementById('placeholderView');
+    const richView = document.getElementById('richView');
+    const metaTableBody = document.getElementById('metaTableBody');
+    const checkboxGroup = document.getElementById('checkboxGroup');
+    const previewTable = document.getElementById('previewTable');
+    const previewHead = document.getElementById('previewHead');
+    const previewBody = document.getElementById('previewBody');
+    const emptyTip = document.getElementById('emptyTip');
+    const fieldToolbar = document.getElementById('fieldToolbar');
+    const applyBtn = document.getElementById('applyBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function renderMetaTable() {
+      metaTableBody.innerHTML = fields.map(item => `
+        <tr>
+          <td>${item.source}</td>
+          <td>${item.name}</td>
+          <td>${item.type}</td>
+          <td>${item.label}</td>
+          <td><span class="level">${item.level}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderTags() {
+      fieldToolbar.innerHTML = fields.map((item, index) => `
+        <div class="tag ${index < 4 ? 'active' : ''}" data-key="${item.key}">${item.label}</div>
+      `).join('');
+    }
+
+    function renderCheckboxes() {
+      checkboxGroup.innerHTML = fields.map((item, index) => `
+        <label class="checkbox-item">
+          <input type="checkbox" value="${item.key}" ${index < 4 ? 'checked' : ''} />
+          <span>${item.label}</span>
+        </label>
+      `).join('');
+    }
+
+    function renderPreview() {
+      const checkedKeys = Array.from(checkboxGroup.querySelectorAll('input:checked')).map(el => el.value);
+
+      if (!checkedKeys.length) {
+        previewTable.classList.add('hidden');
+        emptyTip.classList.remove('hidden');
+        return;
+      }
+
+      emptyTip.classList.add('hidden');
+      previewTable.classList.remove('hidden');
+
+      previewHead.innerHTML = checkedKeys.map(key => {
+        const field = fields.find(f => f.key === key);
+        return `<th>${field ? field.label : key}</th>`;
+      }).join('');
+
+      previewBody.innerHTML = rows.map(row => `
+        <tr>
+          ${checkedKeys.map(key => `<td>${row[key] ?? ''}</td>`).join('')}
+        </tr>
+      `).join('');
+    }
+
+    applyBtn.addEventListener('click', renderPreview);
+
+    resetBtn.addEventListener('click', () => {
+      checkboxGroup.querySelectorAll('input').forEach((input, idx) => {
+        input.checked = idx < 4;
+      });
+      renderPreview();
+    });
+
+    checkboxGroup.addEventListener('change', renderPreview);
+
+    fieldToolbar.addEventListener('click', (e) => {
+      const tag = e.target.closest('.tag');
+      if (!tag) return;
+      const key = tag.dataset.key;
+      const checkbox = checkboxGroup.querySelector(`input[value="${key}"]`);
+      tag.classList.toggle('active');
+      if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        renderPreview();
+      }
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const isPreview = tab.dataset.panel === 'preview';
+        if (isPreview) {
+          placeholderView.classList.remove('hidden');
+          richView.classList.add('hidden');
+        } else {
+          placeholderView.classList.add('hidden');
+          richView.classList.remove('hidden');
+        }
+      });
+    });
+
+    renderMetaTable();
+    renderTags();
+    renderCheckboxes();
+    renderPreview();
+
+    // 默认同时展示更完整的演示内容，可切换回占位态
+    setTimeout(() => {
+      placeholderView.classList.add('hidden');
+      richView.classList.remove('hidden');
+    }, 300);
+  </script>
+</body>
+</html>

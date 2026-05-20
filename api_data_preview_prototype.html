@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API 数据预览演示原型</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --line: #e5e6eb;
+      --line-soft: #eef0f3;
+      --text: #1d2129;
+      --subtext: #86909c;
+      --primary: #2f6bff;
+      --danger: #ff5b57;
+      --tag-bg: #edf3ff;
+      --shadow: 0 8px 24px rgba(31, 35, 41, 0.08);
+    }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: linear-gradient(180deg, #f7f8fa 0%, #f2f4f7 100%);
+      color: var(--text);
+    }
+
+    .page {
+      width: 1180px;
+      margin: 18px auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px 0 24px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #fff;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .sub-title {
+      font-size: 20px;
+      color: #7b8494;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4e5969;
+      background: #fff;
+      cursor: pointer;
+      transition: all .2s ease;
+      font-size: 18px;
+    }
+
+    .icon-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 52px;
+      padding: 0 30px;
+      height: 60px;
+      background: #fff;
+      border-bottom: 1px solid var(--line-soft);
+      overflow-x: auto;
+    }
+
+    .tab {
+      position: relative;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color .2s ease;
+    }
+
+    .tab:hover { color: var(--primary); }
+
+    .tab.active {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: 88px;
+      height: 3px;
+      border-radius: 3px;
+      background: var(--primary);
+    }
+
+    .main {
+      padding: 18px;
+      background: var(--bg);
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #fafbfc;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .card-extra {
+      font-size: 13px;
+      color: var(--subtext);
+    }
+
+    .error-bar {
+      margin: 16px 18px 0;
+      background: #fff2f0;
+      border: 1px solid #ffccc7;
+      color: #cf1322;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 14px;
+      padding: 16px 18px 18px;
+    }
+
+    .info-box {
+      border: 1px dashed #d7dbe2;
+      background: #fafcff;
+      border-radius: 10px;
+      min-height: 102px;
+      padding: 14px;
+    }
+
+    .label {
+      font-size: 13px;
+      color: var(--subtext);
+      margin-bottom: 10px;
+    }
+
+    .value {
+      font-size: 14px;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #fff;
+    }
+
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .input, .select {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #fff;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .input:focus, .select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.08);
+    }
+
+    .btn {
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      transition: all .2s ease;
+      font-size: 14px;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn.primary:hover { filter: brightness(1.03); }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 16px 18px 18px;
+    }
+
+    .stat-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+      padding: 14px;
+      min-height: 90px;
+    }
+
+    .stat-title {
+      font-size: 13px;
+      color: var(--subtext);
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .stat-desc {
+      font-size: 12px;
+      color: var(--subtext);
+    }
+
+    .table-wrap {
+      padding: 0 18px 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    thead th {
+      background: #f7f8fa;
+      color: #4e5969;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody td {
+      padding: 12px 14px;
+      font-size: 14px;
+      border-bottom: 1px solid #f0f2f5;
+      vertical-align: top;
+    }
+
+    tbody tr:hover { background: #f9fbff; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--primary);
+      background: var(--tag-bg);
+      border: 1px solid #dbe7ff;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+
+    .level-high {
+      color: #cf1322;
+      background: #fff1f0;
+      border-color: #ffc9c2;
+    }
+
+    .level-mid {
+      color: #d46b08;
+      background: #fff7e8;
+      border-color: #ffe0b2;
+    }
+
+    .preview-area {
+      padding: 16px 18px 20px;
+    }
+
+    .preview-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfe;
+      min-height: 280px;
+      overflow: auto;
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .preview-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .preview-meta {
+      font-size: 12px;
+      color: var(--subtext);
+    }
+
+    .json-view {
+      margin: 0;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #0f172a;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .footer-note {
+      padding: 0 18px 18px;
+      font-size: 12px;
+      color: var(--subtext);
+    }
+
+    @media (max-width: 1220px) {
+      .page { width: calc(100% - 24px); }
+      .field-grid { grid-template-columns: repeat(2, 1fr); }
+      .top-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .main { padding: 12px; }
+      .field-grid { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar-left, .toolbar-right { width: 100%; }
+      .input, .select, .btn { width: 100%; }
+      .title { font-size: 22px; }
+      .sub-title { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title-wrap">
+        <div class="title">API0020</div>
+        <div class="sub-title">128API</div>
+      </div>
+      <div class="header-actions">
+        <div class="icon-btn" title="全屏">⤢</div>
+        <div class="icon-btn" title="关闭">✕</div>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="main">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">请求信息</div>
+          <div class="card-extra">支持切换不同 API 演示数据</div>
+        </div>
+        <div class="error-bar" id="errorBar"></div>
+        <div class="top-grid">
+          <div class="info-box">
+            <div class="label">请求 URL</div>
+            <div class="value" id="requestUrl"></div>
+          </div>
+          <div class="info-box">
+            <div class="label">请求 Token</div>
+            <div class="value" id="requestToken"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">字段概览</div>
+          <div class="card-extra">可筛选、可搜索、可演示</div>
+        </div>
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <input class="input" id="searchInput" type="text" placeholder="搜索字段名 / 中文描述 / 分类" />
+            <select class="select" id="categoryFilter">
+              <option value="全部">全部分类</option>
+            </select>
+            <select class="select" id="levelFilter">
+              <option value="全部">全部分级</option>
+              <option value="高">高</option>
+              <option value="中">中</option>
+              <option value="低">低</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn" id="resetBtn">重置</button>
+            <button class="btn primary" id="switchApiBtn">切换演示 API</button>
+          </div>
+        </div>
+
+        <div class="field-grid" id="statsGrid"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 18%;">字段信息</th>
+                <th style="width: 28%;">字段中文描述</th>
+                <th style="width: 20%;">API所属分类</th>
+                <th style="width: 14%;">字段分级信息</th>
+                <th>标签</th>
+              </tr>
+            </thead>
+            <tbody id="fieldTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">数据预览区</div>
+          <div class="card-extra" id="previewMeta"></div>
+        </div>
+        <div class="preview-area">
+          <div class="preview-box">
+            <div class="preview-head">
+              <div class="preview-title" id="previewTitle"></div>
+              <div class="preview-meta">演示模式 · HTML + JS 原型</div>
+            </div>
+            <pre class="json-view" id="jsonView"></pre>
+          </div>
+        </div>
+        <div class="footer-note">说明：该页面为前端演示原型，字段、Token、预览数据均为模拟数据，可用于需求评审、界面汇报和后续联调说明。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tabs = ["基础信息", "API-资源轨迹", "错误代码", "API版本查询", "血缘关系", "数据预览"];
+
+    const apiList = [
+      {
+        code: "API0020",
+        name: "128API",
+        error: "加载扩展页面出错 - /riskServer/dataAnalysis.html?apiCode=API0020&mode=preview",
+        url: "https://gateway.demo.com/riskServer/dataAnalysis.html?apiCode=API0020&mode=preview&pageNo=1&pageSize=10",
+        token: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo.api0020.token",
+        fields: [
+          { field: "cust_no", desc: "客户号", category: "客户基础信息", level: "高", tags: ["主键字段", "客户标识"] },
+          { field: "cust_name", desc: "客户姓名", category: "客户基础信息", level: "高", tags: ["敏感字段", "实名信息"] },
+          { field: "mobile", desc: "手机号", category: "联系方式", level: "高", tags: ["脱敏展示", "联系方式"] },
+          { field: "risk_level", desc: "风险等级", category: "风险画像", level: "中", tags: ["画像标签"] },
+          { field: "asset_amt", desc: "客户总资产", category: "资产信息", level: "中", tags: ["金额字段", "核心指标"] },
+          { field: "position_cnt", desc: "持仓数量", category: "资产信息", level: "低", tags: ["统计字段"] },
+          { field: "branch_name", desc: "所属营业部", category: "组织信息", level: "低", tags: ["归属机构"] },
+          { field: "update_time", desc: "最近更新时间", category: "系统信息", level: "低", tags: ["时间字段"] }
+        ],
+        preview: {
+          code: 200,
+          message: "success",
+          pageNo: 1,
+          pageSize: 3,
+          total: 126,
+          data: [
+            {
+              cust_no: "C0001289",
+              cust_name: "张**",
+              mobile: "138****1028",
+              risk_level: "稳健型",
+              asset_amt: 1568200.35,
+              position_cnt: 12,
+              branch_name: "福州鼓楼营业部",
+              update_time: "2026-04-13 10:23:12"
+            },
+            {
+              cust_no: "C0001386",
+              cust_name: "李**",
+              mobile: "139****8812",
+              risk_level: "积极型",
+              asset_amt: 328900.00,
+              position_cnt: 6,
+              branch_name: "厦门思明营业部",
+              update_time: "2026-04-13 10:22:01"
+            },
+            {
+              cust_no: "C0001450",
+              cust_name: "王**",
+              mobile: "137****6719",
+              risk_level: "平衡型",
+              asset_amt: 892000.50,
+              position_cnt: 9,
+              branch_name: "泉州丰泽营业部",
+              update_time: "2026-04-13 10:20:43"
+            }
+          ]
+        }
+      },
+      {
+        code: "API0036",
+        name: "RiskProfileAPI",
+        error: "加载扩展页面出错 - /riskServer/dataAnalysis.html?apiCode=API0036&mode=preview",
+        url: "https://gateway.demo.com/riskServer/dataAnalysis.html?apiCode=API0036&mode=preview&pageNo=1&pageSize=20",
+        token: "Bearer demo.api0036.risk.profile.token.preview",
+        fields: [
+          { field: "trade_date", desc: "交易日期", category: "交易信息", level: "低", tags: ["日期字段"] },
+          { field: "account_no", desc: "资金账号", category: "账户信息", level: "高", tags: ["账号字段", "脱敏展示"] },
+          { field: "product_code", desc: "产品代码", category: "产品信息", level: "中", tags: ["证券标识"] },
+          { field: "product_name", desc: "产品名称", category: "产品信息", level: "低", tags: ["展示字段"] },
+          { field: "market_value", desc: "市值", category: "资产信息", level: "中", tags: ["金额字段"] },
+          { field: "profit_rate", desc: "收益率", category: "收益分析", level: "中", tags: ["分析指标"] },
+          { field: "warning_flag", desc: "预警标识", category: "风险预警", level: "中", tags: ["预警字段"] },
+          { field: "etl_time", desc: "加工时间", category: "系统信息", level: "低", tags: ["时间字段"] }
+        ],
+        preview: {
+          code: 200,
+          message: "success",
+          pageNo: 1,
+          pageSize: 2,
+          total: 48,
+          data: [
+            {
+              trade_date: "2026-04-12",
+              account_no: "A900****281",
+              product_code: "600519.SH",
+              product_name: "贵州茅台",
+              market_value: 1056000.00,
+              profit_rate: 0.1286,
+              warning_flag: "否",
+              etl_time: "2026-04-13 08:30:00"
+            },
+            {
+              trade_date: "2026-04-12",
+              account_no: "A900****109",
+              product_code: "510300.SH",
+              product_name: "沪深300ETF",
+              market_value: 356000.00,
+              profit_rate: -0.0231,
+              warning_flag: "是",
+              etl_time: "2026-04-13 08:30:00"
+            }
+          ]
+        }
+      }
+    ];
+
+    let currentApiIndex = 0;
+
+    const tabsEl = document.getElementById("tabs");
+    const errorBar = document.getElementById("errorBar");
+    const requestUrl = document.getElementById("requestUrl");
+    const requestToken = document.getElementById("requestToken");
+    const fieldTableBody = document.getElementById("fieldTableBody");
+    const statsGrid = document.getElementById("statsGrid");
+    const jsonView = document.getElementById("jsonView");
+    const previewTitle = document.getElementById("previewTitle");
+    const previewMeta = document.getElementById("previewMeta");
+    const searchInput = document.getElementById("searchInput");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const levelFilter = document.getElementById("levelFilter");
+    const switchApiBtn = document.getElementById("switchApiBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    function renderTabs() {
+      tabsEl.innerHTML = tabs
+        .map((tab) => `<div class="tab ${tab === '数据预览' ? 'active' : ''}">${tab}</div>`)
+        .join("");
+    }
+
+    function getCurrentApi() {
+      return apiList[currentApiIndex];
+    }
+
+    function renderCategoryOptions(fields) {
+      const categories = [...new Set(fields.map(item => item.category))];
+      categoryFilter.innerHTML = '<option value="全部">全部分类</option>' +
+        categories.map(item => `<option value="${item}">${item}</option>`).join('');
+    }
+
+    function renderTop(api) {
+      document.querySelector('.title').textContent = api.code;
+      document.querySelector('.sub-title').textContent = api.name;
+      errorBar.textContent = api.error;
+      requestUrl.textContent = api.url;
+      requestToken.textContent = api.token;
+      previewTitle.textContent = `${api.code} · 数据预览结果`;
+      previewMeta.textContent = `当前API：${api.code} / ${api.name}`;
+      jsonView.textContent = JSON.stringify(api.preview, null, 2);
+    }
+
+    function renderStats(fields) {
+      const total = fields.length;
+      const high = fields.filter(f => f.level === '高').length;
+      const mid = fields.filter(f => f.level === '中').length;
+      const categories = new Set(fields.map(f => f.category)).size;
+
+      const stats = [
+        { title: '字段总数', value: total, desc: '当前 API 可展示字段数量' },
+        { title: '高敏字段', value: high, desc: '需重点控制访问权限' },
+        { title: '中等级字段', value: mid, desc: '建议结合角色分级管控' },
+        { title: '分类数量', value: categories, desc: '字段所属业务分类数' }
+      ];
+
+      statsGrid.innerHTML = stats.map(item => `
+        <div class="stat-box">
+          <div class="stat-title">${item.title}</div>
+          <div class="stat-value">${item.value}</div>
+          <div class="stat-desc">${item.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderTable(fields) {
+      if (!fields.length) {
+        fieldTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center;color:#86909c;padding:28px 0;">未匹配到字段数据</td>
+          </tr>
+        `;
+        return;
+      }
+
+      fieldTableBody.innerHTML = fields.map(item => {
+        const levelClass = item.level === '高' ? 'level-high' : item.level === '中' ? 'level-mid' : '';
+        return `
+          <tr>
+            <td><strong>${item.field}</strong></td>
+            <td>${item.desc}</td>
+            <td>${item.category}</td>
+            <td><span class="tag ${levelClass}">${item.level}</span></td>
+            <td>${item.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function getFilteredFields() {
+      const api = getCurrentApi();
+      const keyword = searchInput.value.trim().toLowerCase();
+      const category = categoryFilter.value;
+      const level = levelFilter.value;
+
+      return api.fields.filter(item => {
+        const matchKeyword = !keyword || [item.field, item.desc, item.category, ...(item.tags || [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(keyword);
+        const matchCategory = category === '全部' || item.category === category;
+        const matchLevel = level === '全部' || item.level === level;
+        return matchKeyword && matchCategory && matchLevel;
+      });
+    }
+
+    function renderAll() {
+      const api = getCurrentApi();
+      renderTop(api);
+      renderCategoryOptions(api.fields);
+      const fields = getFilteredFields();
+      renderStats(fields);
+      renderTable(fields);
+    }
+
+    searchInput.addEventListener('input', () => {
+      const fields = getFilteredFields();
+      renderStats(fields);
+      renderTable(fields);
+    });
+
+    categoryFilter.addEventListener('change', () => {
+      const fields = getFilteredFields();
+      renderStats(fields);
+      renderTable(fields);
+    });
+
+    levelFilter.addEventListener('change', () => {
+      const fields = getFilteredFields();
+      renderStats(fields);
+      renderTable(fields);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      categoryFilter.value = '全部';
+      levelFilter.value = '全部';
+      const fields = getFilteredFields();
+      renderStats(fields);
+      renderTable(fields);
+    });
+
+    switchApiBtn.addEventListener('click', () => {
+      currentApiIndex = (currentApiIndex + 1) % apiList.length;
+      searchInput.value = '';
+      levelFilter.value = '全部';
+      renderAll();
+    });
+
+    renderTabs();
+    renderAll();
+  </script>
+</body>
+</html>

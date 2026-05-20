@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>财务头寸统一查询演示</title>
+  <style>
+    :root {
+      --bg: #eef3fb;
+      --bg-soft: #f6f9ff;
+      --panel: #ffffff;
+      --ink: #1f2d45;
+      --sub: #637490;
+      --line: #d6e1f2;
+      --blue-1: #2e6fd8;
+      --blue-2: #1f5cc1;
+      --blue-soft: #ecf2ff;
+      --cyan-soft: #edf9ff;
+      --orange-soft: #fff5e8;
+      --violet-soft: #f3efff;
+      --ok: #2d8f6d;
+      --warn: #d0872d;
+      --err: #c85656;
+      --shadow: 0 10px 26px rgba(34, 74, 140, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "MiSans", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 8% -14%, #dfe9fb 0%, rgba(223, 233, 251, 0) 36%),
+        radial-gradient(circle at 95% 102%, #e8f0ff 0%, rgba(232, 240, 255, 0) 34%),
+        linear-gradient(180deg, #f9fbff 0%, var(--bg) 56%, #edf3fc 100%);
+    }
+
+    .page {
+      width: min(1240px, 94vw);
+      margin: 22px auto 34px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+
+    .hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: linear-gradient(180deg, #4d8def 0%, #2e6fd8 100%);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -20px;
+      top: -30px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(70, 133, 238, 0.15) 0%, rgba(70, 133, 238, 0) 70%);
+      pointer-events: none;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.4px;
+      color: #1d4186;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: var(--sub);
+      max-width: 760px;
+    }
+
+    .hero-meta {
+      min-width: 260px;
+      display: grid;
+      gap: 8px;
+      align-content: center;
+      font-size: 13px;
+      color: #48638d;
+    }
+
+    .chip {
+      display: inline-flex;
+      justify-self: end;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 4px 12px;
+      border: 1px solid #c5d7f5;
+      background: var(--blue-soft);
+      color: #2957a5;
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 5px rgba(45, 143, 109, 0.12);
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(45, 143, 109, 0.16); }
+      50% { box-shadow: 0 0 0 6px rgba(45, 143, 109, 0.04); }
+    }
+
+    .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .title h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #274d93;
+    }
+
+    .muted {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .query-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #5f7295;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      border: 1px solid #cad8ef;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: #27426e;
+      background: #ffffff;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #4b86e3;
+      box-shadow: 0 0 0 3px rgba(75, 134, 227, 0.15);
+    }
+
+    .btns {
+      display: flex;
+      gap: 8px;
+      width: 220px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(52, 99, 179, 0.16);
+    }
+
+    .btn-primary {
+      background: linear-gradient(150deg, var(--blue-1) 0%, var(--blue-2) 100%);
+      border-color: #2b66c4;
+      color: #fff;
+    }
+
+    .btn-plain {
+      background: #f3f7ff;
+      border-color: #ccd9f0;
+      color: #3b5f9c;
+    }
+
+    .footnote {
+      margin-top: 10px;
+      border: 1px dashed #cdd9ef;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 10px 12px;
+      color: #576f95;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .security {
+      color: var(--err);
+      font-weight: 700;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .summary-card {
+      border-radius: 12px;
+      border: 1px solid #d4def0;
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      display: grid;
+      gap: 4px;
+    }
+
+    .summary-card:nth-child(1) { background: var(--blue-soft); }
+    .summary-card:nth-child(2) { background: var(--cyan-soft); }
+    .summary-card:nth-child(3) { background: var(--violet-soft); }
+    .summary-card:nth-child(4) { background: var(--orange-soft); }
+
+    .summary-card small {
+      font-size: 12px;
+      color: #60739a;
+    }
+
+    .summary-card strong {
+      font-size: 20px;
+      color: #224b93;
+      letter-spacing: 0.3px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid #d3def1;
+      border-radius: 12px;
+      background: #fcfdff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 14px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, #edf3ff 0%, #e8effd 100%);
+      border-bottom: 1px solid #cfdbf1;
+      color: #3a5d97;
+      text-align: left;
+      padding: 12px;
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(odd) { background: #ffffff; }
+    tbody tr:nth-child(even) { background: #f9fbff; }
+    tbody tr:hover { background: #f1f6ff; }
+
+    tbody td {
+      padding: 12px;
+      border-bottom: 1px solid #e3ebf8;
+      color: #324d7b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .amount {
+      font-weight: 700;
+      color: #244f98;
+      letter-spacing: 0.25px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 76px;
+      border-radius: 999px;
+      border: 1px solid;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ok {
+      background: #edf9f4;
+      border-color: #c0e5d4;
+      color: #2a7e60;
+    }
+
+    .na {
+      background: #fff7ed;
+      border-color: #f2d9b3;
+      color: #af6c1e;
+    }
+
+    @media (max-width: 1060px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-meta {
+        min-width: 0;
+      }
+
+      .chip {
+        justify-self: start;
+      }
+
+      .query-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .btns {
+        width: 100%;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="card hero">
+      <div>
+        <h1>财务头寸统一查询演示页面</h1>
+        <p>统一展示集中、两融、股转、衡泰头寸数据；按日期点击触发查询并回传主报表。</p>
+      </div>
+      <div class="hero-meta">
+        <div id="clock">当前时间：--</div>
+        <div id="snapshot">最近查询时间：--</div>
+        <div class="chip"><span class="dot" id="statusDot"></span><span id="statusText">待查询</span></div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="title">
+        <h2>查询区</h2>
+        <span class="muted" id="queryHint">选择系统与日期范围后点击“一键查询”</span>
+      </div>
+      <div class="query-grid">
+        <div>
+          <label for="systemSelect">系统</label>
+          <select id="systemSelect">
+            <option value="全部">全部系统</option>
+            <option value="集中">集中</option>
+            <option value="两融">两融</option>
+            <option value="股转">股转</option>
+            <option value="衡泰">衡泰</option>
+          </select>
+        </div>
+        <div>
+          <label for="startDateInput">开始日期</label>
+          <input id="startDateInput" type="date" />
+        </div>
+        <div>
+          <label for="endDateInput">结束日期</label>
+          <input id="endDateInput" type="date" />
+        </div>
+        <div class="btns">
+          <button class="btn-primary" id="queryBtn">一键查询</button>
+          <button class="btn-plain" id="resetBtn">重置</button>
+        </div>
+      </div>
+      <div class="footnote">
+        口径说明：集中包含“实时清算金额（人民币）/委托冻结金额/买时清算金额”；两融包含“融资总负债/未还融资本金”；股转包含“费用合计/净买金额”（<span class="security">仅支持当天数据</span>）；衡泰用于补充展示头寸余额与在途资金。
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="title">
+        <h2>查询结果</h2>
+        <span class="muted" id="resultHint">结果条数：0</span>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <small>查询日期</small>
+          <strong id="sumDate">--</strong>
+        </div>
+        <div class="summary-card">
+          <small>返回条数</small>
+          <strong id="sumRows">0</strong>
+        </div>
+        <div class="summary-card">
+          <small>可查系统数</small>
+          <strong id="sumSystems">0</strong>
+        </div>
+        <div class="summary-card">
+          <small>数据可用率</small>
+          <strong id="sumRate">0%</strong>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>系统名</th>
+              <th>金额类别</th>
+              <th>金额（人民币）</th>
+              <th>数据状态</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const metricConfig = {
+      "集中": [
+        { name: "实时清算金额（港股通）", base: 68000000 },
+        { name: "委托冻结金额", base: 7200000 },
+        { name: "实时清算金额", base: 11800000 },
+		{ name: "实时清算金额-(1777户)", base: 11800000 },
+      ],
+      "两融": [
+        { name: "融资总负债", base: 52600000 },
+        { name: "未还融资本金", base: 30100000 }
+      ],
+      "股转": [
+        { name: "费用合计", base: 480000 },
+        { name: "净买金额", base: 2460000 }
+      ],
+      "衡泰": [
+        { name: "头寸余额", base: 21600000 },
+        { name: "在途资金", base: 5600000 }
+      ]
+    };
+
+    const state = {
+      rows: [],
+      querying: false
+    };
+
+    const dom = {
+      clock: document.getElementById("clock"),
+      snapshot: document.getElementById("snapshot"),
+      statusDot: document.getElementById("statusDot"),
+      statusText: document.getElementById("statusText"),
+      systemSelect: document.getElementById("systemSelect"),
+      startDateInput: document.getElementById("startDateInput"),
+      endDateInput: document.getElementById("endDateInput"),
+      queryBtn: document.getElementById("queryBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      queryHint: document.getElementById("queryHint"),
+      resultHint: document.getElementById("resultHint"),
+      resultBody: document.getElementById("resultBody"),
+      sumDate: document.getElementById("sumDate"),
+      sumRows: document.getElementById("sumRows"),
+      sumSystems: document.getElementById("sumSystems"),
+      sumRate: document.getElementById("sumRate")
+    };
+
+    function nowDateText() {
+      return new Date().toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function todayValue() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function setRuntimeClock() {
+      dom.clock.textContent = `当前时间：${nowDateText()}`;
+    }
+
+    function setStatus(text, type) {
+      dom.statusText.textContent = text;
+      if (type === "busy") {
+        dom.statusDot.style.background = "var(--warn)";
+      } else if (type === "error") {
+        dom.statusDot.style.background = "var(--err)";
+      } else {
+        dom.statusDot.style.background = "var(--ok)";
+      }
+    }
+
+    function hashCode(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = (h << 5) - h + str.charCodeAt(i);
+        h |= 0;
+      }
+      return Math.abs(h);
+    }
+
+    function seededRate(key) {
+      const h = hashCode(key);
+      return ((Math.sin(h) + 1) / 2) * 0.18 + 0.91;
+    }
+
+    function calcAmount(base, date, system, metric) {
+      const rate = seededRate(`${date}|${system}|${metric}`);
+      return Math.round(base * rate);
+    }
+
+    function currency(v) {
+      return v.toLocaleString("zh-CN");
+    }
+
+    function eachDate(start, end) {
+      const result = [];
+      const curr = new Date(`${start}T00:00:00`);
+      const last = new Date(`${end}T00:00:00`);
+      while (curr <= last) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, "0");
+        const d = String(curr.getDate()).padStart(2, "0");
+        result.push(`${y}-${m}-${d}`);
+        curr.setDate(curr.getDate() + 1);
+      }
+      return result;
+    }
+
+    function buildRows(startDate, endDate, systemFilter) {
+      const rows = [];
+      const today = todayValue();
+      const dates = eachDate(startDate, endDate);
+      const systems = systemFilter === "全部"
+        ? Object.keys(metricConfig)
+        : [systemFilter];
+
+      dates.forEach((date) => {
+        systems.forEach((system) => {
+          metricConfig[system].forEach((metric) => {
+            const row = {
+              date,
+              system,
+              metric: metric.name,
+              amount: null,
+              status: "正常",
+              note: "数据库回传成功"
+            };
+
+            if (system === "股转" && date !== today) {
+              row.status = "不可查询";
+              row.note = "股转仅支持当天数据，历史日期不可查";
+            } else {
+              row.amount = calcAmount(metric.base, date, system, metric.name);
+            }
+
+            rows.push(row);
+          });
+        });
+      });
+      return rows;
+    }
+
+    function statusBadge(status) {
+      if (status === "不可查询") return '<span class="badge na">不可查询</span>';
+      return '<span class="badge ok">正常</span>';
+    }
+
+    function showAmount(row) {
+      if (row.amount === null) return "--";
+      return currency(row.amount);
+    }
+
+    function renderRows() {
+      dom.resultBody.innerHTML = state.rows.map((row) => `
+        <tr>
+          <td>${row.date}</td>
+          <td>${row.system}</td>
+          <td>${row.metric}</td>
+          <td class="amount">${showAmount(row)}</td>
+          <td>${statusBadge(row.status)}</td>
+          <td>${row.note}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSummary() {
+      const total = state.rows.length;
+      const available = state.rows.filter((r) => r.amount !== null).length;
+      const systems = new Set(state.rows.filter((r) => r.amount !== null).map((r) => r.system));
+      const rate = total ? `${Math.round((available / total) * 100)}%` : "0%";
+      const start = dom.startDateInput.value || "--";
+      const end = dom.endDateInput.value || "--";
+
+      dom.resultHint.textContent = `结果条数：${total}`;
+      dom.sumDate.textContent = `${start} ~ ${end}`;
+      dom.sumRows.textContent = String(total);
+      dom.sumSystems.textContent = String(systems.size);
+      dom.sumRate.textContent = rate;
+    }
+
+    function runQuery() {
+      if (state.querying) return;
+      const startDate = dom.startDateInput.value;
+      const endDate = dom.endDateInput.value;
+      const systemFilter = dom.systemSelect.value;
+      if (!startDate || !endDate) {
+        setStatus("请选择日期范围", "error");
+        dom.queryHint.textContent = "请先填写开始日期和结束日期";
+        return;
+      }
+
+      if (startDate > endDate) {
+        setStatus("日期范围无效", "error");
+        dom.queryHint.textContent = "开始日期不能晚于结束日期";
+        return;
+      }
+
+      const rangeDays = Math.floor((new Date(`${endDate}T00:00:00`) - new Date(`${startDate}T00:00:00`)) / 86400000) + 1;
+      if (rangeDays > 90) {
+        setStatus("日期范围过大", "error");
+        dom.queryHint.textContent = "单次最多查询90天，请缩小范围";
+        return;
+      }
+
+      state.querying = true;
+      setStatus("查询处理中", "busy");
+      dom.queryBtn.disabled = true;
+      dom.queryBtn.textContent = "查询中...";
+
+      window.setTimeout(() => {
+        state.rows = buildRows(startDate, endDate, systemFilter);
+        renderRows();
+        renderSummary();
+        dom.snapshot.textContent = `最近查询时间：${nowDateText()}`;
+        dom.queryHint.textContent = `已完成 ${systemFilter} ${startDate} ~ ${endDate} 查询`;
+        setStatus("已完成同步", "ok");
+        dom.queryBtn.disabled = false;
+        dom.queryBtn.textContent = "一键查询";
+        state.querying = false;
+      }, 320);
+    }
+
+    function resetForm() {
+      dom.systemSelect.value = "全部";
+      dom.startDateInput.value = todayValue();
+      dom.endDateInput.value = todayValue();
+      state.rows = [];
+      renderRows();
+      renderSummary();
+      dom.queryHint.textContent = "选择系统与日期范围后点击“一键查询”";
+      setStatus("待查询", "ok");
+      dom.snapshot.textContent = "最近查询时间：--";
+    }
+
+    dom.queryBtn.addEventListener("click", runQuery);
+    dom.resetBtn.addEventListener("click", resetForm);
+
+    dom.startDateInput.value = todayValue();
+    dom.endDateInput.value = todayValue();
+    setRuntimeClock();
+    window.setInterval(setRuntimeClock, 1000);
+    runQuery();
+  </script>
+</body>
+</html>
