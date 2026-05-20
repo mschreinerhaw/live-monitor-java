@@ -34,21 +34,38 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
           Arial, sans-serif;
-        font-size: 14px;
+        font-size: 13px;
       }
 
       .topbar {
-        height: 86px;
+        height: 64px;
         background: rgba(255, 255, 255, 0.96);
         border-bottom: 1px solid var(--line);
         display: flex;
         align-items: center;
-        padding: 0 30px;
-        gap: 54px;
+        padding: 0 22px;
+        gap: 36px;
         position: sticky;
         top: 0;
         z-index: 30;
         box-shadow: 0 4px 18px rgba(34, 55, 98, 0.04);
+      }
+
+      .lm-logo {
+        width: 244px !important;
+      }
+
+      .lm-logo svg {
+        width: 36px !important;
+        height: 32px !important;
+      }
+
+      .lm-logo > span:first-child {
+        font-size: 20px !important;
+      }
+
+      .lm-logo > span:last-child {
+        font-size: 17px !important;
       }
 
       .brand {
@@ -112,7 +129,7 @@
         display: flex;
         align-items: center;
         height: 100%;
-        gap: 56px;
+        gap: 42px;
       }
 
       .nav a {
@@ -121,7 +138,7 @@
         align-items: center;
         color: #111b3d;
         text-decoration: none;
-        font-size: 21px;
+        font-size: 18px;
         font-weight: 800;
         position: relative;
       }
@@ -145,17 +162,17 @@
         margin-left: auto;
         display: flex;
         align-items: center;
-        gap: 24px;
+        gap: 18px;
         color: #102050;
       }
 
       .top-icon {
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
         display: grid;
         place-items: center;
         position: relative;
-        font-size: 26px;
+        font-size: 22px;
         line-height: 1;
       }
 
@@ -177,8 +194,8 @@
       }
 
       .avatar {
-        width: 42px;
-        height: 42px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
         background: linear-gradient(180deg, #ffddd2, #ffd1e1);
         color: #111b3d;
@@ -198,16 +215,106 @@
 
       .workspace {
         display: grid;
-        grid-template-columns: 330px minmax(900px, 1fr) 296px;
-        gap: 18px;
-        padding: 18px 18px 22px;
-        min-height: calc(100vh - 86px);
+        grid-template-columns: 248px minmax(800px, 1fr) 272px;
+        gap: 12px;
+        padding: 12px 14px;
+        height: calc(100vh - 64px);
+        min-height: 0;
+        position: relative;
       }
 
+      .workbench-drawer,
       .left,
       .center,
       .right {
         min-width: 0;
+      }
+
+      .workbench-drawer {
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+        background: transparent;
+        border: 0;
+        border-radius: 10px;
+        box-shadow: none;
+        padding: 0;
+        overflow: hidden;
+        position: absolute;
+        left: 26px;
+        top: 28px;
+        z-index: 25;
+        transition:
+          width 0.18s ease,
+          height 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+
+      .drawer-toggle {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #dfe7f4;
+        border-radius: 8px;
+        background: #f7faff;
+        color: var(--blue);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1;
+        padding: 0;
+        box-shadow: 0 6px 14px rgba(19, 92, 255, 0.1);
+      }
+
+      .drawer-toggle span::before {
+        content: ">";
+      }
+
+      .workbench-drawer.is-open .drawer-toggle span::before {
+        content: "<";
+      }
+
+      .workbench-drawer:hover,
+      .workbench-drawer:focus-within,
+      .workbench-drawer.is-open {
+        width: 220px;
+        height: calc(100% - 24px);
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #edf2fb;
+        padding: 10px;
+        top: 12px;
+        left: 14px;
+        box-shadow: 0 14px 34px rgba(28, 60, 126, 0.16);
+      }
+
+      .workbench-drawer .left-title,
+      .workbench-drawer .side-menu {
+        width: 198px;
+      }
+
+      .workbench-drawer .left-title {
+        margin-top: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+      }
+
+      .workbench-drawer .side-menu {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease;
+      }
+
+      .workbench-drawer:hover .left-title,
+      .workbench-drawer:hover .side-menu,
+      .workbench-drawer:focus-within .left-title,
+      .workbench-drawer:focus-within .side-menu,
+      .workbench-drawer.is-open .left-title,
+      .workbench-drawer.is-open .side-menu {
+        opacity: 1;
+        pointer-events: auto;
       }
 
       .left {
@@ -215,7 +322,8 @@
         border: 1px solid #edf2fb;
         border-radius: 10px;
         box-shadow: var(--shadow);
-        padding: 24px 20px;
+        padding: 16px 14px;
+        overflow: hidden;
       }
 
       .left-title,
@@ -223,9 +331,9 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 900;
-        margin-bottom: 24px;
+        margin-bottom: 14px;
       }
 
       .grid-icon {
@@ -243,9 +351,8 @@
 
       .side-menu {
         display: grid;
-        gap: 18px;
-        padding-bottom: 24px;
-        border-bottom: 1px solid var(--line);
+        gap: 10px;
+        padding-bottom: 0;
       }
 
       .side-main {
@@ -254,7 +361,7 @@
         gap: 12px;
         align-items: center;
         color: #243256;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 800;
       }
 
@@ -273,26 +380,27 @@
 
       .sub-menu {
         display: grid;
-        gap: 12px;
-        margin: 10px 0 8px 36px;
+        gap: 8px;
+        margin: 6px 0 6px 36px;
         color: #526281;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
       }
 
       .service-box {
-        padding-top: 20px;
+        padding-top: 0;
       }
 
       .section-label {
         color: #111b3d;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 900;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
+        padding-left: 34px;
       }
 
       .service-search {
-        height: 40px;
+        height: 34px;
         border: 1px solid #dfe7f4;
         background: #fff;
         border-radius: 8px;
@@ -301,64 +409,62 @@
         gap: 10px;
         color: #7d8aa6;
         padding: 0 12px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       .service-tabs {
-        height: 40px;
-        display: flex;
-        gap: 18px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
         align-items: center;
         color: #53637f;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
-        border-bottom: 1px solid var(--line);
       }
 
       .service-tabs span {
-        height: 40px;
+        height: 28px;
         display: flex;
         align-items: center;
+        justify-content: center;
         position: relative;
         white-space: nowrap;
+        border: 1px solid #e3eaf6;
+        border-radius: 6px;
+        background: #fbfdff;
       }
 
       .service-tabs .active {
+        border-color: rgba(19, 92, 255, 0.28);
+        background: #eef5ff;
         color: var(--blue);
       }
 
       .service-tabs .active:after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: -1px;
-        height: 3px;
-        border-radius: 3px;
-        background: var(--blue);
+        display: none;
       }
 
       .service-list {
         display: grid;
-        gap: 14px;
-        padding: 18px 0 26px;
+        gap: 10px;
+        padding: 12px 0 14px;
       }
 
       .service-item {
         display: grid;
-        grid-template-columns: 42px 1fr 24px;
-        gap: 12px;
+        grid-template-columns: 34px 1fr 20px;
+        gap: 10px;
         align-items: center;
       }
 
       .service-ico {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         border-radius: 8px;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: 20px;
+        font-size: 16px;
         font-weight: 900;
         box-shadow: 0 8px 16px rgba(19, 92, 255, 0.15);
       }
@@ -385,7 +491,13 @@
         color: #31405f;
         font-weight: 900;
         text-align: center;
-        margin-top: 12px;
+        margin-top: 4px;
+        cursor: pointer;
+      }
+
+      .more-service:hover,
+      .more-service:focus {
+        color: var(--blue);
       }
 
       .center {
@@ -394,22 +506,54 @@
         border-radius: 10px;
         box-shadow: var(--shadow);
         overflow: hidden;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
       }
 
       .canvas-head {
-        height: 70px;
+        flex: none;
+        height: 54px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 26px;
+        padding: 0 18px;
         border-bottom: 1px solid var(--line);
+      }
+
+      .report-workspace {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        scrollbar-color: #b8c8e8 #f1f5fb;
+        scrollbar-width: thin;
+      }
+
+      .report-workspace::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+
+      .report-workspace::-webkit-scrollbar-track {
+        background: #f1f5fb;
+      }
+
+      .report-workspace::-webkit-scrollbar-thumb {
+        background: #b8c8e8;
+        border: 2px solid #f1f5fb;
+        border-radius: 999px;
+      }
+
+      .report-body {
+        min-width: 920px;
+        padding-bottom: 18px;
       }
 
       .board-title {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 900;
       }
 
@@ -421,9 +565,9 @@
       .actions {
         display: flex;
         align-items: center;
-        gap: 22px;
+        gap: 14px;
         color: #354566;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 800;
       }
 
@@ -435,11 +579,11 @@
 
       .filter-row {
         display: grid;
-        grid-template-columns: 240px 240px 240px 76px 1fr;
-        gap: 24px;
+        grid-template-columns: 216px 216px 216px 68px 1fr;
+        gap: 16px;
         align-items: center;
-        height: 88px;
-        padding: 0 26px;
+        height: 58px;
+        padding: 0 18px;
       }
 
       .field {
@@ -455,7 +599,7 @@
       }
 
       .select {
-        height: 40px;
+        height: 34px;
         border: 1px solid #dfe7f5;
         border-radius: 8px;
         background: #fbfdff;
@@ -468,7 +612,7 @@
       }
 
       .reset {
-        height: 40px;
+        height: 34px;
         border: 1px solid #dfe7f5;
         border-radius: 8px;
         background: #fff;
@@ -478,13 +622,190 @@
 
       .dashboard {
         display: grid;
-        grid-template-columns: minmax(580px, 1fr) 360px;
+        grid-template-columns: minmax(520px, 1fr) 318px;
+        gap: 10px;
+        padding: 0 18px 14px;
+      }
+
+      .page-layout-panel {
+        margin: 2px 18px 0;
+        border: 1px solid #e5ebf6;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #ffffff, #fbfdff);
+        padding: 14px;
+        box-shadow: 0 6px 18px rgba(24, 50, 95, 0.035);
+      }
+
+      .layout-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 14px;
-        padding: 0 26px 24px;
+        margin-bottom: 12px;
+      }
+
+      .layout-panel-title {
+        display: grid;
+        gap: 4px;
+      }
+
+      .layout-panel-title b {
+        color: #152142;
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .layout-panel-title span,
+      .layout-meta {
+        color: #60708d;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .layout-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .layout-chip {
+        height: 30px;
+        border: 1px solid #dfe7f5;
+        border-radius: 7px;
+        background: #fff;
+        color: #394b6b;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .layout-chip.active {
+        border-color: rgba(19, 92, 255, 0.32);
+        background: #eef5ff;
+        color: var(--blue);
+      }
+
+      .layout-options {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .layout-option {
+        border: 1px solid #e4ebf6;
+        border-radius: 8px;
+        background: #fff;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: 76px 1fr;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        cursor: default;
+      }
+
+      .layout-option.active {
+        border-color: var(--blue);
+        box-shadow: inset 0 0 0 1px rgba(19, 92, 255, 0.2), 0 8px 18px rgba(19, 92, 255, 0.09);
+      }
+
+      .layout-preview {
+        height: 56px;
+        border: 1px solid #dfe7f5;
+        border-radius: 6px;
+        background: #f7faff;
+        padding: 6px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .layout-preview i {
+        display: block;
+        border-radius: 4px;
+        background: #c8d8f5;
+      }
+
+      .preview-classic {
+        grid-template-columns: 1.35fr 0.8fr;
+        grid-template-rows: 1fr 1fr;
+      }
+
+      .preview-classic i:first-child {
+        grid-row: 1 / 3;
+        background: #6f9cff;
+      }
+
+      .preview-wide {
+        grid-template-rows: 1fr 1fr 1fr;
+      }
+
+      .preview-wide i:first-child {
+        background: #6f9cff;
+      }
+
+      .preview-double {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+      }
+
+      .preview-double i:nth-child(3) {
+        grid-column: 1 / 3;
+        background: #6f9cff;
+      }
+
+      .preview-detail {
+        grid-template-columns: 0.72fr 1fr;
+        grid-template-rows: repeat(3, 1fr);
+      }
+
+      .preview-detail i:first-child {
+        grid-row: 1 / 4;
+        background: #6f9cff;
+      }
+
+      .layout-info {
+        min-width: 0;
+        display: grid;
+        gap: 5px;
+      }
+
+      .layout-name {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: #172442;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .layout-dot {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #c9d6ec;
+        border-radius: 50%;
+        flex: none;
+      }
+
+      .layout-option.active .layout-dot {
+        border-color: var(--blue);
+        box-shadow: inset 0 0 0 3px #fff;
+        background: var(--blue);
+      }
+
+      .layout-desc {
+        color: #60708d;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.45;
       }
 
       .drop-zone {
-        min-height: 386px;
+        min-height: 230px;
         border: 1.5px solid #6b91ff;
         border-radius: 8px;
         background:
@@ -513,6 +834,7 @@
         height: 280px;
         position: relative;
         z-index: 1;
+        transform: scale(0.76);
       }
 
       .drag-card {
@@ -641,14 +963,14 @@
         position: absolute;
         left: 0;
         right: 0;
-        bottom: 34px;
+        bottom: 26px;
         text-align: center;
       }
 
       .empty-text b {
         display: block;
-        font-size: 18px;
-        margin-bottom: 12px;
+        font-size: 16px;
+        margin-bottom: 8px;
       }
 
       .empty-text span {
@@ -658,8 +980,8 @@
 
       .metric-stack {
         display: grid;
-        grid-template-rows: 142px 230px;
-        gap: 14px;
+        grid-template-rows: 88px 132px;
+        gap: 10px;
       }
 
       .metric-card,
@@ -668,7 +990,7 @@
         border-radius: 8px;
         background: #fff;
         box-shadow: 0 6px 18px rgba(24, 50, 95, 0.035);
-        padding: 18px;
+        padding: 12px;
         min-width: 0;
       }
 
@@ -679,8 +1001,8 @@
       }
 
       .big-num {
-        margin-top: 16px;
-        font-size: 28px;
+        margin-top: 8px;
+        font-size: 22px;
         font-weight: 900;
       }
 
@@ -690,38 +1012,38 @@
       }
 
       .up {
-        margin-top: 8px;
+        margin-top: 4px;
         color: var(--green);
         font-weight: 900;
       }
 
       .mini-chart {
-        height: 178px;
+        height: 92px;
       }
 
       .chart-grid {
         grid-column: 1 / -1;
         display: grid;
         grid-template-columns: repeat(2, minmax(320px, 1fr));
-        gap: 14px;
+        gap: 10px;
       }
 
       .chart-row {
         grid-column: 1 / -1;
         display: grid;
         grid-template-columns: 1fr 1fr 1.15fr;
-        gap: 14px;
+        gap: 10px;
       }
 
       .chart-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 10px;
+        margin-bottom: 6px;
       }
 
       .small-select {
-        height: 34px;
+        height: 28px;
         border: 1px solid #dfe7f5;
         border-radius: 6px;
         color: #40516f;
@@ -734,18 +1056,18 @@
       }
 
       .chart {
-        height: 210px;
+        height: 126px;
       }
 
       .small-chart {
-        height: 202px;
+        height: 118px;
       }
 
       .analysis-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 20px;
-        font-size: 14px;
+        margin-top: 10px;
+        font-size: 12px;
         font-weight: 800;
       }
 
@@ -753,11 +1075,11 @@
         background: #f5f8fe;
         color: #50617f;
         text-align: left;
-        padding: 12px;
+        padding: 7px 8px;
       }
 
       .analysis-table td {
-        padding: 12px;
+        padding: 7px 8px;
         border-bottom: 1px solid #edf2fb;
       }
 
@@ -774,15 +1096,34 @@
         border: 1px solid #edf2fb;
         border-radius: 10px;
         box-shadow: var(--shadow);
-        padding: 22px 18px;
+        padding: 14px;
+        overflow: auto;
+        min-height: 0;
+        scrollbar-color: #b8c8e8 #f1f5fb;
+        scrollbar-width: thin;
+      }
+
+      .right::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+
+      .right::-webkit-scrollbar-track {
+        background: #f1f5fb;
+      }
+
+      .right::-webkit-scrollbar-thumb {
+        background: #b8c8e8;
+        border: 2px solid #f1f5fb;
+        border-radius: 999px;
       }
 
       .config-tabs {
-        height: 46px;
+        height: 38px;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         border-bottom: 1px solid var(--line);
-        margin: -6px -18px 20px;
+        margin: -4px -14px 12px;
       }
 
       .config-tabs span {
@@ -800,8 +1141,8 @@
       .config-tabs .active:after {
         content: "";
         position: absolute;
-        left: 40px;
-        right: 40px;
+        left: 74px;
+        right: 74px;
         bottom: -1px;
         height: 3px;
         border-radius: 3px;
@@ -810,7 +1151,7 @@
 
       .config-section {
         border-bottom: 1px solid var(--line);
-        padding: 16px 0;
+        padding: 10px 0;
       }
 
       .config-section:first-of-type {
@@ -822,13 +1163,13 @@
         align-items: center;
         justify-content: space-between;
         font-weight: 900;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       .chart-types {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
+        gap: 6px;
       }
 
       .type-btn {
@@ -839,8 +1180,7 @@
         color: #425577;
         display: grid;
         place-items: center;
-        font-size: 18px;
-        font-weight: 900;
+        padding: 5px;
       }
 
       .type-btn.active {
@@ -850,8 +1190,114 @@
         box-shadow: inset 0 0 0 1px rgba(19, 92, 255, 0.2);
       }
 
+      .chart-thumb {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        border-radius: 5px;
+        background: #fff;
+        box-shadow: inset 0 0 0 1px #dfe7f5;
+        overflow: hidden;
+      }
+
+      .chart-thumb:before {
+        content: "";
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        height: 1px;
+        background: #d7e1f1;
+      }
+
+      .thumb-bar {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        padding: 8px 7px 7px;
+      }
+
+      .thumb-bar i {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+        background: #8bb0ff;
+      }
+
+      .thumb-bar i:nth-child(1) {
+        height: 12px;
+      }
+
+      .thumb-bar i:nth-child(2) {
+        height: 19px;
+        background: #135cff;
+      }
+
+      .thumb-bar i:nth-child(3) {
+        height: 15px;
+      }
+
+      .thumb-line svg {
+        position: absolute;
+        inset: 6px;
+        width: calc(100% - 12px);
+        height: calc(100% - 12px);
+      }
+
+      .thumb-pie {
+        display: grid;
+        place-items: center;
+      }
+
+      .thumb-pie:after {
+        content: "";
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: conic-gradient(#135cff 0 48%, #16c7c1 48% 76%, #ff7143 76% 100%);
+      }
+
+      .thumb-table {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 2px;
+        padding: 7px;
+      }
+
+      .thumb-table i {
+        border-radius: 2px;
+        background: #dce6f7;
+      }
+
+      .thumb-table i:nth-child(-n + 3) {
+        background: #8bb0ff;
+      }
+
+      .thumb-kpi {
+        padding: 8px;
+      }
+
+      .thumb-kpi b,
+      .thumb-kpi span {
+        display: block;
+        border-radius: 999px;
+      }
+
+      .thumb-kpi b {
+        width: 26px;
+        height: 7px;
+        background: #135cff;
+        margin-bottom: 7px;
+      }
+
+      .thumb-kpi span {
+        width: 36px;
+        height: 5px;
+        background: #c8d8f5;
+      }
+
       .slot {
-        min-height: 42px;
+        min-height: 34px;
         border: 1px solid #e3eaf6;
         border-radius: 7px;
         overflow: hidden;
@@ -859,10 +1305,10 @@
       }
 
       .slot-value {
-        height: 42px;
+        height: 34px;
         display: flex;
         align-items: center;
-        padding: 0 14px;
+        padding: 0 10px;
         color: #3d4d6a;
         font-weight: 900;
         background: linear-gradient(90deg, #edf4ff, #f9fbff);
@@ -874,7 +1320,7 @@
       }
 
       .slot-empty {
-        height: 42px;
+        height: 34px;
         display: grid;
         place-items: center;
         color: #7b87a0;
@@ -885,10 +1331,10 @@
       .check-row {
         display: flex;
         align-items: center;
-        gap: 24px;
+        gap: 16px;
         color: #384967;
         font-weight: 800;
-        margin-top: 14px;
+        margin-top: 8px;
       }
 
       input[type="radio"],
@@ -900,15 +1346,15 @@
 
       .save-btn {
         width: 100%;
-        height: 44px;
+        height: 38px;
         border: 0;
         border-radius: 7px;
         background: var(--blue);
         color: #fff;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 900;
         box-shadow: 0 10px 20px rgba(19, 92, 255, 0.2);
-        margin-top: 22px;
+        margin-top: 12px;
       }
 
       @media (max-width: 1500px) {
@@ -917,15 +1363,40 @@
         }
 
         .workspace {
-          grid-template-columns: 290px minmax(760px, 1fr) 270px;
+          grid-template-columns: 220px minmax(640px, 1fr) 238px;
+        }
+
+        .workbench-drawer {
+          width: 30px;
+          min-width: 30px;
+          left: 24px;
+          top: 28px;
+        }
+
+        .workbench-drawer:hover,
+        .workbench-drawer:focus-within,
+        .workbench-drawer.is-open {
+          width: 208px;
+          left: 14px;
+          top: 12px;
+        }
+
+        .workbench-drawer .left-title,
+        .workbench-drawer .side-menu {
+          width: 186px;
+        }
+
+        .filter-row {
+          grid-template-columns: 170px 170px 170px 64px 1fr;
+          gap: 10px;
         }
 
         .dashboard {
-          grid-template-columns: 1fr 300px;
+          grid-template-columns: minmax(360px, 1fr) 270px;
         }
 
         .drag-visual {
-          transform: scale(0.86);
+          transform: scale(0.68);
         }
       }
     </style>
@@ -956,11 +1427,14 @@
     </header>
 
     <div class="workspace">
-      <aside class="left">
-        <div class="left-title">
+      <aside class="workbench-drawer" tabindex="0" aria-label="我的工作台侧边栏">
+        <button class="drawer-toggle" type="button" aria-label="展开我的工作台">
+          <span aria-hidden="true"></span>
+        </button>
+        <!-- <div class="left-title">
           <span class="grid-icon"><i></i><i></i><i></i><i></i></span>
           我的工作台
-        </div>
+        </div> -->
 
         <nav class="side-menu">
           <div class="side-main active"><span class="mini-ico">▧</span>我的申请</div>
@@ -975,12 +1449,15 @@
           </div>
           <div>
             <div class="side-main"><span class="mini-ico">♧</span>更多</div>
-            <div class="sub-menu"><span>回到服务中心</span></div>
+            <!-- <div class="sub-menu"><span>回到服务中心</span></div> -->
           </div>
         </nav>
 
+      </aside>
+
+      <aside class="left service-panel">
         <section class="service-box">
-          <div class="section-label">可用服务</div>
+          <div class="section-label">我的服务</div>
           <div class="service-search">⌕ <span>搜索服务名称</span></div>
           <div class="service-tabs">
             <span class="active">全部</span>
@@ -1038,7 +1515,15 @@
               <div class="add">＋</div>
             </div>
           </div>
-          <div class="more-service">更多服务 〉</div>
+          <div
+            class="more-service"
+            role="link"
+            tabindex="0"
+            onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+            onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); location.href='数据资产运营管理平台-数据服务中心.html'; }"
+          >
+            更多服务 〉
+          </div>
         </section>
       </aside>
 
@@ -1056,133 +1541,200 @@
           </div>
         </section>
 
-        <section class="filter-row">
-          <div class="field">
-            <label>时间范围</label>
-            <div class="select">近30天 <span>⌄</span></div>
-          </div>
-          <div class="field">
-            <label>地区</label>
-            <div class="select">全部 <span>⌄</span></div>
-          </div>
-          <div class="field">
-            <label>客户类型</label>
-            <div class="select">全部 <span>⌄</span></div>
-          </div>
-          <button class="reset">重置</button>
-        </section>
+        <div class="report-workspace">
+          <div class="report-body">
+            <section class="filter-row">
+              <div class="field">
+                <label>时间范围</label>
+                <div class="select">近30天 <span>⌄</span></div>
+              </div>
+              <div class="field">
+                <label>地区</label>
+                <div class="select">全部 <span>⌄</span></div>
+              </div>
+              <div class="field">
+                <label>客户类型</label>
+                <div class="select">全部 <span>⌄</span></div>
+              </div>
+              <button class="reset">重置</button>
+            </section>
 
-        <section class="dashboard">
-          <div class="drop-zone">
-            <div class="drag-visual">
-              <div class="drag-card">
-                <div class="service-ico" style="background: linear-gradient(135deg, #7b3cff, #4a16d7)">●</div>
-                <div>
-                  <b>客户画像标签服务</b>
-                  <span>数据服务</span>
+            <section class="dashboard">
+              <div class="drop-zone">
+                <div class="drag-visual">
+                  <div class="drag-card">
+                    <div class="service-ico" style="background: linear-gradient(135deg, #7b3cff, #4a16d7)">●</div>
+                    <div>
+                      <b>客户画像标签服务</b>
+                      <span>数据服务</span>
+                    </div>
+                  </div>
+                  <div class="dash-line"></div>
+                  <div class="mock-chart">
+                    <div class="mock-top"><i></i><i></i><i></i></div>
+                    <div class="mock-bars"><i></i><i></i><i></i></div>
+                  </div>
+                  <div class="cursor">☝</div>
+                  <div class="empty-text">
+                    <b>拖拽左侧服务到此处进行可视化分析</b>
+                    <span>支持图表、表格、指标卡等多种组件</span>
+                  </div>
                 </div>
               </div>
-              <div class="dash-line"></div>
-              <div class="mock-chart">
-                <div class="mock-top"><i></i><i></i><i></i></div>
-                <div class="mock-bars"><i></i><i></i><i></i></div>
-              </div>
-              <div class="cursor">☝</div>
-              <div class="empty-text">
-                <b>拖拽左侧服务到此处进行可视化分析</b>
-                <span>支持图表、表格、指标卡等多种组件</span>
-              </div>
-            </div>
-          </div>
 
-          <div class="metric-stack">
-            <div class="metric-card">
-              <b>客户总数</b>
-              <div class="big-num">128,560 <small>人</small></div>
-              <div class="up">同比 ↑ 12.45%</div>
-            </div>
-            <div class="metric-card">
-              <b>客户类型分布</b>
-              <div id="typeChart" class="mini-chart"></div>
-            </div>
-          </div>
-
-          <div class="chart-grid">
-            <div class="chart-card">
-              <div class="chart-head">
-                <div class="chart-title">客户增长趋势</div>
+              <div class="metric-stack">
+                <div class="metric-card">
+                  <b>客户总数</b>
+                  <div class="big-num">128,560 <small>人</small></div>
+                  <div class="up">同比 ↑ 12.45%</div>
+                </div>
+                <div class="metric-card">
+                  <b>客户类型分布</b>
+                  <div id="typeChart" class="mini-chart"></div>
+                </div>
               </div>
-              <div id="lineChart" class="chart"></div>
-            </div>
-            <div class="chart-card">
-              <div class="chart-head">
-                <div class="chart-title">客户地域分布TOP10</div>
-                <div class="small-select">客户数⌄</div>
-              </div>
-              <div id="barChart" class="chart"></div>
-            </div>
-          </div>
 
-          <div class="chart-row">
-            <div class="chart-card">
-              <div class="chart-title">客户类型分析</div>
-              <table class="analysis-table">
-                <thead>
-                  <tr>
-                    <th>客户类型</th>
-                    <th>客户数</th>
-                    <th>占比</th>
-                    <th>同比</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>个人客户</td>
-                    <td>77,174</td>
-                    <td>60.20%</td>
-                    <td class="red">↑ 12.45%</td>
-                  </tr>
-                  <tr>
-                    <td>企业客户</td>
-                    <td>36,776</td>
-                    <td>28.60%</td>
-                    <td class="green">↑ 8.21%</td>
-                  </tr>
-                  <tr>
-                    <td>机构客户</td>
-                    <td>14,610</td>
-                    <td>11.20%</td>
-                    <td class="red">↓ -2.34%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="chart-card">
-              <div class="chart-title">活跃度分布</div>
-              <div id="funnelChart" class="small-chart"></div>
-            </div>
-            <div class="chart-card">
-              <div class="chart-title">客户画像标签分布（TOP5）</div>
-              <div id="tagChart" class="small-chart"></div>
-            </div>
+              <div class="chart-grid">
+                <div class="chart-card">
+                  <div class="chart-head">
+                    <div class="chart-title">客户增长趋势</div>
+                  </div>
+                  <div id="lineChart" class="chart"></div>
+                </div>
+                <div class="chart-card">
+                  <div class="chart-head">
+                    <div class="chart-title">客户地域分布TOP10</div>
+                    <div class="small-select">客户数⌄</div>
+                  </div>
+                  <div id="barChart" class="chart"></div>
+                </div>
+              </div>
+
+              <div class="chart-row">
+                <div class="chart-card">
+                  <div class="chart-title">客户类型分析</div>
+                  <table class="analysis-table">
+                    <thead>
+                      <tr>
+                        <th>客户类型</th>
+                        <th>客户数</th>
+                        <th>占比</th>
+                        <th>同比</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>个人客户</td>
+                        <td>77,174</td>
+                        <td>60.20%</td>
+                        <td class="red">↑ 12.45%</td>
+                      </tr>
+                      <tr>
+                        <td>企业客户</td>
+                        <td>36,776</td>
+                        <td>28.60%</td>
+                        <td class="green">↑ 8.21%</td>
+                      </tr>
+                      <tr>
+                        <td>机构客户</td>
+                        <td>14,610</td>
+                        <td>11.20%</td>
+                        <td class="red">↓ -2.34%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="chart-card">
+                  <div class="chart-title">活跃度分布</div>
+                  <div id="funnelChart" class="small-chart"></div>
+                </div>
+                <div class="chart-card">
+                  <div class="chart-title">客户画像标签分布（TOP5）</div>
+                  <div id="tagChart" class="small-chart"></div>
+                </div>
+              </div>
+
+            </section>
+
+            <section class="page-layout-panel">
+              <div class="layout-panel-head">
+                <div class="layout-panel-title">
+                  <b>页面排版选择</b>
+                  <span>选择报表页面的展示结构，当前为静态演示状态</span>
+                </div>
+                <div class="layout-toolbar" aria-label="页面排版参数">
+                  <div class="layout-chip active">A4 横向</div>
+                  <div class="layout-chip">页边距 16px</div>
+                  <div class="layout-chip">12 栅格</div>
+                </div>
+              </div>
+              <div class="layout-options">
+                <div class="layout-option active">
+                  <div class="layout-preview preview-classic"><i></i><i></i><i></i></div>
+                  <div class="layout-info">
+                    <div class="layout-name"><span class="layout-dot"></span>标准看板</div>
+                    <div class="layout-desc">主图表加右侧指标，适合经营分析首页。</div>
+                    <div class="layout-meta">推荐 · 2列</div>
+                  </div>
+                </div>
+                <div class="layout-option">
+                  <div class="layout-preview preview-wide"><i></i><i></i><i></i></div>
+                  <div class="layout-info">
+                    <div class="layout-name"><span class="layout-dot"></span>长报表</div>
+                    <div class="layout-desc">纵向连续阅读，适合月报与专题分析。</div>
+                    <div class="layout-meta">A4 · 单列</div>
+                  </div>
+                </div>
+                <div class="layout-option">
+                  <div class="layout-preview preview-double"><i></i><i></i><i></i></div>
+                  <div class="layout-info">
+                    <div class="layout-name"><span class="layout-dot"></span>双栏分析</div>
+                    <div class="layout-desc">图表对照排列，适合分组比较场景。</div>
+                    <div class="layout-meta">A3 · 双列</div>
+                  </div>
+                </div>
+                <div class="layout-option">
+                  <div class="layout-preview preview-detail"><i></i><i></i><i></i><i></i></div>
+                  <div class="layout-info">
+                    <div class="layout-name"><span class="layout-dot"></span>明细列表</div>
+                    <div class="layout-desc">左侧筛选加明细表，适合数据核查。</div>
+                    <div class="layout-meta">数据表 · 固定栏</div>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </main>
 
       <aside class="right">
         <div class="config-tabs">
           <span class="active">图表配置</span>
-          <span>数据配置</span>
         </div>
 
         <section class="config-section">
           <div class="config-label">图表类型</div>
           <div class="chart-types">
-            <div class="type-btn active">▥</div>
-            <div class="type-btn">⌁</div>
-            <div class="type-btn">◔</div>
-            <div class="type-btn">▦</div>
-            <div class="type-btn">▤</div>
+            <div class="type-btn active" title="柱状图">
+              <div class="chart-thumb thumb-bar"><i></i><i></i><i></i></div>
+            </div>
+            <div class="type-btn" title="折线图">
+              <div class="chart-thumb thumb-line">
+                <svg viewBox="0 0 42 24" aria-hidden="true">
+                  <polyline points="2,18 12,12 22,15 32,6 40,9" fill="none" stroke="#135cff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                  <polyline points="2,20 12,16 22,18 32,12 40,14" fill="none" stroke="#16c7c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                </svg>
+              </div>
+            </div>
+            <div class="type-btn" title="饼图">
+              <div class="chart-thumb thumb-pie"></div>
+            </div>
+            <div class="type-btn" title="表格">
+              <div class="chart-thumb thumb-table"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="type-btn" title="指标卡">
+              <div class="chart-thumb thumb-kpi"><b></b><span></span></div>
+            </div>
           </div>
         </section>
 
@@ -1228,6 +1780,36 @@
     </div>
 
     <script>
+      const workbenchDrawer = document.querySelector(".workbench-drawer");
+      const drawerToggle = document.querySelector(".drawer-toggle");
+
+      if (workbenchDrawer && drawerToggle) {
+        drawerToggle.addEventListener("click", (event) => {
+          event.stopPropagation();
+          workbenchDrawer.classList.toggle("is-open");
+          const isOpen = workbenchDrawer.classList.contains("is-open");
+          drawerToggle.setAttribute("aria-label", isOpen ? "收起我的工作台" : "展开我的工作台");
+          if (!isOpen) {
+            drawerToggle.blur();
+          }
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!workbenchDrawer.contains(event.target)) {
+            workbenchDrawer.classList.remove("is-open");
+            drawerToggle.setAttribute("aria-label", "展开我的工作台");
+          }
+        });
+
+        workbenchDrawer.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            workbenchDrawer.classList.remove("is-open");
+            drawerToggle.setAttribute("aria-label", "展开我的工作台");
+            workbenchDrawer.blur();
+          }
+        });
+      }
+
       const colors = ["#135cff", "#16c7c1", "#20bf6b", "#ff7143", "#845ef7"];
       const baseText = "#263653";
 

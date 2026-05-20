@@ -753,14 +753,29 @@
         font-size: 14px;
         text-decoration: none;
       }
+      .quick-manage-btn {
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 0;
+      }
       .quick {
         display: grid;
-        gap: 16px;
+        gap: 10px;
       }
       .qitem {
         display: grid;
-        grid-template-columns: 34px 1fr 28px;
+        grid-template-columns: 34px 1fr 18px;
         align-items: center;
+        min-height: 50px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .qitem:hover {
+        background: #f6f9ff;
       }
       .qico {
         width: 28px;
@@ -798,6 +813,92 @@
         color: #ef1f2d;
         font-weight: 900;
         text-align: right;
+      }
+      .qarrow {
+        color: #9aa6bb;
+        font-weight: 900;
+        text-align: right;
+      }
+      .quick-manager {
+        display: none;
+        margin: 0 0 14px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fbfdff;
+      }
+      .quick-manager.show {
+        display: grid;
+        gap: 10px;
+      }
+      .quick-option {
+        min-height: 36px;
+        display: grid;
+        grid-template-columns: 22px 26px 1fr;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #29364d;
+      }
+      .quick-option input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--blue);
+      }
+      .quick-option small {
+        display: block;
+        margin-top: 3px;
+        color: #7b879c;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .quick-add {
+        display: grid;
+        gap: 8px;
+        padding-top: 10px;
+        border-top: 1px dashed #d9e2f2;
+      }
+      .quick-add input {
+        width: 100%;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 10px;
+        outline: none;
+        color: #243047;
+      }
+      .quick-add input:focus {
+        border-color: rgba(37, 99, 235, 0.5);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+      }
+      .quick-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .quick-actions button {
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #33415c;
+        font-weight: 800;
+        cursor: pointer;
+        padding: 0 10px;
+      }
+      .quick-actions .primary {
+        border-color: var(--blue);
+        background: var(--blue);
+        color: #fff;
+      }
+      .quick-empty {
+        min-height: 72px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed #d9e2f2;
+        border-radius: 10px;
+        color: #7b879c;
+        font-size: 13px;
       }
       .scenario-search {
         height: 42px;
@@ -1085,7 +1186,10 @@
         <span>⌕</span><span class="badge">🔔<i>4</i></span
         ><span class="badge">✉<i>23</i></span
         ><span class="badge">💬<i>99+</i></span
-        ><span>♙ 进入人员</span>
+        ><span>
+          业务人员<br />
+          <!-- <small>已登录</small> -->
+        </span>
       </div>
     </header>
     <div class="layout">
@@ -1237,49 +1341,24 @@
         </div>
         <div class="drawer-content">
         <section class="panel" id="quickPanel">
-          <div class="panel-title">快捷入口 <a>管理 ›</a></div>
-          <div class="quick">
-            <div
-              class="qitem"
-              onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
-              style="cursor: pointer"
-            >
-              <div class="qico">◉</div>
-              <div>
-                <div class="qtitle">待我审批事项</div>
-                <div class="qsub">需要您处理</div>
+          <div class="panel-title">
+            快捷入口
+            <button class="quick-manage-btn" type="button" onclick="toggleQuickManager()">
+              管理 ›
+            </button>
+          </div>
+          <div class="quick-manager" id="quickManager">
+            <div id="quickOptions"></div>
+            <div class="quick-add">
+              <input id="quickName" placeholder="菜单名称" />
+              <input id="quickUrl" placeholder="页面地址" />
+              <div class="quick-actions">
+                <button class="primary" type="button" onclick="addCustomQuickMenu()">添加</button>
+                <button type="button" onclick="resetQuickMenus()">恢复默认</button>
               </div>
-              <div class="num">2</div>
-            </div>
-            <div
-              class="qitem"
-              onclick="location.href='数据资产运营平台-单个服务详情页面.html'"
-              style="cursor: pointer"
-            >
-              <div class="qico">♙</div>
-              <div>
-                <div class="qtitle">我的服务</div>
-                <div class="qsub">已开通服务</div>
-              </div>
-              <div class="num" style="color: #2563eb">6</div>
-            </div>
-            <div class="qitem">
-              <div class="qico">☑</div>
-              <div>
-                <div class="qtitle">超时预警</div>
-                <div class="qsub">即将超时服务</div>
-              </div>
-              <div class="num">2</div>
-            </div>
-            <div class="qitem">
-              <div class="qico">♢</div>
-              <div>
-                <div class="qtitle">系统通知</div>
-                <div class="qsub">未读通知</div>
-              </div>
-              <div class="num">8</div>
             </div>
           </div>
+          <div class="quick" id="quickList"></div>
         </section>
         <section class="panel" id="scenePanel">
           <div class="panel-title">
@@ -1454,6 +1533,212 @@
           },
         ],
       };
+      const quickMenuStorageKey = "dataServiceCenter.quickMenus.custom";
+      const quickMenuSelectedKey = "dataServiceCenter.quickMenus.selected";
+      const defaultQuickMenuIds = ["approval", "myService", "oneApply", "scene"];
+      const quickMenuCatalog = [
+        {
+          id: "approval",
+          icon: "◉",
+          color: "#ef4444",
+          title: "待我审批事项",
+          sub: "服务申请处理",
+          url: "数据资产运营管理平台-服务申请详情.html",
+        },
+        {
+          id: "myService",
+          icon: "♙",
+          color: "#2563eb",
+          title: "我的服务",
+          sub: "已开通服务",
+          url: "数据资产运营平台-单个服务详情页面.html",
+        },
+        {
+          id: "oneApply",
+          icon: "✚",
+          color: "#f59e0b",
+          title: "一键申请",
+          sub: "批量申请服务",
+          url: "数据资产运营平台-一键申请页面.html",
+        },
+        {
+          id: "scene",
+          icon: "▧",
+          color: "#10b981",
+          title: "服务应用场景",
+          sub: "查看业务链路",
+          url: "数据资产运营平台-服务应用场景.html",
+        },
+        {
+          id: "workbench",
+          icon: "▦",
+          color: "#7c3aed",
+          title: "我的工作台",
+          sub: "个人工作入口",
+          url: "数据资产运营平台-我的工作台.html",
+        },
+        {
+          id: "catalog",
+          icon: "☰",
+          color: "#ec4899",
+          title: "服务目录",
+          sub: "数据服务中心",
+          url: "数据资产运营管理平台-数据服务中心.html",
+        },
+      ];
+      let customQuickMenus = [];
+      let selectedQuickMenuIds = [...defaultQuickMenuIds];
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => {
+          const entities = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          };
+          return entities[char];
+        });
+      }
+
+      function getAllQuickMenus() {
+        return [...quickMenuCatalog, ...customQuickMenus];
+      }
+
+      function readJsonStorage(key, fallback) {
+        try {
+          const value = localStorage.getItem(key);
+          return value ? JSON.parse(value) : fallback;
+        } catch (error) {
+          return fallback;
+        }
+      }
+
+      function persistQuickMenus() {
+        try {
+          localStorage.setItem(
+            quickMenuStorageKey,
+            JSON.stringify(customQuickMenus),
+          );
+          localStorage.setItem(
+            quickMenuSelectedKey,
+            JSON.stringify(selectedQuickMenuIds),
+          );
+        } catch (error) {}
+      }
+
+      function renderQuickMenus() {
+        const quickList = document.getElementById("quickList");
+        const selectedMenus = getAllQuickMenus().filter((menu) =>
+          selectedQuickMenuIds.includes(menu.id),
+        );
+        if (!selectedMenus.length) {
+          quickList.innerHTML = `<div class="quick-empty">暂无常用菜单</div>`;
+          return;
+        }
+        quickList.innerHTML = selectedMenus
+          .map(
+            (menu) => `<div class="qitem" data-url="${escapeHtml(menu.url)}">
+              <div class="qico" style="color: ${escapeHtml(menu.color)}">${escapeHtml(menu.icon)}</div>
+              <div>
+                <div class="qtitle">${escapeHtml(menu.title)}</div>
+                <div class="qsub">${escapeHtml(menu.sub)}</div>
+              </div>
+              <div class="qarrow">›</div>
+            </div>`,
+          )
+          .join("");
+        quickList.querySelectorAll(".qitem").forEach((item) => {
+          item.addEventListener("click", () => {
+            const url = item.dataset.url;
+            if (url) location.href = url;
+          });
+        });
+      }
+
+      function renderQuickManager() {
+        const quickOptions = document.getElementById("quickOptions");
+        quickOptions.innerHTML = getAllQuickMenus()
+          .map(
+            (menu) => `<label class="quick-option">
+              <input type="checkbox" value="${escapeHtml(menu.id)}" ${
+                selectedQuickMenuIds.includes(menu.id) ? "checked" : ""
+              } />
+              <span class="qico" style="color: ${escapeHtml(menu.color)}">${escapeHtml(menu.icon)}</span>
+              <span>${escapeHtml(menu.title)}<small>${escapeHtml(menu.sub)}</small></span>
+            </label>`,
+          )
+          .join("");
+        quickOptions.querySelectorAll("input").forEach((checkbox) => {
+          checkbox.addEventListener("change", () => {
+            selectedQuickMenuIds = Array.from(
+              quickOptions.querySelectorAll("input:checked"),
+            ).map((item) => item.value);
+            persistQuickMenus();
+            renderQuickMenus();
+          });
+        });
+      }
+
+      function toggleQuickManager() {
+        const manager = document.getElementById("quickManager");
+        const button = document.querySelector(".quick-manage-btn");
+        const show = !manager.classList.contains("show");
+        manager.classList.toggle("show", show);
+        button.textContent = show ? "完成" : "管理 ›";
+      }
+
+      function addCustomQuickMenu() {
+        const nameInput = document.getElementById("quickName");
+        const urlInput = document.getElementById("quickUrl");
+        const title = nameInput.value.trim();
+        const url = urlInput.value.trim();
+        if (!title || !url) {
+          if (!title) nameInput.focus();
+          else urlInput.focus();
+          return;
+        }
+        const customMenu = {
+          id: `custom-${Date.now()}`,
+          icon: "◇",
+          color: "#2563eb",
+          title,
+          sub: "自定义入口",
+          url,
+        };
+        customQuickMenus.push(customMenu);
+        selectedQuickMenuIds.push(customMenu.id);
+        nameInput.value = "";
+        urlInput.value = "";
+        persistQuickMenus();
+        renderQuickManager();
+        renderQuickMenus();
+      }
+
+      function resetQuickMenus() {
+        customQuickMenus = [];
+        selectedQuickMenuIds = [...defaultQuickMenuIds];
+        persistQuickMenus();
+        renderQuickManager();
+        renderQuickMenus();
+      }
+
+      function initQuickMenus() {
+        const storedCustomMenus = readJsonStorage(quickMenuStorageKey, []);
+        customQuickMenus = Array.isArray(storedCustomMenus)
+          ? storedCustomMenus.filter(
+              (menu) => menu && menu.id && menu.title && menu.url,
+            )
+          : [];
+        const availableIds = getAllQuickMenus().map((menu) => menu.id);
+        const storedSelectedIds = readJsonStorage(quickMenuSelectedKey, null);
+        selectedQuickMenuIds = Array.isArray(storedSelectedIds)
+          ? storedSelectedIds.filter((id) => availableIds.includes(id))
+          : [...defaultQuickMenuIds];
+        renderQuickManager();
+        renderQuickMenus();
+      }
       function render(list = services) {
         const total = document.querySelector(".foot-total");
         if (total) total.textContent = `共${list.length}条`;
@@ -1693,6 +1978,7 @@
       }
       initFilters();
       initSceneTabs();
+      initQuickMenus();
       render();
     </script>
   </body>
