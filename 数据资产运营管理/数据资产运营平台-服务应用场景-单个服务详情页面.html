@@ -1,71 +1,973 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LiveMuse 数据服务详情 - 交易行为分析</title>
-  <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.3.2/echarts.min.js"></script>
-  <style>
-    * { box-sizing: border-box; }
-    :root{
-      --blue:#2164f3; --blue2:#4f8cff; --bg:#f5f8ff; --line:#e4ebf7;
-      --text:#15213d; --muted:#6e7c99; --card:#fff; --green:#17c879;
-      --orange:#ff8a1d; --purple:#8a4ff7; --cyan:#0fc6d5;
-    }
-    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif; background:var(--bg); color:var(--text); }
-    .topbar{height:76px;background:#fff;display:flex;align-items:center;padding:0 26px;border-bottom:1px solid #edf2fb;box-shadow:0 2px 12px rgba(21,44,92,.04);position:sticky;top:0;z-index:20}
-    .brand{display:flex;align-items:center;gap:10px;width:340px}.brand .live{font-size:28px;color:#f5222d;font-weight:500}.brand .muse{font-size:28px;color:#17213a}.brand .sep{height:28px;width:1px;background:#d9e2f4}.brand .cn{font-size:20px;font-weight:800}
-    .nav{display:flex;height:100%;align-items:center;gap:46px}.nav-item{height:100%;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800;color:#1f2a44;position:relative}.nav-item.active{color:var(--blue)}.nav-item.active:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:4px;background:var(--blue)}
-    .nav-ico{font-size:24px}.top-actions{margin-left:auto;display:flex;align-items:center;gap:26px;color:#142044;font-size:25px}.bell{position:relative}.badge{position:absolute;right:-10px;top:-9px;background:#f21d2f;color:#fff;border-radius:12px;min-width:20px;height:20px;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:800;padding:0 5px}
-    .page{padding:18px 26px 28px}.breadcrumb{display:flex;gap:10px;color:#53627f;font-size:14px;font-weight:700;margin:0 0 16px}.layout{display:grid;grid-template-columns:1fr 390px;gap:26px}.main-card,.side-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(47,87,154,.05)}
-    .hero{padding:24px 24px 0}.hero-top{display:flex;align-items:flex-start;gap:24px}.service-icon{width:96px;height:96px;border-radius:22px;background:linear-gradient(135deg,#21d786,#08b861);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 20px rgba(20,191,111,.23)}.service-icon svg{width:60px;height:60px;stroke:#fff;stroke-width:2.7;fill:none;stroke-linecap:round;stroke-linejoin:round}.title-row{display:flex;align-items:center;gap:18px}.title-row h1{font-size:32px;margin:0 0 8px;font-weight:900}.score{color:#ff7b22;font-size:20px;font-weight:900}.desc{max-width:760px;line-height:1.75;color:#52617e;font-weight:700;margin:0}.tags{display:flex;gap:10px;margin-top:12px}.tag{padding:5px 12px;border:1px solid #b9d5ff;background:#f3f8ff;color:#2164f3;border-radius:6px;font-weight:800;font-size:13px}.hero-actions{margin-left:auto;display:flex;gap:14px}.btn{height:44px;border-radius:7px;border:1px solid #d9e5f6;background:#fff;padding:0 24px;font-size:15px;font-weight:900;color:#273556;cursor:pointer}.btn.primary{background:linear-gradient(135deg,#2f78ff,#0954e8);color:#fff;border:0;box-shadow:0 8px 18px rgba(33,100,243,.24)}
-    .metrics{display:grid;grid-template-columns:repeat(5,1fr);margin:28px 0 10px}.metric{padding:0 16px;border-right:1px solid #dfe8f7}.metric:last-child{border-right:0}.metric .label{font-size:14px;color:#687794;font-weight:800;margin-bottom:8px}.metric .value{font-size:16px;font-weight:900;color:#192846}.metric .value span{font-size:24px;margin-right:6px;color:#24375c}.tabs{display:flex;gap:36px;padding:0 12px;border-top:0}.tab{padding:17px 0;color:#52617e;font-weight:900;position:relative;cursor:pointer}.tab.active{color:var(--blue)}.tab.active:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--blue);border-radius:4px}.content{border-top:1px solid var(--line);padding:22px 24px 28px}.tip{height:48px;border:1px solid #bdd7ff;background:#f6faff;border-radius:8px;display:flex;align-items:center;gap:10px;padding:0 16px;color:#445477;font-weight:800;margin-bottom:22px}.section-head{display:flex;align-items:center;margin-bottom:16px;gap:18px}.section-head h2{font-size:20px;margin:0;font-weight:900}.search{width:320px;height:42px;border:1px solid var(--line);border-radius:8px;padding:0 14px;color:#6f7b95;font-weight:700}.select{height:42px;width:150px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#3e4d69;font-weight:800;padding:0 14px}.api-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}.api-table th{height:42px;background:#fbfdff;color:#61708d;font-size:14px;text-align:left;padding:0 14px;border-bottom:1px solid var(--line)}.api-table td{height:52px;padding:0 14px;border-bottom:1px solid var(--line);font-size:14px;color:#44516c;font-weight:700}.api-table tr:last-child td{border-bottom:0}.api-name{display:flex;align-items:center;gap:12px;color:#192846;font-weight:900}.mini-ico{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}.blue{background:#3378ff}.green{background:#16c985}.orange{background:#ff7a1a}.purple{background:#8b50f6}.link{color:#1263f1;font-weight:900;margin-right:18px;cursor:pointer}.pager{display:flex;align-items:center;justify-content:space-between;margin-top:14px;color:#51617f;font-weight:800}.pages{display:flex;align-items:center;gap:18px}.page-no{width:36px;height:34px;border:1px solid #dbe7fb;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;color:#2164f3}.page-size{height:34px;border:1px solid #dbe7fb;border-radius:8px;background:#fff;padding:0 12px;color:#273556;font-weight:800}
-    .side{display:flex;flex-direction:column;gap:18px}.side-card{padding:22px}.side-card h3{margin:0 0 18px;font-size:20px}.info-grid{display:grid;grid-template-columns:96px 1fr;row-gap:16px;font-size:14px}.info-grid .k{color:#72809b;font-weight:900}.info-grid .v{font-weight:900;color:#3b4966}.value-list{display:flex;flex-direction:column;gap:20px}.value-item{display:flex;gap:14px}.value-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#3988ff,#0c5ef0);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex:none}.value-item b{display:block;font-size:15px;margin-bottom:5px}.value-item p{margin:0;color:#6b7894;line-height:1.5;font-size:13px;font-weight:700}.scenario-top{display:flex;justify-content:space-between;align-items:center}.more{font-size:13px;color:#42506d;font-weight:900}.scenario{display:flex;gap:13px;margin-top:18px}.scenario-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;flex:none}.scenario b{font-size:15px}.scenario .s-score{color:#ff7b22;margin-left:8px}.scenario p{margin:6px 0 0;color:#6b7894;line-height:1.45;font-size:13px;font-weight:700}.toast{position:fixed;right:28px;top:88px;background:#14213d;color:#fff;padding:13px 18px;border-radius:10px;box-shadow:0 14px 30px rgba(0,0,0,.18);display:none;font-weight:800;z-index:30}.modal-mask{display:none;position:fixed;inset:0;background:rgba(13,28,61,.28);z-index:40;align-items:center;justify-content:center}.modal{width:480px;background:#fff;border-radius:16px;padding:26px;box-shadow:0 28px 80px rgba(15,31,64,.2)}.modal h3{margin:0 0 12px}.modal p{color:#65738f;line-height:1.7;font-weight:700}.modal-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}
-  </style>
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand"><span class="live">Live</span><span class="muse">Muse</span><span class="sep"></span><span class="cn">灵感数据工坊</span></div>
-    <nav class="nav"><div class="nav-item active"><span class="nav-ico">🏠</span>服务中心</div><div class="nav-item"><span class="nav-ico">♙</span>我的工作台</div></nav>
-    <div class="top-actions"><span>⌕</span><span class="bell">♧<i class="badge">6</i></span><span class="bell">✉<i class="badge">73</i></span><span class="bell">☵<i class="badge">24</i></span><span style="font-size:16px;font-weight:900">业务人员</span></div>
-  </header>
-  <div class="page">
-    <div class="breadcrumb">服务中心 <span>›</span> 服务应用场景 <span>›</span> 交易行为分析</div>
-    <div class="layout">
-      <main class="main-card">
-        <section class="hero">
-          <div class="hero-top">
-            <div class="service-icon"><svg viewBox="0 0 64 64"><path d="M10 50V33h10v17H10zM28 50V22h10v28H28zM46 50V12h10v38H46z"/><path d="M12 26l14-9 10 8 16-18"/><path d="M48 7h8v8"/></svg></div>
-            <div class="hero-text"><div class="title-row"><h1>交易行为分析</h1><div class="score">★ 4.8</div></div><p class="desc">基于客户交易数据，深入分析客户交易行为、交易偏好与资金流向，识别交易机会与风险，为投资顾问提供精准的决策支持，提升客户资产配置与交易效率。</p><div class="tags"><span class="tag">数据分析</span><span class="tag">交易洞察</span><span class="tag">客户画像</span><span class="tag">投资决策</span></div></div>
-            <div class="hero-actions"><button class="btn" onclick="toast('已收藏该服务')">☆ 收藏</button><button class="btn primary" onclick="openApply()">▣ 一键申请</button></div>
-          </div>
-          <div class="metrics"><div class="metric"><div class="label">使用人数</div><div class="value"><span>♙</span>96 人在使用</div></div><div class="metric"><div class="label">申请次数</div><div class="value"><span>☑</span>182 次申请</div></div><div class="metric"><div class="label">服务类型</div><div class="value">API服务</div></div><div class="metric"><div class="label">更新频率</div><div class="value">实时更新</div></div><div class="metric"><div class="label">数据来源</div><div class="value">核心交易库、账户库等</div></div></div>
-          <div class="tabs"><div class="tab">场景介绍</div><div class="tab">输入输出</div><div class="tab">数据字段</div><div class="tab active">服务接口 (12)</div><div class="tab">使用指南</div><div class="tab">应用案例</div><div class="tab">相关场景</div></div>
-        </section>
-        <section class="content">
-          <div class="tip">▣ 交易行为分析场景由以下API服务支撑，您可基于这些API获取数据并构建应用。</div>
-          <div class="section-head"><h2>API服务列表 (12)</h2><input id="kw" class="search" placeholder="🔍  搜索API名称、关键词" oninput="renderTable()"/><select id="cat" class="select" onchange="renderTable()"><option>全部分类</option><option>交易数据</option><option>资金数据</option><option>分析服务</option><option>风控服务</option></select></div>
-          <table class="api-table"><thead><tr><th style="width:230px">API名称</th><th>API描述</th><th style="width:120px">所属分类</th><th style="width:110px">请求方式</th><th style="width:150px">数据更新频率</th><th style="width:150px">操作</th></tr></thead><tbody id="apiBody"></tbody></table>
-          <div class="pager"><div>共 12 条</div><div class="pages"><span>‹</span><span class="page-no">1</span><span>2</span><span>›</span></div><select class="page-size"><option>10 条/页</option><option>20 条/页</option></select></div>
-        </section>
-      </main>
-      <aside class="side">
-        <section class="side-card"><h3>基本信息</h3><div class="info-grid"><div class="k">服务名称</div><div class="v">交易行为分析</div><div class="k">服务编码</div><div class="v">TRADE_BEHAVIOR_ANALYSIS</div><div class="k">服务分类</div><div class="v">数据分析类</div><div class="k">适用对象</div><div class="v">投资顾问、财富顾问、风控人员等</div><div class="k">更新时间</div><div class="v">2024-05-21 14:30:25</div><div class="k">版本号</div><div class="v">v2.3.1</div><div class="k">负责人</div><div class="v">数据运营团队</div><div class="k">联系方式</div><div class="v">dataops@livemuse.com</div></div></section>
-        <section class="side-card"><h3>场景价值</h3><div class="value-list"><div class="value-item"><div class="value-icon">↺</div><div><b>洞察交易行为</b><p>多维度解析客户交易特征与偏好，全面洞察交易行为。</p></div></div><div class="value-item"><div class="value-icon">♙</div><div><b>识别交易机会</b><p>发现潜在交易机会，辅助投资顾问制定针对性策略。</p></div></div><div class="value-item"><div class="value-icon">◎</div><div><b>风险预警</b><p>识别异常交易与风险行为，助力风险管控与合规。</p></div></div><div class="value-item"><div class="value-icon">♧</div><div><b>提升服务效率</b><p>数据驱动决策，提升投资顾问服务效率与客户满意度。</p></div></div></div></section>
-        <section class="side-card"><div class="scenario-top"><h3 style="margin:0">相关应用场景</h3><span class="more">查看更多 ›</span></div><div class="scenario"><div class="scenario-icon" style="background:#11cbd6">☑</div><div><b>客户画像与分析 <span class="s-score">★ 4.8</span></b><p>整合客户资产、交易、行为数据，构建客户画像与分群标签。</p></div></div><div class="scenario"><div class="scenario-icon blue">◇</div><div><b>风险监控与预警 <span class="s-score">★ 4.7</span></b><p>实时监控客户风险指标，识别风险事件并预警。</p></div></div><div class="scenario"><div class="scenario-icon green">✩</div><div><b>投资组合分析 <span class="s-score">★ 4.6</span></b><p>分析客户投资组合表现，收益风险特征与优化建议。</p></div></div></section>
-      </aside>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiveMuse 数据服务详情 - 交易行为分析</title>
+    <script src="../echarts/echarts-5.3.2/dist/echarts.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        --blue: #2164f3;
+        --blue2: #4f8cff;
+        --bg: #f5f8ff;
+        --line: #e4ebf7;
+        --text: #15213d;
+        --muted: #6e7c99;
+        --card: #fff;
+        --green: #17c879;
+        --orange: #ff8a1d;
+        --purple: #8a4ff7;
+        --cyan: #0fc6d5;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .topbar {
+        height: 76px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        padding: 0 26px;
+        border-bottom: 1px solid #edf2fb;
+        box-shadow: 0 2px 12px rgba(21, 44, 92, 0.04);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 340px;
+      }
+      .brand .live {
+        font-size: 28px;
+        color: #f5222d;
+        font-weight: 500;
+      }
+      .brand .muse {
+        font-size: 28px;
+        color: #17213a;
+      }
+      .brand .sep {
+        height: 28px;
+        width: 1px;
+        background: #d9e2f4;
+      }
+      .brand .cn {
+        font-size: 20px;
+        font-weight: 800;
+      }
+      .nav {
+        display: flex;
+        height: 100%;
+        align-items: center;
+        gap: 46px;
+      }
+      .nav-item {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 800;
+        color: #1f2a44;
+        position: relative;
+      }
+      .nav-item.active {
+        color: var(--blue);
+      }
+      .nav-item.active:after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        border-radius: 4px;
+        background: var(--blue);
+      }
+      .nav-ico {
+        font-size: 24px;
+      }
+      .top-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        color: #142044;
+        font-size: 25px;
+      }
+      .bell {
+        position: relative;
+      }
+      .badge {
+        position: absolute;
+        right: -10px;
+        top: -9px;
+        background: #f21d2f;
+        color: #fff;
+        border-radius: 12px;
+        min-width: 20px;
+        height: 20px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        padding: 0 5px;
+      }
+      .page {
+        padding: 18px 26px 28px;
+      }
+      .breadcrumb {
+        display: flex;
+        gap: 10px;
+        color: #53627f;
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0 0 16px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 390px;
+        gap: 26px;
+      }
+      .main-card,
+      .side-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(47, 87, 154, 0.05);
+      }
+      .hero {
+        padding: 24px 24px 0;
+      }
+      .hero-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 24px;
+      }
+      .service-icon {
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #21d786, #08b861);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 12px 20px rgba(20, 191, 111, 0.23);
+      }
+      .service-icon svg {
+        width: 60px;
+        height: 60px;
+        stroke: #fff;
+        stroke-width: 2.7;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .title-row {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .title-row h1 {
+        font-size: 32px;
+        margin: 0 0 8px;
+        font-weight: 900;
+      }
+      .score {
+        color: #ff7b22;
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .desc {
+        max-width: 760px;
+        line-height: 1.75;
+        color: #52617e;
+        font-weight: 700;
+        margin: 0;
+      }
+      .tags {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .tag {
+        padding: 5px 12px;
+        border: 1px solid #b9d5ff;
+        background: #f3f8ff;
+        color: #2164f3;
+        border-radius: 6px;
+        font-weight: 800;
+        font-size: 13px;
+      }
+      .hero-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 14px;
+      }
+      .btn {
+        height: 44px;
+        border-radius: 7px;
+        border: 1px solid #d9e5f6;
+        background: #fff;
+        padding: 0 24px;
+        font-size: 15px;
+        font-weight: 900;
+        color: #273556;
+        cursor: pointer;
+      }
+      .btn.primary {
+        background: linear-gradient(135deg, #2f78ff, #0954e8);
+        color: #fff;
+        border: 0;
+        box-shadow: 0 8px 18px rgba(33, 100, 243, 0.24);
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        margin: 28px 0 10px;
+      }
+      .metric {
+        padding: 0 16px;
+        border-right: 1px solid #dfe8f7;
+      }
+      .metric:last-child {
+        border-right: 0;
+      }
+      .metric .label {
+        font-size: 14px;
+        color: #687794;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+      .metric .value {
+        font-size: 16px;
+        font-weight: 900;
+        color: #192846;
+      }
+      .metric .value span {
+        font-size: 24px;
+        margin-right: 6px;
+        color: #24375c;
+      }
+      .tabs {
+        display: flex;
+        gap: 36px;
+        padding: 0 12px;
+        border-top: 0;
+      }
+      .tab {
+        padding: 17px 0;
+        color: #52617e;
+        font-weight: 900;
+        position: relative;
+        cursor: pointer;
+      }
+      .tab.active {
+        color: var(--blue);
+      }
+      .tab.active:after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        background: var(--blue);
+        border-radius: 4px;
+      }
+      .content {
+        border-top: 1px solid var(--line);
+        padding: 22px 24px 28px;
+      }
+      .tip {
+        height: 48px;
+        border: 1px solid #bdd7ff;
+        background: #f6faff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        color: #445477;
+        font-weight: 800;
+        margin-bottom: 22px;
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 18px;
+      }
+      .section-head h2 {
+        font-size: 20px;
+        margin: 0;
+        font-weight: 900;
+      }
+      .search {
+        width: 320px;
+        height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 14px;
+        color: #6f7b95;
+        font-weight: 700;
+      }
+      .select {
+        height: 42px;
+        width: 150px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: #3e4d69;
+        font-weight: 800;
+        padding: 0 14px;
+      }
+      .api-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .api-table th {
+        height: 42px;
+        background: #fbfdff;
+        color: #61708d;
+        font-size: 14px;
+        text-align: left;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .api-table td {
+        height: 52px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+        color: #44516c;
+        font-weight: 700;
+      }
+      .api-table tr:last-child td {
+        border-bottom: 0;
+      }
+      .api-name {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #192846;
+        font-weight: 900;
+      }
+      .mini-ico {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 16px;
+      }
+      .blue {
+        background: #3378ff;
+      }
+      .green {
+        background: #16c985;
+      }
+      .orange {
+        background: #ff7a1a;
+      }
+      .purple {
+        background: #8b50f6;
+      }
+      .link {
+        color: #1263f1;
+        font-weight: 900;
+        margin-right: 18px;
+        cursor: pointer;
+      }
+      .pager {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 14px;
+        color: #51617f;
+        font-weight: 800;
+      }
+      .pages {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .page-no {
+        width: 36px;
+        height: 34px;
+        border: 1px solid #dbe7fb;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        color: #2164f3;
+      }
+      .page-size {
+        height: 34px;
+        border: 1px solid #dbe7fb;
+        border-radius: 8px;
+        background: #fff;
+        padding: 0 12px;
+        color: #273556;
+        font-weight: 800;
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .side-card {
+        padding: 22px;
+      }
+      .side-card h3 {
+        margin: 0 0 18px;
+        font-size: 20px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        row-gap: 16px;
+        font-size: 14px;
+      }
+      .info-grid .k {
+        color: #72809b;
+        font-weight: 900;
+      }
+      .info-grid .v {
+        font-weight: 900;
+        color: #3b4966;
+      }
+      .value-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .value-item {
+        display: flex;
+        gap: 14px;
+      }
+      .value-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #3988ff, #0c5ef0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 18px;
+        flex: none;
+      }
+      .value-item b {
+        display: block;
+        font-size: 15px;
+        margin-bottom: 5px;
+      }
+      .value-item p {
+        margin: 0;
+        color: #6b7894;
+        line-height: 1.5;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .scenario-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .more {
+        font-size: 13px;
+        color: #42506d;
+        font-weight: 900;
+      }
+      .scenario {
+        display: flex;
+        gap: 13px;
+        margin-top: 18px;
+      }
+      .scenario-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 19px;
+        flex: none;
+      }
+      .scenario b {
+        font-size: 15px;
+      }
+      .scenario .s-score {
+        color: #ff7b22;
+        margin-left: 8px;
+      }
+      .scenario p {
+        margin: 6px 0 0;
+        color: #6b7894;
+        line-height: 1.45;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .toast {
+        position: fixed;
+        right: 28px;
+        top: 88px;
+        background: #14213d;
+        color: #fff;
+        padding: 13px 18px;
+        border-radius: 10px;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+        display: none;
+        font-weight: 800;
+        z-index: 30;
+      }
+      .modal-mask {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(13, 28, 61, 0.28);
+        z-index: 40;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal {
+        width: 480px;
+        background: #fff;
+        border-radius: 16px;
+        padding: 26px;
+        box-shadow: 0 28px 80px rgba(15, 31, 64, 0.2);
+      }
+      .modal h3 {
+        margin: 0 0 12px;
+      }
+      .modal p {
+        color: #65738f;
+        line-height: 1.7;
+        font-weight: 700;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="lm-logo" onclick="location.href='数据资产运营管理平台-数据服务中心.html'" style="width:292px;display:flex;align-items:center;gap:8px;flex:none;cursor:pointer">
+        <span style="font-size:22px;font-weight:900;line-height:1;white-space:nowrap"><span style="color:#ff1f1f">Live</span><span style="color:#111827">Muse</span></span>
+        <svg viewBox="0 0 52 46" aria-hidden="true" style="width:44px;height:39px;flex:none">
+          <polygon points="26 2 48 14 48 32 26 44 4 32 4 14" fill="#fff" stroke="#4f73ff" stroke-width="2.2"></polygon>
+          <circle cx="26" cy="13" r="2.2" fill="#4f73ff"></circle>
+          <path d="M26 19v15" stroke="#4f73ff" stroke-width="3" stroke-linecap="round"></path>
+          <path d="M20 34h12" stroke="#4f73ff" stroke-width="2.6" stroke-linecap="round"></path>
+        </svg>
+        <span style="font-size:19px;font-weight:900;color:#111827;white-space:nowrap">灵感数据工坊</span>
+      </div>
+      <nav class="nav">
+        <div
+          class="nav-item active"
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+        >
+          <span class="nav-ico">🏠</span>服务中心
+        </div>
+        <div
+          class="nav-item"
+          onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+          style="cursor: pointer"
+        >
+          <span class="nav-ico">♙</span>我的工作台
+        </div>
+      </nav>
+      <div class="top-actions">
+        <span>⌕</span><span class="bell">♧<i class="badge">6</i></span
+        ><span class="bell">✉<i class="badge">73</i></span
+        ><span class="bell">☵<i class="badge">24</i></span
+        ><span style="font-size: 16px; font-weight: 900">业务人员</span>
+      </div>
+    </header>
+    <div class="page">
+      <div class="breadcrumb">
+        <span
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务中心</span
+        >
+        <span>›</span>
+        <span
+          onclick="location.href='数据资产运营平台-服务应用场景.html'"
+          style="cursor: pointer"
+          >服务应用场景</span
+        >
+        <span>›</span> 交易行为分析
+      </div>
+      <div class="layout">
+        <main class="main-card">
+          <section class="hero">
+            <div class="hero-top">
+              <div class="service-icon">
+                <svg viewBox="0 0 64 64">
+                  <path
+                    d="M10 50V33h10v17H10zM28 50V22h10v28H28zM46 50V12h10v38H46z"
+                  />
+                  <path d="M12 26l14-9 10 8 16-18" />
+                  <path d="M48 7h8v8" />
+                </svg>
+              </div>
+              <div class="hero-text">
+                <div class="title-row">
+                  <h1>交易行为分析</h1>
+                  <div class="score">★ 4.8</div>
+                </div>
+                <p class="desc">
+                  基于客户交易数据，深入分析客户交易行为、交易偏好与资金流向，识别交易机会与风险，为投资顾问提供精准的决策支持，提升客户资产配置与交易效率。
+                </p>
+                <div class="tags">
+                  <span class="tag">数据分析</span
+                  ><span class="tag">交易洞察</span
+                  ><span class="tag">客户画像</span
+                  ><span class="tag">投资决策</span>
+                </div>
+              </div>
+              <div class="hero-actions">
+                <button class="btn" onclick="toast('已收藏该服务')">
+                  ☆ 收藏</button
+                ><button class="btn primary" onclick="openApply()">
+                  ▣ 一键申请
+                </button>
+              </div>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <div class="label">使用人数</div>
+                <div class="value"><span>♙</span>96 人在使用</div>
+              </div>
+              <div class="metric">
+                <div class="label">申请次数</div>
+                <div class="value"><span>☑</span>182 次申请</div>
+              </div>
+              <div class="metric">
+                <div class="label">服务类型</div>
+                <div class="value">API服务</div>
+              </div>
+              <div class="metric">
+                <div class="label">更新频率</div>
+                <div class="value">实时更新</div>
+              </div>
+              <div class="metric">
+                <div class="label">数据来源</div>
+                <div class="value">核心交易库、账户库等</div>
+              </div>
+            </div>
+            <div class="tabs">
+              <div class="tab">场景介绍</div>
+              <div class="tab">输入输出</div>
+              <div class="tab">数据字段</div>
+              <div class="tab active">服务接口 (12)</div>
+              <div class="tab">使用指南</div>
+              <div class="tab">应用案例</div>
+              <div class="tab">相关场景</div>
+            </div>
+          </section>
+          <section class="content">
+            <div class="tip">
+              ▣
+              交易行为分析场景由以下API服务支撑，您可基于这些API获取数据并构建应用。
+            </div>
+            <div class="section-head">
+              <h2>API服务列表 (12)</h2>
+              <input
+                id="kw"
+                class="search"
+                placeholder="🔍  搜索API名称、关键词"
+                oninput="renderTable()"
+              /><select id="cat" class="select" onchange="renderTable()">
+                <option>全部分类</option>
+                <option>交易数据</option>
+                <option>资金数据</option>
+                <option>分析服务</option>
+                <option>风控服务</option>
+              </select>
+            </div>
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width: 230px">API名称</th>
+                  <th>API描述</th>
+                  <th style="width: 120px">所属分类</th>
+                  <th style="width: 110px">请求方式</th>
+                  <th style="width: 150px">数据更新频率</th>
+                  <th style="width: 150px">操作</th>
+                </tr>
+              </thead>
+              <tbody id="apiBody"></tbody>
+            </table>
+            <div class="pager">
+              <div>共 12 条</div>
+              <div class="pages">
+                <span>‹</span><span class="page-no">1</span><span>2</span
+                ><span>›</span>
+              </div>
+              <select class="page-size">
+                <option>10 条/页</option>
+                <option>20 条/页</option>
+              </select>
+            </div>
+          </section>
+        </main>
+        <aside class="side">
+          <section class="side-card">
+            <h3>基本信息</h3>
+            <div class="info-grid">
+              <div class="k">服务名称</div>
+              <div class="v">交易行为分析</div>
+              <div class="k">服务编码</div>
+              <div class="v">TRADE_BEHAVIOR_ANALYSIS</div>
+              <div class="k">服务分类</div>
+              <div class="v">数据分析类</div>
+              <div class="k">适用对象</div>
+              <div class="v">投资顾问、财富顾问、风控人员等</div>
+              <div class="k">更新时间</div>
+              <div class="v">2024-05-21 14:30:25</div>
+              <div class="k">版本号</div>
+              <div class="v">v2.3.1</div>
+              <div class="k">负责人</div>
+              <div class="v">数据运营团队</div>
+              <div class="k">联系方式</div>
+              <div class="v">dataops@livemuse.com</div>
+            </div>
+          </section>
+          <section class="side-card">
+            <h3>场景价值</h3>
+            <div class="value-list">
+              <div class="value-item">
+                <div class="value-icon">↺</div>
+                <div>
+                  <b>洞察交易行为</b>
+                  <p>多维度解析客户交易特征与偏好，全面洞察交易行为。</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">♙</div>
+                <div>
+                  <b>识别交易机会</b>
+                  <p>发现潜在交易机会，辅助投资顾问制定针对性策略。</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">◎</div>
+                <div>
+                  <b>风险预警</b>
+                  <p>识别异常交易与风险行为，助力风险管控与合规。</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">♧</div>
+                <div>
+                  <b>提升服务效率</b>
+                  <p>数据驱动决策，提升投资顾问服务效率与客户满意度。</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="side-card">
+            <div class="scenario-top">
+              <h3 style="margin: 0">相关应用场景</h3>
+              <span
+                class="more"
+                onclick="location.href='数据资产运营平台-服务应用场景.html'"
+                style="cursor: pointer"
+                >查看更多 ›</span
+              >
+            </div>
+            <div
+              class="scenario"
+              onclick="location.href='数据资产运营平台-服务应用场景-单个服务详情页面.html'"
+              style="cursor: pointer"
+            >
+              <div class="scenario-icon" style="background: #11cbd6">☑</div>
+              <div>
+                <b>客户画像与分析 <span class="s-score">★ 4.8</span></b>
+                <p>整合客户资产、交易、行为数据，构建客户画像与分群标签。</p>
+              </div>
+            </div>
+            <div
+              class="scenario"
+              onclick="location.href='数据资产运营平台-服务应用场景-单个服务详情页面.html'"
+              style="cursor: pointer"
+            >
+              <div class="scenario-icon blue">◇</div>
+              <div>
+                <b>风险监控与预警 <span class="s-score">★ 4.7</span></b>
+                <p>实时监控客户风险指标，识别风险事件并预警。</p>
+              </div>
+            </div>
+            <div
+              class="scenario"
+              onclick="location.href='数据资产运营平台-服务应用场景-单个服务详情页面.html'"
+              style="cursor: pointer"
+            >
+              <div class="scenario-icon green">✩</div>
+              <div>
+                <b>投资组合分析 <span class="s-score">★ 4.6</span></b>
+                <p>分析客户投资组合表现，收益风险特征与优化建议。</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
-  </div>
-  <div class="toast" id="toast"></div>
-  <div class="modal-mask" id="modal"><div class="modal"><h3>确认申请交易行为分析服务？</h3><p>系统将自动带入当前用户信息，并默认申请本场景下所需的服务接口。提交后进入审批流程。</p><div class="modal-actions"><button class="btn" onclick="closeApply()">取消</button><button class="btn primary" onclick="submitApply()">确认提交</button></div></div></div>
-  <script>
-    const apis=[
-      ['📈','客户交易明细查询','查询客户的交易明细数据，包含买卖、申赎、成交等信息','交易数据','POST','实时','green'],['👤','客户持仓查询','查询客户当前持仓及历史持仓变动情况','交易数据','POST','实时','blue'],['￥','资金流水查询','查询客户资金流水明细，包括入金、出金、转账等','资金数据','POST','实时','purple'],['▥','交易汇总统计','按客户/账户/时间等维度汇总交易金额、笔数、盈亏等','统计分析','POST','准实时（5分钟）','orange'],['☆','客户交易行为特征分析','分析客户交易频率、持仓周期、换手率等行为特征','分析服务','POST','准实时（15分钟）','green'],['▣','客户交易偏好分析','分析客户偏好品种、偏好交易时段、风险偏好等','分析服务','POST','准实时（15分钟）','blue'],['♜','异常交易检测','识别客户异常交易行为，如频繁交易、大额异动等','风控服务','POST','准实时（5分钟）','orange'],['△','风险评估评分','基于交易行为评估客户风险水平并输出风险评分','风控服务','POST','准实时（1小时）','purple']
-    ];
-    function renderTable(){const kw=document.getElementById('kw').value.trim();const cat=document.getElementById('cat').value;const body=document.getElementById('apiBody');body.innerHTML='';apis.filter(a=>(!kw||a[1].includes(kw)||a[2].includes(kw))&&(cat==='全部分类'||a[3]===cat)).forEach(a=>{body.insertAdjacentHTML('beforeend',`<tr><td><div class="api-name"><span class="mini-ico ${a[6]}">${a[0]}</span>${a[1]}</div></td><td>${a[2]}</td><td>${a[3]}</td><td>${a[4]}</td><td>${a[5]}</td><td><span class="link" onclick="toast('打开接口文档：${a[1]}')">查看文档</span><span class="link" onclick="toast('进入试用API：${a[1]}')">试用API</span></td></tr>`)});}
-    function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',1800)}
-    function openApply(){document.getElementById('modal').style.display='flex'} function closeApply(){document.getElementById('modal').style.display='none'} function submitApply(){closeApply();toast('申请已提交，等待审批')}
-    renderTable();
-  </script>
-</body>
+    <div class="toast" id="toast"></div>
+    <div class="modal-mask" id="modal">
+      <div class="modal">
+        <h3>确认申请交易行为分析服务？</h3>
+        <p>
+          系统将自动带入当前用户信息，并默认申请本场景下所需的服务接口。提交后进入审批流程。
+        </p>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeApply()">取消</button
+          ><button class="btn primary" onclick="submitApply()">确认提交</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const apis = [
+        [
+          "📈",
+          "客户交易明细查询",
+          "查询客户的交易明细数据，包含买卖、申赎、成交等信息",
+          "交易数据",
+          "POST",
+          "实时",
+          "green",
+        ],
+        [
+          "👤",
+          "客户持仓查询",
+          "查询客户当前持仓及历史持仓变动情况",
+          "交易数据",
+          "POST",
+          "实时",
+          "blue",
+        ],
+        [
+          "￥",
+          "资金流水查询",
+          "查询客户资金流水明细，包括入金、出金、转账等",
+          "资金数据",
+          "POST",
+          "实时",
+          "purple",
+        ],
+        [
+          "▥",
+          "交易汇总统计",
+          "按客户/账户/时间等维度汇总交易金额、笔数、盈亏等",
+          "统计分析",
+          "POST",
+          "准实时（5分钟）",
+          "orange",
+        ],
+        [
+          "☆",
+          "客户交易行为特征分析",
+          "分析客户交易频率、持仓周期、换手率等行为特征",
+          "分析服务",
+          "POST",
+          "准实时（15分钟）",
+          "green",
+        ],
+        [
+          "▣",
+          "客户交易偏好分析",
+          "分析客户偏好品种、偏好交易时段、风险偏好等",
+          "分析服务",
+          "POST",
+          "准实时（15分钟）",
+          "blue",
+        ],
+        [
+          "♜",
+          "异常交易检测",
+          "识别客户异常交易行为，如频繁交易、大额异动等",
+          "风控服务",
+          "POST",
+          "准实时（5分钟）",
+          "orange",
+        ],
+        [
+          "△",
+          "风险评估评分",
+          "基于交易行为评估客户风险水平并输出风险评分",
+          "风控服务",
+          "POST",
+          "准实时（1小时）",
+          "purple",
+        ],
+      ];
+      function renderTable() {
+        const kw = document.getElementById("kw").value.trim();
+        const cat = document.getElementById("cat").value;
+        const body = document.getElementById("apiBody");
+        body.innerHTML = "";
+        apis
+          .filter(
+            (a) =>
+              (!kw || a[1].includes(kw) || a[2].includes(kw)) &&
+              (cat === "全部分类" || a[3] === cat),
+          )
+          .forEach((a) => {
+            body.insertAdjacentHTML(
+              "beforeend",
+              `<tr><td><div class="api-name"><span class="mini-ico ${a[6]}">${a[0]}</span>${a[1]}</div></td><td>${a[2]}</td><td>${a[3]}</td><td>${a[4]}</td><td>${a[5]}</td><td><span class="link" onclick="toast('打开接口文档：${a[1]}')">查看文档</span><span class="link" onclick="toast('进入试用API：${a[1]}')">试用API</span></td></tr>`,
+            );
+          });
+      }
+      function toast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.style.display = "block";
+        setTimeout(() => (t.style.display = "none"), 1800);
+      }
+      function openApply() {
+        location.href = "数据资产运营平台-一键申请页面.html";
+      }
+      function closeApply() {
+        document.getElementById("modal").style.display = "none";
+      }
+      function submitApply() {
+        closeApply();
+        toast("申请已提交，等待审批");
+        setTimeout(
+          () => (location.href = "数据资产运营管理平台-服务申请详情.html"),
+          900,
+        );
+      }
+      renderTable();
+    </script>
+  </body>
 </html>

@@ -1,62 +1,781 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>灵感数据工坊 - 问题反馈</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<style>
-:root{--blue:#1158ff;--deep:#0f1f4d;--text:#1d2b4f;--sub:#64708f;--line:#e4eaf6;--bg:#f7faff;--card:#fff;--green:#19b66a;--orange:#f28b18;--red:#ef4b63;}
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}.topbar{height:78px;background:#fff;display:flex;align-items:center;padding:0 28px;border-bottom:1px solid #e9eef8;box-shadow:0 2px 12px rgba(26,50,110,.04)}.brand{display:flex;align-items:center;gap:10px;width:230px}.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#18d1c4,#245bff 70%,#714bff);clip-path:polygon(50% 0,100% 25%,100% 74%,50% 100%,0 74%,0 25%)}.brand-cn{font-size:22px;font-weight:800;letter-spacing:.5px}.brand-en{font-size:13px;color:#667395;margin-top:2px}.nav{display:flex;gap:48px;height:100%;align-items:center}.nav a{height:100%;display:flex;align-items:center;font-size:20px;font-weight:800;color:#111d3d;text-decoration:none;position:relative}.nav a.active{color:var(--blue)}.nav a.active:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:3px;background:var(--blue)}.tools{margin-left:auto;display:flex;align-items:center;gap:25px;color:#0d1842}.ico{font-size:26px;position:relative}.badge{position:absolute;top:-8px;right:-10px;background:#f5222d;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800}.avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(180deg,#fff0e7,#f6b59b);display:flex;align-items:center;justify-content:center;font-size:22px}.user{font-weight:700}.wrap{padding:28px;max-width:1580px;margin:0 auto}.crumb{display:flex;align-items:center;gap:15px;color:#4f5d80;font-weight:700;margin:3px 0 20px}.crumb b{color:#172345}.main{display:grid;grid-template-columns:minmax(900px,1fr) 390px;gap:24px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(37,65,121,.04)}.form-card{padding:28px 28px 30px}.page-title{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e8eef8;padding-bottom:24px;margin-bottom:22px}.page-title h1{margin:0 0 10px;font-size:24px}.page-title p{margin:0;color:#687593;font-weight:600}.record-btn{height:32px;border:1px solid #b9caff;color:var(--blue);background:#fff;border-radius:5px;padding:0 12px;font-weight:800}.section-title{font-size:18px;font-weight:900;margin:0 0 24px}.row{display:grid;grid-template-columns:120px 1fr;gap:20px;align-items:start;margin-bottom:20px}.label{font-weight:800;color:#233155;padding-top:11px}.required:before{content:"*";color:var(--red);margin-right:6px}.type-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.type-card{height:76px;border:1px solid #d8e1f1;border-radius:6px;background:#fff;display:flex;align-items:center;padding:0 14px;gap:10px;cursor:pointer;transition:.18s}.type-card:hover,.type-card.active{border-color:var(--blue);box-shadow:0 6px 18px rgba(17,88,255,.10)}.type-icon{font-size:24px;color:var(--blue)}.type-card:nth-child(4) .type-icon{color:#315aff}.type-card:nth-child(5) .type-icon{color:#e07b16}.type-name{font-size:15px;font-weight:900}.type-desc{font-size:12px;color:#73809e;margin-top:6px}.input,.select,.textarea{width:100%;border:1px solid #d8e1f1;border-radius:6px;background:#fff;color:#263457;font-weight:700;outline:none}.input,.select{height:40px;padding:0 14px}.select{appearance:none;background:linear-gradient(45deg,transparent 50%,#6b7899 50%),linear-gradient(135deg,#6b7899 50%,transparent 50%);background-position:calc(100% - 18px) 17px,calc(100% - 13px) 17px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}.textarea{height:110px;padding:13px 15px;resize:none}.counter{text-align:right;color:#677493;margin-top:-27px;padding-right:12px;font-weight:700}.upload{height:38px;border:1px solid #d8e1f1;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:#687593;font-weight:700}.upload-left{display:flex;align-items:center;gap:13px}.contact{width:340px;background:#f9fbff}.radio-row{display:flex;align-items:center;gap:42px;height:36px}.radio{display:inline-flex;align-items:center;gap:8px;font-weight:800}.dot{width:16px;height:16px;border-radius:50%;border:1px solid #c7d1e5;display:inline-flex;align-items:center;justify-content:center}.radio.active .dot{border:5px solid var(--blue)}.inline-input{width:260px}.actions{display:flex;justify-content:flex-end;gap:26px;margin-top:32px}.btn{height:38px;border-radius:6px;border:1px solid #d8e1f1;background:#fff;color:#16234a;font-weight:900;padding:0 44px}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.side{display:flex;flex-direction:column;gap:20px}.side-card{padding:24px}.side h2{margin:0 0 24px;font-size:20px}.process{position:relative;padding-left:28px}.process:before{content:"";position:absolute;left:10px;top:14px;bottom:15px;border-left:1px solid #d7deee}.step{position:relative;margin-bottom:28px}.step:last-child{margin-bottom:0}.num{position:absolute;left:-28px;top:0;width:20px;height:20px;border-radius:50%;background:#b8c0d2;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:900}.step.active .num{background:var(--blue)}.step-title{font-weight:900;font-size:15px;color:#28365a}.step.active .step-title{color:var(--blue)}.step-sub{color:#73809e;margin-top:10px;font-weight:700;line-height:1.45}.faq-row{height:47px;border-bottom:1px solid #e7edf7;display:flex;align-items:center;justify-content:space-between;font-weight:800;color:#31405f}.faq-row:last-child{border-bottom:0}.more{float:right;color:var(--blue);font-size:14px}.contact-list{display:grid;gap:18px;color:#253456;font-weight:800}.contact-list span{color:#566383;margin-right:10px}.toast{position:fixed;right:32px;top:95px;background:#132450;color:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 14px 30px rgba(19,36,80,.2);display:none}.modal-mask{position:fixed;inset:0;background:rgba(13,24,66,.35);display:none;align-items:center;justify-content:center}.modal{width:430px;background:#fff;border-radius:12px;padding:26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.18)}.modal .ok{font-size:44px;color:var(--green)}.modal h3{font-size:22px;margin:10px 0}.modal p{color:#697694;font-weight:700}.modal .btn{margin-top:16px}@media(max-width:1180px){.main{grid-template-columns:1fr}.type-grid{grid-template-columns:repeat(2,1fr)}.tools{gap:14px}.nav{gap:24px}}
-</style>
-</head>
-<body>
-<header class="topbar">
-  <div class="brand"><div class="logo"></div><div><div class="brand-cn">灵感数据工坊</div><div class="brand-en">LiveMuse</div></div></div>
-  <nav class="nav"><a class="active">服务中心</a><a>我的工作台</a></nav>
-  <div class="tools"><span class="ico">⌕</span><span class="ico">♧<em class="badge">8</em></span><span class="ico">✉<em class="badge">12</em></span><span class="avatar">👩</span><span class="user">业务人员⌄</span></div>
-</header>
-<div class="wrap">
-  <div class="crumb"><span>← 返回</span><span>/</span><span>服务中心</span><span>/</span><span>服务列表</span><span>/</span><b>问题反馈</b></div>
-  <div class="main">
-    <section class="card form-card">
-      <div class="page-title"><div><h1>问题反馈</h1><p>欢迎您反馈在使用数据资产服务过程中遇到的问题或提出建议，我们将尽快为您处理。</p></div><button class="record-btn">↗ 反馈记录</button></div>
-      <h3 class="section-title">反馈信息</h3>
-      <div class="row"><div class="label required">问题类型</div><div class="type-grid" id="typeGrid">
-        <div class="type-card active"><div class="type-icon">▣</div><div><div class="type-name">功能使用问题</div><div class="type-desc">产品功能操作相关问题</div></div></div>
-        <div class="type-card"><div class="type-icon">▤</div><div><div class="type-name">数据质量问题</div><div class="type-desc">数据结果不准确或异常</div></div></div>
-        <div class="type-card"><div class="type-icon">♙</div><div><div class="type-name">权限与申请问题</div><div class="type-desc">权限申请、审批相关问题</div></div></div>
-        <div class="type-card"><div class="type-icon">△</div><div><div class="type-name">系统故障问题</div><div class="type-desc">系统报错、无法访问等</div></div></div>
-        <div class="type-card"><div class="type-icon">♕</div><div><div class="type-name">建议与意见</div><div class="type-desc">产品建议或优化意见</div></div></div>
-      </div></div>
-      <div class="row"><div class="label required">关联服务（可选）</div><select class="select"><option>请选择关联的服务</option><option>客户画像标签服务</option><option>交易流水明细服务</option><option>风险预警指标服务</option></select></div>
-      <div class="row"><div class="label required">问题描述</div><div><textarea id="desc" class="textarea" maxlength="1000" placeholder="请详细描述您遇到的问题，包括问题现象、发生时间、操作步骤等，以便我们更快定位和解决。"></textarea><div class="counter"><span id="descCount">0</span>/1000</div></div></div>
-      <div class="row"><div class="label">附件上传（可选）</div><div class="upload"><div class="upload-left"><span>⇧</span><span>点击上传或拖拽文件到此处，支持图片、文档、压缩包，单个文件不超过 20MB</span></div><b>0/5</b></div></div>
-      <div class="row"><div class="label required">联系方式</div><input class="input contact" value="张三 / 138****1234" /></div>
-      <div class="row"><div class="label required">希望回复方式</div><div class="radio-row"><label class="radio active"><span class="dot"></span>站内消息</label><label class="radio"><span class="dot"></span>邮件</label><input class="input inline-input" placeholder="请输入邮箱地址" /></div></div>
-      <div class="row"><div class="label">紧急程度</div><div class="radio-row"><label class="radio active"><span class="dot"></span>一般</label><label class="radio"><span class="dot"></span>较高</label><label class="radio"><span class="dot"></span>紧急</label></div></div>
-      <div class="row"><div class="label">预期结果</div><div><textarea id="expect" class="textarea" maxlength="200" style="height:72px" placeholder="（可选）您希望我们如何处理该问题，或期望达到的结果。"></textarea><div class="counter"><span id="expectCount">0</span>/200</div></div></div>
-      <div class="actions"><button class="btn">取消</button><button class="btn primary" id="submitBtn">提交反馈</button></div>
-    </section>
-    <aside class="side">
-      <div class="card side-card"><h2>反馈流程</h2><div class="process">
-        <div class="step active"><div class="num">1</div><div class="step-title">提交反馈</div><div class="step-sub">填写问题信息并提交</div></div>
-        <div class="step"><div class="num">2</div><div class="step-title">问题处理</div><div class="step-sub">我们将尽快受理并处理</div></div>
-        <div class="step"><div class="num">3</div><div class="step-title">结果反馈</div><div class="step-sub">通过您选择的方式回复处理结果</div></div>
-        <div class="step"><div class="num">4</div><div class="step-title">评价反馈</div><div class="step-sub">您对处理结果进行评价</div></div>
-      </div></div>
-      <div class="card side-card"><h2>常见问题 <span class="more">更多 ›</span></h2><div class="faq-row">如何查看我提交的反馈记录？<span>›</span></div><div class="faq-row">反馈后一般需要多久回复？<span>›</span></div><div class="faq-row">可以补充反馈信息吗？<span>›</span></div><div class="faq-row">反馈的内容是否会保密？<span>›</span></div></div>
-      <div class="card side-card"><h2>联系我们</h2><div class="contact-list"><div><span>☎ 服务热线：</span>400-888-1234</div><div><span>✉ 服务邮箱：</span>service@livemuse.com</div><div><span>◴ 服务时间：</span>工作日 9:00 - 18:00</div></div></div>
-    </aside>
-  </div>
-</div>
-<div class="toast" id="toast">请选择问题类型并填写问题描述</div>
-<div class="modal-mask" id="modal"><div class="modal"><div class="ok">✓</div><h3>反馈提交成功</h3><p>系统已生成反馈工单，我们会按照流程尽快处理。</p><button class="btn primary" onclick="modal.style.display='none'">知道了</button></div></div>
-<script>
-const cards=[...document.querySelectorAll('.type-card')];cards.forEach(c=>c.onclick=()=>{cards.forEach(x=>x.classList.remove('active'));c.classList.add('active')});
-function bindCount(id,countId){const el=document.getElementById(id),ct=document.getElementById(countId);el.addEventListener('input',()=>ct.textContent=el.value.length)}bindCount('desc','descCount');bindCount('expect','expectCount');
-document.querySelectorAll('.radio-row').forEach(row=>row.querySelectorAll('.radio').forEach(r=>r.onclick=()=>{row.querySelectorAll('.radio').forEach(x=>x.classList.remove('active'));r.classList.add('active')}));
-const toast=document.getElementById('toast'),modal=document.getElementById('modal');document.getElementById('submitBtn').onclick=()=>{const desc=document.getElementById('desc').value.trim();if(!desc){toast.style.display='block';setTimeout(()=>toast.style.display='none',1800);return}modal.style.display='flex'};
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>灵感数据工坊 - 问题反馈</title>
+    <script src="../echarts/echarts-5.3.2/dist/echarts.min.js"></script>
+    <style>
+      :root {
+        --blue: #1158ff;
+        --deep: #0f1f4d;
+        --text: #1d2b4f;
+        --sub: #64708f;
+        --line: #e4eaf6;
+        --bg: #f7faff;
+        --card: #fff;
+        --green: #19b66a;
+        --orange: #f28b18;
+        --red: #ef4b63;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC",
+          "Microsoft YaHei", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+      }
+      .topbar {
+        height: 78px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        border-bottom: 1px solid #e9eef8;
+        box-shadow: 0 2px 12px rgba(26, 50, 110, 0.04);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 230px;
+      }
+      .logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #18d1c4, #245bff 70%, #714bff);
+        clip-path: polygon(50% 0, 100% 25%, 100% 74%, 50% 100%, 0 74%, 0 25%);
+      }
+      .brand-cn {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .brand-en {
+        font-size: 13px;
+        color: #667395;
+        margin-top: 2px;
+      }
+      .nav {
+        display: flex;
+        gap: 48px;
+        height: 100%;
+        align-items: center;
+      }
+      .nav a {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: 20px;
+        font-weight: 800;
+        color: #111d3d;
+        text-decoration: none;
+        position: relative;
+      }
+      .nav a.active {
+        color: var(--blue);
+      }
+      .nav a.active:after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        border-radius: 3px;
+        background: var(--blue);
+      }
+      .tools {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        color: #0d1842;
+      }
+      .ico {
+        font-size: 26px;
+        position: relative;
+      }
+      .badge {
+        position: absolute;
+        top: -8px;
+        right: -10px;
+        background: #f5222d;
+        color: #fff;
+        font-size: 11px;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+      }
+      .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(180deg, #fff0e7, #f6b59b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+      .user {
+        font-weight: 700;
+      }
+      .wrap {
+        padding: 28px;
+        max-width: 1580px;
+        margin: 0 auto;
+      }
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        color: #4f5d80;
+        font-weight: 700;
+        margin: 3px 0 20px;
+      }
+      .crumb b {
+        color: #172345;
+      }
+      .main {
+        display: grid;
+        grid-template-columns: minmax(900px, 1fr) 390px;
+        gap: 24px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(37, 65, 121, 0.04);
+      }
+      .form-card {
+        padding: 28px 28px 30px;
+      }
+      .page-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #e8eef8;
+        padding-bottom: 24px;
+        margin-bottom: 22px;
+      }
+      .page-title h1 {
+        margin: 0 0 10px;
+        font-size: 24px;
+      }
+      .page-title p {
+        margin: 0;
+        color: #687593;
+        font-weight: 600;
+      }
+      .record-btn {
+        height: 32px;
+        border: 1px solid #b9caff;
+        color: var(--blue);
+        background: #fff;
+        border-radius: 5px;
+        padding: 0 12px;
+        font-weight: 800;
+      }
+      .section-title {
+        font-size: 18px;
+        font-weight: 900;
+        margin: 0 0 24px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 20px;
+        align-items: start;
+        margin-bottom: 20px;
+      }
+      .label {
+        font-weight: 800;
+        color: #233155;
+        padding-top: 11px;
+      }
+      .required:before {
+        content: "*";
+        color: var(--red);
+        margin-right: 6px;
+      }
+      .type-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+      }
+      .type-card {
+        height: 76px;
+        border: 1px solid #d8e1f1;
+        border-radius: 6px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 10px;
+        cursor: pointer;
+        transition: 0.18s;
+      }
+      .type-card:hover,
+      .type-card.active {
+        border-color: var(--blue);
+        box-shadow: 0 6px 18px rgba(17, 88, 255, 0.1);
+      }
+      .type-icon {
+        font-size: 24px;
+        color: var(--blue);
+      }
+      .type-card:nth-child(4) .type-icon {
+        color: #315aff;
+      }
+      .type-card:nth-child(5) .type-icon {
+        color: #e07b16;
+      }
+      .type-name {
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .type-desc {
+        font-size: 12px;
+        color: #73809e;
+        margin-top: 6px;
+      }
+      .input,
+      .select,
+      .textarea {
+        width: 100%;
+        border: 1px solid #d8e1f1;
+        border-radius: 6px;
+        background: #fff;
+        color: #263457;
+        font-weight: 700;
+        outline: none;
+      }
+      .input,
+      .select {
+        height: 40px;
+        padding: 0 14px;
+      }
+      .select {
+        appearance: none;
+        background:
+          linear-gradient(45deg, transparent 50%, #6b7899 50%),
+          linear-gradient(135deg, #6b7899 50%, transparent 50%);
+        background-position:
+          calc(100% - 18px) 17px,
+          calc(100% - 13px) 17px;
+        background-size:
+          5px 5px,
+          5px 5px;
+        background-repeat: no-repeat;
+      }
+      .textarea {
+        height: 110px;
+        padding: 13px 15px;
+        resize: none;
+      }
+      .counter {
+        text-align: right;
+        color: #677493;
+        margin-top: -27px;
+        padding-right: 12px;
+        font-weight: 700;
+      }
+      .upload {
+        height: 38px;
+        border: 1px solid #d8e1f1;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        color: #687593;
+        font-weight: 700;
+      }
+      .upload-left {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+      .contact {
+        width: 340px;
+        background: #f9fbff;
+      }
+      .radio-row {
+        display: flex;
+        align-items: center;
+        gap: 42px;
+        height: 36px;
+      }
+      .radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+      }
+      .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid #c7d1e5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .radio.active .dot {
+        border: 5px solid var(--blue);
+      }
+      .inline-input {
+        width: 260px;
+      }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 26px;
+        margin-top: 32px;
+      }
+      .btn {
+        height: 38px;
+        border-radius: 6px;
+        border: 1px solid #d8e1f1;
+        background: #fff;
+        color: #16234a;
+        font-weight: 900;
+        padding: 0 44px;
+      }
+      .btn.primary {
+        background: var(--blue);
+        border-color: var(--blue);
+        color: #fff;
+      }
+      .side {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .side-card {
+        padding: 24px;
+      }
+      .side h2 {
+        margin: 0 0 24px;
+        font-size: 20px;
+      }
+      .process {
+        position: relative;
+        padding-left: 28px;
+      }
+      .process:before {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 14px;
+        bottom: 15px;
+        border-left: 1px solid #d7deee;
+      }
+      .step {
+        position: relative;
+        margin-bottom: 28px;
+      }
+      .step:last-child {
+        margin-bottom: 0;
+      }
+      .num {
+        position: absolute;
+        left: -28px;
+        top: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #b8c0d2;
+        color: #fff;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+      }
+      .step.active .num {
+        background: var(--blue);
+      }
+      .step-title {
+        font-weight: 900;
+        font-size: 15px;
+        color: #28365a;
+      }
+      .step.active .step-title {
+        color: var(--blue);
+      }
+      .step-sub {
+        color: #73809e;
+        margin-top: 10px;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+      .faq-row {
+        height: 47px;
+        border-bottom: 1px solid #e7edf7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 800;
+        color: #31405f;
+      }
+      .faq-row:last-child {
+        border-bottom: 0;
+      }
+      .more {
+        float: right;
+        color: var(--blue);
+        font-size: 14px;
+      }
+      .contact-list {
+        display: grid;
+        gap: 18px;
+        color: #253456;
+        font-weight: 800;
+      }
+      .contact-list span {
+        color: #566383;
+        margin-right: 10px;
+      }
+      .toast {
+        position: fixed;
+        right: 32px;
+        top: 95px;
+        background: #132450;
+        color: #fff;
+        padding: 14px 20px;
+        border-radius: 8px;
+        box-shadow: 0 14px 30px rgba(19, 36, 80, 0.2);
+        display: none;
+      }
+      .modal-mask {
+        position: fixed;
+        inset: 0;
+        background: rgba(13, 24, 66, 0.35);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal {
+        width: 430px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 26px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+      }
+      .modal .ok {
+        font-size: 44px;
+        color: var(--green);
+      }
+      .modal h3 {
+        font-size: 22px;
+        margin: 10px 0;
+      }
+      .modal p {
+        color: #697694;
+        font-weight: 700;
+      }
+      .modal .btn {
+        margin-top: 16px;
+      }
+      @media (max-width: 1180px) {
+        .main {
+          grid-template-columns: 1fr;
+        }
+        .type-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .tools {
+          gap: 14px;
+        }
+        .nav {
+          gap: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="lm-logo" onclick="location.href='数据资产运营管理平台-数据服务中心.html'" style="width:292px;display:flex;align-items:center;gap:8px;flex:none;cursor:pointer">
+        <span style="font-size:22px;font-weight:900;line-height:1;white-space:nowrap"><span style="color:#ff1f1f">Live</span><span style="color:#111827">Muse</span></span>
+        <svg viewBox="0 0 52 46" aria-hidden="true" style="width:44px;height:39px;flex:none">
+          <polygon points="26 2 48 14 48 32 26 44 4 32 4 14" fill="#fff" stroke="#4f73ff" stroke-width="2.2"></polygon>
+          <circle cx="26" cy="13" r="2.2" fill="#4f73ff"></circle>
+          <path d="M26 19v15" stroke="#4f73ff" stroke-width="3" stroke-linecap="round"></path>
+          <path d="M20 34h12" stroke="#4f73ff" stroke-width="2.6" stroke-linecap="round"></path>
+        </svg>
+        <span style="font-size:19px;font-weight:900;color:#111827;white-space:nowrap">灵感数据工坊</span>
+      </div>
+      <nav class="nav">
+        <a
+          class="active"
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务中心</a
+        ><a
+          onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+          style="cursor: pointer"
+          >我的工作台</a
+        >
+      </nav>
+      <div class="tools">
+        <span class="ico">⌕</span
+        ><span class="ico">♧<em class="badge">8</em></span
+        ><span class="ico">✉<em class="badge">12</em></span
+        ><span class="avatar">👩</span><span class="user">业务人员⌄</span>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="crumb">
+        <span
+          onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+          style="cursor: pointer"
+          >← 返回</span
+        ><span>/</span
+        ><span
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务中心</span
+        ><span>/</span
+        ><span
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务列表</span
+        ><span>/</span><b>问题反馈</b>
+      </div>
+      <div class="main">
+        <section class="card form-card">
+          <div class="page-title">
+            <div>
+              <h1>问题反馈</h1>
+              <p>
+                欢迎您反馈在使用数据资产服务过程中遇到的问题或提出建议，我们将尽快为您处理。
+              </p>
+            </div>
+            <button class="record-btn">↗ 反馈记录</button>
+          </div>
+          <h3 class="section-title">反馈信息</h3>
+          <div class="row">
+            <div class="label required">问题类型</div>
+            <div class="type-grid" id="typeGrid">
+              <div class="type-card active">
+                <div class="type-icon">▣</div>
+                <div>
+                  <div class="type-name">功能使用问题</div>
+                  <div class="type-desc">产品功能操作相关问题</div>
+                </div>
+              </div>
+              <div class="type-card">
+                <div class="type-icon">▤</div>
+                <div>
+                  <div class="type-name">数据质量问题</div>
+                  <div class="type-desc">数据结果不准确或异常</div>
+                </div>
+              </div>
+              <div class="type-card">
+                <div class="type-icon">♙</div>
+                <div>
+                  <div class="type-name">权限与申请问题</div>
+                  <div class="type-desc">权限申请、审批相关问题</div>
+                </div>
+              </div>
+              <div class="type-card">
+                <div class="type-icon">△</div>
+                <div>
+                  <div class="type-name">系统故障问题</div>
+                  <div class="type-desc">系统报错、无法访问等</div>
+                </div>
+              </div>
+              <div class="type-card">
+                <div class="type-icon">♕</div>
+                <div>
+                  <div class="type-name">建议与意见</div>
+                  <div class="type-desc">产品建议或优化意见</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label required">关联服务（可选）</div>
+            <select class="select">
+              <option>请选择关联的服务</option>
+              <option>客户画像标签服务</option>
+              <option>交易流水明细服务</option>
+              <option>风险预警指标服务</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="label required">问题描述</div>
+            <div>
+              <textarea
+                id="desc"
+                class="textarea"
+                maxlength="1000"
+                placeholder="请详细描述您遇到的问题，包括问题现象、发生时间、操作步骤等，以便我们更快定位和解决。"
+              ></textarea>
+              <div class="counter"><span id="descCount">0</span>/1000</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">附件上传（可选）</div>
+            <div class="upload">
+              <div class="upload-left">
+                <span>⇧</span
+                ><span
+                  >点击上传或拖拽文件到此处，支持图片、文档、压缩包，单个文件不超过
+                  20MB</span
+                >
+              </div>
+              <b>0/5</b>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label required">联系方式</div>
+            <input class="input contact" value="张三 / 138****1234" />
+          </div>
+          <div class="row">
+            <div class="label required">希望回复方式</div>
+            <div class="radio-row">
+              <label class="radio active"
+                ><span class="dot"></span>站内消息</label
+              ><label class="radio"><span class="dot"></span>邮件</label
+              ><input class="input inline-input" placeholder="请输入邮箱地址" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">紧急程度</div>
+            <div class="radio-row">
+              <label class="radio active"><span class="dot"></span>一般</label
+              ><label class="radio"><span class="dot"></span>较高</label
+              ><label class="radio"><span class="dot"></span>紧急</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">预期结果</div>
+            <div>
+              <textarea
+                id="expect"
+                class="textarea"
+                maxlength="200"
+                style="height: 72px"
+                placeholder="（可选）您希望我们如何处理该问题，或期望达到的结果。"
+              ></textarea>
+              <div class="counter"><span id="expectCount">0</span>/200</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button
+              class="btn"
+              onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+            >
+              取消</button
+            ><button class="btn primary" id="submitBtn">提交反馈</button>
+          </div>
+        </section>
+        <aside class="side">
+          <div class="card side-card">
+            <h2>反馈流程</h2>
+            <div class="process">
+              <div class="step active">
+                <div class="num">1</div>
+                <div class="step-title">提交反馈</div>
+                <div class="step-sub">填写问题信息并提交</div>
+              </div>
+              <div class="step">
+                <div class="num">2</div>
+                <div class="step-title">问题处理</div>
+                <div class="step-sub">我们将尽快受理并处理</div>
+              </div>
+              <div class="step">
+                <div class="num">3</div>
+                <div class="step-title">结果反馈</div>
+                <div class="step-sub">通过您选择的方式回复处理结果</div>
+              </div>
+              <div class="step">
+                <div class="num">4</div>
+                <div class="step-title">评价反馈</div>
+                <div class="step-sub">您对处理结果进行评价</div>
+              </div>
+            </div>
+          </div>
+          <div class="card side-card">
+            <h2>常见问题 <span class="more">更多 ›</span></h2>
+            <div class="faq-row">如何查看我提交的反馈记录？<span>›</span></div>
+            <div class="faq-row">反馈后一般需要多久回复？<span>›</span></div>
+            <div class="faq-row">可以补充反馈信息吗？<span>›</span></div>
+            <div class="faq-row">反馈的内容是否会保密？<span>›</span></div>
+          </div>
+          <div class="card side-card">
+            <h2>联系我们</h2>
+            <div class="contact-list">
+              <div><span>☎ 服务热线：</span>400-888-1234</div>
+              <div><span>✉ 服务邮箱：</span>service@livemuse.com</div>
+              <div><span>◴ 服务时间：</span>工作日 9:00 - 18:00</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <div class="toast" id="toast">请选择问题类型并填写问题描述</div>
+    <div class="modal-mask" id="modal">
+      <div class="modal">
+        <div class="ok">✓</div>
+        <h3>反馈提交成功</h3>
+        <p>系统已生成反馈工单，我们会按照流程尽快处理。</p>
+        <button class="btn primary" onclick="modal.style.display='none'">
+          知道了
+        </button>
+      </div>
+    </div>
+    <script>
+      const cards = [...document.querySelectorAll(".type-card")];
+      cards.forEach(
+        (c) =>
+          (c.onclick = () => {
+            cards.forEach((x) => x.classList.remove("active"));
+            c.classList.add("active");
+          }),
+      );
+      function bindCount(id, countId) {
+        const el = document.getElementById(id),
+          ct = document.getElementById(countId);
+        el.addEventListener("input", () => (ct.textContent = el.value.length));
+      }
+      bindCount("desc", "descCount");
+      bindCount("expect", "expectCount");
+      document.querySelectorAll(".radio-row").forEach((row) =>
+        row.querySelectorAll(".radio").forEach(
+          (r) =>
+            (r.onclick = () => {
+              row
+                .querySelectorAll(".radio")
+                .forEach((x) => x.classList.remove("active"));
+              r.classList.add("active");
+            }),
+        ),
+      );
+      const toast = document.getElementById("toast"),
+        modal = document.getElementById("modal");
+      document.getElementById("submitBtn").onclick = () => {
+        const desc = document.getElementById("desc").value.trim();
+        if (!desc) {
+          toast.style.display = "block";
+          setTimeout(() => (toast.style.display = "none"), 1800);
+          return;
+        }
+        modal.style.display = "flex";
+      };
+    </script>
+  </body>
 </html>

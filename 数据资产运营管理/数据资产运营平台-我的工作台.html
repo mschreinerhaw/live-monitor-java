@@ -1,0 +1,1424 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiveMuse 灵感数据工坊 - 我的工作台</title>
+    <script src="../echarts/echarts-5.3.2/dist/echarts.min.js"></script>
+    <style>
+      :root {
+        --blue: #135cff;
+        --blue-dark: #0c43d8;
+        --cyan: #12c6d9;
+        --green: #1bbf73;
+        --orange: #ff6b35;
+        --purple: #7138e8;
+        --text: #111b3d;
+        --sub: #5f6d8b;
+        --muted: #8a96b1;
+        --line: #e6ecf7;
+        --soft: #f5f8ff;
+        --panel: #ffffff;
+        --shadow: 0 10px 30px rgba(28, 60, 126, 0.07);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 1440px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f5f8ff 100%);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+          Arial, sans-serif;
+        font-size: 14px;
+      }
+
+      .topbar {
+        height: 86px;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        padding: 0 30px;
+        gap: 54px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        box-shadow: 0 4px 18px rgba(34, 55, 98, 0.04);
+      }
+
+      .brand {
+        width: 250px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo {
+        width: 46px;
+        height: 46px;
+        position: relative;
+      }
+
+      .logo i {
+        position: absolute;
+        display: block;
+        border-radius: 9px;
+        background: linear-gradient(140deg, #18d4cf, #185dff 62%, #7138e8);
+        box-shadow: 0 10px 18px rgba(19, 92, 255, 0.18);
+      }
+
+      .logo i:nth-child(1) {
+        width: 14px;
+        height: 34px;
+        left: 2px;
+        top: 6px;
+      }
+
+      .logo i:nth-child(2) {
+        width: 20px;
+        height: 18px;
+        left: 17px;
+        top: 18px;
+      }
+
+      .logo i:nth-child(3) {
+        width: 16px;
+        height: 24px;
+        left: 27px;
+        top: 8px;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 22px;
+        line-height: 1.1;
+        letter-spacing: 0;
+      }
+
+      .brand span {
+        display: block;
+        margin-top: 4px;
+        color: #596b93;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        gap: 56px;
+      }
+
+      .nav a {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        color: #111b3d;
+        text-decoration: none;
+        font-size: 21px;
+        font-weight: 800;
+        position: relative;
+      }
+
+      .nav a.active {
+        color: var(--blue);
+      }
+
+      .nav a.active:after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        border-radius: 4px 4px 0 0;
+        background: var(--blue);
+      }
+
+      .top-tools {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        color: #102050;
+      }
+
+      .top-icon {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        position: relative;
+        font-size: 26px;
+        line-height: 1;
+      }
+
+      .top-icon.badge:after {
+        content: attr(data-count);
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 999px;
+        background: #f5222d;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 900;
+        display: grid;
+        place-items: center;
+        position: absolute;
+        right: -8px;
+        top: -8px;
+      }
+
+      .avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(180deg, #ffddd2, #ffd1e1);
+        color: #111b3d;
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+        box-shadow: inset 0 0 0 2px #fff;
+      }
+
+      .role {
+        font-size: 14px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 330px minmax(900px, 1fr) 296px;
+        gap: 18px;
+        padding: 18px 18px 22px;
+        min-height: calc(100vh - 86px);
+      }
+
+      .left,
+      .center,
+      .right {
+        min-width: 0;
+      }
+
+      .left {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid #edf2fb;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 24px 20px;
+      }
+
+      .left-title,
+      .config-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 900;
+        margin-bottom: 24px;
+      }
+
+      .grid-icon {
+        width: 24px;
+        height: 24px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px;
+      }
+
+      .grid-icon i {
+        border-radius: 4px;
+        background: linear-gradient(135deg, #135cff, #7138e8);
+      }
+
+      .side-menu {
+        display: grid;
+        gap: 18px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .side-main {
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        gap: 12px;
+        align-items: center;
+        color: #243256;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .side-main.active {
+        color: #111b3d;
+      }
+
+      .mini-ico {
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        color: #586b9d;
+        font-size: 18px;
+      }
+
+      .sub-menu {
+        display: grid;
+        gap: 12px;
+        margin: 10px 0 8px 36px;
+        color: #526281;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .service-box {
+        padding-top: 20px;
+      }
+
+      .section-label {
+        color: #111b3d;
+        font-size: 15px;
+        font-weight: 900;
+        margin-bottom: 12px;
+      }
+
+      .service-search {
+        height: 40px;
+        border: 1px solid #dfe7f4;
+        background: #fff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #7d8aa6;
+        padding: 0 12px;
+        margin-bottom: 12px;
+      }
+
+      .service-tabs {
+        height: 40px;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        color: #53637f;
+        font-size: 13px;
+        font-weight: 900;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .service-tabs span {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        position: relative;
+        white-space: nowrap;
+      }
+
+      .service-tabs .active {
+        color: var(--blue);
+      }
+
+      .service-tabs .active:after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 3px;
+        border-radius: 3px;
+        background: var(--blue);
+      }
+
+      .service-list {
+        display: grid;
+        gap: 14px;
+        padding: 18px 0 26px;
+      }
+
+      .service-item {
+        display: grid;
+        grid-template-columns: 42px 1fr 24px;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .service-ico {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 20px;
+        font-weight: 900;
+        box-shadow: 0 8px 16px rgba(19, 92, 255, 0.15);
+      }
+
+      .service-name {
+        font-weight: 900;
+        margin-bottom: 4px;
+      }
+
+      .service-type {
+        color: #6b7896;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .add {
+        color: #53658a;
+        font-size: 24px;
+        display: grid;
+        place-items: center;
+      }
+
+      .more-service {
+        color: #31405f;
+        font-weight: 900;
+        text-align: center;
+        margin-top: 12px;
+      }
+
+      .center {
+        background: #fff;
+        border: 1px solid #edf2fb;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .canvas-head {
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 26px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .board-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .edit {
+        color: #253965;
+        font-size: 18px;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        color: #354566;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .actions span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .filter-row {
+        display: grid;
+        grid-template-columns: 240px 240px 240px 76px 1fr;
+        gap: 24px;
+        align-items: center;
+        height: 88px;
+        padding: 0 26px;
+      }
+
+      .field {
+        display: grid;
+        grid-template-columns: 76px 1fr;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .field label {
+        color: #394762;
+        font-weight: 800;
+      }
+
+      .select {
+        height: 40px;
+        border: 1px solid #dfe7f5;
+        border-radius: 8px;
+        background: #fbfdff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        color: #31415f;
+        font-weight: 800;
+      }
+
+      .reset {
+        height: 40px;
+        border: 1px solid #dfe7f5;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--blue);
+        font-weight: 900;
+      }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: minmax(580px, 1fr) 360px;
+        gap: 14px;
+        padding: 0 26px 24px;
+      }
+
+      .drop-zone {
+        min-height: 386px;
+        border: 1.5px solid #6b91ff;
+        border-radius: 8px;
+        background:
+          radial-gradient(circle at 42% 18%, rgba(19, 92, 255, 0.08), transparent 34%),
+          linear-gradient(180deg, #fbfdff, #f8fbff);
+        position: relative;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .drop-zone:before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 8px;
+        background-image:
+          linear-gradient(#eef3ff 1px, transparent 1px),
+          linear-gradient(90deg, #eef3ff 1px, transparent 1px);
+        background-size: 42px 42px;
+        opacity: 0.26;
+      }
+
+      .drag-visual {
+        width: 580px;
+        height: 280px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .drag-card {
+        position: absolute;
+        left: 0;
+        top: 72px;
+        width: 318px;
+        height: 98px;
+        background: #fff;
+        border: 1px solid #e8eef8;
+        border-radius: 10px;
+        box-shadow: 0 16px 28px rgba(24, 50, 95, 0.13);
+        display: grid;
+        grid-template-columns: 58px 1fr;
+        gap: 18px;
+        align-items: center;
+        padding: 18px 24px;
+      }
+
+      .drag-card .service-ico {
+        width: 50px;
+        height: 50px;
+        border-radius: 9px;
+        font-size: 26px;
+      }
+
+      .drag-card b {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+
+      .mock-chart {
+        position: absolute;
+        right: 38px;
+        top: 66px;
+        width: 200px;
+        height: 140px;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 15px 28px rgba(24, 50, 95, 0.1);
+        border: 1px solid #e6edf8;
+        overflow: hidden;
+      }
+
+      .mock-top {
+        height: 20px;
+        background: linear-gradient(90deg, #73a8ff, #356dff);
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 5px;
+        padding-right: 10px;
+      }
+
+      .mock-top i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #fff;
+        opacity: 0.85;
+      }
+
+      .mock-chart:before {
+        content: "";
+        position: absolute;
+        left: 34px;
+        right: 34px;
+        top: 44px;
+        height: 10px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #4f8cff, #6e8ee8);
+      }
+
+      .mock-bars {
+        position: absolute;
+        left: 38px;
+        right: 28px;
+        bottom: 24px;
+        height: 62px;
+        display: flex;
+        align-items: flex-end;
+        gap: 18px;
+      }
+
+      .mock-bars i {
+        flex: 1;
+        min-width: 8px;
+        border-radius: 8px 8px 0 0;
+        background: linear-gradient(180deg, #a9c7ff, #3472ff);
+      }
+
+      .mock-bars i:nth-child(1) {
+        height: 46px;
+      }
+
+      .mock-bars i:nth-child(2) {
+        height: 30px;
+      }
+
+      .mock-bars i:nth-child(3) {
+        height: 54px;
+      }
+
+      .dash-line {
+        position: absolute;
+        left: 260px;
+        top: 120px;
+        width: 248px;
+        height: 90px;
+        border-bottom: 4px dashed var(--blue);
+        border-radius: 0 0 70% 0;
+        transform: rotate(8deg);
+      }
+
+      .cursor {
+        position: absolute;
+        right: 12px;
+        top: 164px;
+        color: #0d45e8;
+        font-size: 42px;
+        transform: rotate(-18deg);
+      }
+
+      .empty-text {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 34px;
+        text-align: center;
+      }
+
+      .empty-text b {
+        display: block;
+        font-size: 18px;
+        margin-bottom: 12px;
+      }
+
+      .empty-text span {
+        color: #60708d;
+        font-weight: 700;
+      }
+
+      .metric-stack {
+        display: grid;
+        grid-template-rows: 142px 230px;
+        gap: 14px;
+      }
+
+      .metric-card,
+      .chart-card {
+        border: 1px solid #e5ebf6;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 6px 18px rgba(24, 50, 95, 0.035);
+        padding: 18px;
+        min-width: 0;
+      }
+
+      .metric-card b,
+      .chart-title {
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .big-num {
+        margin-top: 16px;
+        font-size: 28px;
+        font-weight: 900;
+      }
+
+      .big-num small {
+        font-size: 15px;
+        margin-left: 4px;
+      }
+
+      .up {
+        margin-top: 8px;
+        color: var(--green);
+        font-weight: 900;
+      }
+
+      .mini-chart {
+        height: 178px;
+      }
+
+      .chart-grid {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 1fr));
+        gap: 14px;
+      }
+
+      .chart-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1.15fr;
+        gap: 14px;
+      }
+
+      .chart-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .small-select {
+        height: 34px;
+        border: 1px solid #dfe7f5;
+        border-radius: 6px;
+        color: #40516f;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        min-width: 86px;
+        justify-content: space-between;
+      }
+
+      .chart {
+        height: 210px;
+      }
+
+      .small-chart {
+        height: 202px;
+      }
+
+      .analysis-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .analysis-table th {
+        background: #f5f8fe;
+        color: #50617f;
+        text-align: left;
+        padding: 12px;
+      }
+
+      .analysis-table td {
+        padding: 12px;
+        border-bottom: 1px solid #edf2fb;
+      }
+
+      .red {
+        color: #ef3c4d;
+      }
+
+      .green {
+        color: var(--green);
+      }
+
+      .right {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #edf2fb;
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 22px 18px;
+      }
+
+      .config-tabs {
+        height: 46px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-bottom: 1px solid var(--line);
+        margin: -6px -18px 20px;
+      }
+
+      .config-tabs span {
+        display: grid;
+        place-items: center;
+        color: #51627f;
+        font-weight: 900;
+        position: relative;
+      }
+
+      .config-tabs .active {
+        color: var(--blue);
+      }
+
+      .config-tabs .active:after {
+        content: "";
+        position: absolute;
+        left: 40px;
+        right: 40px;
+        bottom: -1px;
+        height: 3px;
+        border-radius: 3px;
+        background: var(--blue);
+      }
+
+      .config-section {
+        border-bottom: 1px solid var(--line);
+        padding: 16px 0;
+      }
+
+      .config-section:first-of-type {
+        padding-top: 0;
+      }
+
+      .config-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 900;
+        margin-bottom: 12px;
+      }
+
+      .chart-types {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+      }
+
+      .type-btn {
+        height: 42px;
+        border: 1px solid #e3eaf6;
+        border-radius: 7px;
+        background: #fbfdff;
+        color: #425577;
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .type-btn.active {
+        border-color: var(--blue);
+        background: #eef5ff;
+        color: var(--blue);
+        box-shadow: inset 0 0 0 1px rgba(19, 92, 255, 0.2);
+      }
+
+      .slot {
+        min-height: 42px;
+        border: 1px solid #e3eaf6;
+        border-radius: 7px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .slot-value {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        color: #3d4d6a;
+        font-weight: 900;
+        background: linear-gradient(90deg, #edf4ff, #f9fbff);
+      }
+
+      .slot-value.highlight {
+        color: #14a66a;
+        background: linear-gradient(90deg, #e9fff5, #f9fffc);
+      }
+
+      .slot-empty {
+        height: 42px;
+        display: grid;
+        place-items: center;
+        color: #7b87a0;
+        font-weight: 800;
+      }
+
+      .radio-row,
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        color: #384967;
+        font-weight: 800;
+        margin-top: 14px;
+      }
+
+      input[type="radio"],
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--blue);
+      }
+
+      .save-btn {
+        width: 100%;
+        height: 44px;
+        border: 0;
+        border-radius: 7px;
+        background: var(--blue);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 900;
+        box-shadow: 0 10px 20px rgba(19, 92, 255, 0.2);
+        margin-top: 22px;
+      }
+
+      @media (max-width: 1500px) {
+        body {
+          min-width: 1280px;
+        }
+
+        .workspace {
+          grid-template-columns: 290px minmax(760px, 1fr) 270px;
+        }
+
+        .dashboard {
+          grid-template-columns: 1fr 300px;
+        }
+
+        .drag-visual {
+          transform: scale(0.86);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="lm-logo" onclick="location.href='数据资产运营管理平台-数据服务中心.html'" style="width:292px;display:flex;align-items:center;gap:8px;flex:none;cursor:pointer">
+        <span style="font-size:22px;font-weight:900;line-height:1;white-space:nowrap"><span style="color:#ff1f1f">Live</span><span style="color:#111827">Muse</span></span>
+        <svg viewBox="0 0 52 46" aria-hidden="true" style="width:44px;height:39px;flex:none">
+          <polygon points="26 2 48 14 48 32 26 44 4 32 4 14" fill="#fff" stroke="#4f73ff" stroke-width="2.2"></polygon>
+          <circle cx="26" cy="13" r="2.2" fill="#4f73ff"></circle>
+          <path d="M26 19v15" stroke="#4f73ff" stroke-width="3" stroke-linecap="round"></path>
+          <path d="M20 34h12" stroke="#4f73ff" stroke-width="2.6" stroke-linecap="round"></path>
+        </svg>
+        <span style="font-size:19px;font-weight:900;color:#111827;white-space:nowrap">灵感数据工坊</span>
+      </div>
+      <nav class="nav">
+        <a href="数据资产运营管理平台-数据服务中心.html">服务中心</a>
+        <a class="active" href="数据资产运营平台-我的工作台.html">我的工作台</a>
+      </nav>
+      <div class="top-tools">
+        <span class="top-icon">⌕</span>
+        <span class="top-icon badge" data-count="8">♧</span>
+        <span class="top-icon badge" data-count="12">✉</span>
+        <span class="avatar">张</span>
+        <span class="role">业务人员⌄</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="left">
+        <div class="left-title">
+          <span class="grid-icon"><i></i><i></i><i></i><i></i></span>
+          我的工作台
+        </div>
+
+        <nav class="side-menu">
+          <div class="side-main active"><span class="mini-ico">▧</span>我的申请</div>
+          <div class="side-main"><span class="mini-ico">☆</span>我的收藏</div>
+          <div>
+            <div class="side-main"><span class="mini-ico">☻</span>我的使用</div>
+            <div class="sub-menu">
+              <span>最近使用</span>
+              <span>使用记录</span>
+              <span>数据源管理</span>
+            </div>
+          </div>
+          <div>
+            <div class="side-main"><span class="mini-ico">♧</span>更多</div>
+            <div class="sub-menu"><span>回到服务中心</span></div>
+          </div>
+        </nav>
+
+        <section class="service-box">
+          <div class="section-label">可用服务</div>
+          <div class="service-search">⌕ <span>搜索服务名称</span></div>
+          <div class="service-tabs">
+            <span class="active">全部</span>
+            <span>数据服务</span>
+            <span>分析服务</span>
+            <span>指标服务</span>
+          </div>
+          <div class="service-list">
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #7c3aed, #5112d9)">●</div>
+              <div>
+                <div class="service-name">客户画像标签服务</div>
+                <div class="service-type">数据服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #ff884d, #f15a24)">▤</div>
+              <div>
+                <div class="service-name">交易流水明细服务</div>
+                <div class="service-type">数据服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #22c55e, #0ea65d)">◆</div>
+              <div>
+                <div class="service-name">风险预警指标服务</div>
+                <div class="service-type">指标服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #2d7dff, #0f55ff)">▥</div>
+              <div>
+                <div class="service-name">营销活动效果服务</div>
+                <div class="service-type">分析服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #4075ff, #164de8)">◈</div>
+              <div>
+                <div class="service-name">资产负债分析服务</div>
+                <div class="service-type">分析服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+            <div class="service-item">
+              <div class="service-ico" style="background: linear-gradient(135deg, #ff7438, #ff4a17)">✦</div>
+              <div>
+                <div class="service-name">实时交易查询服务</div>
+                <div class="service-type">数据服务</div>
+              </div>
+              <div class="add">＋</div>
+            </div>
+          </div>
+          <div class="more-service">更多服务 〉</div>
+        </section>
+      </aside>
+
+      <main class="center">
+        <section class="canvas-head">
+          <div class="board-title">客户洞察分析看板 <span class="edit">✎</span></div>
+          <div class="actions">
+            <span>↶ 撤销</span>
+            <span>↷ 重做</span>
+            <span>▧ 清空</span>
+            <span>▣ 保存</span>
+            <span>▤ 另存为</span>
+            <span>⇧ 导出</span>
+            <span>⊕ 更多⌄</span>
+          </div>
+        </section>
+
+        <section class="filter-row">
+          <div class="field">
+            <label>时间范围</label>
+            <div class="select">近30天 <span>⌄</span></div>
+          </div>
+          <div class="field">
+            <label>地区</label>
+            <div class="select">全部 <span>⌄</span></div>
+          </div>
+          <div class="field">
+            <label>客户类型</label>
+            <div class="select">全部 <span>⌄</span></div>
+          </div>
+          <button class="reset">重置</button>
+        </section>
+
+        <section class="dashboard">
+          <div class="drop-zone">
+            <div class="drag-visual">
+              <div class="drag-card">
+                <div class="service-ico" style="background: linear-gradient(135deg, #7b3cff, #4a16d7)">●</div>
+                <div>
+                  <b>客户画像标签服务</b>
+                  <span>数据服务</span>
+                </div>
+              </div>
+              <div class="dash-line"></div>
+              <div class="mock-chart">
+                <div class="mock-top"><i></i><i></i><i></i></div>
+                <div class="mock-bars"><i></i><i></i><i></i></div>
+              </div>
+              <div class="cursor">☝</div>
+              <div class="empty-text">
+                <b>拖拽左侧服务到此处进行可视化分析</b>
+                <span>支持图表、表格、指标卡等多种组件</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-stack">
+            <div class="metric-card">
+              <b>客户总数</b>
+              <div class="big-num">128,560 <small>人</small></div>
+              <div class="up">同比 ↑ 12.45%</div>
+            </div>
+            <div class="metric-card">
+              <b>客户类型分布</b>
+              <div id="typeChart" class="mini-chart"></div>
+            </div>
+          </div>
+
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-head">
+                <div class="chart-title">客户增长趋势</div>
+              </div>
+              <div id="lineChart" class="chart"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-head">
+                <div class="chart-title">客户地域分布TOP10</div>
+                <div class="small-select">客户数⌄</div>
+              </div>
+              <div id="barChart" class="chart"></div>
+            </div>
+          </div>
+
+          <div class="chart-row">
+            <div class="chart-card">
+              <div class="chart-title">客户类型分析</div>
+              <table class="analysis-table">
+                <thead>
+                  <tr>
+                    <th>客户类型</th>
+                    <th>客户数</th>
+                    <th>占比</th>
+                    <th>同比</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>个人客户</td>
+                    <td>77,174</td>
+                    <td>60.20%</td>
+                    <td class="red">↑ 12.45%</td>
+                  </tr>
+                  <tr>
+                    <td>企业客户</td>
+                    <td>36,776</td>
+                    <td>28.60%</td>
+                    <td class="green">↑ 8.21%</td>
+                  </tr>
+                  <tr>
+                    <td>机构客户</td>
+                    <td>14,610</td>
+                    <td>11.20%</td>
+                    <td class="red">↓ -2.34%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">活跃度分布</div>
+              <div id="funnelChart" class="small-chart"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">客户画像标签分布（TOP5）</div>
+              <div id="tagChart" class="small-chart"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="right">
+        <div class="config-tabs">
+          <span class="active">图表配置</span>
+          <span>数据配置</span>
+        </div>
+
+        <section class="config-section">
+          <div class="config-label">图表类型</div>
+          <div class="chart-types">
+            <div class="type-btn active">▥</div>
+            <div class="type-btn">⌁</div>
+            <div class="type-btn">◔</div>
+            <div class="type-btn">▦</div>
+            <div class="type-btn">▤</div>
+          </div>
+        </section>
+
+        <section class="config-section">
+          <div class="config-label">维度 <span>（1/3）⌄</span></div>
+          <div class="slot">
+            <div class="slot-value">客户类型</div>
+            <div class="slot-empty">＋ 拖拽字段到此处</div>
+          </div>
+        </section>
+
+        <section class="config-section">
+          <div class="config-label">指标 <span>（1/3）⌄</span></div>
+          <div class="slot">
+            <div class="slot-value highlight">客户数（求和）</div>
+            <div class="slot-empty">＋ 拖拽字段到此处</div>
+          </div>
+        </section>
+
+        <section class="config-section">
+          <div class="config-label">筛选器 <span>⌄</span></div>
+          <div class="slot"><div class="slot-empty">＋ 拖拽字段到此处</div></div>
+        </section>
+
+        <section class="config-section">
+          <div class="config-label">排序 <span>⌄</span></div>
+          <div class="slot"><div class="slot-value">客户数（求和）⌄</div></div>
+          <div class="radio-row">
+            <label><input type="radio" name="sort" checked /> 降序</label>
+            <label><input type="radio" name="sort" /> 升序</label>
+          </div>
+        </section>
+
+        <section class="config-section">
+          <div class="config-label">图表样式</div>
+          <div class="check-row"><label><input type="checkbox" checked /> 显示图例</label></div>
+          <div class="check-row"><label><input type="checkbox" /> 显示数据标签</label></div>
+          <div class="check-row"><label><input type="checkbox" checked /> 显示网格线</label></div>
+        </section>
+
+        <button class="save-btn">保存图表</button>
+      </aside>
+    </div>
+
+    <script>
+      const colors = ["#135cff", "#16c7c1", "#20bf6b", "#ff7143", "#845ef7"];
+      const baseText = "#263653";
+
+      function makeChart(id, option) {
+        const el = document.getElementById(id);
+        if (!el || !window.echarts) return;
+        const chart = echarts.init(el);
+        chart.setOption(option);
+        window.addEventListener("resize", () => chart.resize());
+      }
+
+      makeChart("typeChart", {
+        color: colors,
+        tooltip: { trigger: "item" },
+        legend: {
+          right: 0,
+          top: "middle",
+          orient: "vertical",
+          itemWidth: 9,
+          itemHeight: 9,
+          textStyle: { color: baseText, fontWeight: 700 },
+        },
+        series: [
+          {
+            type: "pie",
+            radius: ["48%", "72%"],
+            center: ["34%", "52%"],
+            avoidLabelOverlap: true,
+            label: {
+              show: true,
+              position: "center",
+              formatter: "128,560\n总数",
+              color: "#152142",
+              fontWeight: 900,
+              fontSize: 15,
+              lineHeight: 22,
+            },
+            data: [
+              { value: 60.2, name: "个人客户   60.2%" },
+              { value: 28.6, name: "企业客户   28.6%" },
+              { value: 11.2, name: "机构客户   11.2%" },
+            ],
+          },
+        ],
+      });
+
+      makeChart("lineChart", {
+        color: ["#135cff", "#1ec47a"],
+        tooltip: { trigger: "axis" },
+        grid: { left: 44, right: 22, top: 42, bottom: 34 },
+        legend: {
+          top: 0,
+          left: 0,
+          itemWidth: 10,
+          itemHeight: 10,
+          textStyle: { color: baseText, fontWeight: 800 },
+        },
+        xAxis: {
+          type: "category",
+          boundaryGap: false,
+          data: ["04-24", "04-27", "05-01", "05-04", "05-08", "05-12", "05-15", "05-19", "05-22"],
+          axisLine: { lineStyle: { color: "#dbe4f3" } },
+          axisTick: { show: false },
+          axisLabel: { color: "#4c5d7a", fontWeight: 700 },
+        },
+        yAxis: {
+          type: "value",
+          min: 0,
+          max: 8,
+          axisLabel: { formatter: "{value}万", color: "#4c5d7a", fontWeight: 700 },
+          splitLine: { lineStyle: { color: "#edf2fb" } },
+        },
+        series: [
+          {
+            name: "新增客户数",
+            type: "line",
+            smooth: true,
+            symbolSize: 8,
+            lineStyle: { width: 3 },
+            areaStyle: { color: "rgba(19,92,255,0.08)" },
+            data: [4.1, 5.0, 4.4, 5.7, 5.2, 6.1, 6.3, 6.6, 7.7],
+          },
+          {
+            name: "活跃客户数",
+            type: "line",
+            smooth: true,
+            symbolSize: 6,
+            lineStyle: { width: 3 },
+            data: [2.6, 3.1, 3.5, 3.2, 3.8, 3.9, 4.2, 4.0, 4.8],
+          },
+        ],
+      });
+
+      makeChart("barChart", {
+        color: ["#2e73ff"],
+        tooltip: { trigger: "axis" },
+        grid: { left: 42, right: 20, top: 24, bottom: 36 },
+        xAxis: {
+          type: "category",
+          data: ["北京", "上海", "深圳", "广州", "杭州", "成都", "南京", "西安", "重庆"],
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: "#dbe4f3" } },
+          axisLabel: { color: "#4c5d7a", fontWeight: 800 },
+        },
+        yAxis: {
+          type: "value",
+          axisLabel: { formatter: "{value}万", color: "#4c5d7a", fontWeight: 700 },
+          splitLine: { lineStyle: { color: "#edf2fb" } },
+        },
+        series: [
+          {
+            type: "bar",
+            barWidth: 18,
+            itemStyle: {
+              borderRadius: [3, 3, 0, 0],
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: "#5b95ff" },
+                { offset: 1, color: "#135cff" },
+              ]),
+            },
+            data: [3.7, 3.2, 2.6, 2.45, 2.2, 1.85, 1.7, 1.55, 1.54],
+          },
+        ],
+      });
+
+      makeChart("funnelChart", {
+        color: ["#135cff", "#16c7c1", "#20bf6b"],
+        tooltip: { trigger: "item" },
+        legend: {
+          right: 8,
+          top: "middle",
+          orient: "vertical",
+          itemWidth: 10,
+          itemHeight: 10,
+          textStyle: { color: baseText, fontWeight: 800 },
+        },
+        series: [
+          {
+            type: "funnel",
+            left: 18,
+            top: 16,
+            bottom: 12,
+            width: "48%",
+            minSize: "36%",
+            maxSize: "92%",
+            sort: "descending",
+            label: { show: false },
+            itemStyle: { borderColor: "#fff", borderWidth: 2 },
+            data: [
+              { value: 32.6, name: "高活跃   32.6%" },
+              { value: 41.3, name: "中活跃   41.3%" },
+              { value: 26.1, name: "低活跃   26.1%" },
+            ],
+          },
+        ],
+      });
+
+      makeChart("tagChart", {
+        color: ["#2e73ff"],
+        grid: { left: 100, right: 50, top: 20, bottom: 24 },
+        xAxis: { type: "value", show: false },
+        yAxis: {
+          type: "category",
+          inverse: true,
+          data: ["高价值客户", "潜力客户", "活跃客户", "风险客户", "流失预警客户"],
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { color: "#263653", fontWeight: 800 },
+        },
+        series: [
+          {
+            type: "bar",
+            barWidth: 12,
+            label: {
+              show: true,
+              position: "right",
+              color: "#263653",
+              fontWeight: 800,
+              formatter: ({ value }) => value.toLocaleString(),
+            },
+            itemStyle: {
+              borderRadius: [0, 8, 8, 0],
+              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                { offset: 0, color: "#5b95ff" },
+                { offset: 1, color: "#135cff" },
+              ]),
+            },
+            data: [32456, 28765, 24321, 12345, 8673],
+          },
+        ],
+      });
+    </script>
+  </body>
+</html>

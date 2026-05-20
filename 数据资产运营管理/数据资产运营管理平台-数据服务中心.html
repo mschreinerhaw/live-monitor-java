@@ -1,221 +1,1699 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>LiveMuse 灵感数据工坊 - 证券业务服务中心</title>
-<style>
-:root{--blue:#2563eb;--blue2:#1d4ed8;--bg:#f6f8fc;--card:#fff;--line:#e6ebf5;--text:#172033;--muted:#6b7890;--soft:#eef4ff;--orange:#ff6b35;--green:#10b981;--purple:#7c3aed;--pink:#ec4899;--shadow:0 10px 30px rgba(18,35,68,.08)}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#fbfcff 0,#f5f7fb 100%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;color:var(--text)}
-.header{height:70px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:27px}.brand b{color:#ef2626}.brand .cube{width:42px;height:42px;border:2px solid #4877ff;border-radius:12px;display:grid;place-items:center;color:#2563eb;font-size:20px}.sub{font-size:18px;color:#111827;font-weight:700}.nav{display:flex;gap:40px;align-items:center}.nav a{font-size:18px;text-decoration:none;color:#1f2a44;font-weight:700;padding:22px 6px 19px;border-bottom:4px solid transparent}.nav a.active{color:var(--blue);border-color:var(--blue)}.icons{display:flex;align-items:center;gap:20px;font-size:24px;color:#172033}.badge{position:relative}.badge i{position:absolute;right:-8px;top:-9px;background:#ef1f2d;color:white;border-radius:999px;padding:2px 5px;font-size:11px;font-style:normal}
-.layout{display:grid;grid-template-columns:minmax(880px,1fr) 338px;gap:18px;padding:18px 26px 26px}.main,.side{min-width:0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}.stat{height:136px;border:1px solid #edf1f8;border-radius:14px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;gap:20px;padding:24px;background-image:linear-gradient(135deg,rgba(37,99,235,.04),rgba(255,255,255,.95))}.stat:nth-child(2){background-image:linear-gradient(135deg,rgba(255,107,53,.08),#fff)}.stat:nth-child(3){background-image:linear-gradient(135deg,rgba(245,158,11,.08),#fff)}.stat:nth-child(4){background-image:linear-gradient(135deg,rgba(37,99,235,.07),#fff)}.ico{
-width:54px;
-height:54px;
-display:grid;
-place-items:center;
-font-size:30px;
-background:none !important;
-box-shadow:none !important;
-border:none !important;
-}.purple{color:#7c3aed;font-size:32px;}.orange{color:#f97316}.gold{color:#f59e0b}.blue{color:#2563eb}.stat h3{margin:0 0 8px;font-size:16px}.stat strong{font-size:34px}.stat p{margin:14px 0 0;font-size:14px;color:#111827;font-weight:700}.toolbar{display:grid;grid-template-columns:170px 170px 170px 1fr;gap:18px;margin-bottom:18px}.select,.search{height:54px;border:1px solid var(--line);background:#fff;border-radius:12px;display:flex;align-items:center;padding:0 22px;font-size:16px;font-weight:700;box-shadow:0 4px 18px rgba(20,40,80,.04)}.select{justify-content:space-between}.search{padding:0 0 0 18px}.search input{border:0;outline:0;flex:1;font-size:14px;color:#34405a}.search button{height:48px;margin-right:3px;border:0;border-radius:8px;background:var(--blue);color:white;font-size:16px;font-weight:800;padding:0 24px}.search .adv{color:var(--blue);font-weight:800;padding:0 16px;white-space:nowrap}.table{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}.thead,.row{display:grid;grid-template-columns:minmax(360px,1.7fr) 160px minmax(220px,.92fr) 120px 130px;align-items:center}.thead{height:54px;background:#fbfcff;color:#3b4660;font-weight:800;border-bottom:1px solid var(--line);padding:0 24px;font-size:14px}.row{min-height:112px;padding:16px 24px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}
-.service-color:nth-of-type(1){color:#6d28d9;}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiveMuse 灵感数据工坊 - 证券业务服务中心</title>
+    <style>
+      :root {
+        --blue: #2563eb;
+        --blue2: #1d4ed8;
+        --bg: #f6f8fc;
+        --card: #fff;
+        --line: #e6ebf5;
+        --text: #172033;
+        --muted: #6b7890;
+        --soft: #eef4ff;
+        --orange: #ff6b35;
+        --green: #10b981;
+        --purple: #7c3aed;
+        --pink: #ec4899;
+        --shadow: 0 10px 30px rgba(18, 35, 68, 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #fbfcff 0, #f5f7fb 100%);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+          Arial, sans-serif;
+        color: var(--text);
+      }
+      .header {
+        height: 70px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 54px;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        font-size: 27px;
+      }
+      .brand b {
+        color: #ef2626;
+      }
+      .brand .cube {
+        width: 42px;
+        height: 42px;
+        border: 2px solid #4877ff;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: #2563eb;
+        font-size: 20px;
+      }
+      .sub {
+        font-size: 18px;
+        color: #111827;
+        font-weight: 700;
+      }
+      .nav {
+        display: flex;
+        gap: 40px;
+        align-items: center;
+      }
+      .nav a {
+        font-size: 18px;
+        text-decoration: none;
+        color: #1f2a44;
+        font-weight: 700;
+        padding: 22px 6px 19px;
+        border-bottom: 4px solid transparent;
+      }
+      .nav a.active {
+        color: var(--blue);
+        border-color: var(--blue);
+      }
+      .icons {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        font-size: 24px;
+        color: #172033;
+      }
+      .badge {
+        position: relative;
+      }
+      .badge i {
+        position: absolute;
+        right: -8px;
+        top: -9px;
+        background: #ef1f2d;
+        color: white;
+        border-radius: 999px;
+        padding: 2px 5px;
+        font-size: 11px;
+        font-style: normal;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(880px, 1fr) 338px;
+        gap: 18px;
+        padding: 18px 26px 26px;
+        transition: grid-template-columns 0.24s ease;
+      }
+      .layout.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr) 72px;
+      }
+      .main,
+      .side {
+        min-width: 0;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      .stat {
+        height: 136px;
+        border: 1px solid #edf1f8;
+        border-radius: 14px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 24px;
+        background-image: linear-gradient(
+          135deg,
+          rgba(37, 99, 235, 0.04),
+          rgba(255, 255, 255, 0.95)
+        );
+      }
+      .stat:nth-child(2) {
+        background-image: linear-gradient(
+          135deg,
+          rgba(255, 107, 53, 0.08),
+          #fff
+        );
+      }
+      .stat:nth-child(3) {
+        background-image: linear-gradient(
+          135deg,
+          rgba(245, 158, 11, 0.08),
+          #fff
+        );
+      }
+      .stat:nth-child(4) {
+        background-image: linear-gradient(
+          135deg,
+          rgba(37, 99, 235, 0.07),
+          #fff
+        );
+      }
+      .ico {
+        width: 54px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+        font-size: 30px;
+        background: none !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .purple {
+        color: #7c3aed;
+        font-size: 32px;
+      }
+      .orange {
+        color: #f97316;
+      }
+      .gold {
+        color: #f59e0b;
+      }
+      .blue {
+        color: #2563eb;
+      }
+      .stat h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .stat strong {
+        font-size: 34px;
+      }
+      .stat p {
+        margin: 14px 0 0;
+        font-size: 14px;
+        color: #111827;
+        font-weight: 700;
+      }
+      .toolbar {
+        display: grid;
+        grid-template-columns: 170px 170px 170px 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      .layout.sidebar-collapsed .toolbar {
+        grid-template-columns: repeat(3, minmax(150px, 170px)) minmax(360px, 1fr);
+      }
+      .filter-item {
+        position: relative;
+      }
+      .select,
+      .search {
+        height: 54px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        padding: 0 22px;
+        font-size: 16px;
+        font-weight: 700;
+        box-shadow: 0 4px 18px rgba(20, 40, 80, 0.04);
+      }
+      .select {
+        justify-content: space-between;
+        width: 100%;
+        cursor: pointer;
+        color: #1f2a44;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s,
+          color 0.2s;
+      }
+      .select:hover,
+      .select.active {
+        border-color: #bfd1ff;
+        color: var(--blue);
+        box-shadow: 0 8px 22px rgba(37, 99, 235, 0.1);
+      }
+      button.select {
+        font-family: inherit;
+        text-align: left;
+      }
+      .filter-menu {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 62px;
+        z-index: 20;
+        display: none;
+        padding: 8px;
+        border: 1px solid #dce6f6;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 16px 34px rgba(18, 35, 68, 0.14);
+      }
+      .filter-menu.show {
+        display: grid;
+        gap: 4px;
+      }
+      .filter-option {
+        height: 36px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #2f3b52;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        text-align: left;
+        padding: 0 12px;
+        cursor: pointer;
+      }
+      .filter-option:hover,
+      .filter-option.selected {
+        background: #eef4ff;
+        color: var(--blue);
+      }
+      .search {
+        padding: 0 0 0 18px;
+      }
+      .search input {
+        border: 0;
+        outline: 0;
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+        color: #34405a;
+      }
+      .search button {
+        height: 48px;
+        margin-right: 3px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--blue);
+        color: white;
+        font-size: 16px;
+        font-weight: 800;
+        padding: 0 24px;
+      }
+      .search .adv {
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 800;
+        padding: 0 16px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .advanced-panel {
+        grid-column: 1/-1;
+        display: none;
+        grid-template-columns: repeat(4, minmax(150px, 1fr)) auto auto;
+        gap: 12px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid #dce6f6;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 8px 22px rgba(20, 40, 80, 0.06);
+      }
+      .advanced-panel.show {
+        display: grid;
+      }
+      .advanced-panel input,
+      .advanced-panel select {
+        height: 40px;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 12px;
+        color: #34405a;
+        font-family: inherit;
+        font-size: 14px;
+        outline: 0;
+      }
+      .advanced-panel button {
+        height: 40px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 16px;
+        font-family: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .advanced-panel .primary {
+        background: var(--blue);
+        color: #fff;
+      }
+      .advanced-panel .ghost {
+        background: #eef4ff;
+        color: var(--blue);
+      }
+      .table {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .thead,
+      .row {
+        display: grid;
+        grid-template-columns:
+          minmax(360px, 1.7fr) 160px minmax(220px, 0.92fr)
+          120px 130px;
+        align-items: center;
+      }
+      .thead {
+        height: 54px;
+        background: #fbfcff;
+        color: #3b4660;
+        font-weight: 800;
+        border-bottom: 1px solid var(--line);
+        padding: 0 24px;
+        font-size: 14px;
+      }
+      .row {
+        min-height: 112px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .row:last-child {
+        border-bottom: 0;
+      }
+      .empty {
+        padding: 48px 24px;
+        color: #71809a;
+        font-weight: 800;
+        text-align: center;
+      }
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+        gap: 16px;
+        padding: 16px;
+      }
+      .service-card {
+        min-height: 230px;
+        border: 1px solid #e2eaf8;
+        border-radius: 10px;
+        background: #fff;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        box-shadow: 0 8px 24px rgba(20, 40, 80, 0.06);
+      }
+      .service-card-head {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .service-card .sico {
+        width: 42px;
+        height: 42px;
+        font-size: 24px;
+      }
+      .card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: #4f5f7a;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .card-meta span {
+        border-radius: 8px;
+        background: #f3f6fb;
+        padding: 6px 9px;
+      }
+      .service-card-actions {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .layout.sidebar-collapsed .table {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        overflow: visible;
+      }
+      .layout.sidebar-collapsed .thead {
+        display: none;
+      }
+      .layout.sidebar-collapsed .foot {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+      }
+      .service-color:nth-of-type(1) {
+        color: #6d28d9;
+      }
 
-.service{display:flex;gap:18px;align-items:center}.sico{
-width:48px;
-height:48px;
-display:grid;
-place-items:center;
-font-size:28px;
-flex:none;
-background:none !important;
-box-shadow:none !important;
-border:none !important;
-}.svc-title{font-size:17px;font-weight:900;margin-bottom:8px}.rate{color:#f97316;font-size:15px;margin-left:8px}.desc{font-size:13px;line-height:1.55;color:#5d6a82;max-width:520px}.usage{font-size:13px;color:#374151;line-height:1.9}.usage span{font-weight:900;margin:0 4px}.tags{display:flex;flex-wrap:wrap;gap:8px}.tag{background:#eaf2ff;color:#2563eb;border-radius:7px;padding:6px 9px;font-weight:800;font-size:12px;line-height:1}.op{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0}.detail-btn{height:36px;padding:0 16px;border-radius:10px;border:1px solid #dbe7ff;background:#fff;color:#2563ff;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;line-height:36px}.detail-btn:hover{background:#f3f7ff;border-color:#2563ff;box-shadow:0 4px 12px rgba(37,99,255,.10)}.more{width:26px;height:32px;border-radius:8px;display:grid;place-items:center;color:#738097;font-size:20px;font-weight:900}.more:hover{background:#f5f7fb;color:#2563ff}.check{width:28px;height:28px;border-radius:8px;background:var(--blue);display:grid;place-items:center;color:white;font-weight:900;box-shadow:0 6px 14px rgba(37,99,235,.18)}.foot{height:60px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 24px;color:#63708a;font-weight:700;font-size:13px;background:#fff;white-space:nowrap}.pages{display:flex;gap:8px;align-items:center;flex:none}.page{min-width:34px;height:34px;padding:0 9px;border-radius:9px;display:grid;place-items:center;border:1px solid transparent;cursor:pointer}.page.active{border:1px solid #dbe6fb;background:#f8fbff;color:var(--blue)}.foot-total{color:#5f6d84;font-size:14px;font-weight:800;flex:none}.page-tools{display:flex;align-items:center;gap:8px;color:#4b5b78;font-size:14px;font-weight:700;white-space:nowrap;flex:none}.page-input,.page-size{height:34px;width:42px;min-width:42px;border:1px solid #d9e5fb;border-radius:9px;background:#fff;color:#172033;font-size:14px;font-weight:700;text-align:center;outline:none}.page-size{width:72px;min-width:72px;padding:0 8px;text-align:left}.split{width:1px;height:18px;background:#e6ebf5;margin:0 8px;display:inline-block}.foot-right{display:flex;align-items:center;gap:20px;flex:none}
-.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}.panel-title{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:18px;margin-bottom:10px}.panel-title a{color:var(--blue);font-size:14px;text-decoration:none}.quick{display:grid;gap:16px}.qitem{display:grid;grid-template-columns:34px 1fr 28px;align-items:center}.qico{
-width:28px;
-height:28px;
-display:grid;
-place-items:center;
-font-size:22px;
-background:none !important;
-border:none !important;
-box-shadow:none !important;
-}
-.qitem:nth-child(1) .qico{color:#ef4444;}
-.qitem:nth-child(2) .qico{color:#2563eb;}
-.qitem:nth-child(3) .qico{color:#f59e0b;}
-.qitem:nth-child(4) .qico{color:#10b981;}
+      .service {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+      }
+      .sico {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        font-size: 28px;
+        flex: none;
+        background: none !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .svc-title {
+        font-size: 17px;
+        font-weight: 900;
+        margin-bottom: 8px;
+      }
+      .rate {
+        color: #f97316;
+        font-size: 15px;
+        margin-left: 8px;
+      }
+      .desc {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #5d6a82;
+        max-width: 520px;
+      }
+      .usage {
+        font-size: 13px;
+        color: #374151;
+        line-height: 1.9;
+      }
+      .usage span {
+        font-weight: 900;
+        margin: 0 4px;
+      }
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .tag {
+        background: #eaf2ff;
+        color: #2563eb;
+        border-radius: 7px;
+        padding: 6px 9px;
+        font-weight: 800;
+        font-size: 12px;
+        line-height: 1;
+      }
+      .op {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        min-width: 0;
+      }
+      .op-head {
+        padding-left: 16px;
+      }
+      .detail-btn {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 10px;
+        border: 1px solid #dbe7ff;
+        background: #fff;
+        color: #2563ff;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        line-height: 36px;
+      }
+      .detail-btn:hover {
+        background: #f3f7ff;
+        border-color: #2563ff;
+        box-shadow: 0 4px 12px rgba(37, 99, 255, 0.1);
+      }
+      .more {
+        width: 26px;
+        height: 32px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #738097;
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .more:hover {
+        background: #f5f7fb;
+        color: #2563ff;
+      }
+      .check {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--blue);
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: 900;
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+      }
+      .foot {
+        height: 60px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 24px;
+        color: #63708a;
+        font-weight: 700;
+        font-size: 13px;
+        background: #fff;
+        white-space: nowrap;
+      }
+      .pages {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex: none;
+      }
+      .page {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 9px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+      .page.active {
+        border: 1px solid #dbe6fb;
+        background: #f8fbff;
+        color: var(--blue);
+      }
+      .foot-total {
+        color: #5f6d84;
+        font-size: 14px;
+        font-weight: 800;
+        flex: none;
+      }
+      .page-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #4b5b78;
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+        flex: none;
+      }
+      .page-input,
+      .page-size {
+        height: 34px;
+        width: 42px;
+        min-width: 42px;
+        border: 1px solid #d9e5fb;
+        border-radius: 9px;
+        background: #fff;
+        color: #172033;
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        outline: none;
+      }
+      .page-size {
+        width: 72px;
+        min-width: 72px;
+        padding: 0 8px;
+        text-align: left;
+      }
+      .split {
+        width: 1px;
+        height: 18px;
+        background: #e6ebf5;
+        margin: 0 8px;
+        display: inline-block;
+      }
+      .foot-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex: none;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 16px 18px;
+        margin-bottom: 14px;
+      }
+      .side {
+        align-self: start;
+        position: sticky;
+        top: 88px;
+      }
+      .drawer-toggle,
+      .rail-btn {
+        width: 100%;
+        min-height: 42px;
+        border: 0;
+        border-radius: 10px;
+        background: #eef4ff;
+        color: var(--blue);
+        font-family: inherit;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .drawer-toggle {
+        position: absolute;
+        left: -18px;
+        top: 128px;
+        z-index: 3;
+        width: 26px;
+        min-height: 38px;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        border: 0;
+        background: #fff;
+        box-shadow: -2px 4px 14px rgba(37, 99, 235, 0.14);
+        font-size: 28px;
+        border-radius: 999px 0 0 999px;
+      }
+      .toggle-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        color: var(--blue);
+        background: transparent;
+        font-weight: 900;
+        transition: transform 0.2s;
+      }
+      .side-rail-actions {
+        display: none;
+        gap: 8px;
+        margin-top: 76px;
+      }
+      .rail-btn {
+        display: grid;
+        place-items: center;
+        padding: 8px 6px;
+        line-height: 1.25;
+        background: #fff;
+        border: 1px solid #dce6f6;
+        color: #33415c;
+        font-size: 12px;
+      }
+      .drawer-content {
+        overflow: hidden;
+        transition:
+          opacity 0.18s ease,
+          transform 0.18s ease;
+      }
+      .layout.sidebar-collapsed .drawer-toggle {
+        left: -18px;
+      }
+      .layout.sidebar-collapsed .toggle-icon {
+        transform: rotate(180deg);
+      }
+      .layout.sidebar-collapsed .side-rail-actions {
+        display: grid;
+      }
+      .layout.sidebar-collapsed .drawer-content {
+        display: none;
+      }
+      .panel-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 900;
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      .panel-title a {
+        color: var(--blue);
+        font-size: 14px;
+        text-decoration: none;
+      }
+      .quick {
+        display: grid;
+        gap: 16px;
+      }
+      .qitem {
+        display: grid;
+        grid-template-columns: 34px 1fr 28px;
+        align-items: center;
+      }
+      .qico {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      .qitem:nth-child(1) .qico {
+        color: #ef4444;
+      }
+      .qitem:nth-child(2) .qico {
+        color: #2563eb;
+      }
+      .qitem:nth-child(3) .qico {
+        color: #f59e0b;
+      }
+      .qitem:nth-child(4) .qico {
+        color: #10b981;
+      }
 
-.qtitle{font-weight:900}.qsub{font-size:12px;color:#7b879c;margin-top:4px}.num{font-size:20px;color:#ef1f2d;font-weight:900;text-align:right}.scenario-search{height:42px;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;gap:10px;padding:0 12px;color:#68758c;margin:12px 0}.tabs{display:flex;gap:18px;font-size:14px;font-weight:900;color:#4d5b75;border-bottom:1px solid var(--line);margin-bottom:8px}.tabs span{padding:10px 0}.tabs .on{color:var(--blue);border-bottom:3px solid var(--blue)}.scene{display:grid;grid-template-columns:32px 1fr 18px;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f3f8;position:relative}.scene:before{content:'';position:absolute;left:13px;top:38px;bottom:-6px;width:1px;background:#edf2fb}.scene:last-child:before{display:none}.scene:last-child{border:0}.mini{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:14px}.scene b{display:block;font-size:15px}.scene p{margin:4px 0 0;color:#68758c;font-size:12px;line-height:1.45}.scene .link{color:#2563ff;font-weight:800;margin-left:6px}.ai{background:linear-gradient(135deg,#fff7ed,#fff);overflow:hidden;position:relative}.ai-box{display:flex;gap:12px;align-items:center}.robot{width:92px;height:92px;border-radius:22px;background:linear-gradient(180deg,#e0f2fe,#fff);display:grid;place-items:center;font-size:48px}.ai p{margin:6px 0;color:#5d6a82;font-size:13px;line-height:1.6}.consult{height:42px;border:0;border-radius:9px;background:var(--orange);color:white;font-weight:900;font-size:16px;padding:0 26px}.demo-note{margin-bottom:14px;background:linear-gradient(90deg,#eef5ff,#fff);border:1px solid #dce8ff;color:#31405e;padding:13px 16px;border-radius:12px;font-weight:700}.demo-note b{color:var(--blue)}
+      .qtitle {
+        font-weight: 900;
+      }
+      .qsub {
+        font-size: 12px;
+        color: #7b879c;
+        margin-top: 4px;
+      }
+      .num {
+        font-size: 20px;
+        color: #ef1f2d;
+        font-weight: 900;
+        text-align: right;
+      }
+      .scenario-search {
+        height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+        color: #68758c;
+        margin: 12px 0;
+      }
+      .tabs {
+        display: flex;
+        gap: 18px;
+        font-size: 14px;
+        font-weight: 900;
+        color: #4d5b75;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 8px;
+      }
+      .tabs button {
+        padding: 10px 0;
+        border: 0;
+        border-bottom: 3px solid transparent;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+      }
+      .tabs button:hover,
+      .tabs button:focus-visible,
+      .tabs .on {
+        color: var(--blue);
+        border-bottom: 3px solid var(--blue);
+      }
+      .tabs button:focus-visible {
+        outline: 2px solid rgba(37, 99, 235, 0.22);
+        outline-offset: 2px;
+      }
+      .scene {
+        display: grid;
+        grid-template-columns: 32px 1fr 18px;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f3f8;
+        position: relative;
+      }
+      .scene:before {
+        content: "";
+        position: absolute;
+        left: 13px;
+        top: 38px;
+        bottom: -6px;
+        width: 1px;
+        background: #edf2fb;
+      }
+      .scene:last-child:before {
+        display: none;
+      }
+      .scene:last-child {
+        border: 0;
+      }
+      .mini {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 14px;
+      }
+      .mini.purple {
+        background: #7c3aed;
+        color: #fff;
+        font-size: 14px;
+      }
+      .mini.orange {
+        background: #f97316;
+        color: #fff;
+      }
+      .mini.blue {
+        background: #2563eb;
+        color: #fff;
+      }
+      .mini.gold {
+        background: #f59e0b;
+        color: #fff;
+      }
+      .scene b {
+        display: block;
+        font-size: 15px;
+      }
+      .scene p {
+        margin: 4px 0 0;
+        color: #68758c;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .scene .link {
+        color: #2563ff;
+        font-weight: 800;
+        margin-left: 6px;
+      }
+      .ai {
+        background: linear-gradient(135deg, #fff7ed, #fff);
+        overflow: hidden;
+        position: relative;
+      }
+      .ai-box {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .robot {
+        width: 92px;
+        height: 92px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #e0f2fe, #fff);
+        display: grid;
+        place-items: center;
+        font-size: 48px;
+      }
+      .ai p {
+        margin: 6px 0;
+        color: #5d6a82;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .consult {
+        height: 42px;
+        border: 0;
+        border-radius: 9px;
+        background: var(--orange);
+        color: white;
+        font-weight: 900;
+        font-size: 16px;
+        padding: 0 26px;
+      }
+      .demo-note {
+        margin-bottom: 14px;
+        background: linear-gradient(90deg, #eef5ff, #fff);
+        border: 1px solid #dce8ff;
+        color: #31405e;
+        padding: 13px 16px;
+        border-radius: 12px;
+        font-weight: 700;
+      }
+      .demo-note b {
+        color: var(--blue);
+      }
 
+      .batch-apply-btn {
+        height: 38px;
+        padding: 0 18px;
+        border-radius: 10px;
+        border: 1px solid #cfe0ff;
+        background: linear-gradient(180deg, #ffffff, #eef5ff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 800;
+        color: #2563eb;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+        transition: all 0.2s;
+      }
 
-.batch-apply-btn{
-height:38px;
-padding:0 18px;
-border-radius:10px;
-border:1px solid #cfe0ff;
-background:linear-gradient(180deg,#ffffff,#eef5ff);
-display:flex;
-align-items:center;
-justify-content:center;
-gap:6px;
-cursor:pointer;
-font-size:13px;
-font-weight:800;
-color:#2563eb;
-box-shadow:0 4px 12px rgba(37,99,235,.08);
-transition:all .2s;
-}
+      .batch-apply-btn:hover {
+        background: #eaf2ff;
+        border-color: #2563eb;
+        transform: translateY(-1px);
+      }
 
-.batch-apply-btn:hover{
-background:#eaf2ff;
-border-color:#2563eb;
-transform:translateY(-1px);
-}
+      .service-check {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #2563eb;
+      }
 
-.service-check{
-width:18px;
-height:18px;
-cursor:pointer;
-accent-color:#2563eb;
-}
+      .apply-cell {
+        gap: 12px;
+      }
 
-.apply-cell{
-gap:12px;
-}
+      .apply-head {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-.apply-head{
-display:flex;
-align-items:center;
-gap:8px;
-font-weight:800;
-color:#2563eb;
-}
+      .apply-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
 
-.apply-cell{
-display:flex;
-justify-content:center;
-align-items:center;
-}
+      .head-apply-btn {
+        height: 28px;
+        padding: 0 12px;
+        border-radius: 6px;
+        border: 1px solid #d9e4f5;
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #2563eb;
+        font-size: 13px;
+        font-weight: 700;
+        transition:
+          color 0.2s,
+          background 0.2s,
+          border-color 0.2s;
+      }
 
-.apply-btn{
-width:40px;
-height:40px;
-border-radius:12px;
-border:1px solid #dbe7ff;
-background:linear-gradient(180deg,#ffffff,#f5f9ff);
-display:grid;
-place-items:center;
-font-size:18px;
-cursor:pointer;
-color:#2563eb;
-box-shadow:0 4px 12px rgba(37,99,235,.08);
-transition:all .2s;
-}
+      .head-apply-btn:hover {
+        background: #f5f8ff;
+        border-color: #a9c5f7;
+      }
 
-.apply-btn:hover{
-transform:translateY(-1px);
-background:#eef5ff;
-border-color:#2563eb;
-}
+      .head-apply-btn:focus-visible {
+        outline: 2px solid rgba(37, 99, 235, 0.24);
+        outline-offset: 2px;
+      }
 
-@media(max-width:1180px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.panel{margin-bottom:0}.toolbar{grid-template-columns:1fr 1fr}.search{grid-column:1/-1}.stats{grid-template-columns:repeat(2,1fr)}}
-</style>
-</head>
-<body>
-<header class="header">
-  <div class="brand"><b>Live</b>Muse <span class="cube">◇</span><span class="sub">灵感数据工坊</span></div>
-  <nav class="nav"><a class="active">🏠 服务中心</a><a>♙ 我的工作台</a></nav>
-  <div class="icons"><span>⌕</span><span class="badge">🔔<i>4</i></span><span class="badge">✉<i>23</i></span><span class="badge">💬<i>99+</i></span><span>♙ 进入人员</span></div>
-</header>
-<div class="layout">
-  <main class="main">
-    <section class="stats">
-      <div class="stat"><div class="ico purple">▦</div><div><h3>全部服务</h3><strong>2,256</strong><p>较昨日　+128 ↑</p></div></div>
-      <div class="stat"><div class="ico orange">♨</div><div><h3>热门服务</h3><strong>128</strong><p>较昨日　+12 ↑</p></div></div>
-      <div class="stat"><div class="ico gold">★</div><div><h3>我的收藏</h3><strong>32</strong><p>较昨日　+5 ↑</p></div></div>
-      <div class="stat"><div class="ico blue">▥</div><div><h3>我使用的</h3><strong>56</strong><p>较昨日　+8 ↑</p></div></div>
-    </section>
-    <section class="toolbar">
-      <div class="select">业务场景 <span>⌄</span></div><div class="select">服务状态 <span>⌄</span></div><div class="select">更多筛选 <span>▽</span></div>
-      <div class="search">🔍<input id="kw" placeholder="搜索服务名称、关键词、业务场景等"><button onclick="filterRows()">搜索</button><span class="adv">高级搜索⌄</span></div>
-    </section>
-    <section class="table">
-      
-<div class="thead">
-  <div>服务名称</div>
-  <div>使用情况</div>
-  <div>业务标签</div>
-  <div>操作</div>
-  <div class="apply-head"><span>服务一键申请</span>
-  </div>
-</div>
-
-      <div id="rows"></div>
-      <div class="foot">
-        <div class="pages">
-          <span class="page">‹</span>
-          <span class="page active">1</span>
-          <span class="page">2</span>
-          <span class="page">3</span>
-          <span class="page">4</span>
-          <span class="page">5</span>
-          <span>…</span>
-          <span class="page">10</span>
-          <span class="page">›</span>
-        </div>
-        <div class="foot-right">
-          <div class="foot-total">共98条</div>
-          <div class="page-tools">
-            <span>跳至</span>
-            <input class="page-input" value="1" />
-            <span>页</span>
-            <span class="split"></span>
-            <span>每页显示</span>
-            <select class="page-size">
-              <option>10</option>
-              <option>20</option>
-              <option>50</option>
-            </select>
-            <span>条</span>
-          </div>
-        </div>
+      @media (max-width: 1180px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          position: static;
+          display: block;
+        }
+        .drawer-toggle {
+          display: none;
+        }
+        .drawer-content {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+        }
+        .layout.sidebar-collapsed .drawer-content {
+          display: none;
+        }
+        .panel {
+          margin-bottom: 0;
+        }
+        .toolbar {
+          grid-template-columns: 1fr 1fr;
+        }
+        .search {
+          grid-column: 1/-1;
+        }
+        .advanced-panel {
+          grid-template-columns: 1fr 1fr;
+        }
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="lm-logo" onclick="location.href='数据资产运营管理平台-数据服务中心.html'" style="width:292px;display:flex;align-items:center;gap:8px;flex:none;cursor:pointer">
+        <span style="font-size:22px;font-weight:900;line-height:1;white-space:nowrap"><span style="color:#ff1f1f">Live</span><span style="color:#111827">Muse</span></span>
+        <svg viewBox="0 0 52 46" aria-hidden="true" style="width:44px;height:39px;flex:none">
+          <polygon points="26 2 48 14 48 32 26 44 4 32 4 14" fill="#fff" stroke="#4f73ff" stroke-width="2.2"></polygon>
+          <circle cx="26" cy="13" r="2.2" fill="#4f73ff"></circle>
+          <path d="M26 19v15" stroke="#4f73ff" stroke-width="3" stroke-linecap="round"></path>
+          <path d="M20 34h12" stroke="#4f73ff" stroke-width="2.6" stroke-linecap="round"></path>
+        </svg>
+        <span style="font-size:19px;font-weight:900;color:#111827;white-space:nowrap">灵感数据工坊</span>
       </div>
-    </section>
-  </main>
-  <aside class="side">
-    <section class="panel"><div class="panel-title">快捷入口 <a>管理 ›</a></div><div class="quick">
-      <div class="qitem"><div class="qico">◉</div><div><div class="qtitle">待我审批事项</div><div class="qsub">需要您处理</div></div><div class="num">2</div></div>
-      <div class="qitem"><div class="qico">♙</div><div><div class="qtitle">我的服务</div><div class="qsub">已开通服务</div></div><div class="num" style="color:#2563eb">6</div></div>
-      <div class="qitem"><div class="qico">☑</div><div><div class="qtitle">超时预警</div><div class="qsub">即将超时服务</div></div><div class="num">2</div></div>
-      <div class="qitem"><div class="qico">♢</div><div><div class="qtitle">系统通知</div><div class="qsub">未读通知</div></div><div class="num">8</div></div>
-    </div></section>
-    <section class="panel"><div class="panel-title">服务应用场景 <a>更多 ›</a></div><div class="qsub">查看该服务在证券业务链路中被使用的位置</div><div class="scenario-search">🔍 搜索场景名称</div><div class="tabs"><span class="on">最近使用</span><span>关联报表</span><span>关联系统</span></div>
-      <div class="scene"><div class="mini purple">♙</div><div><b>客户运营</b><p>API 12个接口｜场景 8个｜系统 5个 <span class="link">查看链路</span></p></div><b>›</b></div>
-      <div class="scene"><div class="mini orange">▤</div><div><b>交易分析</b><p>API 9个接口｜场景 15个｜系统 3个 <span class="link">查看链路</span></p></div><b>›</b></div>
-      <div class="scene"><div class="mini">盾</div><div><b>风险管理</b><p>API 6个接口｜场景 10个｜系统 4个 <span class="link">查看链路</span></p></div><b>›</b></div>
-    </section>
-    <section class="panel ai"><div class="panel-title">智能AI助手 <a style="color:#f97316">NEW</a></div><div class="ai-box"><div class="robot">🤖</div><div><b>您好！我是智能AI助手</b><p>可帮助您查找数据服务、解释指标口径、推荐使用场景。</p><button class="consult">立即咨询</button></div></div></section>
-  </aside>
-</div>
-<script>
-const services=[
- {icon:'♙',textColor:'#6d28d9',name:'客户画像标签服务',rate:'4.8',desc:'基于客户行为、交易、基础信息等多维度数据，生成客户分层，支持客户分群和精准营销。',users:128,month:256,tags:['客户分析','客户画像','精准营销','分群管理']},
- {icon:'▤',textColor:'#f97316',name:'交易流水明细服务',rate:'4.7',desc:'提供客户交易明细数据，包含交易时间、金额、渠道等信息，支持多维度查询分析。',users:96,month:182,tags:['交易分析','交易明细','流水查询','金额交易']},
- {icon:'盾',textColor:'#10b981',name:'风险预警指标服务',rate:'4.6',desc:'整合多维风险指标，提供风险预警和监控能力，支持风险识别和处置。',users:75,month:142,tags:['风险管理','风险预警','指标监控','风险识别']},
- {icon:'▥',textColor:'#ec4899',name:'营销活动效果服务',rate:'4.5',desc:'提供营销活动的全链路数据，包括曝光、点击、转化等关键指标。',users:64,month:98,tags:['活动分析','效果分析','转化分析','转化分析']}
-];
-function render(list=services){document.getElementById('rows').innerHTML=list.map(s=>`<div class="row"><div class="service"><div class="sico service-color">${s.icon}</div><div><div class="svc-title">${s.name}<span class="rate">★ ${s.rate}</span></div><div class="desc">${s.desc}</div></div></div><div class="usage">♙ <span>${s.users}</span> 人在用<br>本月使用 <span>${s.month}</span> 次</div><div class="tags">${s.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <nav class="nav">
+        <a class="active" href="数据资产运营管理平台-数据服务中心.html"
+          >🏠 服务中心</a
+        ><a href="数据资产运营平台-我的工作台.html">♙ 我的工作台</a>
+      </nav>
+      <div class="icons">
+        <span>⌕</span><span class="badge">🔔<i>4</i></span
+        ><span class="badge">✉<i>23</i></span
+        ><span class="badge">💬<i>99+</i></span
+        ><span>♙ 进入人员</span>
+      </div>
+    </header>
+    <div class="layout">
+      <main class="main">
+        <section class="stats">
+          <div class="stat">
+            <div class="ico purple">▦</div>
+            <div>
+              <h3>全部服务</h3>
+              <strong>2,256</strong>
+              <p>较昨日　+128 ↑</p>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="ico orange">♨</div>
+            <div>
+              <h3>热门服务</h3>
+              <strong>128</strong>
+              <p>较昨日　+12 ↑</p>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="ico gold">★</div>
+            <div>
+              <h3>我的收藏</h3>
+              <strong>32</strong>
+              <p>较昨日　+5 ↑</p>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="ico blue">▥</div>
+            <div>
+              <h3>我使用的</h3>
+              <strong>56</strong>
+              <p>较昨日　+8 ↑</p>
+            </div>
+          </div>
+        </section>
+        <section class="toolbar">
+          <div class="filter-item">
+            <button class="select" type="button" data-filter="scene">
+              <span class="filter-label">业务场景</span>
+            </button>
+            <div class="filter-menu" data-menu="scene"></div>
+          </div>
+          <div class="filter-item">
+            <button class="select" type="button" data-filter="status">
+              <span class="filter-label">服务状态</span>
+            </button>
+            <div class="filter-menu" data-menu="status"></div>
+          </div>
+          <div class="filter-item">
+            <button class="select" type="button" data-filter="more">
+              <span class="filter-label">更多筛选</span>
+            </button>
+            <div class="filter-menu" data-menu="more"></div>
+          </div>
+          <div class="search">
+            🔍<input
+              id="kw"
+              placeholder="搜索服务名称、关键词、业务场景等"
+            /><button onclick="filterRows()">搜索</button
+            ><button class="adv" type="button" onclick="toggleAdvancedSearch()">
+              高级搜索
+            </button>
+          </div>
+          <div class="advanced-panel" id="advancedPanel">
+            <input id="advName" placeholder="服务名称" />
+            <input id="advTag" placeholder="业务标签" />
+            <select id="advRate">
+              <option value="">评分不限</option>
+              <option value="4.8">4.8分以上</option>
+              <option value="4.7">4.7分以上</option>
+              <option value="4.6">4.6分以上</option>
+            </select>
+            <input id="advUsers" type="number" min="0" placeholder="最低使用人数" />
+            <button class="ghost" type="button" onclick="resetFilters()">重置</button>
+            <button class="primary" type="button" onclick="filterRows()">查询</button>
+          </div>
+        </section>
+        <section class="table">
+          <div class="thead">
+            <div>服务名称</div>
+            <div>使用情况</div>
+            <div>业务标签</div>
+            <div class="op-head">操作</div>
+            <div class="apply-head">
+              <button
+                class="head-apply-btn"
+                type="button"
+                title="一键申请"
+                aria-label="一键申请"
+                onclick="location.href='数据资产运营平台-一键申请页面.html'"
+              >
+                一键申请
+              </button>
+            </div>
+          </div>
+
+          <div id="rows"></div>
+          <div class="foot">
+            <div class="pages">
+              <span class="page">‹</span>
+              <span class="page active">1</span>
+              <span class="page">2</span>
+              <span class="page">3</span>
+              <span class="page">4</span>
+              <span class="page">5</span>
+              <span>…</span>
+              <span class="page">10</span>
+              <span class="page">›</span>
+            </div>
+            <div class="foot-right">
+              <div class="foot-total">共98条</div>
+              <div class="page-tools">
+                <span>跳至</span>
+                <input class="page-input" value="1" />
+                <span>页</span>
+                <span class="split"></span>
+                <span>每页显示</span>
+                <select class="page-size">
+                  <option>10</option>
+                  <option>20</option>
+                  <option>50</option>
+                </select>
+                <span>条</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      <aside class="side" id="sideToolbar">
+        <button
+          class="drawer-toggle"
+          type="button"
+          onclick="toggleSideToolbar()"
+          aria-expanded="true"
+          title="收起扩展工具栏"
+        >
+          <span class="toggle-icon">›</span>
+        </button>
+        <div class="side-rail-actions" aria-label="扩展工具栏">
+          <button class="rail-btn" type="button" onclick="expandSideToolbar('quickPanel')">
+            快捷
+          </button>
+          <button class="rail-btn" type="button" onclick="expandSideToolbar('scenePanel')">
+            场景
+          </button>
+        </div>
+        <div class="drawer-content">
+        <section class="panel" id="quickPanel">
+          <div class="panel-title">快捷入口 <a>管理 ›</a></div>
+          <div class="quick">
+            <div
+              class="qitem"
+              onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+              style="cursor: pointer"
+            >
+              <div class="qico">◉</div>
+              <div>
+                <div class="qtitle">待我审批事项</div>
+                <div class="qsub">需要您处理</div>
+              </div>
+              <div class="num">2</div>
+            </div>
+            <div
+              class="qitem"
+              onclick="location.href='数据资产运营平台-单个服务详情页面.html'"
+              style="cursor: pointer"
+            >
+              <div class="qico">♙</div>
+              <div>
+                <div class="qtitle">我的服务</div>
+                <div class="qsub">已开通服务</div>
+              </div>
+              <div class="num" style="color: #2563eb">6</div>
+            </div>
+            <div class="qitem">
+              <div class="qico">☑</div>
+              <div>
+                <div class="qtitle">超时预警</div>
+                <div class="qsub">即将超时服务</div>
+              </div>
+              <div class="num">2</div>
+            </div>
+            <div class="qitem">
+              <div class="qico">♢</div>
+              <div>
+                <div class="qtitle">系统通知</div>
+                <div class="qsub">未读通知</div>
+              </div>
+              <div class="num">8</div>
+            </div>
+          </div>
+        </section>
+        <section class="panel" id="scenePanel">
+          <div class="panel-title">
+            服务应用场景 <a href="数据资产运营平台-服务应用场景.html">更多 ›</a>
+          </div>
+          <div class="qsub">查看该服务在证券业务链路中被使用的位置</div>
+          <div class="scenario-search">🔍 搜索场景名称</div>
+          <div class="tabs" id="sceneTabs" role="tablist" aria-label="服务应用场景分类">
+            <button class="on" type="button" data-scene-tab="recent" role="tab" aria-selected="true">最近使用</button
+            ><button type="button" data-scene-tab="report" role="tab" aria-selected="false">关联报表</button
+            ><button type="button" data-scene-tab="system" role="tab" aria-selected="false">关联系统</button>
+          </div>
+          <div id="sceneList"></div>
+        </section>
+        <section class="panel ai">
+          <div class="panel-title">
+            智能AI助手 <a style="color: #f97316">NEW</a>
+          </div>
+          <div class="ai-box">
+            <div class="robot">🤖</div>
+            <div>
+              <b>您好！我是智能AI助手</b>
+              <p>可帮助您查找数据服务、解释指标口径、推荐使用场景。</p>
+              <button class="consult">立即咨询</button>
+            </div>
+          </div>
+        </section>
+        </div>
+      </aside>
+    </div>
+    <script>
+      const services = [
+        {
+          icon: "♙",
+          textColor: "#6d28d9",
+          name: "客户画像标签服务",
+          rate: "4.8",
+          desc: "基于客户行为、交易、基础信息等多维度数据，生成客户分层，支持客户分群和精准营销。",
+          users: 128,
+          month: 256,
+          scene: "客户分析",
+          status: "已上架",
+          tags: ["客户分析", "客户画像", "精准营销", "分群管理"],
+        },
+        {
+          icon: "▤",
+          textColor: "#f97316",
+          name: "交易流水明细服务",
+          rate: "4.7",
+          desc: "提供客户交易明细数据，包含交易时间、金额、渠道等信息，支持多维度查询分析。",
+          users: 96,
+          month: 182,
+          scene: "交易分析",
+          status: "已上架",
+          tags: ["交易分析", "交易明细", "流水查询", "金额交易"],
+        },
+        {
+          icon: "盾",
+          textColor: "#10b981",
+          name: "风险预警指标服务",
+          rate: "4.6",
+          desc: "整合多维风险指标，提供风险预警和监控能力，支持风险识别和处置。",
+          users: 75,
+          month: 142,
+          scene: "风险管理",
+          status: "试运行",
+          tags: ["风险管理", "风险预警", "指标监控", "风险识别"],
+        },
+        {
+          icon: "▥",
+          textColor: "#ec4899",
+          name: "营销活动效果服务",
+          rate: "4.5",
+          desc: "提供营销活动的全链路数据，包括曝光、点击、转化等关键指标。",
+          users: 64,
+          month: 98,
+          scene: "活动分析",
+          status: "维护中",
+          tags: ["活动分析", "效果分析", "转化分析", "转化分析"],
+        },
+      ];
+      const filters = {
+        scene: "",
+        status: "",
+        more: "",
+      };
+      const filterTitles = {
+        scene: "业务场景",
+        status: "服务状态",
+        more: "更多筛选",
+      };
+      const filterOptions = {
+        scene: [
+          { label: "全部场景", value: "" },
+          { label: "客户分析", value: "客户分析" },
+          { label: "交易分析", value: "交易分析" },
+          { label: "风险管理", value: "风险管理" },
+          { label: "活动分析", value: "活动分析" },
+        ],
+        status: [
+          { label: "全部状态", value: "" },
+          { label: "已上架", value: "已上架" },
+          { label: "试运行", value: "试运行" },
+          { label: "维护中", value: "维护中" },
+        ],
+        more: [
+          { label: "全部服务", value: "" },
+          { label: "热门服务", value: "hot" },
+          { label: "高评分", value: "highRate" },
+          { label: "高频使用", value: "frequent" },
+        ],
+      };
+      const sceneTabData = {
+        recent: [
+          {
+            icon: "♙",
+            iconClass: "purple",
+            name: "客户运营",
+            desc: "API 12个接口｜场景 8个｜系统 5个",
+          },
+          {
+            icon: "▤",
+            iconClass: "orange",
+            name: "交易分析",
+            desc: "API 9个接口｜场景 15个｜系统 3个",
+          },
+          {
+            icon: "盾",
+            iconClass: "blue",
+            name: "风险管理",
+            desc: "API 6个接口｜场景 10个｜系统 4个",
+          },
+        ],
+        report: [
+          {
+            icon: "报",
+            iconClass: "blue",
+            name: "客户分层洞察报表",
+            desc: "服务 7个｜指标 23个｜近7日调用 126次",
+          },
+          {
+            icon: "图",
+            iconClass: "purple",
+            name: "交易趋势分析报表",
+            desc: "服务 5个｜指标 18个｜近7日调用 98次",
+          },
+          {
+            icon: "表",
+            iconClass: "gold",
+            name: "风险预警周报",
+            desc: "服务 4个｜指标 16个｜近7日调用 64次",
+          },
+        ],
+        system: [
+          {
+            icon: "客",
+            iconClass: "purple",
+            name: "CRM 客户经营系统",
+            desc: "接口 12个｜场景 8个｜在线服务 6个",
+          },
+          {
+            icon: "交",
+            iconClass: "orange",
+            name: "集中交易系统",
+            desc: "接口 9个｜场景 6个｜在线服务 4个",
+          },
+          {
+            icon: "风",
+            iconClass: "blue",
+            name: "风险监测系统",
+            desc: "接口 8个｜场景 7个｜在线服务 5个",
+          },
+        ],
+      };
+      function render(list = services) {
+        const total = document.querySelector(".foot-total");
+        if (total) total.textContent = `共${list.length}条`;
+        const rows = document.getElementById("rows");
+        if (!list.length) {
+          rows.innerHTML = `<div class="empty">暂无符合条件的数据服务</div>`;
+          return;
+        }
+        if (isSidebarCollapsed()) {
+          rows.innerHTML = `<div class="card-grid">${list
+            .map(
+              (s) => `<article class="service-card">
+  <div class="service-card-head">
+    <div class="sico service-color">${s.icon}</div>
+    <div>
+      <div class="svc-title">${s.name}<span class="rate">★ ${s.rate}</span></div>
+      <div class="desc">${s.desc}</div>
+    </div>
+  </div>
+  <div class="card-meta">
+    <span>${s.scene}</span>
+    <span>${s.status}</span>
+    <span>${s.users} 人在用</span>
+    <span>本月 ${s.month} 次</span>
+  </div>
+  <div class="tags">${s.tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
+  <div class="service-card-actions">
+    <button class="detail-btn" onclick="location.href='数据资产运营平台-单个服务详情页面.html'">查看详情</button>
+    <input type="checkbox" class="service-check">
+  </div>
+</article>`,
+            )
+            .join("")}</div>`;
+          return;
+        }
+        rows.innerHTML = list
+          .map(
+            (
+              s,
+            ) => `<div class="row"><div class="service"><div class="sico service-color">${s.icon}</div><div><div class="svc-title">${s.name}<span class="rate">★ ${s.rate}</span></div><div class="desc">${s.desc}</div></div></div><div class="usage">♙ <span>${s.users}</span> 人在用<br>本月使用 <span>${s.month}</span> 次</div><div class="tags">${s.tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
 <div class="op">
-  <button class="detail-btn">查看详情</button>
+  <button class="detail-btn" onclick="location.href='数据资产运营平台-单个服务详情页面.html'">查看详情</button>
   
 </div>
 <div class="apply-cell">
   <input type="checkbox" class="service-check">
 </div>
-</div>`).join('')}
-function filterRows(){const k=document.getElementById('kw').value.trim();if(!k){render();return}render(services.filter(s=>[s.name,s.desc,...s.tags].join('').includes(k)))}
-render();
-</script>
-</body>
+</div>`,
+          )
+          .join("");
+      }
+
+      function renderSceneTab(tab = "recent") {
+        const sceneList = document.getElementById("sceneList");
+        if (!sceneList) return;
+        sceneList.innerHTML = sceneTabData[tab]
+          .map(
+            (item) => `<div
+            class="scene"
+            onclick="location.href='数据资产运营平台-服务应用场景-单个服务详情页面.html'"
+            style="cursor: pointer"
+          >
+            <div class="mini ${item.iconClass}">${item.icon}</div>
+            <div>
+              <b>${item.name}</b>
+              <p>
+                ${item.desc}
+                <span class="link">查看链路</span>
+              </p>
+            </div>
+            <b>›</b>
+          </div>`,
+          )
+          .join("");
+      }
+
+      function buildFilterMenus() {
+        Object.entries(filterOptions).forEach(([type, options]) => {
+          const menu = document.querySelector(`[data-menu="${type}"]`);
+          menu.innerHTML = options
+            .map(
+              (option) =>
+                `<button class="filter-option" type="button" data-type="${type}" data-value="${option.value}">${option.label}</button>`,
+            )
+            .join("");
+        });
+      }
+
+      function closeFilterMenus(exceptType) {
+        document.querySelectorAll(".filter-menu").forEach((menu) => {
+          if (menu.dataset.menu !== exceptType) {
+            menu.classList.remove("show");
+          }
+        });
+        document.querySelectorAll(".select").forEach((button) => {
+          if (button.dataset.filter !== exceptType) {
+            button.classList.remove("active");
+          }
+        });
+      }
+
+      function updateFilterLabels() {
+        Object.keys(filters).forEach((type) => {
+          const selected = filterOptions[type].find(
+            (option) => option.value === filters[type],
+          );
+          document.querySelector(`[data-filter="${type}"] .filter-label`).textContent =
+            filters[type] ? selected.label : filterTitles[type];
+          document
+            .querySelectorAll(`[data-type="${type}"]`)
+            .forEach((option) =>
+              option.classList.toggle(
+                "selected",
+                option.dataset.value === filters[type],
+              ),
+            );
+        });
+      }
+
+      function matchMoreFilter(service) {
+        if (filters.more === "hot") return service.users >= 90;
+        if (filters.more === "highRate") return Number(service.rate) >= 4.7;
+        if (filters.more === "frequent") return service.month >= 140;
+        return true;
+      }
+
+      function filterRows() {
+        const k = document.getElementById("kw").value.trim();
+        const advName = document.getElementById("advName").value.trim();
+        const advTag = document.getElementById("advTag").value.trim();
+        const advRate = document.getElementById("advRate").value;
+        const advUsers = Number(document.getElementById("advUsers").value || 0);
+        render(
+          services.filter((s) => {
+            const blob = [s.name, s.desc, s.scene, s.status, ...s.tags].join("");
+            return (
+              (!k || blob.includes(k)) &&
+              (!filters.scene || s.scene === filters.scene) &&
+              (!filters.status || s.status === filters.status) &&
+              matchMoreFilter(s) &&
+              (!advName || s.name.includes(advName)) &&
+              (!advTag || s.tags.join("").includes(advTag)) &&
+              (!advRate || Number(s.rate) >= Number(advRate)) &&
+              (!advUsers || s.users >= advUsers)
+            );
+          }),
+        );
+      }
+      function toggleAdvancedSearch() {
+        document.getElementById("advancedPanel").classList.toggle("show");
+      }
+      function isSidebarCollapsed() {
+        return document
+          .querySelector(".layout")
+          .classList.contains("sidebar-collapsed");
+      }
+      function setSideToolbar(collapsed) {
+        const layout = document.querySelector(".layout");
+        const toggle = document.querySelector(".drawer-toggle");
+        layout.classList.toggle("sidebar-collapsed", collapsed);
+        toggle.setAttribute("aria-expanded", String(!collapsed));
+        toggle.title = collapsed ? "展开扩展工具栏" : "收起扩展工具栏";
+        filterRows();
+      }
+      function toggleSideToolbar() {
+        setSideToolbar(!isSidebarCollapsed());
+      }
+      function expandSideToolbar(panelId) {
+        setSideToolbar(false);
+        requestAnimationFrame(() => {
+          document.getElementById(panelId)?.scrollIntoView({
+            block: "nearest",
+            behavior: "smooth",
+          });
+        });
+      }
+      function resetFilters() {
+        filters.scene = "";
+        filters.status = "";
+        filters.more = "";
+        ["kw", "advName", "advTag", "advUsers"].forEach((id) => {
+          document.getElementById(id).value = "";
+        });
+        document.getElementById("advRate").value = "";
+        updateFilterLabels();
+        render();
+      }
+      function initFilters() {
+        buildFilterMenus();
+        updateFilterLabels();
+        document.querySelectorAll("[data-filter]").forEach((button) => {
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const type = button.dataset.filter;
+            const menu = document.querySelector(`[data-menu="${type}"]`);
+            const isOpen = menu.classList.contains("show");
+            closeFilterMenus(type);
+            menu.classList.toggle("show", !isOpen);
+            button.classList.toggle("active", !isOpen);
+          });
+        });
+        document.querySelectorAll(".filter-menu").forEach((menu) => {
+          menu.addEventListener("click", (event) => {
+            const option = event.target.closest(".filter-option");
+            if (!option) return;
+            filters[option.dataset.type] = option.dataset.value;
+            updateFilterLabels();
+            closeFilterMenus();
+            filterRows();
+          });
+        });
+        document.addEventListener("click", () => closeFilterMenus());
+        document.getElementById("kw").addEventListener("keydown", (event) => {
+          if (event.key === "Enter") filterRows();
+        });
+        document
+          .querySelectorAll("#advancedPanel input, #advancedPanel select")
+          .forEach((field) => {
+            field.addEventListener("keydown", (event) => {
+              if (event.key === "Enter") filterRows();
+            });
+          });
+      }
+      function initSceneTabs() {
+        const tabs = document.querySelectorAll("[data-scene-tab]");
+        tabs.forEach((tabButton) => {
+          tabButton.addEventListener("click", () => {
+            tabs.forEach((button) => {
+              const isActive = button === tabButton;
+              button.classList.toggle("on", isActive);
+              button.setAttribute("aria-selected", String(isActive));
+            });
+            renderSceneTab(tabButton.dataset.sceneTab);
+          });
+        });
+        renderSceneTab();
+      }
+      initFilters();
+      initSceneTabs();
+      render();
+    </script>
+  </body>
 </html>

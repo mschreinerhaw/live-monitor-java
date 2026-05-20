@@ -1,42 +1,733 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>灵感数据工坊 - 查看申请详情</title>
-<style>
-*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;background:#f7faff;color:#17233d;font-size:14px} .top{height:76px;background:#fff;border-bottom:1px solid #e8eef8;display:flex;align-items:center;padding:0 26px;gap:56px;box-shadow:0 2px 12px rgba(21,52,102,.04)} .logo{display:flex;align-items:center;gap:10px;width:210px}.mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#16d0c8,#135cff);position:relative}.mark:after{content:"";position:absolute;left:12px;top:8px;width:12px;height:22px;border-radius:8px;background:#fff;opacity:.88}.brand strong{font-size:20px;letter-spacing:.5px}.brand span{display:block;color:#5070a8;font-size:12px;margin-top:2px}.nav{display:flex;gap:44px;height:100%;align-items:center}.nav a{font-size:18px;font-weight:700;color:#17233d;text-decoration:none;height:100%;display:flex;align-items:center;position:relative}.nav a.active{color:#0f55ff}.nav a.active:after{content:"";height:4px;background:#155cff;border-radius:4px;position:absolute;left:0;right:0;bottom:0}.icons{margin-left:auto;display:flex;align-items:center;gap:24px;color:#0c1d50}.i{position:relative;font-size:25px}.badge{position:absolute;right:-8px;top:-9px;background:#ff2323;color:white;border-radius:10px;font-size:11px;font-weight:800;padding:1px 5px}.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ffd7c9,#1e6cff);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800}.role{font-size:13px;font-weight:700}.wrap{padding:26px 28px 34px}.crumb{display:flex;align-items:center;gap:14px;color:#5d6c8f;font-weight:700;margin:4px 0 18px}.crumb b{color:#17233d}.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:22px}.card{background:#fff;border:1px solid #e6edf8;border-radius:10px;box-shadow:0 10px 24px rgba(26,57,113,.035)}.main-head{padding:26px 26px 18px;display:grid;grid-template-columns:96px 1fr 270px;gap:22px;align-items:center}.service-icon{width:86px;height:86px;border-radius:12px;background:linear-gradient(135deg,#772dff,#0d50ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:48px}.title h1{font-size:24px;margin:0 0 12px}.status{font-size:14px;color:#12a96b;background:#e8fff5;border-radius:4px;padding:3px 9px;margin-left:10px}.desc{color:#49638f;font-weight:650;line-height:1.7}.tags{margin-top:12px;display:flex;gap:9px}.tag{background:#eef5ff;color:#0a58ff;font-weight:800;padding:5px 10px;border-radius:5px}.order{line-height:2.1;color:#263a62;font-weight:700}.order b{color:#0050ff}.btn{height:36px;border:1px solid #2f6bff;border-radius:4px;background:#fff;color:#0759ff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:10px}.step-card{padding:22px 28px;margin-top:12px}.steps{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;align-items:center}.step{display:flex;align-items:center;gap:13px;position:relative}.step:not(:last-child):after{content:"";height:2px;background:#9fb7fb;position:absolute;left:185px;right:20px;top:17px}.circle{width:34px;height:34px;border-radius:50%;border:2px solid #b9c4da;color:#8a95ad;display:flex;align-items:center;justify-content:center;font-weight:900;background:#fff}.done .circle{border-color:#0f55ff;color:#0f55ff}.active .circle{background:#0f55ff;border-color:#0f55ff;color:#fff}.step h4{margin:0;color:#123268;font-size:16px}.step p{margin:6px 0 0;color:#53658a;font-weight:700}.section{padding:22px 28px;margin-top:12px}.section h3,.side h3{margin:0 0 20px;font-size:18px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 80px}.row{display:grid;grid-template-columns:130px 1fr;gap:15px;line-height:1.8}.label{color:#5c6d91}.value{font-weight:800;color:#20345f}.notes{line-height:2;color:#31466f;font-weight:650}.notes ul{padding-left:18px;margin:0}.side{padding:22px}.timeline{position:relative;margin-left:10px}.tl{display:grid;grid-template-columns:26px 1fr 120px;gap:12px;align-items:start;margin-bottom:26px;position:relative}.tl:not(:last-child):before{content:"";position:absolute;left:9px;top:22px;bottom:-30px;border-left:2px solid #d6e1f5}.dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;background:#bfc8d9;color:#fff;z-index:1}.ok{background:#19bc73}.cur{background:#105cff}.tl h4{margin:0 0 6px;color:#173064}.tl p{margin:0;color:#5f7194;font-weight:650}.time{color:#657699;text-align:right;font-weight:650}.side-card{margin-top:20px}.service-table .row{grid-template-columns:110px 1fr;margin-bottom:11px}.green{color:#12aa6b}.side-btn{height:36px;border:1px solid #2d68ff;border-radius:4px;color:#0757ff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:18px}.actions{display:grid;gap:10px}.action{height:36px;border:1px solid #d9e5f7;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:8px;color:#172d5a;font-weight:800;background:#fff}.muted{color:#8795ad}@media(max-width:1100px){.grid{grid-template-columns:1fr}.main-head{grid-template-columns:86px 1fr}.order{grid-column:1/-1}.sidecol{display:grid;grid-template-columns:1fr 1fr;gap:16px}.side-card{margin-top:0}} 
-</style>
-</head>
-<body>
-<header class="top">
-  <div class="logo"><div class="mark"></div><div class="brand"><strong>灵感数据工坊</strong><span>LiveMuse</span></div></div>
-  <nav class="nav"><a class="active">服务中心</a><a>我的工作台</a></nav>
-  <div class="icons"><span class="i">⌕</span><span class="i">♧<em class="badge">8</em></span><span class="i">✉<em class="badge">12</em></span><span class="avatar">张</span><span class="role">业务人员⌄</span></div>
-</header>
-<main class="wrap">
-  <div class="crumb">← 返回 <span>/</span> 服务中心 <span>/</span> 服务列表 <span>/</span> 申请使用 <span>/</span> <b>查看申请详情</b></div>
-  <div class="grid">
-    <div>
-      <section class="card main-head">
-        <div class="service-icon">●</div>
-        <div class="title"><h1>客户画像标签服务 <span class="status">已开通</span></h1><div class="desc">基于客户行为、交易、基础属性等多维度数据，生成客户标签，支持客户分群和精准营销。</div><div class="tags"><span class="tag">客户分析</span><span class="tag">客户画像</span><span class="tag">精准营销</span><span class="tag">分群管理</span></div></div>
-        <div class="order"><div>申请单号：<b>REQ202405280001</b></div><div>申请时间：2024-05-28 14:30:22</div><div>当前状态：<b>审核中（步骤 2/4）</b></div><div class="btn">撤回申请</div></div>
-      </section>
-      <section class="card step-card"><div class="steps"><div class="step done"><div class="circle">✓</div><div><h4>提交申请</h4><p>2024-05-28 14:30</p></div></div><div class="step active"><div class="circle">2</div><div><h4>审核审批中</h4><p>当前步骤</p></div></div><div class="step"><div class="circle">3</div><div><h4>开通使用</h4><p>待处理</p></div></div><div class="step"><div class="circle">4</div><div><h4>使用服务</h4><p>待处理</p></div></div></div></section>
-      <section class="card section"><h3>申请信息</h3><div class="info-grid"><div><div class="row"><span class="label">申请人</span><span class="value">张三</span></div><div class="row"><span class="label">所属部门</span><span class="value">数据运营部</span></div><div class="row"><span class="label">联系方式</span><span class="value">138****1234</span></div><div class="row"><span class="label">使用场景</span><span class="value">客户分群与精准营销分析</span></div><div class="row"><span class="label">申请用途</span><span class="value">用于客户分群、精准营销策略制定及效果评估</span></div><div class="row"><span class="label">备注说明</span><span class="value">无</span></div></div><div><div class="row"><span class="label">使用范围类型</span><span class="value">部门范围</span></div><div class="row"><span class="label">使用范围</span><span class="value">数据运营部、数据产品组</span></div><div class="row"><span class="label">数据权限</span><span class="value">只读</span></div><div class="row"><span class="label">调用方式</span><span class="value">页面查询</span></div><div class="row"><span class="label">数据时效要求</span><span class="value">T+1</span></div></div></div></section>
-      <section class="card section"><h3>使用数据范围</h3><div class="info-grid"><div><div class="row"><span class="label">选择部门</span><span class="value">数据运营部、数据产品组</span></div><div class="row"><span class="label">选择角色</span><span class="value">数据运营专员、数据分析师</span></div><div class="row"><span class="label">数据权限</span><span class="value">只读</span></div></div><div><div class="row"><span class="label">调用方式</span><span class="value">页面查询</span></div><div class="row"><span class="label">数据时效要求</span><span class="value">T+1</span></div><div class="row"><span class="label">所涉用户</span><span class="value">共 25 人</span></div></div></div></section>
-      <section class="card section notes"><h3>相关说明</h3><ul><li>数据来源：客户基础信息、交易行为数据、产品持有数据、渠道交互数据等</li><li>返回数据：客户标签列表、客户分群结果、客户画像统计等</li><li>数据更新频率：每日更新（T+1）</li><li>使用限制：仅限所选部门及以下成员使用，不得用于其他用途</li></ul></section>
-    </div>
-    <aside class="sidecol">
-      <section class="card side"><h3>审核进度</h3><div class="timeline"><div class="tl"><div class="dot ok">✓</div><div><h4>提交申请</h4><p>张三 提交申请</p></div><div class="time">2024-05-28 14:30</div></div><div class="tl"><div class="dot cur">2</div><div><h4 style="color:#105cff">数据运营组初审</h4><p>李四（数据运营组）审核中</p></div><div class="time">2024-05-28 15:05</div></div><div class="tl"><div class="dot">3</div><div><h4>数据安全组复审</h4><p>待处理</p></div><div></div></div><div class="tl"><div class="dot">4</div><div><h4>审批负责人终审</h4><p>待处理</p></div><div></div></div></div></section>
-      <section class="card side side-card service-table"><h3>服务信息</h3><div class="row"><span class="label">服务状态</span><span class="value green">已开通</span></div><div class="row"><span class="label">服务负责人</span><span class="value">数据运营组</span></div><div class="row"><span class="label">服务等级</span><span class="value">L2（标准服务）</span></div><div class="row"><span class="label">计费方式</span><span class="value">按调用次数计费</span></div><div class="side-btn">查看服务详情</div></section>
-      <section class="card side side-card"><h3>操作</h3><div class="actions"><button class="action">↙ 撤回申请</button><button class="action">☎ 联系负责人</button><button class="action">▣ 问题反馈</button></div></section>
-    </aside>
-  </div>
-</main>
-<script>
-document.querySelectorAll('.action,.btn,.side-btn').forEach(btn=>btn.addEventListener('click',()=>{btn.style.transform='scale(.98)';setTimeout(()=>btn.style.transform='scale(1)',120)}));
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>灵感数据工坊 - 查看申请详情</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+          Arial, sans-serif;
+        background: #f7faff;
+        color: #17233d;
+        font-size: 14px;
+      }
+      .top {
+        height: 76px;
+        background: #fff;
+        border-bottom: 1px solid #e8eef8;
+        display: flex;
+        align-items: center;
+        padding: 0 26px;
+        gap: 56px;
+        box-shadow: 0 2px 12px rgba(21, 52, 102, 0.04);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 210px;
+      }
+      .mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #16d0c8, #135cff);
+        position: relative;
+      }
+      .mark:after {
+        content: "";
+        position: absolute;
+        left: 12px;
+        top: 8px;
+        width: 12px;
+        height: 22px;
+        border-radius: 8px;
+        background: #fff;
+        opacity: 0.88;
+      }
+      .brand strong {
+        font-size: 20px;
+        letter-spacing: 0.5px;
+      }
+      .brand span {
+        display: block;
+        color: #5070a8;
+        font-size: 12px;
+        margin-top: 2px;
+      }
+      .nav {
+        display: flex;
+        gap: 44px;
+        height: 100%;
+        align-items: center;
+      }
+      .nav a {
+        font-size: 18px;
+        font-weight: 700;
+        color: #17233d;
+        text-decoration: none;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+      .nav a.active {
+        color: #0f55ff;
+      }
+      .nav a.active:after {
+        content: "";
+        height: 4px;
+        background: #155cff;
+        border-radius: 4px;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+      .icons {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        color: #0c1d50;
+      }
+      .i {
+        position: relative;
+        font-size: 25px;
+      }
+      .badge {
+        position: absolute;
+        right: -8px;
+        top: -9px;
+        background: #ff2323;
+        color: white;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 1px 5px;
+      }
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ffd7c9, #1e6cff);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 800;
+      }
+      .role {
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .wrap {
+        padding: 26px 28px 34px;
+      }
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #5d6c8f;
+        font-weight: 700;
+        margin: 4px 0 18px;
+      }
+      .crumb b {
+        color: #17233d;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        gap: 22px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e6edf8;
+        border-radius: 10px;
+        box-shadow: 0 10px 24px rgba(26, 57, 113, 0.035);
+      }
+      .main-head {
+        padding: 26px 26px 18px;
+        display: grid;
+        grid-template-columns: 96px 1fr 270px;
+        gap: 22px;
+        align-items: center;
+      }
+      .service-icon {
+        width: 86px;
+        height: 86px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #772dff, #0d50ff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 48px;
+      }
+      .title h1 {
+        font-size: 24px;
+        margin: 0 0 12px;
+      }
+      .status {
+        font-size: 14px;
+        color: #12a96b;
+        background: #e8fff5;
+        border-radius: 4px;
+        padding: 3px 9px;
+        margin-left: 10px;
+      }
+      .desc {
+        color: #49638f;
+        font-weight: 650;
+        line-height: 1.7;
+      }
+      .tags {
+        margin-top: 12px;
+        display: flex;
+        gap: 9px;
+      }
+      .tag {
+        background: #eef5ff;
+        color: #0a58ff;
+        font-weight: 800;
+        padding: 5px 10px;
+        border-radius: 5px;
+      }
+      .order {
+        line-height: 2.1;
+        color: #263a62;
+        font-weight: 700;
+      }
+      .order b {
+        color: #0050ff;
+      }
+      .btn {
+        height: 36px;
+        border: 1px solid #2f6bff;
+        border-radius: 4px;
+        background: #fff;
+        color: #0759ff;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 10px;
+      }
+      .step-card {
+        padding: 22px 28px;
+        margin-top: 12px;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        align-items: center;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        position: relative;
+      }
+      .step:not(:last-child):after {
+        content: "";
+        height: 2px;
+        background: #9fb7fb;
+        position: absolute;
+        left: 185px;
+        right: 20px;
+        top: 17px;
+      }
+      .circle {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 2px solid #b9c4da;
+        color: #8a95ad;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        background: #fff;
+      }
+      .done .circle {
+        border-color: #0f55ff;
+        color: #0f55ff;
+      }
+      .active .circle {
+        background: #0f55ff;
+        border-color: #0f55ff;
+        color: #fff;
+      }
+      .step h4 {
+        margin: 0;
+        color: #123268;
+        font-size: 16px;
+      }
+      .step p {
+        margin: 6px 0 0;
+        color: #53658a;
+        font-weight: 700;
+      }
+      .section {
+        padding: 22px 28px;
+        margin-top: 12px;
+      }
+      .section h3,
+      .side h3 {
+        margin: 0 0 20px;
+        font-size: 18px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px 80px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 15px;
+        line-height: 1.8;
+      }
+      .label {
+        color: #5c6d91;
+      }
+      .value {
+        font-weight: 800;
+        color: #20345f;
+      }
+      .notes {
+        line-height: 2;
+        color: #31466f;
+        font-weight: 650;
+      }
+      .notes ul {
+        padding-left: 18px;
+        margin: 0;
+      }
+      .side {
+        padding: 22px;
+      }
+      .timeline {
+        position: relative;
+        margin-left: 10px;
+      }
+      .tl {
+        display: grid;
+        grid-template-columns: 26px 1fr 120px;
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 26px;
+        position: relative;
+      }
+      .tl:not(:last-child):before {
+        content: "";
+        position: absolute;
+        left: 9px;
+        top: 22px;
+        bottom: -30px;
+        border-left: 2px solid #d6e1f5;
+      }
+      .dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 900;
+        background: #bfc8d9;
+        color: #fff;
+        z-index: 1;
+      }
+      .ok {
+        background: #19bc73;
+      }
+      .cur {
+        background: #105cff;
+      }
+      .tl h4 {
+        margin: 0 0 6px;
+        color: #173064;
+      }
+      .tl p {
+        margin: 0;
+        color: #5f7194;
+        font-weight: 650;
+      }
+      .time {
+        color: #657699;
+        text-align: right;
+        font-weight: 650;
+      }
+      .side-card {
+        margin-top: 20px;
+      }
+      .service-table .row {
+        grid-template-columns: 110px 1fr;
+        margin-bottom: 11px;
+      }
+      .green {
+        color: #12aa6b;
+      }
+      .side-btn {
+        height: 36px;
+        border: 1px solid #2d68ff;
+        border-radius: 4px;
+        color: #0757ff;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 18px;
+      }
+      .actions {
+        display: grid;
+        gap: 10px;
+      }
+      .action {
+        height: 36px;
+        border: 1px solid #d9e5f7;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #172d5a;
+        font-weight: 800;
+        background: #fff;
+      }
+      .muted {
+        color: #8795ad;
+      }
+      @media (max-width: 1100px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .main-head {
+          grid-template-columns: 86px 1fr;
+        }
+        .order {
+          grid-column: 1/-1;
+        }
+        .sidecol {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        .side-card {
+          margin-top: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="lm-logo" onclick="location.href='数据资产运营管理平台-数据服务中心.html'" style="width:292px;display:flex;align-items:center;gap:8px;flex:none;cursor:pointer">
+        <span style="font-size:22px;font-weight:900;line-height:1;white-space:nowrap"><span style="color:#ff1f1f">Live</span><span style="color:#111827">Muse</span></span>
+        <svg viewBox="0 0 52 46" aria-hidden="true" style="width:44px;height:39px;flex:none">
+          <polygon points="26 2 48 14 48 32 26 44 4 32 4 14" fill="#fff" stroke="#4f73ff" stroke-width="2.2"></polygon>
+          <circle cx="26" cy="13" r="2.2" fill="#4f73ff"></circle>
+          <path d="M26 19v15" stroke="#4f73ff" stroke-width="3" stroke-linecap="round"></path>
+          <path d="M20 34h12" stroke="#4f73ff" stroke-width="2.6" stroke-linecap="round"></path>
+        </svg>
+        <span style="font-size:19px;font-weight:900;color:#111827;white-space:nowrap">灵感数据工坊</span>
+      </div>
+      <nav class="nav">
+        <a
+          class="active"
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务中心</a
+        ><a
+          onclick="location.href='数据资产运营管理平台-服务申请详情.html'"
+          style="cursor: pointer"
+          >我的工作台</a
+        >
+      </nav>
+      <div class="icons">
+        <span class="i">⌕</span><span class="i">♧<em class="badge">8</em></span
+        ><span class="i">✉<em class="badge">12</em></span
+        ><span class="avatar">张</span><span class="role">业务人员⌄</span>
+      </div>
+    </header>
+    <main class="wrap">
+      <div class="crumb">
+        <span
+          onclick="location.href='数据资产运营平台-一键申请页面.html'"
+          style="cursor: pointer"
+          >← 返回</span
+        >
+        <span>/</span>
+        <span
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务中心</span
+        >
+        <span>/</span>
+        <span
+          onclick="location.href='数据资产运营管理平台-数据服务中心.html'"
+          style="cursor: pointer"
+          >服务列表</span
+        >
+        <span>/</span> 申请使用 <span>/</span> <b>查看申请详情</b>
+      </div>
+      <div class="grid">
+        <div>
+          <section class="card main-head">
+            <div class="service-icon">●</div>
+            <div class="title">
+              <h1>客户画像标签服务 <span class="status">已开通</span></h1>
+              <div class="desc">
+                基于客户行为、交易、基础属性等多维度数据，生成客户标签，支持客户分群和精准营销。
+              </div>
+              <div class="tags">
+                <span class="tag">客户分析</span
+                ><span class="tag">客户画像</span
+                ><span class="tag">精准营销</span
+                ><span class="tag">分群管理</span>
+              </div>
+            </div>
+            <div class="order">
+              <div>申请单号：<b>REQ202405280001</b></div>
+              <div>申请时间：2024-05-28 14:30:22</div>
+              <div>当前状态：<b>审核中（步骤 2/4）</b></div>
+              <div
+                class="btn"
+                onclick="location.href='数据资产运营管理平台-撤回申请页面.html'"
+              >
+                撤回申请
+              </div>
+            </div>
+          </section>
+          <section class="card step-card">
+            <div class="steps">
+              <div class="step done">
+                <div class="circle">✓</div>
+                <div>
+                  <h4>提交申请</h4>
+                  <p>2024-05-28 14:30</p>
+                </div>
+              </div>
+              <div class="step active">
+                <div class="circle">2</div>
+                <div>
+                  <h4>审核审批中</h4>
+                  <p>当前步骤</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="circle">3</div>
+                <div>
+                  <h4>开通使用</h4>
+                  <p>待处理</p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="circle">4</div>
+                <div>
+                  <h4>使用服务</h4>
+                  <p>待处理</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="card section">
+            <h3>申请信息</h3>
+            <div class="info-grid">
+              <div>
+                <div class="row">
+                  <span class="label">申请人</span
+                  ><span class="value">张三</span>
+                </div>
+                <div class="row">
+                  <span class="label">所属部门</span
+                  ><span class="value">数据运营部</span>
+                </div>
+                <div class="row">
+                  <span class="label">联系方式</span
+                  ><span class="value">138****1234</span>
+                </div>
+                <div class="row">
+                  <span class="label">使用场景</span
+                  ><span class="value">客户分群与精准营销分析</span>
+                </div>
+                <div class="row">
+                  <span class="label">申请用途</span
+                  ><span class="value"
+                    >用于客户分群、精准营销策略制定及效果评估</span
+                  >
+                </div>
+                <div class="row">
+                  <span class="label">备注说明</span
+                  ><span class="value">无</span>
+                </div>
+              </div>
+              <div>
+                <div class="row">
+                  <span class="label">使用范围类型</span
+                  ><span class="value">部门范围</span>
+                </div>
+                <div class="row">
+                  <span class="label">使用范围</span
+                  ><span class="value">数据运营部、数据产品组</span>
+                </div>
+                <div class="row">
+                  <span class="label">数据权限</span
+                  ><span class="value">只读</span>
+                </div>
+                <div class="row">
+                  <span class="label">调用方式</span
+                  ><span class="value">页面查询</span>
+                </div>
+                <div class="row">
+                  <span class="label">数据时效要求</span
+                  ><span class="value">T+1</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="card section">
+            <h3>使用数据范围</h3>
+            <div class="info-grid">
+              <div>
+                <div class="row">
+                  <span class="label">选择部门</span
+                  ><span class="value">数据运营部、数据产品组</span>
+                </div>
+                <div class="row">
+                  <span class="label">选择角色</span
+                  ><span class="value">数据运营专员、数据分析师</span>
+                </div>
+                <div class="row">
+                  <span class="label">数据权限</span
+                  ><span class="value">只读</span>
+                </div>
+              </div>
+              <div>
+                <div class="row">
+                  <span class="label">调用方式</span
+                  ><span class="value">页面查询</span>
+                </div>
+                <div class="row">
+                  <span class="label">数据时效要求</span
+                  ><span class="value">T+1</span>
+                </div>
+                <div class="row">
+                  <span class="label">所涉用户</span
+                  ><span class="value">共 25 人</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="card section notes">
+            <h3>相关说明</h3>
+            <ul>
+              <li>
+                数据来源：客户基础信息、交易行为数据、产品持有数据、渠道交互数据等
+              </li>
+              <li>返回数据：客户标签列表、客户分群结果、客户画像统计等</li>
+              <li>数据更新频率：每日更新（T+1）</li>
+              <li>使用限制：仅限所选部门及以下成员使用，不得用于其他用途</li>
+            </ul>
+          </section>
+        </div>
+        <aside class="sidecol">
+          <section class="card side">
+            <h3>审核进度</h3>
+            <div class="timeline">
+              <div class="tl">
+                <div class="dot ok">✓</div>
+                <div>
+                  <h4>提交申请</h4>
+                  <p>张三 提交申请</p>
+                </div>
+                <div class="time">2024-05-28 14:30</div>
+              </div>
+              <div class="tl">
+                <div class="dot cur">2</div>
+                <div>
+                  <h4 style="color: #105cff">数据运营组初审</h4>
+                  <p>李四（数据运营组）审核中</p>
+                </div>
+                <div class="time">2024-05-28 15:05</div>
+              </div>
+              <div class="tl">
+                <div class="dot">3</div>
+                <div>
+                  <h4>数据安全组复审</h4>
+                  <p>待处理</p>
+                </div>
+                <div></div>
+              </div>
+              <div class="tl">
+                <div class="dot">4</div>
+                <div>
+                  <h4>审批负责人终审</h4>
+                  <p>待处理</p>
+                </div>
+                <div></div>
+              </div>
+            </div>
+          </section>
+          <section class="card side side-card service-table">
+            <h3>服务信息</h3>
+            <div class="row">
+              <span class="label">服务状态</span
+              ><span class="value green">已开通</span>
+            </div>
+            <div class="row">
+              <span class="label">服务负责人</span
+              ><span class="value">数据运营组</span>
+            </div>
+            <div class="row">
+              <span class="label">服务等级</span
+              ><span class="value">L2（标准服务）</span>
+            </div>
+            <div class="row">
+              <span class="label">计费方式</span
+              ><span class="value">按调用次数计费</span>
+            </div>
+            <div
+              class="side-btn"
+              onclick="location.href='数据资产运营平台-单个服务详情页面.html'"
+            >
+              查看服务详情
+            </div>
+          </section>
+          <section class="card side side-card">
+            <h3>操作</h3>
+            <div class="actions">
+              <button
+                class="action"
+                onclick="location.href='数据资产运营管理平台-撤回申请页面.html'"
+              >
+                ↙ 撤回申请</button
+              ><button class="action">☎ 联系负责人</button
+              ><button
+                class="action"
+                onclick="location.href='数据资产运营管理平台-问题反馈.html'"
+              >
+                ▣ 问题反馈
+              </button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script>
+      document.querySelectorAll(".action,.btn,.side-btn").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          btn.style.transform = "scale(.98)";
+          setTimeout(() => (btn.style.transform = "scale(1)"), 120);
+        }),
+      );
+    </script>
+  </body>
 </html>
