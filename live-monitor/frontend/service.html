@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>服务详情 - Live Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/echarts/echarts.min.js"></script>
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body data-page="service-detail">
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">LM</span>
+      <span>Live Monitor</span>
+    </a>
+    <nav class="nav">
+      <a href="/dashboard">监控首页</a>
+      <a href="/services/new">添加服务</a>
+      <a href="/alerts/settings">告警设置</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="detail-head">
+      <div>
+        <a class="back-link" href="/dashboard">返回列表</a>
+        <h1 id="detailName">服务详情</h1>
+        <p id="detailMeta">加载中...</p>
+      </div>
+      <div class="detail-actions">
+        <a id="serviceOpenLink" class="icon-button" href="#" target="_blank" rel="noopener" title="打开服务" hidden>
+          <i data-lucide="external-link"></i>
+        </a>
+        <a id="serviceEditLink" class="icon-button" href="#" title="编辑服务">
+          <i data-lucide="edit-3"></i>
+        </a>
+        <span id="detailStatus" class="status-pill status-UNKNOWN">UNKNOWN</span>
+      </div>
+    </section>
+
+    <section class="summary-grid detail-metrics">
+      <article class="metric">
+        <span class="metric-label">当前状态</span>
+        <strong id="currentStatus">UNKNOWN</strong>
+        <small id="currentMessage">暂无检测结果</small>
+      </article>
+      <article class="metric">
+        <span class="metric-label">最近响应时间</span>
+        <strong id="lastResponse">-</strong>
+        <small>毫秒</small>
+      </article>
+      <article class="metric">
+        <span class="metric-label">最近检测时间</span>
+        <strong id="lastChecked">-</strong>
+        <small>按服务检测间隔刷新</small>
+      </article>
+      <article class="metric">
+        <span class="metric-label">检测间隔</span>
+        <strong id="checkInterval">-</strong>
+        <small>秒</small>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <div class="panel panel-main">
+        <div class="panel-head">
+          <h2>历史状态趋势</h2>
+        </div>
+        <div id="trendChart" class="chart"></div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>告警记录</h2>
+        </div>
+        <div id="detailAlerts" class="alert-list">
+          <p class="empty">暂无告警</p>
+        </div>
+      </aside>
+    </section>
+
+    <section id="history" class="panel">
+      <div class="panel-head">
+        <div class="panel-title-actions">
+          <h2>检测历史</h2>
+          <button class="primary-button compact-button" id="manualCheckBtn" type="button" title="立即检测">
+            <i data-lucide="activity"></i>
+            <span>立即检测</span>
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>状态</th>
+              <th>响应时间</th>
+              <th>消息</th>
+              <th>检测时间</th>
+            </tr>
+          </thead>
+          <tbody id="resultTable">
+            <tr><td colspan="4" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/charts.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

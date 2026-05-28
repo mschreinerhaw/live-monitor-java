@@ -1,0 +1,12 @@
+services:
+  live-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - live-monitor-data:/data
+
+volumes:
+  live-monitor-data:
