@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>净值一致性核验中心</title>
+  <style>
+    :root {
+      --bg: #f6f9ff;
+      --panel: #ffffff;
+      --line: #dbe5f4;
+      --line-strong: #cbd9ee;
+      --ink: #07133f;
+      --muted: #617092;
+      --blue: #0f63f6;
+      --blue-dark: #0b4fd4;
+      --green: #05a83a;
+      --red: #f01e2c;
+      --orange: #ff6a00;
+      --yellow: #f49b18;
+      --shadow: 0 14px 32px rgba(22, 57, 118, .08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% -10%, rgba(53, 119, 255, .11), rgba(53, 119, 255, 0) 32%),
+        linear-gradient(180deg, #fff 0%, var(--bg) 64%, #eef4ff 100%);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+    }
+
+    .app {
+      width: min(1280px, calc(100vw - 240px));
+      margin: 0 auto;
+      padding: 18px 0 28px;
+    }
+
+    .topbar {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 0 8px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .logo .live {
+      color: #f11119;
+    }
+
+    .logo .muse {
+      color: #0b1547;
+    }
+
+    .mark {
+      width: 42px;
+      height: 48px;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .mark::before {
+      content: "";
+      position: absolute;
+      inset: 4px 7px;
+      border: 4px solid #1265fb;
+      clip-path: polygon(50% 0, 100% 24%, 100% 76%, 50% 100%, 0 76%, 0 24%);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 800;
+      color: #07113e;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .filter-field label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 15px;
+      line-height: 1;
+      font-weight: 700;
+      color: #07133f;
+    }
+
+    input {
+      width: 100%;
+      height: 46px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 16px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      font-size: 16px;
+      outline: none;
+      transition: border .18s ease, box-shadow .18s ease;
+    }
+
+    input::placeholder {
+      color: #8290ad;
+    }
+
+    input:focus {
+      border-color: #8bb5ff;
+      box-shadow: 0 0 0 4px rgba(15, 99, 246, .1);
+    }
+
+    .card {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: var(--shadow);
+    }
+
+    .filter-card {
+      padding: 22px 24px;
+      display: grid;
+      grid-template-columns: 220px minmax(260px, 1fr) 108px 108px 168px;
+      gap: 18px;
+      align-items: end;
+    }
+
+    .btn {
+      height: 46px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(15, 99, 246, .14);
+    }
+
+    .btn.primary {
+      min-width: 108px;
+      color: #fff;
+      border-color: var(--blue);
+      background: linear-gradient(180deg, #1477ff 0%, var(--blue) 100%);
+    }
+
+    .btn.primary:disabled {
+      cursor: wait;
+      transform: none;
+      opacity: .72;
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+
+    .overview-card {
+      padding: 18px 20px;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      min-height: 82px;
+      border: 1px solid #e1e9f6;
+      border-radius: 8px;
+      padding: 13px 16px;
+      background: #fbfdff;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .metric .value {
+      margin-top: 9px;
+      color: var(--ink);
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric.risk .value {
+      color: var(--red);
+    }
+
+    .metric.warn .value {
+      color: var(--orange);
+    }
+
+    .metric.good .value {
+      color: var(--green);
+    }
+
+    .table-card {
+      padding: 22px 20px 20px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: #07133f;
+    }
+
+    .summary {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1140px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 11px 8px;
+      text-align: center;
+      vertical-align: middle;
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    thead th {
+      color: #1d2740;
+      background: #e4e8ef;
+      font-weight: 800;
+    }
+
+    tbody td {
+      background: #f4f5f7;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:hover td {
+      background: #eef1f5;
+    }
+
+    .code-col {
+      width: 88px;
+    }
+
+    .date-col {
+      width: 104px;
+    }
+
+    .name-col {
+      width: 150px;
+    }
+
+    .nav-col {
+      width: 104px;
+    }
+
+    .result-col {
+      width: 92px;
+    }
+
+    .diff-col {
+      width: 150px;
+    }
+
+    .time-col {
+      width: 118px;
+    }
+
+    .nav-base {
+      color: var(--blue);
+      background: #eef2f7;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .nav-same {
+      color: var(--green);
+      background: #eef7f1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .nav-diff {
+      color: var(--red);
+      background: #fff0f0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .nav-warn {
+      color: var(--orange);
+      background: #fff5e8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .empty {
+      color: var(--muted);
+      height: 86px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 86px;
+      min-height: 28px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .pill.ok {
+      color: #049f3d;
+      border: 1px solid #8fd5a9;
+      background: #e9f8ee;
+    }
+
+    .pill.risk {
+      color: #f01e2c;
+      border: 1px solid #ff9a9a;
+      background: #ffe7e7;
+    }
+
+    .pill.warn {
+      color: #ff5d00;
+      border: 1px solid #ffc081;
+      background: #fff0df;
+    }
+
+    .pill.missing {
+      color: #ef8b00;
+      border: 1px solid #ffc76d;
+      background: #fff2d8;
+    }
+
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 4px 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .pager-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .page-btn,
+    .page-size {
+      min-width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .page-current {
+      min-width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--blue);
+      border-radius: 8px;
+      color: var(--blue);
+      background: #fff;
+    }
+
+    .page-size {
+      min-width: 120px;
+      padding: 0 14px;
+    }
+
+    .message {
+      min-height: 22px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .message.error {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .section-head.summary-only {
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .app {
+        width: calc(100vw - 64px);
+      }
+
+      .filter-card {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+      }
+
+      .overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        width: calc(100vw - 16px);
+      }
+
+      .brand {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .logo {
+        font-size: 24px;
+      }
+
+      h1 {
+        font-size: 24px;
+        white-space: normal;
+      }
+
+      .filter-card {
+        grid-template-columns: 1fr;
+      }
+
+      .overview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      input,
+      .btn {
+        height: 44px;
+        font-size: 15px;
+      }
+
+      .filter-card,
+      .overview-card,
+      .table-card {
+        padding: 22px 14px;
+      }
+
+      th,
+      td {
+        font-size: 14px;
+        padding: 11px 8px;
+      }
+
+      .pager {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-label="LiveMuse">
+          <span><span class="live">Live</span><span class="muse">Muse</span></span>
+          <span class="mark" aria-hidden="true"></span>
+        </div>
+        <h1>净值一致性核验中心</h1>
+      </div>
+
+    </header>
+
+    <section class="card filter-card" aria-label="筛选条件">
+      <div class="filter-field">
+        <label for="etlDate">交易日期</label>
+        <input id="etlDate" type="date">
+      </div>
+      <div class="filter-field">
+        <label for="fundCode">基金代码/基金名称</label>
+        <input id="fundCode" type="text" placeholder="请输入基金代码或基金名称">
+      </div>
+      <button id="queryBtn" class="btn primary" type="button">查询</button>
+      <button id="resetBtn" class="btn" type="button">重置</button>
+      <button id="exportBtn" class="btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <path d="M7 10l5 5 5-5"></path>
+          <path d="M12 15V3"></path>
+        </svg>
+        导出异常明细
+      </button>
+    </section>
+
+    <section class="card overview-card" aria-label="净值核验概览">
+      <div class="overview-grid">
+        <article class="metric">
+          <div class="label">总核验数</div>
+          <div id="totalMetric" class="value">0</div>
+        </article>
+        <article class="metric risk">
+          <div class="label">异常数</div>
+          <div id="abnormalMetric" class="value">0</div>
+        </article>
+        <article class="metric warn">
+          <div class="label">缺失数</div>
+          <div id="missingMetric" class="value">0</div>
+        </article>
+        <article class="metric good">
+          <div class="label">一致率</div>
+          <div id="rateMetric" class="value">0.00%</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <div class="section-head summary-only">
+        <div id="loadSummary" class="summary">未执行查询</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="date-col">交易日期</th>
+              <th class="code-col">基金代码</th>
+              <th class="name-col">基金名称</th>
+              <th class="nav-col">估值净值</th>
+              <th class="nav-col">官网净值</th>
+              <th class="nav-col">TA净值</th>
+              <th class="nav-col">XBRL净值</th>
+              <th class="result-col">核验结果</th>
+              <th class="diff-col">差异说明</th>
+              <th class="time-col">更新时间</th>
+            </tr>
+          </thead>
+          <tbody id="fundTableBody">
+            <tr>
+              <td colspan="10" class="empty">请选择交易日期后进行查询</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span id="totalText">共 0 条核验记录</span>
+        <div class="pager-controls">
+          <button id="prevPage" class="page-btn" type="button" aria-label="上一页">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m15 18-6-6 6-6"></path>
+            </svg>
+          </button>
+          <span id="pageNo" class="page-current">1</span>
+          <button id="nextPage" class="page-btn" type="button" aria-label="下一页">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m9 18 6-6-6-6"></path>
+            </svg>
+          </button>
+          <button class="page-size" type="button">10 条/页</button>
+        </div>
+      </div>
+      <div id="message" class="message"></div>
+    </section>
+  </main>
+
+  <script src="./fund_api.js" defer></script>
+</body>
+</html>
