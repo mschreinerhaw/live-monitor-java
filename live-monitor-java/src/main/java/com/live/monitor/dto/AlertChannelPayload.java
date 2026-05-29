@@ -8,13 +8,17 @@ public class AlertChannelPayload {
     @NotBlank
     public String channelType;
     public String alertEmail;
+    public String alertCc;
     public String alertMobile;
     public String smtpHost;
     public Integer smtpPort;
     public String smtpUser;
     public String smtpPassword;
     public String smtpFrom;
+    public Boolean smtpAuth = true;
     public Boolean smtpUseTls = false;
+    public Boolean smtpUseSsl = false;
+    public String smtpSslTrust;
     public String smsApiUrl;
     public String smsApiToken;
     public String smsUsername;

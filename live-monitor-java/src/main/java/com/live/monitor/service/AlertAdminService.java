@@ -40,6 +40,7 @@ public class AlertAdminService {
 
     @Transactional
     public Map<String, Object> createChannel(AlertChannelPayload payload) {
+        assertUniqueChannelType(payload.channelType, null);
         AlertChannel channel = new AlertChannel();
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
@@ -55,6 +56,7 @@ public class AlertAdminService {
         if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "alert channel not found");
         }
+        assertUniqueChannelType(payload.channelType, id);
         AlertChannel channel = new AlertChannel();
         channel.id = id;
         channel.channelName = payload.channelName;
@@ -66,6 +68,13 @@ public class AlertAdminService {
     }
 
     public boolean deleteChannel(Long id) {
+        AlertChannel existing = alertMapper.findChannel(id);
+        if (existing == null) {
+            return false;
+        }
+        if (alertMapper.countServicesByChannel(id) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务的告警配置不允许删除，仅能修改");
+        }
         return alertMapper.deleteChannel(id) > 0;
     }
 
@@ -78,11 +87,15 @@ public class AlertAdminService {
     }
 
     public Map<String, Object> getGroup(Long id) {
+        return getGroup(id, false);
+    }
+
+    public Map<String, Object> getGroup(Long id, boolean includeSecrets) {
         AlertGroup group = alertMapper.findGroup(id);
         if (group == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "alert group not found");
         }
-        return groupToMap(group);
+        return groupToMap(group, includeSecrets);
     }
 
     @Transactional
@@ -110,8 +123,34 @@ public class AlertAdminService {
         return getGroup(id);
     }
 
+    @Transactional
     public boolean deleteGroup(Long id) {
-        return alertMapper.deleteGroup(id) > 0;
+        AlertGroup existing = alertMapper.findGroup(id);
+        if (existing == null) {
+            return false;
+        }
+        if (alertMapper.countServicesByGroup(id) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务的告警配置不允许删除，仅能修改");
+        }
+        List<AlertChannel> channels = alertMapper.listChannelsByGroup(id);
+        alertMapper.deleteGroupPolicies(id);
+        alertMapper.deleteGroupChannels(id);
+        boolean deleted = alertMapper.deleteGroup(id) > 0;
+        for (AlertChannel channel : channels) {
+            if (alertMapper.countGroupsByChannel(channel.id) == 0) {
+                alertMapper.deleteChannel(channel.id);
+            }
+        }
+        return deleted;
+    }
+
+    private void assertUniqueChannelType(String channelType, Long currentId) {
+        if (channelType == null || channelType.trim().isEmpty()) {
+            return;
+        }
+        if (alertMapper.countChannelsByType(channelType, currentId) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "相同类型的告警配置已存在");
+        }
     }
 
     private void syncGroupRelations(Long groupId, AlertGroupPayload payload) {
@@ -126,6 +165,10 @@ public class AlertAdminService {
     }
 
     private Map<String, Object> groupToMap(AlertGroup group) {
+        return groupToMap(group, false);
+    }
+
+    private Map<String, Object> groupToMap(AlertGroup group, boolean includeSecrets) {
         Map<String, Object> item = new HashMap<String, Object>();
         item.put("id", group.id);
         item.put("group_name", group.groupName);
@@ -143,7 +186,7 @@ public class AlertAdminService {
         }
         for (AlertChannel channel : alertMapper.listChannelsByGroup(group.id)) {
             channelIds.add(channel.id);
-            channels.add(channelToMap(channel, false));
+            channels.add(channelToMap(channel, includeSecrets));
         }
         item.put("policy_ids", policyIds);
         item.put("channel_ids", channelIds);
@@ -174,13 +217,17 @@ public class AlertAdminService {
     private Map<String, Object> channelConfig(AlertChannelPayload payload, Map<String, Object> existing) {
         Map<String, Object> config = new HashMap<String, Object>();
         config.put("alert_email", payload.alertEmail);
+        config.put("alert_cc", payload.alertCc);
         config.put("alert_mobile", payload.alertMobile);
         config.put("smtp_host", payload.smtpHost);
         config.put("smtp_port", payload.smtpPort);
         config.put("smtp_user", payload.smtpUser);
         config.put("smtp_password", payload.smtpPassword);
         config.put("smtp_from", payload.smtpFrom);
+        config.put("smtp_auth", payload.smtpAuth == null ? true : payload.smtpAuth);
         config.put("smtp_use_tls", payload.smtpUseTls == null ? false : payload.smtpUseTls);
+        config.put("smtp_use_ssl", payload.smtpUseSsl == null ? false : payload.smtpUseSsl);
+        config.put("smtp_ssl_trust", payload.smtpSslTrust);
         config.put("sms_api_url", payload.smsApiUrl);
         config.put("sms_api_token", payload.smsApiToken);
         config.put("sms_username", payload.smsUsername);

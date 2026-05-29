@@ -119,6 +119,15 @@ public class MonitorController {
         return alertMapper.listAlerts(null, Math.max(1, Math.min(limit, 200)));
     }
 
+    @DeleteMapping("/api/alerts")
+    public Map<String, Object> clearAlerts() {
+        int deleted = alertMapper.deleteAllAlertRecords();
+        Map<String, Object> result = new HashMap<String, Object>();
+        result.put("success", true);
+        result.put("deleted", deleted);
+        return result;
+    }
+
     @PutMapping("/api/services/{serviceId}/alert-group")
     public MonitorService bindAlertGroup(@PathVariable Long serviceId, @RequestBody ServiceAlertGroupPayload payload) {
         if (serviceMapper.findById(serviceId) == null) {
@@ -147,11 +156,15 @@ public class MonitorController {
         MonitorService service = liveMonitorService.getService(serviceId);
         AlertRecord record = alertService.testAlert(service);
         Map<String, Object> result = new HashMap<String, Object>();
+        boolean success = "success".equals(record.alertStatus);
         result.put("service_id", service.id);
         result.put("service_name", service.serviceName);
         result.put("alert_group_id", service.alertGroupId);
         result.put("record", record);
-        result.put("success", true);
+        result.put("success", success);
+        if (!success) {
+            result.put("error", record.alertContent);
+        }
         return result;
     }
 }

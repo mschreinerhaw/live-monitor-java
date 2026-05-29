@@ -1,10 +1,17 @@
 server:
   port: 8000
 
+debug: false
+
 spring:
   datasource:
     driver-class-name: org.sqlite.JDBC
-    url: jdbc:sqlite:./data/live_monitor.db
+    url: "jdbc:sqlite:./data/live_monitor.db?journal_mode=WAL&busy_timeout=5000&foreign_keys=on"
+    hikari:
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 30000
+      connection-init-sql: PRAGMA foreign_keys=ON
   sql:
     init:
       mode: always
@@ -21,3 +28,13 @@ live-monitor:
   scheduler-tick-seconds: 5
   default-timeout-seconds: 3
   secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}
+
+logging:
+  file:
+    name: ./logs/live-monitor-java.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+  level:
+    root: INFO

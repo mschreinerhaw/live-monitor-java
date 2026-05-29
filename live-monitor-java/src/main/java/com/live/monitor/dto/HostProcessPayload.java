@@ -5,7 +5,8 @@ import javax.validation.constraints.NotBlank;
 public class HostProcessPayload {
     @NotBlank
     public String processName;
-    @NotBlank
     public String matchKeyword;
+    @NotBlank
+    public String checkCommand;
     public Boolean enabled = true;
 }

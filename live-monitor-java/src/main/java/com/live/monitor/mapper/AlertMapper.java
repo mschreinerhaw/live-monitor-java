@@ -26,9 +26,21 @@ public interface AlertMapper {
     @Select("SELECT * FROM alert_channel WHERE id = #{id}")
     AlertChannel findChannel(@Param("id") Long id);
 
+    @Select("SELECT COUNT(*) FROM alert_channel WHERE channel_type = #{channelType} " +
+        "AND (#{excludeId} IS NULL OR id <> #{excludeId})")
+    int countChannelsByType(@Param("channelType") String channelType, @Param("excludeId") Long excludeId);
+
     @Select("SELECT c.* FROM alert_channel c JOIN group_channel_rel rel ON rel.channel_id = c.id " +
         "WHERE rel.group_id = #{groupId} ORDER BY c.channel_name")
     List<AlertChannel> listChannelsByGroup(@Param("groupId") Long groupId);
+
+    @Select("SELECT COUNT(*) FROM group_channel_rel WHERE channel_id = #{channelId}")
+    int countGroupsByChannel(@Param("channelId") Long channelId);
+
+    @Select("SELECT COUNT(*) FROM service_alert_group sag " +
+        "JOIN group_channel_rel rel ON rel.group_id = sag.group_id " +
+        "WHERE rel.channel_id = #{channelId}")
+    int countServicesByChannel(@Param("channelId") Long channelId);
 
     @Insert("INSERT INTO alert_channel (channel_name, channel_type, config_json, enabled) " +
         "VALUES (#{channelName}, #{channelType}, #{configJson}, #{enabled})")
@@ -89,4 +101,7 @@ public interface AlertMapper {
         "SELECT id FROM alert_record WHERE service_id = a.service_id ORDER BY created_at DESC, id DESC LIMIT 1" +
         ") ORDER BY a.created_at DESC, a.id DESC LIMIT #{limit}")
     List<AlertRecord> listRecentAlerts(@Param("limit") int limit);
+
+    @Delete("DELETE FROM alert_record")
+    int deleteAllAlertRecords();
 }

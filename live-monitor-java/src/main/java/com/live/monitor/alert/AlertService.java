@@ -1,11 +1,13 @@
 package com.live.monitor.alert;
 
+import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertPolicy;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.AlertMapper;
 import com.live.monitor.mapper.MonitorResultMapper;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -14,17 +16,26 @@ import org.springframework.util.StringUtils;
 public class AlertService {
     private final AlertMapper alertMapper;
     private final MonitorResultMapper resultMapper;
+    private final AlertDeliveryService deliveryService;
 
-    public AlertService(AlertMapper alertMapper, MonitorResultMapper resultMapper) {
+    public AlertService(
+        AlertMapper alertMapper,
+        MonitorResultMapper resultMapper,
+        AlertDeliveryService deliveryService
+    ) {
         this.alertMapper = alertMapper;
         this.resultMapper = resultMapper;
+        this.deliveryService = deliveryService;
     }
 
     public void evaluate(MonitorService service, MonitorResult result, String previousStatus) {
         if (service.alertGroupId == null) {
             if ("DOWN".equals(result.status) && "UP".equals(previousStatus)) {
-                record(service, "服务从 UP 变为 DOWN: " + safe(result.message), "record");
+                record(service, "Service changed from UP to DOWN: " + safe(result.message), "record", "success");
             }
+            return;
+        }
+        if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
             return;
         }
         List<AlertPolicy> policies = alertMapper.listPoliciesByGroup(service.alertGroupId);
@@ -32,12 +43,19 @@ public class AlertService {
             if (!Boolean.TRUE.equals(policy.enabled) || !triggered(service, result, previousStatus, policy)) {
                 continue;
             }
-            record(service, content(service, result, policy), policy.triggerType);
+            dispatch(service, content(service, result, policy), policy.triggerType);
         }
     }
 
     public AlertRecord testAlert(MonitorService service) {
-        return record(service, "[测试告警] 服务 " + service.serviceName + " 的告警绑定测试。", "test");
+        List<AlertRecord> records = dispatch(
+            service,
+            "[Test Alert] Service " + service.serviceName + " alert delivery test.",
+            "test"
+        );
+        return records.isEmpty()
+            ? record(service, "No alert record generated.", "test", "failed")
+            : records.get(0);
     }
 
     private boolean triggered(MonitorService service, MonitorResult result, String previousStatus, AlertPolicy policy) {
@@ -67,12 +85,47 @@ public class AlertService {
         return false;
     }
 
-    private AlertRecord record(MonitorService service, String content, String type) {
+    private List<AlertRecord> dispatch(MonitorService service, String content, String fallbackType) {
+        List<AlertRecord> records = new ArrayList<AlertRecord>();
+        if (service.alertGroupId == null) {
+            records.add(record(service, content + " Delivery skipped: no alert group bound.", fallbackType, "failed"));
+            return records;
+        }
+        if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
+            records.add(record(service, content + " Delivery skipped: alert group is disabled.", fallbackType, "failed"));
+            return records;
+        }
+
+        List<AlertChannel> channels = alertMapper.listChannelsByGroup(service.alertGroupId);
+        int enabledChannels = 0;
+        for (AlertChannel channel : channels) {
+            if (!Boolean.TRUE.equals(channel.enabled)) {
+                continue;
+            }
+            enabledChannels++;
+            AlertDeliveryService.DeliveryResult delivery = deliveryService.send(channel, content);
+            String recordContent = delivery.success || !StringUtils.hasText(delivery.message)
+                ? content
+                : content + " Delivery error: " + delivery.message;
+            records.add(record(
+                service,
+                recordContent,
+                StringUtils.hasText(channel.channelType) ? channel.channelType : fallbackType,
+                delivery.success ? "success" : "failed"
+            ));
+        }
+        if (enabledChannels == 0) {
+            records.add(record(service, content + " Delivery skipped: no enabled alert channels.", fallbackType, "failed"));
+        }
+        return records;
+    }
+
+    private AlertRecord record(MonitorService service, String content, String type, String status) {
         AlertRecord record = new AlertRecord();
         record.serviceId = service.id;
         record.alertType = type;
         record.alertContent = content;
-        record.alertStatus = "success";
+        record.alertStatus = status;
         alertMapper.insertAlertRecord(record);
         return record;
     }

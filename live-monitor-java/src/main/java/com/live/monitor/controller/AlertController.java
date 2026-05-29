@@ -65,8 +65,11 @@ public class AlertController {
     }
 
     @GetMapping("/api/alert-groups/{groupId}")
-    public Map<String, Object> group(@PathVariable Long groupId) {
-        return alertAdminService.getGroup(groupId);
+    public Map<String, Object> group(
+        @PathVariable Long groupId,
+        @RequestParam(name = "include_secrets", defaultValue = "false") boolean includeSecrets
+    ) {
+        return alertAdminService.getGroup(groupId, includeSecrets);
     }
 
     @PostMapping("/api/alert-groups")

@@ -73,6 +73,11 @@ public class HostController {
         return hostMonitorService.addProcess(hostId, payload);
     }
 
+    @PutMapping("/api/host-processes/{processId}")
+    public HostProcessConfig updateProcess(@PathVariable Long processId, @Valid @RequestBody HostProcessPayload payload) {
+        return hostMonitorService.updateProcess(processId, payload);
+    }
+
     @DeleteMapping("/api/host-processes/{processId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteProcess(@PathVariable Long processId) {

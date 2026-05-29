@@ -15,6 +15,7 @@
     </a>
     <nav class="nav">
       <a href="/dashboard">监控首页</a>
+      <a href="/hosts">主机维护</a>
       <a id="serviceFormNav" class="active" href="/services/new">添加服务</a>
       <a href="/alerts/settings">告警设置</a>
     </nav>
@@ -30,14 +31,19 @@
       </div>
 
       <form id="serviceForm" class="form-grid">
-        <label class="span-2">
+        <div class="form-field span-2">
           <span>服务类型</span>
-          <select name="service_type" id="serviceType" required>
-            <option value="web">Web 应用</option>
+          <select name="service_type" id="serviceType" class="service-type-native-select" required>
+            <option value="web">Web 应用 (HTTP/HTTPS)</option>
+            <option value="process">进程检测</option>
+            <option value="port">端口检测 (TCP/UDP)</option>
             <option value="redis">Redis</option>
             <option value="zookeeper">ZooKeeper</option>
+            <option value="mysql">MySQL</option>
+            <option value="oracle">Oracle</option>
+            <option value="postgresql">PostgreSQL</option>
           </select>
-        </label>
+        </div>
 
         <label>
           <span>服务名称</span>
@@ -59,9 +65,17 @@
           <input name="check_timeout_seconds" type="number" min="0.2" max="60" step="0.1" value="3" required>
         </label>
 
-        <label class="web-only span-2">
+        <label class="web-only">
+          <span>应用协议</span>
+          <select name="web_scheme">
+            <option value="https">HTTPS 应用</option>
+            <option value="http">HTTP 应用</option>
+          </select>
+        </label>
+
+        <label class="web-only">
           <span>URL</span>
-          <input name="url" type="url" placeholder="https://example.com/health">
+          <input name="url" type="text" inputmode="url" placeholder="example.com/health 或 https://example.com/health">
         </label>
 
         <label class="web-only">
@@ -83,14 +97,54 @@
           <input name="response_keyword" placeholder="例如：login success">
         </label>
 
-        <label class="host-port">
+        <label class="switch-row web-only span-2">
+          <input name="ignore_ssl_verification" type="checkbox">
+          <span>忽略 HTTPS 证书验证（自签名）</span>
+        </label>
+
+        <label class="host-port host-field">
           <span>地址</span>
           <input name="host" placeholder="127.0.0.1">
         </label>
 
-        <label class="host-port">
+        <label class="host-port port-field">
           <span>端口</span>
           <input name="port" type="number" min="1" max="65535" placeholder="6379">
+        </label>
+
+        <label class="process-only">
+          <span>监控主机</span>
+          <select name="host_id" id="processHostSelect">
+            <option value="">按地址匹配已登记主机</option>
+          </select>
+        </label>
+
+        <label class="process-only">
+          <span>进程名称</span>
+          <input name="process_name" placeholder="例如：Nginx">
+        </label>
+
+        <label class="process-only span-2">
+          <span>进程检测命令</span>
+          <textarea name="check_command" rows="3" placeholder="例如：pgrep -f nginx >/dev/null"></textarea>
+        </label>
+
+        <label class="process-only">
+          <span>匹配关键字</span>
+          <input name="process_match_keyword" placeholder="例如：nginx">
+        </label>
+
+        <label class="process-only">
+          <span>匹配方式</span>
+          <select name="process_match_mode">
+            <option value="exact">精确匹配</option>
+            <option value="fuzzy">模糊匹配</option>
+          </select>
+        </label>
+
+        <label class="process-only">
+          <span>最小实例数</span>
+          <input name="process_min_instances" type="number" min="1" max="1000" value="1">
         </label>
 
         <label class="redis-only">
@@ -129,6 +183,31 @@
         <label class="zookeeper-only">
           <span>期望节点数</span>
           <input name="zookeeper_expected_nodes" type="number" min="1" max="1000" placeholder="例如：3">
+        </label>
+
+        <label class="database-only">
+          <span>数据库名 / 服务名</span>
+          <input name="database_name" placeholder="MySQL库名、PostgreSQL库名、Oracle服务名">
+        </label>
+
+        <label class="database-only">
+          <span>数据库用户</span>
+          <input name="database_username" placeholder="例如：monitor">
+        </label>
+
+        <label class="database-only">
+          <span>数据库密码</span>
+          <input name="database_password" type="password" placeholder="数据库连接密码">
+        </label>
+
+        <label class="database-only">
+          <span>期望结果</span>
+          <input name="expected_result" placeholder="可选，例如：1">
+        </label>
+
+        <label class="database-only span-2">
+          <span>检测 SQL</span>
+          <input name="database_query" placeholder="留空默认执行 SELECT 1（Oracle 为 SELECT 1 FROM dual）">
         </label>
 
         <label class="span-2">

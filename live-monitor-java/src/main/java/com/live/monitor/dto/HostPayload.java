@@ -15,5 +15,15 @@ public class HostPayload {
     public String sshUser;
     public String sshPassword;
     public String privateKey;
+    public String clusterName;
+    @Min(1)
+    @Max(100)
+    public Double cpuThresholdPercent = 85D;
+    @Min(1)
+    @Max(100)
+    public Double diskThresholdPercent = 85D;
+    @Min(5)
+    public Integer checkInterval = 60;
+    public Long alertGroupId;
     public Boolean enabled = true;
 }

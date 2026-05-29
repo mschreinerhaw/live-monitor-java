@@ -29,26 +29,22 @@ public interface MonitorServiceMapper {
     MonitorService findById(@Param("id") Long id);
 
     @Insert("INSERT INTO monitor_service (" +
-        "service_name, service_type, cluster_name, host, port, url, http_method, expected_status_code, " +
-        "response_keyword, check_timeout_seconds, redis_username, redis_password, redis_cluster_mode, " +
-        "zookeeper_check_mode, zookeeper_check_command, zookeeper_expected_nodes, check_interval, " +
-        "alert_config_id, enabled" +
+        "service_name, service_category, service_type, cluster_name, endpoint, host, port, check_mode, " +
+        "check_command, expected_result, check_timeout_seconds, config_json, secret_config_json, " +
+        "check_interval, alert_config_id, enabled" +
         ") VALUES (" +
-        "#{serviceName}, #{serviceType}, #{clusterName}, #{host}, #{port}, #{url}, #{httpMethod}, #{expectedStatusCode}, " +
-        "#{responseKeyword}, #{checkTimeoutSeconds}, #{redisUsername}, #{redisPassword}, #{redisClusterMode}, " +
-        "#{zookeeperCheckMode}, #{zookeeperCheckCommand}, #{zookeeperExpectedNodes}, #{checkInterval}, " +
-        "#{alertConfigId}, #{enabled})")
+        "#{serviceName}, #{serviceCategory}, #{serviceType}, #{clusterName}, #{endpoint}, #{host}, #{port}, #{checkMode}, " +
+        "#{checkCommand}, #{expectedResult}, #{checkTimeoutSeconds}, #{configJson}, #{secretConfigJson}, " +
+        "#{checkInterval}, #{alertConfigId}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(MonitorService service);
 
     @Update("UPDATE monitor_service SET " +
-        "service_name = #{serviceName}, service_type = #{serviceType}, cluster_name = #{clusterName}, " +
-        "host = #{host}, port = #{port}, url = #{url}, http_method = #{httpMethod}, " +
-        "expected_status_code = #{expectedStatusCode}, response_keyword = #{responseKeyword}, " +
-        "check_timeout_seconds = #{checkTimeoutSeconds}, redis_username = #{redisUsername}, " +
-        "redis_password = COALESCE(#{redisPassword}, redis_password), redis_cluster_mode = #{redisClusterMode}, " +
-        "zookeeper_check_mode = #{zookeeperCheckMode}, zookeeper_check_command = #{zookeeperCheckCommand}, " +
-        "zookeeper_expected_nodes = #{zookeeperExpectedNodes}, check_interval = #{checkInterval}, " +
+        "service_name = #{serviceName}, service_category = #{serviceCategory}, service_type = #{serviceType}, " +
+        "cluster_name = #{clusterName}, endpoint = #{endpoint}, host = #{host}, port = #{port}, " +
+        "check_mode = #{checkMode}, check_command = #{checkCommand}, expected_result = #{expectedResult}, " +
+        "check_timeout_seconds = #{checkTimeoutSeconds}, config_json = #{configJson}, " +
+        "secret_config_json = #{secretConfigJson}, check_interval = #{checkInterval}, " +
         "alert_config_id = #{alertConfigId}, enabled = #{enabled} WHERE id = #{id}")
     int update(MonitorService service);
 

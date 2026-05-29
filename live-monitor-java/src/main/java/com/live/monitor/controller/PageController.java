@@ -11,18 +11,23 @@ public class PageController {
         return "forward:/index.html";
     }
 
-    @GetMapping({"/service.html", "/services/{serviceId}"})
+    @GetMapping("/services/{serviceId}")
     public String serviceDetail(@PathVariable(required = false) Long serviceId) {
         return "forward:/service.html";
     }
 
-    @GetMapping({"/add_service.html", "/services/new", "/services/{serviceId}/edit"})
+    @GetMapping({"/services/new", "/services/{serviceId}/edit"})
     public String serviceForm(@PathVariable(required = false) Long serviceId) {
         return "forward:/add_service.html";
     }
 
-    @GetMapping({"/alert_settings.html", "/alerts/settings"})
+    @GetMapping("/alerts/settings")
     public String alertSettings() {
         return "forward:/alert_settings.html";
+    }
+
+    @GetMapping("/hosts")
+    public String hosts() {
+        return "forward:/hosts.html";
     }
 }

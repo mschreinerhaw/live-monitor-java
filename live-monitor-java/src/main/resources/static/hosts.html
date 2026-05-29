@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>主机维护 - Live Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body data-page="hosts">
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">LM</span>
+      <span>Live Monitor</span>
+    </a>
+    <nav class="nav">
+      <a href="/dashboard">监控首页</a>
+      <a class="active" href="/hosts">主机维护</a>
+      <a href="/services/new">添加服务</a>
+      <a href="/alerts/settings">告警设置</a>
+    </nav>
+  </header>
+
+  <main class="page host-page">
+    <section class="detail-head">
+      <div>
+        <a class="back-link" href="/dashboard">返回监控首页</a>
+        <h1>服务器主机维护</h1>
+        <p>维护 SSH/SFTP 主机，配置 CPU、磁盘阈值和自动检测间隔。</p>
+      </div>
+      <div class="detail-actions">
+        <button id="reloadHostsBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+        <button id="newHostBtn" class="primary-button" type="button">
+          <i data-lucide="plus"></i>
+          <span>添加主机</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>主机列表</h2>
+          <p class="panel-subtitle">保存后会同步为监控服务，并在监控首页按分组展示。</p>
+        </div>
+        <label class="compact-filter">
+          <span>状态</span>
+          <select id="hostStatusFilter">
+            <option value="enabled">仅启用</option>
+            <option value="all">全部</option>
+          </select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table host-table">
+          <thead>
+            <tr>
+              <th>主机</th>
+              <th>分组</th>
+              <th>SSH</th>
+              <th>CPU</th>
+              <th>内存</th>
+              <th>磁盘</th>
+              <th>CPU 阈值</th>
+              <th>磁盘阈值</th>
+              <th>检测间隔</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="hostTable">
+            <tr><td colspan="11" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="hostModal" class="modal-backdrop" hidden>
+    <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="hostModalTitle">
+      <div class="modal-head">
+        <h2 id="hostModalTitle">添加主机</h2>
+        <button class="icon-button" type="button" onclick="closeHostModal()" title="关闭" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="hostForm" class="form-grid modal-body host-form">
+        <input type="hidden" name="id">
+        <label>
+          <span>主机名称</span>
+          <input name="host_name" required maxlength="120" placeholder="app-prod-01">
+        </label>
+        <label>
+          <span>IP / Host</span>
+          <input name="ip" required placeholder="192.168.1.10">
+        </label>
+        <label>
+          <span>分组</span>
+          <input name="cluster_name" placeholder="服务器主机">
+        </label>
+        <label>
+          <span>SSH 端口</span>
+          <input name="ssh_port" type="number" min="1" max="65535" value="22" required>
+        </label>
+        <label>
+          <span>SSH 用户</span>
+          <input name="ssh_user" placeholder="monitor">
+        </label>
+        <label>
+          <span>SSH 密码</span>
+          <input name="ssh_password" type="password" placeholder="留空保持原密码">
+        </label>
+        <label>
+          <span>CPU 告警阈值 (%)</span>
+          <input name="cpu_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
+        </label>
+        <label>
+          <span>磁盘告警阈值 (%)</span>
+          <input name="disk_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
+        </label>
+        <label>
+          <span>检测间隔 (秒)</span>
+          <input name="check_interval" type="number" min="5" value="60">
+        </label>
+        <label>
+          <span>告警组</span>
+          <select name="alert_group_id" id="hostAlertGroupSelect">
+            <option value="">不绑定告警组</option>
+          </select>
+        </label>
+        <label class="span-2">
+          <span>私钥</span>
+          <textarea name="private_key" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
+        </label>
+        <label class="switch-row span-2">
+          <input name="enabled" type="checkbox" checked>
+          <span>启用此主机</span>
+        </label>
+        <div class="form-actions span-2">
+          <button class="ghost-button" type="button" onclick="closeHostModal()">取消</button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="save"></i>
+            <span>保存主机</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="hostDetailModal" class="modal-backdrop" hidden>
+    <section class="modal-dialog host-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="selectedHostTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="selectedHostTitle">主机指标</h2>
+          <p class="panel-subtitle" id="selectedHostMeta">打开详情后按主机检测间隔自动刷新。</p>
+        </div>
+        <button class="icon-button" type="button" onclick="closeHostDetailModal()" title="关闭" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <section class="host-dashboard-grid modal-body">
+        <article class="host-chart-card">
+          <div class="host-chart-head">
+            <span><i data-lucide="cpu"></i>CPU / Load</span>
+            <strong id="hostCpuValue">-</strong>
+          </div>
+          <canvas id="hostCpuChart" width="320" height="120"></canvas>
+          <small id="hostLoadValue">Load -</small>
+        </article>
+        <article class="host-chart-card">
+          <div class="host-chart-head">
+            <span><i data-lucide="memory-stick"></i>内存</span>
+            <strong id="hostMemoryValue">-</strong>
+          </div>
+          <canvas id="hostMemoryChart" width="320" height="120"></canvas>
+          <small>Memory used</small>
+        </article>
+        <article class="host-chart-card">
+          <div class="host-chart-head">
+            <span><i data-lucide="hard-drive"></i>磁盘</span>
+            <strong id="hostDiskValue">-</strong>
+          </div>
+          <canvas id="hostDiskChart" width="320" height="120"></canvas>
+          <small>Root filesystem</small>
+        </article>
+      </section>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

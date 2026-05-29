@@ -16,6 +16,7 @@
   </a>
   <nav class="nav">
     <a href="/dashboard">监控首页</a>
+    <a href="/hosts">主机维护</a>
     <a class="active" href="/alerts/settings">告警设置</a>
   </nav>
 </header>
@@ -27,37 +28,86 @@
   </div>
 
   <section class="alert-config-layout binding-mode" id="alertSettingsLayout">
-    <aside class="panel alert-config-list-panel">
-      <div class="panel-head">
-        <h2>告警配置</h2>
-        <button class="icon-button" id="newAlertGroupBtn" title="新增告警">
-          <i data-lucide="plus"></i>
-        </button>
-      </div>
-      <div id="alertGroupList" class="group-list">
-        <p class="empty">加载中...</p>
-      </div>
-    </aside>
-
-    <div class="panel panel-main">
+    <div class="panel panel-main alert-config-panel">
       <div class="panel-head">
         <div>
-          <h1 id="alertConfigFormTitle">新增告警</h1>
-          <p class="panel-subtitle">配置告警名称、通知方式和接收人，保存后可在左侧选择并修改。</p>
+          <h1>告警配置</h1>
+          <p class="panel-subtitle">每种告警类型只登记一条配置，服务绑定后将使用对应配置发送通知。</p>
         </div>
-        <button class="icon-button" id="reloadAlertSettingsBtn" title="刷新">
-          <i data-lucide="refresh-cw"></i>
+        <div class="panel-actions">
+          <button class="icon-button" id="reloadAlertSettingsBtn" title="刷新">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+          <button class="primary-button" id="newAlertGroupBtn" type="button">
+            <i data-lucide="plus"></i>
+            新增配置
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table alert-config-table">
+          <thead>
+          <tr>
+            <th>告警类型</th>
+            <th>配置名称</th>
+            <th>接收人</th>
+            <th>触发策略</th>
+            <th>关联服务</th>
+            <th>状态</th>
+            <th class="actions-column">操作</th>
+          </tr>
+          </thead>
+          <tbody id="alertGroupList">
+          <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside class="panel binding-test-panel">
+      <div class="panel-head">
+        <h2>服务绑定与测试</h2>
+      </div>
+      <div class="table-wrap compact-wrap">
+        <table class="data-table compact-table binding-table">
+          <thead>
+          <tr>
+            <th>服务</th>
+            <th>告警</th>
+            <th class="actions-column">测试</th>
+          </tr>
+          </thead>
+          <tbody id="alertSettingsTable">
+          <tr><td colspan="3" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="alertConfigModal" hidden>
+  <div class="modal-dialog alert-config-modal" role="dialog" aria-modal="true" aria-labelledby="alertConfigFormTitle">
+    <form id="alertGroupForm">
+      <div class="modal-head">
+        <div>
+          <h2 id="alertConfigFormTitle">新增告警配置</h2>
+          <p class="panel-subtitle">点击记录可编辑；已关联服务的配置只能修改，不能删除。</p>
+        </div>
+        <button class="icon-button" id="closeAlertConfigModalBtn" type="button" title="关闭">
+          <i data-lucide="x"></i>
         </button>
       </div>
 
-      <form id="alertGroupForm" class="form-grid alert-simple-form">
+      <div class="form-grid alert-simple-form modal-body">
         <label>
-          <span>告警名称</span>
+          <span>配置名称</span>
           <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
         </label>
 
         <label>
-          <span>通知方式</span>
+          <span>告警类型</span>
           <select id="alertChannelTypeSelect" required>
             <option value="sms">短信告警</option>
             <option value="email">邮箱告警</option>
@@ -74,14 +124,28 @@
           <span>启用该告警</span>
         </label>
 
+        <section class="setting-section span-2">
+          <div class="section-head">
+            <h2>触发策略</h2>
+          </div>
+          <div id="policyChecklist" class="choice-list"></div>
+        </section>
+
         <section class="setting-section span-2 channel-field sms-channel-field">
           <div class="section-head">
             <h2>短信接收配置</h2>
           </div>
-          <label>
+          <div class="recipient-list-field">
             <span>手机号接收人</span>
-            <textarea id="alertMobileInput" rows="4" placeholder="13800000000&#10;13900000000"></textarea>
-          </label>
+            <input id="alertMobileInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="alertMobileRecipientInput" type="tel" placeholder="13800000000">
+              <button class="icon-button" id="addMobileRecipientBtn" type="button" title="添加手机号">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="alertMobileRecipientList"></div>
+          </div>
           <label>
             <span>短信接口地址</span>
             <input id="smsApiUrlInput" type="url" placeholder="https://sms.example.com/send">
@@ -124,37 +188,67 @@
           <div class="section-head">
             <h2>邮箱接收配置</h2>
           </div>
-          <label>
-            <span>邮箱接收人</span>
-            <input id="alertEmailInput" type="text" placeholder="ops@example.com">
-          </label>
+          <div class="recipient-list-field">
+            <span>收件人</span>
+            <input id="alertEmailInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="alertEmailRecipientInput" type="email" placeholder="ops@example.com">
+              <button class="icon-button" id="addEmailRecipientBtn" type="button" title="添加收件人">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="alertEmailRecipientList"></div>
+          </div>
+          <div class="recipient-list-field">
+            <span>抄送人</span>
+            <input id="alertEmailCcInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="alertEmailCcRecipientInput" type="email" placeholder="cc@example.com">
+              <button class="icon-button" id="addEmailCcRecipientBtn" type="button" title="添加抄送人">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="alertEmailCcRecipientList"></div>
+          </div>
           <div class="inline-grid">
             <label>
-              <span>SMTP 地址</span>
+              <span>发送邮件服务器域名</span>
               <input id="smtpHostInput" type="text" placeholder="smtp.example.com">
             </label>
             <label>
-              <span>SMTP 端口</span>
+              <span>发送邮件服务器端口</span>
               <input id="smtpPortInput" type="number" min="1" max="65535" placeholder="25">
             </label>
           </div>
+          <label>
+            <span>发件人</span>
+            <input id="smtpFromInput" type="email" placeholder="monitor@example.com">
+          </label>
+          <label class="switch-row">
+            <input id="smtpAuthInput" type="checkbox" checked>
+            <span>请求认证</span>
+          </label>
           <div class="inline-grid">
             <label>
-              <span>SMTP 用户</span>
+              <span>账户名</span>
               <input id="smtpUserInput" type="text" placeholder="monitor@example.com">
             </label>
             <label>
-              <span>发件人</span>
-              <input id="smtpFromInput" type="text" placeholder="monitor@example.com">
+              <span>密码</span>
+              <input id="smtpPasswordInput" type="password" placeholder="留空则不修改">
             </label>
           </div>
-          <label>
-            <span>SMTP 密码</span>
-            <input id="smtpPasswordInput" type="password" placeholder="留空则不修改">
-          </label>
           <label class="switch-row">
             <input id="smtpTlsInput" type="checkbox">
-            <span>启用 STARTTLS</span>
+            <span>STARTTLS连接</span>
+          </label>
+          <label class="switch-row">
+            <input id="smtpSslInput" type="checkbox">
+            <span>SSL连接</span>
+          </label>
+          <label>
+            <span>SSL证书信任</span>
+            <input id="smtpSslTrustInput" type="text" placeholder="例如：smtp.example.com；信任所有可填 *">
           </label>
         </section>
 
@@ -168,37 +262,10 @@
             保存告警
           </button>
         </div>
-      </form>
-    </div>
-
-    <aside class="panel binding-test-panel">
-      <div class="panel-head">
-        <h2>服务绑定与测试</h2>
       </div>
-      <div class="table-wrap compact-wrap">
-        <table class="data-table compact-table binding-table">
-          <thead>
-          <tr>
-            <th>服务</th>
-            <th>告警</th>
-            <th class="actions-column">测试</th>
-          </tr>
-          </thead>
-          <tbody id="alertSettingsTable">
-          <tr><td colspan="3" class="empty">加载中...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel-head panel-head-inner">
-        <h2>最近告警</h2>
-      </div>
-      <div id="settingsRecentAlerts" class="alert-list">
-        <p class="empty">暂无告警</p>
-      </div>
-    </aside>
-  </section>
-</main>
+    </form>
+  </div>
+</div>
 
 <div id="toast" class="toast" hidden></div>
 
