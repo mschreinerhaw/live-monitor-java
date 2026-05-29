@@ -76,13 +76,17 @@
             <div class="panel-head">
               <h1>&#26381;&#21153;&#21015;&#34920;</h1>
               <div class="panel-actions">
+                <a class="light-button service-add-button" href="/services/new">
+                  <i data-lucide="plus"></i>
+                  <span>&#26032;&#22686;&#26381;&#21153;</span>
+                </a>
                 <a class="light-button service-add-button" href="/hosts">
                   <i data-lucide="server"></i>
                   <span>&#20027;&#26426;&#32500;&#25252;</span>
                 </a>
-                <a class="light-button service-add-button" href="/services/new">
-                  <i data-lucide="plus"></i>
-                  <span>&#26032;&#22686;&#26381;&#21153;</span>
+                <a class="light-button service-add-button" href="/alerts/settings">
+                  <i data-lucide="bell-ring"></i>
+                  <span>&#21578;&#35686;&#37197;&#32622;</span>
                 </a>
               </div>
             </div>
@@ -144,7 +148,7 @@
         </section>
 
         <footer class="service-page-foot">
-          <span>&copy; 2024 ServiceMonitor. All rights reserved.</span>
+          <span>&copy; 2026 apexSoft. All rights reserved.</span>
         </footer>
       </main>
     </div>
@@ -153,6 +157,13 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="/js/api.js"></script>
+  <script src="/js/app-state.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/chrome.js"></script>
+  <script src="/js/services.js"></script>
+  <script src="/js/alert-settings.js"></script>
+  <script src="/js/hosts.js"></script>
+  <script src="/js/dashboard.js"></script>
   <script src="/js/main.js"></script>
 </body>
 </html>

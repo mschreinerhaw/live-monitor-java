@@ -6,7 +6,6 @@
   <title>告警设置 - Live Monitor</title>
   <link rel="stylesheet" href="/css/style.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
-
 </head>
 <body data-page="alert-settings">
 <header class="topbar">
@@ -21,11 +20,51 @@
   </nav>
 </header>
 
-<main class="page">
+<main class="page alert-settings-page">
+  <section class="alert-settings-hero">
+    <h1>服务绑定与测试</h1>
+    <p>管理监控服务与告警规则的绑定关系，并进行告警测试</p>
+  </section>
+
   <div class="alert-page-tabs" role="tablist" aria-label="告警设置页面切换">
     <button class="tab-button active" id="showBindingTestBtn" type="button" role="tab" aria-selected="true">服务绑定与测试</button>
     <button class="tab-button" id="showAlertConfigBtn" type="button" role="tab" aria-selected="false">告警配置</button>
   </div>
+
+  <section class="alert-metric-strip" aria-label="告警设置概览">
+    <article class="alert-metric-card metric-blue">
+      <span class="alert-metric-icon"><i data-lucide="clipboard-check"></i></span>
+      <div>
+        <span class="alert-metric-label">监控服务</span>
+        <strong id="alertMetricServiceCount">0</strong>
+        <small>已绑定服务</small>
+      </div>
+    </article>
+    <article class="alert-metric-card metric-green">
+      <span class="alert-metric-icon"><i data-lucide="bell"></i></span>
+      <div>
+        <span class="alert-metric-label">启用告警</span>
+        <strong id="alertMetricEnabledCount">0</strong>
+        <small>启用中的告警</small>
+      </div>
+    </article>
+    <article class="alert-metric-card metric-red">
+      <span class="alert-metric-icon"><i data-lucide="badge-alert"></i></span>
+      <div>
+        <span class="alert-metric-label">今日告警</span>
+        <strong id="alertMetricTodayCount">0</strong>
+        <small id="alertMetricTodayTrend">较昨日 -</small>
+      </div>
+    </article>
+    <article class="alert-metric-card metric-purple">
+      <span class="alert-metric-icon"><i data-lucide="send"></i></span>
+      <div>
+        <span class="alert-metric-label">告警通知</span>
+        <strong id="alertMetricNotifyRate">0%</strong>
+        <small>通知成功率</small>
+      </div>
+    </article>
+  </section>
 
   <section class="alert-config-layout binding-mode" id="alertSettingsLayout">
     <div class="panel panel-main alert-config-panel">
@@ -65,25 +104,77 @@
       </div>
     </div>
 
-    <aside class="panel binding-test-panel">
-      <div class="panel-head">
-        <h2>服务绑定与测试</h2>
+    <div class="panel binding-test-panel">
+      <div class="alert-binding-toolbar">
+        <div class="alert-toolbar-left">
+          <!-- <button class="primary-button" id="newServiceBindingBtn" type="button">
+            <i data-lucide="plus"></i>
+            新增服务绑定
+          </button> -->
+          <button class="ghost-button" id="batchAlertActionBtn" type="button">
+            <i data-lucide="settings-2"></i>
+            批量操作
+            <i data-lucide="chevron-down"></i>
+          </button>
+        </div>
+        <div class="alert-toolbar-right">
+          <select class="alert-filter-select" id="alertBindingStatusFilter" aria-label="告警状态筛选">
+            <option value="all">全部告警状态</option>
+            <option value="bound">已绑定</option>
+            <option value="unbound">未绑定</option>
+            <option value="enabled">告警启用</option>
+            <option value="disabled">告警停用</option>
+          </select>
+          <select class="alert-filter-select" id="alertServiceTypeFilter" aria-label="服务类型筛选">
+            <option value="all">全部服务类型</option>
+          </select>
+          <label class="alert-search-field">
+            <input id="alertServiceSearchInput" type="search" placeholder="搜索服务名称">
+            <i data-lucide="search"></i>
+          </label>
+          <button class="icon-button" id="reloadAlertBindingBtn" type="button" title="刷新">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </div>
       </div>
-      <div class="table-wrap compact-wrap">
-        <table class="data-table compact-table binding-table">
+
+      <div class="table-wrap alert-binding-table-wrap">
+        <table class="data-table alert-binding-table">
           <thead>
           <tr>
-            <th>服务</th>
-            <th>告警</th>
-            <th class="actions-column">测试</th>
+            <th class="select-column"><input id="selectAllAlertServices" type="checkbox" aria-label="全选服务"></th>
+            <th>服务名称</th>
+            <th>服务类型</th>
+            <th>告警状态</th>
+            <th>绑定规则</th>
+            <th>最后告警时间</th>
+            <th>通知状态</th>
+            <th class="actions-column">操作</th>
           </tr>
           </thead>
           <tbody id="alertSettingsTable">
-          <tr><td colspan="3" class="empty">加载中...</td></tr>
+          <tr><td colspan="8" class="empty">加载中...</td></tr>
           </tbody>
         </table>
       </div>
-    </aside>
+
+      <div class="alert-table-footer">
+        <span id="alertBindingTotalText">共 0 条</span>
+        <div class="alert-footer-controls">
+          <select class="alert-filter-select" aria-label="每页条数">
+            <option>10条/页</option>
+            <option>20条/页</option>
+            <option>50条/页</option>
+          </select>
+          <button class="icon-button" type="button" title="上一页" disabled><i data-lucide="chevron-left"></i></button>
+          <button class="page-number active" type="button">1</button>
+          <button class="icon-button" type="button" title="下一页" disabled><i data-lucide="chevron-right"></i></button>
+          <span>前往</span>
+          <input class="page-jump-input" value="1" aria-label="页码">
+          <span>页</span>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -240,14 +331,14 @@
           </div>
           <label class="switch-row">
             <input id="smtpTlsInput" type="checkbox">
-            <span>STARTTLS连接</span>
+            <span>STARTTLS 连接</span>
           </label>
           <label class="switch-row">
             <input id="smtpSslInput" type="checkbox">
-            <span>SSL连接</span>
+            <span>SSL 连接</span>
           </label>
           <label>
-            <span>SSL证书信任</span>
+            <span>SSL 证书信任</span>
             <input id="smtpSslTrustInput" type="text" placeholder="例如：smtp.example.com；信任所有可填 *">
           </label>
         </section>
@@ -267,10 +358,67 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="alertBindingModal" hidden>
+  <div class="modal-dialog alert-binding-modal" role="dialog" aria-modal="true" aria-labelledby="alertBindingFormTitle">
+    <form id="alertBindingForm">
+      <div class="modal-head">
+        <div>
+          <h2 id="alertBindingFormTitle">新增服务绑定</h2>
+          <p class="panel-subtitle">选择监控服务和告警配置，保存后可直接在列表中测试告警发送。</p>
+        </div>
+        <button class="icon-button" id="closeAlertBindingModalBtn" type="button" title="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="form-grid alert-simple-form modal-body">
+        <label id="alertBindingServiceField" class="span-2">
+          <span>监控服务</span>
+          <select id="alertBindingServiceSelect" required>
+            <option value="">请选择服务</option>
+          </select>
+        </label>
+
+        <div class="service-binding-summary span-2" id="alertBindingServiceSummary" hidden></div>
+
+        <label class="span-2">
+          <span>绑定规则</span>
+          <select id="alertBindingGroupSelect">
+            <option value="">不绑定告警</option>
+          </select>
+        </label>
+
+        <section class="setting-section span-2">
+          <div class="section-head">
+            <h2>绑定预览</h2>
+          </div>
+          <article class="recipient-item alert-binding-preview" id="alertBindingPreview"></article>
+        </section>
+
+        <div class="form-actions span-2">
+          <button class="ghost-button" id="cancelAlertBindingBtn" type="button">
+            取消
+          </button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="save"></i>
+            保存绑定
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
 <script src="/js/api.js"></script>
+<script src="/js/app-state.js"></script>
+<script src="/js/common.js"></script>
+<script src="/js/chrome.js"></script>
+<script src="/js/services.js"></script>
+<script src="/js/alert-settings.js"></script>
+<script src="/js/hosts.js"></script>
+<script src="/js/dashboard.js"></script>
 <script src="/js/main.js"></script>
-
 </body>
 </html>

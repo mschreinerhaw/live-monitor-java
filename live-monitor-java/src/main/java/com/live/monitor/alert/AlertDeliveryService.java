@@ -5,13 +5,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.entity.AlertChannel;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
@@ -26,6 +31,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -35,6 +42,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -44,6 +53,9 @@ public class AlertDeliveryService {
         new TypeReference<Map<String, Object>>() {};
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final Charset GBK = Charset.forName("GBK");
+    private static final String TEMPLATE_RESOURCE_PREFIX = "templates/";
+    private static final Pattern JINJA_VARIABLE =
+        Pattern.compile("\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}\\}");
     private static final X509TrustManager TRUST_ALL_CERTS = new X509TrustManager() {
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) {
@@ -61,14 +73,36 @@ public class AlertDeliveryService {
 
     private final ObjectMapper objectMapper;
     private final OkHttpClient httpClient;
+    private Path templateDirectory;
 
+    @Autowired
     public AlertDeliveryService(ObjectMapper objectMapper) {
+        this(objectMapper, Paths.get("./templates"));
+    }
+
+    AlertDeliveryService(ObjectMapper objectMapper, Path templateDirectory) {
         this.objectMapper = objectMapper;
+        this.templateDirectory = templateDirectory;
         this.httpClient = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
             .build();
+    }
+
+    @Value("${live-monitor.template-dir:./templates}")
+    public void setTemplateDirectory(String templateDirectory) {
+        if (StringUtils.hasText(templateDirectory)) {
+            this.templateDirectory = Paths.get(templateDirectory.trim());
+        }
+    }
+
+    public String renderTemplate(String templateName, Map<String, Object> variables, String fallback) {
+        try {
+            return renderJinjaVariables(readTemplate(templateName), variables);
+        } catch (IOException ex) {
+            return fallback;
+        }
     }
 
     public DeliveryResult send(AlertChannel channel, String content) {
@@ -259,7 +293,8 @@ public class AlertDeliveryService {
                 command(reader, writer, "RCPT TO:<" + cleanAddress(recipient) + ">", 250, 251);
             }
             command(reader, writer, "DATA", 354);
-            writeData(writer, buildEmailMessage(from, recipients, ccRecipients, "Live Monitor Alert", content));
+            String contentType = emailContentType(config, content);
+            writeData(writer, buildEmailMessage(from, recipients, ccRecipients, "Live Monitor Alert", content, contentType));
             expect(reader, 250);
             command(reader, writer, "QUIT", 221);
         } finally {
@@ -272,7 +307,8 @@ public class AlertDeliveryService {
         List<String> recipients,
         List<String> ccRecipients,
         String subject,
-        String content
+        String content,
+        String contentType
     ) {
         String body = base64(content);
         StringBuilder message = new StringBuilder();
@@ -284,11 +320,73 @@ public class AlertDeliveryService {
         message.append("Subject: ").append(encodedHeader(subject)).append("\r\n")
             .append("Date: ").append(rfc2822Date()).append("\r\n")
             .append("MIME-Version: 1.0\r\n")
-            .append("Content-Type: text/plain; charset=UTF-8\r\n")
+            .append("Content-Type: ").append(contentType).append("; charset=UTF-8\r\n")
             .append("Content-Transfer-Encoding: base64\r\n")
             .append("\r\n")
             .append(wrapBase64(body)).append("\r\n");
         return message.toString();
+    }
+
+    private String readTemplate(String templateName) throws IOException {
+        String fileName = templateName.endsWith(".j2") ? templateName : templateName + ".j2";
+        Path external = templateDirectory.resolve(fileName).normalize();
+        if (Files.isRegularFile(external)) {
+            return new String(Files.readAllBytes(external), StandardCharsets.UTF_8);
+        }
+        InputStream stream = Thread.currentThread().getContextClassLoader()
+            .getResourceAsStream(TEMPLATE_RESOURCE_PREFIX + fileName);
+        if (stream == null) {
+            throw new IOException("Template not found: " + fileName);
+        }
+        try {
+            return readAll(stream);
+        } finally {
+            stream.close();
+        }
+    }
+
+    private String readAll(InputStream stream) throws IOException {
+        byte[] buffer = new byte[4096];
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        int read;
+        while ((read = stream.read(buffer)) >= 0) {
+            output.write(buffer, 0, read);
+        }
+        return new String(output.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private String renderJinjaVariables(String template, Map<String, Object> variables) {
+        Matcher matcher = JINJA_VARIABLE.matcher(template);
+        StringBuffer rendered = new StringBuffer();
+        while (matcher.find()) {
+            Object value = variables == null ? null : variables.get(matcher.group(1));
+            matcher.appendReplacement(rendered, Matcher.quoteReplacement(value == null ? "" : String.valueOf(value)));
+        }
+        matcher.appendTail(rendered);
+        return rendered.toString();
+    }
+
+    private String emailContentType(Map<String, Object> config, String content) {
+        String configured = normalize(stringValue(config, "email_content_type"));
+        if ("text/html".equals(configured) || "html".equals(configured)) {
+            return "text/html";
+        }
+        if ("text/plain".equals(configured) || "plain".equals(configured)) {
+            return "text/plain";
+        }
+        return looksLikeHtml(content) ? "text/html" : "text/plain";
+    }
+
+    private boolean looksLikeHtml(String content) {
+        String normalized = content == null ? "" : content.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("<html")
+            || normalized.contains("<body")
+            || normalized.contains("<table")
+            || normalized.contains("<h1")
+            || normalized.contains("<h2")
+            || normalized.contains("<p")
+            || normalized.contains("<br")
+            || normalized.contains("<div");
     }
 
     private SSLSocketFactory smtpSslSocketFactory(Map<String, Object> config, String host) throws IOException {

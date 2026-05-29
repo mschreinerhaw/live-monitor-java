@@ -15,9 +15,7 @@ public interface HostMapper {
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
         "hm.checked_at AS metric_checked_at FROM host_config h " +
         "LEFT JOIN service_alert_group sag ON sag.service_id = h.monitor_service_id " +
-        "LEFT JOIN host_metric hm ON hm.id = (" +
-        "  SELECT id FROM host_metric WHERE host_id = h.id ORDER BY checked_at DESC, id DESC LIMIT 1" +
-        ") ";
+        "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
 
     @Select(HOST_SELECT + "WHERE (#{includeDisabled} = 1 OR h.enabled = 1) ORDER BY h.enabled DESC, h.cluster_name, h.host_name")
     List<HostConfig> listHosts(@Param("includeDisabled") int includeDisabled);
@@ -66,9 +64,9 @@ public interface HostMapper {
         "check_command = #{checkCommand}, enabled = #{enabled} WHERE id = #{id}")
     int updateProcess(HostProcessConfig process);
 
-    @Insert("INSERT INTO host_metric (host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent) " +
-        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent})")
-    int insertMetric(
+    @Insert("MERGE INTO host_latest_metric KEY(host_id) " +
+        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, CURRENT_TIMESTAMP)")
+    int upsertLatestMetric(
         @Param("hostId") Long hostId,
         @Param("cpuUsagePercent") Double cpuUsagePercent,
         @Param("loadAverage") Double loadAverage,

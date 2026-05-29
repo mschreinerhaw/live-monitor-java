@@ -7,7 +7,6 @@ import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
-import com.live.monitor.mapper.AlertMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.service.LiveMonitorService;
 import java.time.OffsetDateTime;
@@ -31,18 +30,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class MonitorController {
     private final LiveMonitorService liveMonitorService;
     private final MonitorServiceMapper serviceMapper;
-    private final AlertMapper alertMapper;
     private final AlertService alertService;
 
     public MonitorController(
         LiveMonitorService liveMonitorService,
         MonitorServiceMapper serviceMapper,
-        AlertMapper alertMapper,
         AlertService alertService
     ) {
         this.liveMonitorService = liveMonitorService;
         this.serviceMapper = serviceMapper;
-        this.alertMapper = alertMapper;
         this.alertService = alertService;
     }
 
@@ -111,17 +107,17 @@ public class MonitorController {
         @PathVariable Long serviceId,
         @RequestParam(defaultValue = "50") int limit
     ) {
-        return alertMapper.listAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
+        return liveMonitorService.alerts(serviceId, limit);
     }
 
     @GetMapping("/api/alerts")
     public List<AlertRecord> alerts(@RequestParam(defaultValue = "50") int limit) {
-        return alertMapper.listAlerts(null, Math.max(1, Math.min(limit, 200)));
+        return liveMonitorService.alerts(null, limit);
     }
 
     @DeleteMapping("/api/alerts")
     public Map<String, Object> clearAlerts() {
-        int deleted = alertMapper.deleteAllAlertRecords();
+        int deleted = liveMonitorService.clearAlerts();
         Map<String, Object> result = new HashMap<String, Object>();
         result.put("success", true);
         result.put("deleted", deleted);

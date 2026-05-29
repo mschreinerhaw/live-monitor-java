@@ -4,6 +4,7 @@ import com.live.monitor.dto.CheckResult;
 import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
+import com.live.monitor.store.RocksDbHistoryRepository;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -12,10 +13,16 @@ import org.springframework.util.StringUtils;
 @Service
 public class HostResourceMonitorService {
     private final HostMapper hostMapper;
+    private final RocksDbHistoryRepository historyRepository;
     private final SshService sshService;
 
-    public HostResourceMonitorService(HostMapper hostMapper, SshService sshService) {
+    public HostResourceMonitorService(
+        HostMapper hostMapper,
+        RocksDbHistoryRepository historyRepository,
+        SshService sshService
+    ) {
         this.hostMapper = hostMapper;
+        this.historyRepository = historyRepository;
         this.sshService = sshService;
     }
 
@@ -56,7 +63,8 @@ public class HostResourceMonitorService {
         Double load = parseNumber(sshService.exec(host, "uptime | awk -F'load average:' '{gsub(/^[ \\t]+/,\"\",$2); split($2,a,\",\"); print a[1]}'", timeoutMillis));
         Double memory = parseNumber(sshService.exec(host, "free -m | awk '/Mem:/ {printf \"%.1f\", ($3/$2)*100}'", timeoutMillis));
         Double disk = parseNumber(sshService.exec(host, "df -P / | awk 'NR==2 {gsub(\"%\",\"\",$5); print $5}'", timeoutMillis));
-        hostMapper.insertMetric(host.id, cpu, load, memory, disk);
+        historyRepository.saveHostMetric(host.id, cpu, load, memory, disk);
+        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk);
 
         Map<String, Object> metrics = new LinkedHashMap<String, Object>();
         metrics.put("cpu_usage_percent", cpu);

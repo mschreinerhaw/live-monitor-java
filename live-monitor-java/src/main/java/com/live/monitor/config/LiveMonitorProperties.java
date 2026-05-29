@@ -9,6 +9,9 @@ public class LiveMonitorProperties {
     private int schedulerTickSeconds = 5;
     private double defaultTimeoutSeconds = 3;
     private String secretKey = "change-this-dev-key";
+    private String rocksdbPath = "./data/rocksdb";
+    private String sqlitePath = "./data/live_monitor.db";
+    private String sqliteBackupDir = "./data/backup";
 
     public int getSchedulerTickSeconds() {
         return schedulerTickSeconds;
@@ -32,5 +35,29 @@ public class LiveMonitorProperties {
 
     public void setSecretKey(String secretKey) {
         this.secretKey = secretKey;
+    }
+
+    public String getRocksdbPath() {
+        return rocksdbPath;
+    }
+
+    public void setRocksdbPath(String rocksdbPath) {
+        this.rocksdbPath = rocksdbPath;
+    }
+
+    public String getSqlitePath() {
+        return sqlitePath;
+    }
+
+    public void setSqlitePath(String sqlitePath) {
+        this.sqlitePath = sqlitePath;
+    }
+
+    public String getSqliteBackupDir() {
+        return sqliteBackupDir;
+    }
+
+    public void setSqliteBackupDir(String sqliteBackupDir) {
+        this.sqliteBackupDir = sqliteBackupDir;
     }
 }

@@ -3,7 +3,6 @@ package com.live.monitor.mapper;
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertGroup;
 import com.live.monitor.entity.AlertPolicy;
-import com.live.monitor.entity.AlertRecord;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -76,32 +75,13 @@ public interface AlertMapper {
     @Delete("DELETE FROM group_channel_rel WHERE group_id = #{groupId}")
     int deleteGroupChannels(@Param("groupId") Long groupId);
 
-    @Insert("INSERT OR IGNORE INTO group_policy_rel (group_id, policy_id) VALUES (#{groupId}, #{policyId})")
+    @Insert("MERGE INTO group_policy_rel KEY(group_id, policy_id) VALUES (#{groupId}, #{policyId})")
     int insertGroupPolicy(@Param("groupId") Long groupId, @Param("policyId") Long policyId);
 
-    @Insert("INSERT OR IGNORE INTO group_channel_rel (group_id, channel_id) VALUES (#{groupId}, #{channelId})")
+    @Insert("MERGE INTO group_channel_rel KEY(group_id, channel_id) VALUES (#{groupId}, #{channelId})")
     int insertGroupChannel(@Param("groupId") Long groupId, @Param("channelId") Long channelId);
 
     @Select("SELECT COUNT(*) FROM service_alert_group WHERE group_id = #{groupId}")
     int countServicesByGroup(@Param("groupId") Long groupId);
 
-    @Insert("INSERT INTO alert_record (service_id, alert_type, alert_content, alert_status) " +
-        "VALUES (#{serviceId}, #{alertType}, #{alertContent}, #{alertStatus})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insertAlertRecord(AlertRecord record);
-
-    @Select("SELECT a.*, s.service_name, s.service_type, s.cluster_name FROM alert_record a " +
-        "JOIN monitor_service s ON s.id = a.service_id " +
-        "WHERE (#{serviceId} IS NULL OR a.service_id = #{serviceId}) " +
-        "ORDER BY a.created_at DESC, a.id DESC LIMIT #{limit}")
-    List<AlertRecord> listAlerts(@Param("serviceId") Long serviceId, @Param("limit") int limit);
-
-    @Select("SELECT a.*, s.service_name, s.service_type, s.cluster_name FROM alert_record a " +
-        "JOIN monitor_service s ON s.id = a.service_id WHERE a.id = (" +
-        "SELECT id FROM alert_record WHERE service_id = a.service_id ORDER BY created_at DESC, id DESC LIMIT 1" +
-        ") ORDER BY a.created_at DESC, a.id DESC LIMIT #{limit}")
-    List<AlertRecord> listRecentAlerts(@Param("limit") int limit);
-
-    @Delete("DELETE FROM alert_record")
-    int deleteAllAlertRecords();
 }

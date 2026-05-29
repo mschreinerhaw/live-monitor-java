@@ -7,9 +7,8 @@ import com.live.monitor.dto.CheckResult;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
-import com.live.monitor.mapper.AlertMapper;
-import com.live.monitor.mapper.MonitorResultMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.store.RocksDbHistoryRepository;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -30,8 +29,7 @@ public class LiveMonitorService {
         new TypeReference<Map<String, Object>>() {};
 
     private final MonitorServiceMapper serviceMapper;
-    private final MonitorResultMapper resultMapper;
-    private final AlertMapper alertMapper;
+    private final RocksDbHistoryRepository historyRepository;
     private final MonitorRunnerService runnerService;
     private final AlertService alertService;
     private final ObjectMapper objectMapper;
@@ -39,16 +37,14 @@ public class LiveMonitorService {
 
     public LiveMonitorService(
         MonitorServiceMapper serviceMapper,
-        MonitorResultMapper resultMapper,
-        AlertMapper alertMapper,
+        RocksDbHistoryRepository historyRepository,
         MonitorRunnerService runnerService,
         AlertService alertService,
         ObjectMapper objectMapper,
         TransactionTemplate transactionTemplate
     ) {
         this.serviceMapper = serviceMapper;
-        this.resultMapper = resultMapper;
-        this.alertMapper = alertMapper;
+        this.historyRepository = historyRepository;
         this.runnerService = runnerService;
         this.alertService = alertService;
         this.objectMapper = objectMapper;
@@ -114,8 +110,14 @@ public class LiveMonitorService {
             result.status = check.status == null ? "UNKNOWN" : check.status;
             result.responseTimeMs = check.responseTimeMs;
             result.message = check.message;
-            resultMapper.insert(result);
-            MonitorResult stored = resultMapper.findById(result.id);
+            MonitorResult stored = historyRepository.saveMonitorResult(result);
+            serviceMapper.upsertLatestStatus(
+                stored.serviceId,
+                stored.status,
+                stored.responseTimeMs,
+                stored.message,
+                stored.checkedAt
+            );
             alertService.evaluate(service, stored, previousStatus);
             return stored;
         });
@@ -144,15 +146,28 @@ public class LiveMonitorService {
         Map<String, Object> dashboard = new HashMap<String, Object>();
         dashboard.put("summary", summary);
         dashboard.put("services", services);
-        dashboard.put("recent_alerts", alertMapper.listRecentAlerts(10));
-        dashboard.put("recent_results", resultMapper.listRecent(10));
+        dashboard.put("recent_alerts", enrichAlerts(historyRepository.listAlerts(null, 10), services));
+        dashboard.put("recent_results", enrichResults(historyRepository.listRecentMonitorResults(10), services));
         dashboard.put("server_time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return dashboard;
     }
 
     public List<MonitorResult> results(Long serviceId, int limit) {
-        requireService(serviceId);
-        return resultMapper.listByService(serviceId, Math.max(1, Math.min(limit, 500)));
+        MonitorService service = requireService(serviceId);
+        List<MonitorResult> rows = historyRepository.listMonitorResults(serviceId, Math.max(1, Math.min(limit, 500)));
+        for (MonitorResult row : rows) {
+            enrichResult(row, service);
+        }
+        return rows;
+    }
+
+    public List<com.live.monitor.entity.AlertRecord> alerts(Long serviceId, int limit) {
+        List<com.live.monitor.entity.AlertRecord> rows = historyRepository.listAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
+        return enrichAlerts(rows, listServices(true));
+    }
+
+    public int clearAlerts() {
+        return historyRepository.deleteAllAlerts();
     }
 
     private MonitorService requireService(Long id) {
@@ -162,6 +177,47 @@ public class LiveMonitorService {
         }
         hydrateTypedFields(service);
         return service;
+    }
+
+    private List<MonitorResult> enrichResults(List<MonitorResult> rows, List<MonitorService> services) {
+        Map<Long, MonitorService> serviceById = serviceById(services);
+        for (MonitorResult row : rows) {
+            enrichResult(row, serviceById.get(row.serviceId));
+        }
+        return rows;
+    }
+
+    private List<com.live.monitor.entity.AlertRecord> enrichAlerts(
+        List<com.live.monitor.entity.AlertRecord> rows,
+        List<MonitorService> services
+    ) {
+        Map<Long, MonitorService> serviceById = serviceById(services);
+        for (com.live.monitor.entity.AlertRecord row : rows) {
+            MonitorService service = serviceById.get(row.serviceId);
+            if (service != null) {
+                row.serviceName = service.serviceName;
+                row.serviceType = service.serviceType;
+                row.clusterName = service.clusterName;
+            }
+        }
+        return rows;
+    }
+
+    private Map<Long, MonitorService> serviceById(List<MonitorService> services) {
+        Map<Long, MonitorService> result = new HashMap<Long, MonitorService>();
+        for (MonitorService service : services) {
+            result.put(service.id, service);
+        }
+        return result;
+    }
+
+    private void enrichResult(MonitorResult row, MonitorService service) {
+        if (service == null) {
+            return;
+        }
+        row.serviceName = service.serviceName;
+        row.serviceType = service.serviceType;
+        row.clusterName = service.clusterName;
     }
 
     private void syncAlertGroup(Long serviceId, Long groupId) {
