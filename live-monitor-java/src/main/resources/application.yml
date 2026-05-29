@@ -1,0 +1,23 @@
+server:
+  port: 8000
+
+spring:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:./data/live_monitor.db
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+live-monitor:
+  scheduler-tick-seconds: 5
+  default-timeout-seconds: 3
+  secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}

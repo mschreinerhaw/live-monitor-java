@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body data-page="dashboard">
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">LM</span>
+      <span>Live Monitor</span>
+    </a>
+    <nav class="nav">
+      <a class="active" href="/dashboard">监控首页</a>
+      <!-- <a href="/services/new">添加服务</a> -->
+      <a href="/alerts/settings">告警设置</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="summary-grid" aria-label="监控概览">
+      <article class="metric metric-total">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="server"></i></span>
+          <span class="metric-label">服务总数</span>
+        </div>
+        <strong id="totalCount">0</strong>
+        <small><span class="trend-up">↑ +2</span> 已启用监控对象</small>
+      </article>
+      <article class="metric metric-up">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="circle-check"></i></span>
+          <span class="metric-label">正常服务</span>
+        </div>
+        <strong id="upCount">0</strong>
+        <small><span class="trend-up">↑ +2</span> 最近一次检测正常</small>
+      </article>
+      <article class="metric metric-down">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="triangle-alert"></i></span>
+          <span class="metric-label">异常服务</span>
+        </div>
+        <strong id="downCount">0</strong>
+        <small><span class="trend-down">↓ -1</span> 需要处理的服务</small>
+      </article>
+      <article class="metric metric-latency">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="gauge"></i></span>
+          <span class="metric-label">平均响应</span>
+        </div>
+        <strong><span id="avgLatency">-</span><em>ms</em></strong>
+        <small><span id="availabilityRate">-</span> 24h 可用率估算</small>
+      </article>
+    </section>
+
+    <section class="toolbar">
+      <div class="segmented" role="tablist" aria-label="状态筛选">
+        <button class="active" data-filter="all">全部</button>
+        <button data-filter="UP">正常</button>
+        <button data-filter="DOWN">异常</button>
+        <button data-filter="UNKNOWN">未知</button>
+      </div>
+      <label class="search">
+        <i data-lucide="search"></i>
+        <input id="serviceSearch" type="search" placeholder="搜索服务、集群、地址">
+      </label>
+      <div class="refresh-state">
+        <span class="live-dot"></span>
+        <span>30秒自动刷新</span>
+        <time id="lastRefreshTime">--:--:--</time>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <div class="panel panel-main">
+        <div class="panel-head">
+          <div class="panel-title-actions">
+            <h1>服务状态列表</h1>
+            <button class="icon-button" id="refreshBtn" type="button" title="刷新" aria-label="刷新">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+          <div class="panel-actions">
+            <a class="primary-link" href="/services/new">新增服务</a>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>状态</th>
+                <th>服务名称</th>
+                <th>类型</th>
+                <th>集群</th>
+                <th>地址</th>
+                <th>响应</th>
+                <th>最近5分钟</th>
+                <th>最近检测</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="serviceTable">
+              <tr><td colspan="9" class="empty">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>实时动态</h2>
+          <div class="panel-actions">
+            <button class="icon-button" id="activityRefreshBtn" type="button" title="刷新动态" aria-label="刷新动态">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+            <button class="icon-button" id="activityClearReloadBtn" type="button" title="清空并重新加载" aria-label="清空并重新加载">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+          </div>
+        </div>
+        <div id="recentAlerts" class="alert-list">
+          <p class="empty">暂无动态</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

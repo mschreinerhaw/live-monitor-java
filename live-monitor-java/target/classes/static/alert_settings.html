@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>告警设置 - Live Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+
+</head>
+<body data-page="alert-settings">
+<header class="topbar">
+  <a class="brand" href="/dashboard">
+    <span class="brand-mark">LM</span>
+    <span>Live Monitor</span>
+  </a>
+  <nav class="nav">
+    <a href="/dashboard">监控首页</a>
+    <a class="active" href="/alerts/settings">告警设置</a>
+  </nav>
+</header>
+
+<main class="page">
+  <div class="alert-page-tabs" role="tablist" aria-label="告警设置页面切换">
+    <button class="tab-button active" id="showBindingTestBtn" type="button" role="tab" aria-selected="true">服务绑定与测试</button>
+    <button class="tab-button" id="showAlertConfigBtn" type="button" role="tab" aria-selected="false">告警配置</button>
+  </div>
+
+  <section class="alert-config-layout binding-mode" id="alertSettingsLayout">
+    <aside class="panel alert-config-list-panel">
+      <div class="panel-head">
+        <h2>告警配置</h2>
+        <button class="icon-button" id="newAlertGroupBtn" title="新增告警">
+          <i data-lucide="plus"></i>
+        </button>
+      </div>
+      <div id="alertGroupList" class="group-list">
+        <p class="empty">加载中...</p>
+      </div>
+    </aside>
+
+    <div class="panel panel-main">
+      <div class="panel-head">
+        <div>
+          <h1 id="alertConfigFormTitle">新增告警</h1>
+          <p class="panel-subtitle">配置告警名称、通知方式和接收人，保存后可在左侧选择并修改。</p>
+        </div>
+        <button class="icon-button" id="reloadAlertSettingsBtn" title="刷新">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+      </div>
+
+      <form id="alertGroupForm" class="form-grid alert-simple-form">
+        <label>
+          <span>告警名称</span>
+          <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
+        </label>
+
+        <label>
+          <span>通知方式</span>
+          <select id="alertChannelTypeSelect" required>
+            <option value="sms">短信告警</option>
+            <option value="email">邮箱告警</option>
+          </select>
+        </label>
+
+        <label class="span-2">
+          <span>备注</span>
+          <textarea id="alertGroupDescriptionInput" name="description" rows="3" placeholder="例如：核心服务异常时通知值班人员"></textarea>
+        </label>
+
+        <label class="switch-row span-2">
+          <input id="alertGroupEnabledInput" name="enabled" type="checkbox" checked>
+          <span>启用该告警</span>
+        </label>
+
+        <section class="setting-section span-2 channel-field sms-channel-field">
+          <div class="section-head">
+            <h2>短信接收配置</h2>
+          </div>
+          <label>
+            <span>手机号接收人</span>
+            <textarea id="alertMobileInput" rows="4" placeholder="13800000000&#10;13900000000"></textarea>
+          </label>
+          <label>
+            <span>短信接口地址</span>
+            <input id="smsApiUrlInput" type="url" placeholder="https://sms.example.com/send">
+          </label>
+          <div class="inline-grid">
+            <label>
+              <span>短信网关账号</span>
+              <input id="smsUsernameInput" type="text" placeholder="xxzx">
+            </label>
+            <label>
+              <span>返回类型</span>
+              <input id="smsRstypeInput" type="text" placeholder="text">
+            </label>
+          </div>
+          <label>
+            <span>短信接口 Token</span>
+            <input id="smsApiTokenInput" type="password" placeholder="留空则不修改">
+          </label>
+          <label class="switch-row">
+            <input id="smsPasswordIsMd5Input" type="checkbox" checked>
+            <span>密码已是 MD5 密文</span>
+          </label>
+          <div class="inline-grid">
+            <label>
+              <span>短信网关明文密码</span>
+              <input id="smsPasswordInput" type="password" placeholder="留空则不修改">
+            </label>
+            <label>
+              <span>短信网关 MD5 密码</span>
+              <input id="smsPasswordMd5Input" type="password" placeholder="751CB3F4AA17C36186F4856C8982BF27">
+            </label>
+          </div>
+          <label>
+            <span>短信扩展码</span>
+            <input id="smsExtCodeInput" type="text" placeholder="不需要时留空">
+          </label>
+        </section>
+
+        <section class="setting-section span-2 channel-field email-channel-field">
+          <div class="section-head">
+            <h2>邮箱接收配置</h2>
+          </div>
+          <label>
+            <span>邮箱接收人</span>
+            <input id="alertEmailInput" type="text" placeholder="ops@example.com">
+          </label>
+          <div class="inline-grid">
+            <label>
+              <span>SMTP 地址</span>
+              <input id="smtpHostInput" type="text" placeholder="smtp.example.com">
+            </label>
+            <label>
+              <span>SMTP 端口</span>
+              <input id="smtpPortInput" type="number" min="1" max="65535" placeholder="25">
+            </label>
+          </div>
+          <div class="inline-grid">
+            <label>
+              <span>SMTP 用户</span>
+              <input id="smtpUserInput" type="text" placeholder="monitor@example.com">
+            </label>
+            <label>
+              <span>发件人</span>
+              <input id="smtpFromInput" type="text" placeholder="monitor@example.com">
+            </label>
+          </div>
+          <label>
+            <span>SMTP 密码</span>
+            <input id="smtpPasswordInput" type="password" placeholder="留空则不修改">
+          </label>
+          <label class="switch-row">
+            <input id="smtpTlsInput" type="checkbox">
+            <span>启用 STARTTLS</span>
+          </label>
+        </section>
+
+        <div class="form-actions span-2">
+          <button class="ghost-button" id="deleteAlertGroupBtn" type="button">
+            <i data-lucide="trash-2"></i>
+            删除
+          </button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="save"></i>
+            保存告警
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <aside class="panel binding-test-panel">
+      <div class="panel-head">
+        <h2>服务绑定与测试</h2>
+      </div>
+      <div class="table-wrap compact-wrap">
+        <table class="data-table compact-table binding-table">
+          <thead>
+          <tr>
+            <th>服务</th>
+            <th>告警</th>
+            <th class="actions-column">测试</th>
+          </tr>
+          </thead>
+          <tbody id="alertSettingsTable">
+          <tr><td colspan="3" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel-head panel-head-inner">
+        <h2>最近告警</h2>
+      </div>
+      <div id="settingsRecentAlerts" class="alert-list">
+        <p class="empty">暂无告警</p>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/main.js"></script>
+
+</body>
+</html>

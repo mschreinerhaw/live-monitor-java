@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>添加服务 - Live Monitor</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body data-page="add-service">
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">LM</span>
+      <span>Live Monitor</span>
+    </a>
+    <nav class="nav">
+      <a href="/dashboard">监控首页</a>
+      <a id="serviceFormNav" class="active" href="/services/new">添加服务</a>
+      <a href="/alerts/settings">告警设置</a>
+    </nav>
+  </header>
+
+  <main class="page service-config-page">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h1 id="serviceFormTitle">添加监控服务</h1>
+          <p class="panel-subtitle">配置检测目标、探测条件和告警配置</p>
+        </div>
+      </div>
+
+      <form id="serviceForm" class="form-grid">
+        <label class="span-2">
+          <span>服务类型</span>
+          <select name="service_type" id="serviceType" required>
+            <option value="web">Web 应用</option>
+            <option value="redis">Redis</option>
+            <option value="zookeeper">ZooKeeper</option>
+          </select>
+        </label>
+
+        <label>
+          <span>服务名称</span>
+          <input name="service_name" required maxlength="120" placeholder="例如：交易系统 Web">
+        </label>
+
+        <label>
+          <span>集群分组</span>
+          <input name="cluster_name" placeholder="例如：prod-a">
+        </label>
+
+        <label>
+          <span>检测间隔（秒）</span>
+          <input name="check_interval" type="number" min="5" max="86400" value="60" required>
+        </label>
+
+        <label>
+          <span>检测超时（秒）</span>
+          <input name="check_timeout_seconds" type="number" min="0.2" max="60" step="0.1" value="3" required>
+        </label>
+
+        <label class="web-only span-2">
+          <span>URL</span>
+          <input name="url" type="url" placeholder="https://example.com/health">
+        </label>
+
+        <label class="web-only">
+          <span>HTTP 方法</span>
+          <select name="http_method">
+            <option value="GET">GET</option>
+            <option value="HEAD">HEAD</option>
+            <option value="POST">POST</option>
+          </select>
+        </label>
+
+        <label class="web-only">
+          <span>状态码校验</span>
+          <input name="expected_status_code" type="number" min="100" max="599" placeholder="默认 2xx/3xx">
+        </label>
+
+        <label class="web-only span-2">
+          <span>关键字检测</span>
+          <input name="response_keyword" placeholder="例如：login success">
+        </label>
+
+        <label class="host-port">
+          <span>地址</span>
+          <input name="host" placeholder="127.0.0.1">
+        </label>
+
+        <label class="host-port">
+          <span>端口</span>
+          <input name="port" type="number" min="1" max="65535" placeholder="6379">
+        </label>
+
+        <label class="redis-only">
+          <span>Redis 用户名</span>
+          <input name="redis_username" placeholder="ACL 用户名，可选">
+        </label>
+
+        <label class="redis-only">
+          <span>Redis 密码</span>
+          <input name="redis_password" type="password" placeholder="Redis AUTH 密码">
+        </label>
+
+        <label class="switch-row redis-only">
+          <input name="redis_cluster_mode" type="checkbox">
+          <span>集群模式</span>
+        </label>
+
+        <label class="zookeeper-only">
+          <span>ZooKeeper 检测方式</span>
+          <select name="zookeeper_check_mode">
+            <option value="ruok">ruok 四字命令</option>
+            <option value="port">仅检测端口连通</option>
+          </select>
+        </label>
+
+        <label class="zookeeper-only">
+          <span>四字命令</span>
+          <select name="zookeeper_check_command">
+            <option value="ruok">ruok</option>
+            <option value="stat">stat</option>
+            <option value="mntr">mntr</option>
+            <option value="srvr">srvr</option>
+          </select>
+        </label>
+
+        <label class="zookeeper-only">
+          <span>期望节点数</span>
+          <input name="zookeeper_expected_nodes" type="number" min="1" max="1000" placeholder="例如：3">
+        </label>
+
+        <label class="span-2">
+          <span>告警组</span>
+          <select name="alert_group_id" id="serviceAlertGroupSelect">
+            <option value="">不绑定告警</option>
+          </select>
+        </label>
+
+        <label class="switch-row span-2">
+          <input name="enabled" type="checkbox" checked>
+          <span>启用定时检测</span>
+        </label>
+
+        <div id="connectionTestResult" class="test-result span-2" hidden></div>
+
+        <div class="form-actions span-2">
+          <a id="serviceFormCancel" class="ghost-button" href="/dashboard">取消</a>
+          <button id="testConnectionBtn" class="ghost-button" type="button">
+            <i data-lucide="plug-zap"></i>
+            <span>测试连接</span>
+          </button>
+          <button id="serviceFormSubmit" class="primary-button" type="submit">
+            <i data-lucide="save"></i>
+            <span>保存服务</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>
