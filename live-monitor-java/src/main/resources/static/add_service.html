@@ -55,9 +55,17 @@
           <input name="cluster_name" placeholder="例如：prod-a">
         </label>
 
-        <label>
-          <span>检测间隔（秒）</span>
-          <input name="check_interval" type="number" min="5" max="86400" value="60" required>
+        <label class="interval-field">
+          <span>检测间隔</span>
+          <span class="interval-control">
+            <input name="check_interval_value" type="number" min="1" max="31536000" value="1" required>
+            <select name="check_interval_unit" aria-label="检测间隔单位">
+              <option value="seconds">秒</option>
+              <option value="minutes" selected>分钟</option>
+              <option value="hours">小时</option>
+              <option value="days">天</option>
+            </select>
+          </span>
         </label>
 
         <label>

@@ -147,13 +147,14 @@
             <th>服务类型</th>
             <th>告警状态</th>
             <th>绑定规则</th>
+            <th>检测间隔</th>
             <th>最后告警时间</th>
             <th>通知状态</th>
             <th class="actions-column">操作</th>
           </tr>
           </thead>
           <tbody id="alertSettingsTable">
-          <tr><td colspan="8" class="empty">加载中...</td></tr>
+          <tr><td colspan="9" class="empty">加载中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -202,6 +203,8 @@
           <select id="alertChannelTypeSelect" required>
             <option value="sms">短信告警</option>
             <option value="email">邮箱告警</option>
+            <option value="wecom">企业微信告警</option>
+            <option value="dingtalk">钉钉告警</option>
           </select>
         </label>
 
@@ -343,6 +346,71 @@
           </label>
         </section>
 
+        <section class="setting-section span-2 channel-field wecom-channel-field">
+          <div class="section-head">
+            <h2>企业微信接收配置</h2>
+          </div>
+          <label>
+            <span>机器人 Webhook 地址</span>
+            <input id="wecomWebhookUrlInput" type="url" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
+          </label>
+          <div class="recipient-list-field">
+            <span>@成员 UserID</span>
+            <input id="wecomMentionedListInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="wecomMentionedRecipientInput" type="text" placeholder="zhangsan">
+              <button class="icon-button" id="addWecomMentionedBtn" type="button" title="添加成员">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="wecomMentionedList"></div>
+          </div>
+          <div class="recipient-list-field">
+            <span>@手机号</span>
+            <input id="wecomMentionedMobileInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="wecomMentionedMobileRecipientInput" type="tel" placeholder="13800000000">
+              <button class="icon-button" id="addWecomMentionedMobileBtn" type="button" title="添加手机号">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="wecomMentionedMobileList"></div>
+          </div>
+          <label class="switch-row">
+            <input id="wecomAtAllInput" type="checkbox">
+            <span>@所有人</span>
+          </label>
+        </section>
+
+        <section class="setting-section span-2 channel-field dingtalk-channel-field">
+          <div class="section-head">
+            <h2>钉钉接收配置</h2>
+          </div>
+          <label>
+            <span>机器人 Webhook 地址</span>
+            <input id="dingtalkWebhookUrlInput" type="url" placeholder="https://oapi.dingtalk.com/robot/send?access_token=...">
+          </label>
+          <label>
+            <span>加签密钥</span>
+            <input id="dingtalkSecretInput" type="password" placeholder="留空则不修改">
+          </label>
+          <div class="recipient-list-field">
+            <span>@手机号</span>
+            <input id="dingtalkAtMobileInput" type="hidden">
+            <div class="recipient-add-row">
+              <input id="dingtalkAtMobileRecipientInput" type="tel" placeholder="13800000000">
+              <button class="icon-button" id="addDingtalkAtMobileBtn" type="button" title="添加手机号">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+            <div class="recipient-chip-list" id="dingtalkAtMobileList"></div>
+          </div>
+          <label class="switch-row">
+            <input id="dingtalkAtAllInput" type="checkbox">
+            <span>@所有人</span>
+          </label>
+        </section>
+
         <div class="form-actions span-2">
           <button class="ghost-button" id="deleteAlertGroupBtn" type="button">
             <i data-lucide="trash-2"></i>
@@ -386,6 +454,19 @@
           <select id="alertBindingGroupSelect">
             <option value="">不绑定告警</option>
           </select>
+        </label>
+
+        <label class="span-2 interval-field">
+          <span>检测间隔</span>
+          <span class="interval-control">
+            <input id="alertBindingIntervalValue" type="number" min="1" max="31536000" value="1">
+            <select id="alertBindingIntervalUnit" aria-label="检测间隔单位">
+              <option value="seconds">秒</option>
+              <option value="minutes" selected>分钟</option>
+              <option value="hours">小时</option>
+              <option value="days">天</option>
+            </select>
+          </span>
         </label>
 
         <section class="setting-section span-2">

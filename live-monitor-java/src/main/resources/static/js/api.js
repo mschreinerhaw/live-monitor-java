@@ -46,6 +46,7 @@
     alertChannels: (includeDisabled = true) => request(`/api/alert-channels?include_disabled=${includeDisabled}`),
     createAlertChannel: (data) => request("/api/alert-channels", { method: "POST", body: JSON.stringify(data) }),
     updateAlertChannel: (id, data) => request(`/api/alert-channels/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    testAlertChannel: (id) => request(`/api/alert-channels/${id}/test`, { method: "POST" }),
     deleteAlertChannel: (id) => request(`/api/alert-channels/${id}`, { method: "DELETE" }),
     alertGroups: (includeDisabled = true) => request(`/api/alert-groups?include_disabled=${includeDisabled}`),
     alertGroup: (id, includeSecrets = false) => request(`/api/alert-groups/${id}?include_secrets=${includeSecrets}`),

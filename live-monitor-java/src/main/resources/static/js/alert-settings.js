@@ -76,9 +76,12 @@ async function initAlertSettings() {
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("alertBindingServiceSelect")?.addEventListener("change", () => {
     syncServiceBindingGroupFromService();
+    syncServiceBindingScheduleFromService();
     renderServiceBindingPreview();
   });
   document.getElementById("alertBindingGroupSelect")?.addEventListener("change", renderServiceBindingPreview);
+  document.getElementById("alertBindingIntervalValue")?.addEventListener("input", renderServiceBindingPreview);
+  document.getElementById("alertBindingIntervalUnit")?.addEventListener("change", renderServiceBindingPreview);
   document.getElementById("alertBindingForm")?.addEventListener("submit", submitServiceBindingForm);
   document.getElementById("alertChannelTypeSelect")?.addEventListener("change", syncChannelInputs);
   setupRecipientList({
@@ -101,6 +104,27 @@ async function initAlertSettings() {
     listId: "alertEmailCcRecipientList",
     addButtonId: "addEmailCcRecipientBtn",
     emptyText: "暂无抄送人",
+  });
+  setupRecipientList({
+    hiddenId: "wecomMentionedListInput",
+    inputId: "wecomMentionedRecipientInput",
+    listId: "wecomMentionedList",
+    addButtonId: "addWecomMentionedBtn",
+    emptyText: "暂无 @ 成员",
+  });
+  setupRecipientList({
+    hiddenId: "wecomMentionedMobileInput",
+    inputId: "wecomMentionedMobileRecipientInput",
+    listId: "wecomMentionedMobileList",
+    addButtonId: "addWecomMentionedMobileBtn",
+    emptyText: "暂无 @ 手机号",
+  });
+  setupRecipientList({
+    hiddenId: "dingtalkAtMobileInput",
+    inputId: "dingtalkAtMobileRecipientInput",
+    listId: "dingtalkAtMobileList",
+    addButtonId: "addDingtalkAtMobileBtn",
+    emptyText: "暂无 @ 手机号",
   });
 
   document.getElementById("alertGroupForm")?.addEventListener("submit", async (event) => {
@@ -127,6 +151,24 @@ async function initAlertSettings() {
       inputId: "alertEmailCcRecipientInput",
       listId: "alertEmailCcRecipientList",
       emptyText: "暂无抄送人",
+    });
+    commitPendingRecipientInput({
+      hiddenId: "wecomMentionedListInput",
+      inputId: "wecomMentionedRecipientInput",
+      listId: "wecomMentionedList",
+      emptyText: "暂无 @ 成员",
+    });
+    commitPendingRecipientInput({
+      hiddenId: "wecomMentionedMobileInput",
+      inputId: "wecomMentionedMobileRecipientInput",
+      listId: "wecomMentionedMobileList",
+      emptyText: "暂无 @ 手机号",
+    });
+    commitPendingRecipientInput({
+      hiddenId: "dingtalkAtMobileInput",
+      inputId: "dingtalkAtMobileRecipientInput",
+      listId: "dingtalkAtMobileList",
+      emptyText: "暂无 @ 手机号",
     });
     const channelPayload = buildAlertChannelPayload();
     if (findAlertConfigByType(channelPayload.channel_type, alertSettingsState.selectedGroupId)) {
@@ -155,6 +197,10 @@ async function initAlertSettings() {
     }
     if (channelPayload.channel_type === "sms" && !channelPayload.alert_mobile) {
       showToast("请输入手机号接收");
+      return;
+    }
+    if (["wecom", "dingtalk"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
+      showToast("请输入机器人 Webhook 地址");
       return;
     }
 
@@ -216,7 +262,7 @@ async function loadAlertSettings() {
     renderAlertSettingsTable();
   } catch (error) {
     const table = document.getElementById("alertSettingsTable");
-    if (table) table.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(error.message)}</td></tr>`;
+    if (table) table.innerHTML = `<tr><td colspan="9" class="empty">${escapeHtml(error.message)}</td></tr>`;
     showToast(error.message);
   }
 }
@@ -229,7 +275,10 @@ function renderAlertGroups() {
     list.innerHTML = '<tr><td colspan="7" class="empty">暂无告警配置</td></tr>';
     return;
   }
-  list.innerHTML = alertSettingsState.groups.map((group) => `
+  list.innerHTML = alertSettingsState.groups.map((group) => {
+    const channel = groupPrimaryChannel(group);
+    const testBusy = isAlertConfigTestBusy(group.id);
+    return `
     <tr class="clickable-row" data-alert-group-id="${group.id}">
       <td>${renderChannelTypePill(groupAlertType(group))}</td>
       <td><strong>${escapeHtml(group.group_name)}</strong></td>
@@ -239,17 +288,42 @@ function renderAlertGroups() {
       <td>${group.enabled ? '<span class="state-pill enabled">启用</span>' : '<span class="state-pill disabled">停用</span>'}</td>
       <td class="actions-column">
         <div class="row-actions compact">
+          <button class="icon-button" type="button" title="${channel ? "测试告警配置" : "未配置通知渠道"}" ${!channel || testBusy ? "disabled" : ""} data-alert-test-config-id="${group.id}">
+            <i data-lucide="${testBusy ? "loader-circle" : "send"}"></i>
+          </button>
           <button class="icon-button" type="button" title="编辑" data-alert-edit-id="${group.id}"><i data-lucide="pencil"></i></button>
           <button class="icon-button" type="button" title="${group.service_count ? "有关联服务，不允许删" : "删除"}" ${group.service_count ? "disabled" : ""} data-alert-delete-id="${group.id}"><i data-lucide="trash-2"></i></button>
         </div>
       </td>
     </tr>
-  `).join("");
+    ${renderAlertConfigTestResultRow(group)}
+  `;
+  }).join("");
   if (window.lucide) window.lucide.createIcons();
 }
 
 function selectAlertGroup(id) {
   openAlertConfigModal(id);
+}
+
+function renderAlertConfigTestResultRow(group) {
+  const result = alertSettingsState.testResults[`config:${group.id}`];
+  if (!result) return "";
+  const stateClass = result.pending ? "testing" : (result.ok ? "ok" : "bad");
+  const details = (result.details || [])
+    .filter((item) => item !== null && item !== undefined && String(item).trim() !== "")
+    .map((item) => `<span>${escapeHtml(item)}</span>`)
+    .join("");
+  return `
+    <tr class="binding-result-row">
+      <td colspan="7">
+        <div class="test-result binding-test-result ${stateClass}">
+          <strong>${escapeHtml(result.title)}</strong>
+          <div>${details || "<span>-</span>"}</div>
+        </div>
+      </td>
+    </tr>
+  `;
 }
 
 async function openAlertConfigModal(id) {
@@ -282,6 +356,7 @@ function openServiceBindingModal(serviceIds = []) {
   alertSettingsState.bindingServiceIds = ids;
   renderServiceBindingServiceOptions(ids);
   renderServiceBindingGroupOptions(ids);
+  renderServiceBindingScheduleOptions(ids);
   if (!ids.length) syncServiceBindingGroupFromService();
   renderServiceBindingPreview();
 
@@ -368,12 +443,40 @@ function syncServiceBindingGroupFromService() {
   if (groupSelect && service) groupSelect.value = service.alert_group_id || "";
 }
 
+function syncServiceBindingScheduleFromService() {
+  if (alertSettingsState.bindingServiceIds.length) return;
+  const service = selectedBindingServices()[0];
+  if (service) setBindingSchedule(service.check_interval);
+}
+
+function renderServiceBindingScheduleOptions(selectedIds = []) {
+  const selectedServices = selectedIds.length
+    ? selectedIds.map((id) => alertSettingsState.services.find((service) => Number(service.id) === Number(id))).filter(Boolean)
+    : selectedBindingServices();
+  const commonSeconds = selectedServices.length
+    && selectedServices.every((service) => Number(service.check_interval || 0) === Number(selectedServices[0].check_interval || 0))
+      ? selectedServices[0].check_interval
+      : (selectedServices[0]?.check_interval || 60);
+  setBindingSchedule(commonSeconds);
+}
+
+function setBindingSchedule(seconds) {
+  const valueInput = document.getElementById("alertBindingIntervalValue");
+  const unitSelect = document.getElementById("alertBindingIntervalUnit");
+  const parts = secondsToIntervalParts(seconds);
+  if (valueInput) valueInput.value = parts.value;
+  if (unitSelect) unitSelect.value = parts.unit;
+}
+
 function renderServiceBindingPreview() {
   const preview = document.getElementById("alertBindingPreview");
   if (!preview) return;
   const services = selectedBindingServices();
   const groupId = document.getElementById("alertBindingGroupSelect")?.value || "";
   const group = groupId ? alertSettingsState.groups.find((item) => Number(item.id) === Number(groupId)) : null;
+  const intervalValue = document.getElementById("alertBindingIntervalValue")?.value || 1;
+  const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
+  const intervalText = formatCheckInterval(intervalToSeconds(intervalValue, intervalUnit));
   const serviceText = services.length === 1
     ? services[0].service_name
     : (services.length ? `${services.length} 个服务` : "未选择服务");
@@ -381,7 +484,7 @@ function renderServiceBindingPreview() {
     <span class="recipient-icon"><i data-lucide="${group ? channelIcon(groupAlertType(group)) : "bell-off"}"></i></span>
     <span>
       <strong>${escapeHtml(serviceText)}</strong>
-      <small>${group ? `${escapeHtml(group.group_name)} / ${escapeHtml(groupPolicyText(group))}` : "保存后将取消告警绑定"}</small>
+      <small>${group ? `${escapeHtml(group.group_name)} / ${escapeHtml(groupPolicyText(group))}` : "保存后将取消告警绑定"} / ${escapeHtml(intervalText)}</small>
     </span>
   `;
   if (window.lucide) window.lucide.createIcons();
@@ -395,10 +498,15 @@ async function submitServiceBindingForm(event) {
     return;
   }
   const groupValue = document.getElementById("alertBindingGroupSelect")?.value || "";
+  const intervalValue = Number(document.getElementById("alertBindingIntervalValue")?.value || 1);
+  const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
   try {
     const updatedServices = await Promise.all(services.map((service) =>
-      LiveMonitorApi.updateServiceAlertGroup(service.id, {
+      LiveMonitorApi.updateAlertSettings(service.id, {
         alert_group_id: groupValue ? Number(groupValue) : null,
+        check_interval_value: intervalValue,
+        check_interval_unit: intervalUnit,
+        check_interval: intervalToSeconds(intervalValue, intervalUnit),
       })
     ));
     alertSettingsState.services = alertSettingsState.services.map((service) =>
@@ -569,11 +677,11 @@ function policyDisplayName(policy) {
 }
 
 function channelTypeLabel(type) {
-  return { email: "邮件", sms: "短信", webhook: "Webhook", dingtalk: "钉钉" }[type] || type || "渠道";
+  return { email: "邮件", sms: "短信", webhook: "Webhook", wecom: "企业微信", dingtalk: "钉钉" }[type] || type || "渠道";
 }
 
 function channelIcon(type) {
-  return { email: "mail", sms: "message-square", webhook: "webhook", dingtalk: "bot" }[type] || "send";
+  return { email: "mail", sms: "message-square", webhook: "webhook", wecom: "messages-square", dingtalk: "bot" }[type] || "send";
 }
 
 function channelRecipientText(channel) {
@@ -583,7 +691,7 @@ function channelRecipientText(channel) {
     return cc ? `${recipients}；抄送：${cc}` : recipients;
   }
   if (channel.channel_type === "sms") return formatMobilesForTextarea(channel.alert_mobile || "").replaceAll("\n", "") || "未填写手机号";
-  return channel.webhook_url || channel.sms_api_url || "未填写 Webhook";
+  return channel.webhook_url || channel.sms_api_url || `未填写${channelTypeLabel(channel.channel_type)} Webhook`;
 }
 
 async function deleteSelectedAlertGroup() {
@@ -767,6 +875,14 @@ function fillAlertChannelForm(channel) {
   setValueIfExists("smsPasswordMd5Input", "");
   setValueIfExists("smsRstypeInput", channel?.sms_rstype || "text");
   setValueIfExists("smsExtCodeInput", channel?.sms_ext_code || "");
+  setValueIfExists("wecomWebhookUrlInput", channel?.webhook_url || "");
+  setRecipientListValue("wecomMentionedListInput", "wecomMentionedList", "wecomMentionedRecipientInput", channel?.wecom_mentioned_list || "");
+  setRecipientListValue("wecomMentionedMobileInput", "wecomMentionedMobileList", "wecomMentionedMobileRecipientInput", channel?.wecom_mentioned_mobiles || "");
+  setCheckedIfExists("wecomAtAllInput", Boolean(channel?.wecom_at_all));
+  setValueIfExists("dingtalkWebhookUrlInput", channel?.webhook_url || "");
+  setValueIfExists("dingtalkSecretInput", "");
+  setRecipientListValue("dingtalkAtMobileInput", "dingtalkAtMobileList", "dingtalkAtMobileRecipientInput", channel?.dingtalk_at_mobiles || "");
+  setCheckedIfExists("dingtalkAtAllInput", Boolean(channel?.dingtalk_at_all));
   syncChannelInputs();
 }
 
@@ -797,7 +913,7 @@ function buildAlertChannelPayload() {
 
   const channelType = channelTypeSelect.value;
   const smtpPort = getValueIfExists("smtpPortInput");
-  const apiUrl = getValueIfExists("smsApiUrlInput");
+  const apiUrl = getWebhookUrlForType(channelType, getValueIfExists);
   const groupName = getValueIfExists("alertGroupNameInput");
   return {
     channel_name: groupName ? `${groupName}通知` : `${channelTypeLabel(channelType)}通知`,
@@ -822,9 +938,21 @@ function buildAlertChannelPayload() {
     sms_password_md5: channelType === "sms" ? getValueIfExists("smsPasswordMd5Input") || null : null,
     sms_rstype: channelType === "sms" ? getValueIfExists("smsRstypeInput") || "text" : "text",
     sms_ext_code: channelType === "sms" ? getValueIfExists("smsExtCodeInput") || null : null,
-    webhook_url: ["webhook", "dingtalk"].includes(channelType) ? apiUrl || null : null,
+    webhook_url: ["webhook", "wecom", "dingtalk"].includes(channelType) ? apiUrl || null : null,
+    dingtalk_secret: channelType === "dingtalk" ? getValueIfExists("dingtalkSecretInput") || null : null,
+    dingtalk_at_mobiles: channelType === "dingtalk" ? getValueIfExists("dingtalkAtMobileInput") || null : null,
+    dingtalk_at_all: channelType === "dingtalk" ? getCheckedIfExists("dingtalkAtAllInput") : false,
+    wecom_mentioned_list: channelType === "wecom" ? getValueIfExists("wecomMentionedListInput") || null : null,
+    wecom_mentioned_mobiles: channelType === "wecom" ? getValueIfExists("wecomMentionedMobileInput") || null : null,
+    wecom_at_all: channelType === "wecom" ? getCheckedIfExists("wecomAtAllInput") : false,
     enabled: getCheckedIfExists("alertGroupEnabledInput"),
   };
+}
+
+function getWebhookUrlForType(channelType, getValue) {
+  if (channelType === "wecom") return getValue("wecomWebhookUrlInput");
+  if (channelType === "dingtalk") return getValue("dingtalkWebhookUrlInput");
+  return getValue("smsApiUrlInput");
 }
 
 function renderAlertSettingsTable() {
@@ -868,7 +996,7 @@ function renderAlertActionResultRow(service) {
     .join("");
   return `
     <tr class="binding-result-row">
-      <td colspan="8">
+      <td colspan="9">
         <div class="test-result binding-test-result ${stateClass}">
           <strong>${escapeHtml(result.title)}</strong>
           <div>${details || "<span>-</span>"}</div>
@@ -932,11 +1060,11 @@ function renderAlertSettingsTable() {
   setText("alertBindingTotalText", `"${filteredServices.length} 条`);
 
   if (!alertSettingsState.services.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">暂无服务</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">暂无服务</td></tr>';
     return;
   }
   if (!filteredServices.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">暂无匹配服务</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">暂无匹配服务</td></tr>';
     return;
   }
 
@@ -965,6 +1093,7 @@ function renderAlertSettingsTable() {
           <small>${alertRuleText(group)}</small>
         </div>
       </td>
+      <td>${formatCheckInterval(service.check_interval)}</td>
       <td>${lastAlert ? formatTime(lastAlert.created_at || lastAlert.createdAt) : "-"}</td>
       <td><span class="alert-notify-state ${notifyState.className}">${notifyState.text}</span></td>
       <td class="actions-column">
@@ -1131,6 +1260,24 @@ function setAlertActionResult(serviceId, result) {
   renderAlertSettingsTable();
 }
 
+function isAlertConfigTestBusy(groupId) {
+  return Boolean(alertSettingsState.busyActions[`config:${groupId}:test`]);
+}
+
+function setAlertConfigTestBusy(groupId, busy) {
+  const key = `config:${groupId}:test`;
+  if (busy) {
+    alertSettingsState.busyActions[key] = true;
+  } else {
+    delete alertSettingsState.busyActions[key];
+  }
+}
+
+function setAlertConfigTestResult(groupId, result) {
+  alertSettingsState.testResults[`config:${groupId}`] = result;
+  renderAlertGroups();
+}
+
 function normalizeApiValue(item, snakeKey, camelKey) {
   return item?.[snakeKey] ?? item?.[camelKey];
 }
@@ -1266,7 +1413,57 @@ async function sendTestAlert(serviceId) {
   }
 }
 
+async function testAlertConfig(groupId) {
+  const group = alertSettingsState.groups.find((item) => Number(item.id) === Number(groupId));
+  const channel = groupPrimaryChannel(group);
+  if (!group || !channel) {
+    showToast("该告警配置缺少通知渠道");
+    return;
+  }
+  setAlertConfigTestBusy(groupId, true);
+  setAlertConfigTestResult(groupId, {
+    pending: true,
+    ok: false,
+    title: "告警配置测试发送中",
+    details: [`渠道：${channelTypeLabel(channel.channel_type)}`, "正在请求后端配置测试接口..."],
+  });
+  try {
+    const result = await LiveMonitorApi.testAlertChannel(channel.id);
+    setAlertConfigTestResult(groupId, {
+      ok: Boolean(result?.success),
+      title: result?.success ? "告警配置测试成功" : "告警配置测试失败",
+      details: [
+        `配置：${group.group_name || "-"}`,
+        `渠道：${channelTypeLabel(result?.channel_type || channel.channel_type)}`,
+        result?.tested_at ? `时间：${formatTime(result.tested_at)}` : "",
+        result?.message ? `结果：${result.message}` : "",
+      ],
+    });
+    showToast(result?.success ? "告警配置测试成功" : "告警配置测试失败");
+  } catch (error) {
+    setAlertConfigTestResult(groupId, {
+      ok: false,
+      title: "告警配置测试失败",
+      details: [
+        `配置：${group.group_name || "-"}`,
+        `渠道：${channelTypeLabel(channel.channel_type)}`,
+        `错误：${error.message}`,
+      ],
+    });
+    showToast(`告警配置测试失败: ${error.message}`);
+  } finally {
+    setAlertConfigTestBusy(groupId, false);
+    renderAlertGroups();
+  }
+}
+
 function handleAlertGroupListClick(event) {
+  const testButton = event.target.closest("[data-alert-test-config-id]");
+  if (testButton) {
+    event.stopPropagation();
+    testAlertConfig(Number(testButton.dataset.alertTestConfigId));
+    return;
+  }
   const deleteButton = event.target.closest("[data-alert-delete-id]");
   if (deleteButton) {
     event.stopPropagation();

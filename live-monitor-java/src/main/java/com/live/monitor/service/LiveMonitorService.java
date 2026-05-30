@@ -9,6 +9,7 @@ import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
+import com.live.monitor.util.CheckIntervals;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -243,7 +244,7 @@ public class LiveMonitorService {
         service.checkCommand = emptyToNull(payload.checkCommand);
         service.expectedResult = emptyToNull(payload.expectedResult);
         service.checkTimeoutSeconds = payload.checkTimeoutSeconds;
-        service.checkInterval = payload.checkInterval == null ? 60 : payload.checkInterval;
+        service.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         service.alertConfigId = payload.alertConfigId;
         service.enabled = payload.enabled == null || payload.enabled;
 
@@ -407,6 +408,7 @@ public class LiveMonitorService {
         }
         Map<String, Object> config = parseJsonMap(service.configJson);
         Map<String, Object> secretConfig = parseJsonMap(service.secretConfigJson);
+        applyCheckIntervalDisplay(service);
 
         service.host = stringValue(config, "host", service.host);
         service.port = intValue(config, "port", service.port);
@@ -649,5 +651,23 @@ public class LiveMonitorService {
 
     private String emptyToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private int resolveCheckInterval(Integer value, String unit, Integer fallbackSeconds) {
+        try {
+            return CheckIntervals.fromValueAndUnit(value, unit, fallbackSeconds);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        }
+    }
+
+    private void applyCheckIntervalDisplay(MonitorService service) {
+        try {
+            service.checkInterval = CheckIntervals.normalizeSeconds(service.checkInterval);
+        } catch (IllegalArgumentException ex) {
+            service.checkInterval = CheckIntervals.DEFAULT_SECONDS;
+        }
+        service.checkIntervalValue = CheckIntervals.displayValue(service.checkInterval);
+        service.checkIntervalUnit = CheckIntervals.displayUnit(service.checkInterval);
     }
 }

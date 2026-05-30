@@ -241,4 +241,34 @@ function serviceTypeLabel(type) {
   }[type] || type || "\u81ea\u5b9a\u4e49\u670d\u52a1";
 }
 
+function intervalToSeconds(value, unit) {
+  const number = Math.max(1, Number(value || 60));
+  const multipliers = {
+    seconds: 1,
+    minutes: 60,
+    hours: 3600,
+    days: 86400,
+  };
+  return Math.min(Math.round(number * (multipliers[unit] || 1)), 31536000);
+}
+
+function secondsToIntervalParts(seconds) {
+  const value = Math.max(1, Number(seconds || 60));
+  if (value % 86400 === 0) return { value: value / 86400, unit: "days" };
+  if (value % 3600 === 0) return { value: value / 3600, unit: "hours" };
+  if (value % 60 === 0) return { value: value / 60, unit: "minutes" };
+  return { value, unit: "seconds" };
+}
+
+function formatCheckInterval(seconds) {
+  const parts = secondsToIntervalParts(seconds);
+  const labels = {
+    seconds: "\u79d2",
+    minutes: "\u5206\u949f",
+    hours: "\u5c0f\u65f6",
+    days: "\u5929",
+  };
+  return `${parts.value} ${labels[parts.unit] || "\u79d2"}`;
+}
+
 

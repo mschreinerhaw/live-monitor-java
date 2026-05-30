@@ -51,6 +51,11 @@ public class AlertController {
         return alertAdminService.updateChannel(channelId, payload);
     }
 
+    @PostMapping("/api/alert-channels/{channelId}/test")
+    public Map<String, Object> testChannel(@PathVariable Long channelId) {
+        return alertAdminService.testChannel(channelId);
+    }
+
     @DeleteMapping("/api/alert-channels/{channelId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteChannel(@PathVariable Long channelId) {

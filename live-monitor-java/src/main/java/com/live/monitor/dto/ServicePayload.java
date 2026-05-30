@@ -49,8 +49,12 @@ public class ServicePayload {
     public String databaseUsername;
     public String databasePassword;
     public String databaseQuery;
-    @Min(5)
+    @Min(1)
+    @Max(31536000)
     public Integer checkInterval = 60;
+    @Min(1)
+    public Integer checkIntervalValue;
+    public String checkIntervalUnit = "seconds";
     public Long alertConfigId;
     public Long alertGroupId;
     public Boolean enabled = true;

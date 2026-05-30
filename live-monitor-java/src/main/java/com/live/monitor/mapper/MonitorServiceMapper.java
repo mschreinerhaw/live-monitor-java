@@ -46,6 +46,9 @@ public interface MonitorServiceMapper {
         "alert_config_id = #{alertConfigId}, enabled = #{enabled} WHERE id = #{id}")
     int update(MonitorService service);
 
+    @Update("UPDATE monitor_service SET check_interval = #{checkInterval} WHERE id = #{serviceId}")
+    int updateCheckInterval(@Param("serviceId") Long serviceId, @Param("checkInterval") int checkInterval);
+
     @Delete("DELETE FROM monitor_service WHERE id = #{id}")
     int delete(@Param("id") Long id);
 

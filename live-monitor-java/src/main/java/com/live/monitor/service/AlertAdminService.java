@@ -2,12 +2,15 @@ package com.live.monitor.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.live.monitor.alert.AlertDeliveryService;
 import com.live.monitor.dto.AlertChannelPayload;
 import com.live.monitor.dto.AlertGroupPayload;
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertGroup;
 import com.live.monitor.mapper.AlertMapper;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,15 +22,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AlertAdminService {
     private static final String[] SECRET_FIELDS = {
-        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5"
+        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret"
     };
 
     private final AlertMapper alertMapper;
     private final ObjectMapper objectMapper;
+    private final AlertDeliveryService alertDeliveryService;
 
-    public AlertAdminService(AlertMapper alertMapper, ObjectMapper objectMapper) {
+    public AlertAdminService(AlertMapper alertMapper, ObjectMapper objectMapper, AlertDeliveryService alertDeliveryService) {
         this.alertMapper = alertMapper;
         this.objectMapper = objectMapper;
+        this.alertDeliveryService = alertDeliveryService;
     }
 
     public List<Map<String, Object>> listChannels(boolean includeDisabled) {
@@ -76,6 +81,24 @@ public class AlertAdminService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务的告警配置不允许删除，仅能修改");
         }
         return alertMapper.deleteChannel(id) > 0;
+    }
+
+    public Map<String, Object> testChannel(Long id) {
+        AlertChannel channel = alertMapper.findChannel(id);
+        if (channel == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "alert channel not found");
+        }
+        String testedAt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String content = "Live Monitor 告警配置测试：" + channel.channelName + " / " + channel.channelType + " / " + testedAt;
+        AlertDeliveryService.DeliveryResult delivery = alertDeliveryService.send(channel, content);
+        Map<String, Object> result = new HashMap<String, Object>();
+        result.put("id", channel.id);
+        result.put("channel_name", channel.channelName);
+        result.put("channel_type", channel.channelType);
+        result.put("tested_at", testedAt);
+        result.put("success", delivery.success);
+        result.put("message", delivery.success ? "测试消息已发送" : delivery.message);
+        return result;
     }
 
     public List<Map<String, Object>> listGroups(boolean includeDisabled) {
@@ -237,6 +260,12 @@ public class AlertAdminService {
         config.put("sms_rstype", payload.smsRstype);
         config.put("sms_ext_code", payload.smsExtCode);
         config.put("webhook_url", payload.webhookUrl);
+        config.put("dingtalk_secret", payload.dingtalkSecret);
+        config.put("dingtalk_at_mobiles", payload.dingtalkAtMobiles);
+        config.put("dingtalk_at_all", payload.dingtalkAtAll == null ? false : payload.dingtalkAtAll);
+        config.put("wecom_mentioned_list", payload.wecomMentionedList);
+        config.put("wecom_mentioned_mobiles", payload.wecomMentionedMobiles);
+        config.put("wecom_at_all", payload.wecomAtAll == null ? false : payload.wecomAtAll);
         if (existing != null) {
             for (String field : SECRET_FIELDS) {
                 if (config.get(field) == null && existing.containsKey(field)) {

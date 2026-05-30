@@ -63,7 +63,7 @@ function renderHostTable() {
       <td>${escapeHtml(host.ssh_user || "-")}@${escapeHtml(host.ip || "-")}:${host.ssh_port || 22}</td>
       <td>${formatThreshold(host.cpu_threshold_percent)}</td>
       <td>${formatThreshold(host.disk_threshold_percent)}</td>
-      <td>${host.check_interval || 60} 秒</td>
+      <td>${formatCheckInterval(host.check_interval)}</td>
       <td><span class="state-pill ${host.enabled ? "enabled" : "disabled"}">${host.enabled ? "启用" : "停用"}</span></td>
       <td onclick="event.stopPropagation()">
         <div class="row-actions compact">
@@ -134,7 +134,9 @@ function fillHostForm(host) {
   form.elements.private_key.value = "";
   form.elements.cpu_threshold_percent.value = host?.cpu_threshold_percent ?? 85;
   form.elements.disk_threshold_percent.value = host?.disk_threshold_percent ?? 85;
-  form.elements.check_interval.value = host?.check_interval || 60;
+  const intervalParts = secondsToIntervalParts(host?.check_interval || 60);
+  form.elements.check_interval_value.value = host?.check_interval_value || intervalParts.value;
+  form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
   form.elements.alert_group_id.value = host?.alert_group_id || "";
   form.elements.enabled.checked = host ? Boolean(host.enabled) : true;
   setText("hostModalTitle", host ? "编辑主机" : "添加主机");
@@ -151,7 +153,12 @@ function buildHostPayload(form) {
     private_key: form.elements.private_key.value || null,
     cpu_threshold_percent: Number(form.elements.cpu_threshold_percent.value || 85),
     disk_threshold_percent: Number(form.elements.disk_threshold_percent.value || 85),
-    check_interval: Number(form.elements.check_interval.value || 60),
+    check_interval_value: Number(form.elements.check_interval_value.value || 1),
+    check_interval_unit: form.elements.check_interval_unit.value || "minutes",
+    check_interval: intervalToSeconds(
+      form.elements.check_interval_value.value || 1,
+      form.elements.check_interval_unit.value || "minutes"
+    ),
     alert_group_id: form.elements.alert_group_id.value ? Number(form.elements.alert_group_id.value) : null,
     enabled: form.elements.enabled.checked,
   };
@@ -431,7 +438,7 @@ function renderHostTable() {
       <td>${escapeHtml(host.ssh_user || "-")}@${escapeHtml(host.ip || "-")}:${host.ssh_port || 22}</td>
       <td>${formatThreshold(host.cpu_threshold_percent)}</td>
       <td>${formatThreshold(host.disk_threshold_percent)}</td>
-      <td>${host.check_interval || 60} 秒</td>
+      <td>${formatCheckInterval(host.check_interval)}</td>
       <td><span class="state-pill ${host.enabled ? "enabled" : "disabled"}">${host.enabled ? "启用" : "停用"}</span></td>
       <td>
         <div class="row-actions compact">
@@ -459,7 +466,7 @@ function renderSelectedHostSummary() {
   setText(
     "selectedHostMeta",
     host
-      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatThreshold(host.cpu_threshold_percent)} / 磁盘 ${formatThreshold(host.disk_threshold_percent)} / ${host.check_interval || 60} 秒自动刷新`
+      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatThreshold(host.cpu_threshold_percent)} / 磁盘 ${formatThreshold(host.disk_threshold_percent)} / ${formatCheckInterval(host.check_interval)}自动刷新`
       : "打开详情后按主机检测间隔自动刷新"
   );
 }
@@ -483,7 +490,7 @@ function startHostMetricAutoRefresh() {
   stopHostMetricAutoRefresh();
   const host = selectedHost();
   if (!host) return;
-  const seconds = Math.max(5, Number(host.check_interval || 60));
+  const seconds = Math.max(1, Number(host.check_interval || 60));
   hostState.metricTimer = window.setInterval(loadSelectedHostMetrics, seconds * 1000);
 }
 
@@ -545,7 +552,7 @@ function renderHostTable() {
       <td>${renderHostMetricTag(host.disk_used_percent, host.disk_threshold_percent)}</td>
       <td>${formatThreshold(host.cpu_threshold_percent)}</td>
       <td>${formatThreshold(host.disk_threshold_percent)}</td>
-      <td>${host.check_interval || 60} 秒</td>
+      <td>${formatCheckInterval(host.check_interval)}</td>
       <td>${renderHostState(host)}</td>
       <td>
         <div class="row-actions compact">
@@ -587,7 +594,7 @@ function hostListRefreshSeconds() {
     .filter((host) => Boolean(host.enabled))
     .map((host) => Number(host.check_interval || 60))
     .filter((value) => Number.isFinite(value) && value > 0);
-  return Math.max(5, Math.min(...intervals, 60));
+  return Math.max(1, Math.min(...intervals, 60));
 }
 
 function renderHostState(host) {
@@ -629,7 +636,7 @@ function renderSelectedHostSummary() {
   setText(
     "selectedHostMeta",
     host
-      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatThreshold(host.cpu_threshold_percent)} / 磁盘 ${formatThreshold(host.disk_threshold_percent)} / ${host.check_interval || 60} 秒自动刷新`
+      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatThreshold(host.cpu_threshold_percent)} / 磁盘 ${formatThreshold(host.disk_threshold_percent)} / ${formatCheckInterval(host.check_interval)}自动刷新`
       : "打开详情后按主机检测间隔自动刷新"
   );
 }
@@ -653,7 +660,7 @@ function startHostMetricAutoRefresh() {
   stopHostMetricAutoRefresh();
   const host = selectedHost();
   if (!host) return;
-  const seconds = Math.max(5, Number(host.check_interval || 60));
+  const seconds = Math.max(1, Number(host.check_interval || 60));
   hostState.metricTimer = window.setInterval(loadSelectedHostMetrics, seconds * 1000);
 }
 

@@ -13,6 +13,8 @@ public class HostConfig {
     public Double cpuThresholdPercent;
     public Double diskThresholdPercent;
     public Integer checkInterval;
+    public Integer checkIntervalValue;
+    public String checkIntervalUnit;
     public Long alertGroupId;
     public Double cpuUsagePercent;
     public Double loadAverage;

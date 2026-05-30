@@ -123,7 +123,11 @@ function buildServicePayload(form) {
   data.enabled = form.elements.enabled.checked;
   data.ignore_ssl_verification = Boolean(form.elements.ignore_ssl_verification?.checked);
   data.redis_cluster_mode = Boolean(form.elements.redis_cluster_mode?.checked);
-  data.check_interval = Number(data.check_interval || 60);
+  const intervalValue = Number(data.check_interval_value || 1);
+  const intervalUnit = data.check_interval_unit || "minutes";
+  data.check_interval = intervalToSeconds(intervalValue, intervalUnit);
+  data.check_interval_value = intervalValue;
+  data.check_interval_unit = intervalUnit;
   data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
   data.port = data.port ? Number(data.port) : null;
   if (!data.port && serviceType === "mysql") data.port = 3306;
@@ -230,7 +234,6 @@ function fillServiceForm(form, service) {
     "service_type",
     "service_name",
     "cluster_name",
-    "check_interval",
     "check_timeout_seconds",
     "web_scheme",
     "url",
@@ -269,6 +272,13 @@ function fillServiceForm(form, service) {
         : service[name] ?? defaults[name] ?? "";
     }
   });
+  const intervalParts = secondsToIntervalParts(service.check_interval);
+  if (form.elements.check_interval_value) {
+    form.elements.check_interval_value.value = service.check_interval_value || intervalParts.value;
+  }
+  if (form.elements.check_interval_unit) {
+    form.elements.check_interval_unit.value = service.check_interval_unit || intervalParts.unit;
+  }
   if (form.elements.redis_password) {
     form.elements.redis_password.value = "";
     form.elements.redis_password.placeholder = service.service_type === "redis"
@@ -336,7 +346,7 @@ async function loadServiceDetail(id) {
   document.getElementById("currentMessage").textContent = service.last_message || "暂无检测结";
   document.getElementById("lastResponse").textContent = service.last_response_time_ms ?? "-";
   document.getElementById("lastChecked").textContent = formatTime(service.last_checked_at);
-  document.getElementById("checkInterval").textContent = service.check_interval;
+  document.getElementById("checkInterval").textContent = formatCheckInterval(service.check_interval);
 
   renderResultTable(results);
   renderAlerts(document.getElementById("detailAlerts"), alerts);

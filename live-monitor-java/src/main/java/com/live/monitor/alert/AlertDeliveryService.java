@@ -33,6 +33,8 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -117,7 +119,7 @@ public class AlertDeliveryService {
                 sendSms(config, content);
                 return DeliveryResult.success();
             }
-            if ("webhook".equals(type) || "dingtalk".equals(type)) {
+            if ("webhook".equals(type) || "dingtalk".equals(type) || "wecom".equals(type)) {
                 sendWebhook(type, config, content);
                 return DeliveryResult.success();
             }
@@ -216,10 +218,28 @@ public class AlertDeliveryService {
         if (!StringUtils.hasText(webhookUrl)) {
             throw new IOException("Webhook URL is empty");
         }
+        if ("dingtalk".equals(type)) {
+            webhookUrl = signedDingtalkWebhookUrl(webhookUrl, stringValue(config, "dingtalk_secret"));
+        }
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         if ("dingtalk".equals(type)) {
             Map<String, Object> text = new LinkedHashMap<String, Object>();
             text.put("content", content);
+            payload.put("msgtype", "text");
+            payload.put("text", text);
+            Map<String, Object> at = new LinkedHashMap<String, Object>();
+            at.put("atMobiles", splitRecipients(stringValue(config, "dingtalk_at_mobiles")));
+            at.put("isAtAll", booleanValue(config.get("dingtalk_at_all"), false));
+            payload.put("at", at);
+        } else if ("wecom".equals(type)) {
+            Map<String, Object> text = new LinkedHashMap<String, Object>();
+            text.put("content", content);
+            List<String> mentionedList = splitRecipients(stringValue(config, "wecom_mentioned_list"));
+            if (booleanValue(config.get("wecom_at_all"), false) && !mentionedList.contains("@all")) {
+                mentionedList.add("@all");
+            }
+            text.put("mentioned_list", mentionedList);
+            text.put("mentioned_mobile_list", splitRecipients(stringValue(config, "wecom_mentioned_mobiles")));
             payload.put("msgtype", "text");
             payload.put("text", text);
         } else {
@@ -230,10 +250,61 @@ public class AlertDeliveryService {
             .post(RequestBody.create(objectMapper.writeValueAsString(payload), JSON))
             .build();
         try (Response response = httpClient.newCall(request).execute()) {
+            String body = response.body() == null ? "" : response.body().string();
             if (!response.isSuccessful()) {
                 throw new IOException("Webhook HTTP " + response.code());
             }
+            validateWebhookResponse(type, body);
         }
+    }
+
+    private String signedDingtalkWebhookUrl(String webhookUrl, String secret) throws IOException {
+        if (!StringUtils.hasText(secret)) {
+            return webhookUrl;
+        }
+        try {
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String stringToSign = timestamp + "\n" + secret.trim();
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.trim().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            String sign = URLEncoder.encode(
+                Base64.getEncoder().encodeToString(mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8))),
+                StandardCharsets.UTF_8.name()
+            );
+            String separator = webhookUrl.contains("?") ? "&" : "?";
+            return webhookUrl + separator + "timestamp=" + timestamp + "&sign=" + sign;
+        } catch (Exception ex) {
+            throw new IOException("Unable to sign DingTalk webhook", ex);
+        }
+    }
+
+    private void validateWebhookResponse(String type, String body) throws IOException {
+        if (!StringUtils.hasText(body) || !("dingtalk".equals(type) || "wecom".equals(type))) {
+            return;
+        }
+        Map<String, Object> result;
+        try {
+            result = objectMapper.readValue(body, STRING_OBJECT_MAP);
+        } catch (Exception ignored) {
+            // Some custom webhook gateways return plain text. Keep HTTP success as success for those.
+            return;
+        }
+        Object errCode = result.get("errcode");
+        if (errCode == null || intValue(errCode, 0) == 0) {
+            return;
+        }
+        String message = stringValue(result, "errmsg");
+        throw new IOException(channelDisplayName(type) + " webhook returned " + errCode + ": " + message);
+    }
+
+    private String channelDisplayName(String type) {
+        if ("dingtalk".equals(type)) {
+            return "DingTalk";
+        }
+        if ("wecom".equals(type)) {
+            return "WeCom";
+        }
+        return "Webhook";
     }
 
     private void sendEmail(Map<String, Object> config, String content) throws IOException {

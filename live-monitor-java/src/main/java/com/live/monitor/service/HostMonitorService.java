@@ -8,6 +8,7 @@ import com.live.monitor.entity.HostProcessConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.util.CheckIntervals;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +47,7 @@ public class HostMonitorService {
             if (host.monitorServiceId == null) {
                 syncMonitorService(host, host.alertGroupId);
             }
+            applyCheckIntervalDisplay(host);
             mask(host);
         }
         return hosts;
@@ -56,6 +58,7 @@ public class HostMonitorService {
         if (host.monitorServiceId == null) {
             syncMonitorService(host, host.alertGroupId);
         }
+        applyCheckIntervalDisplay(host);
         mask(host);
         return host;
     }
@@ -179,7 +182,7 @@ public class HostMonitorService {
         host.clusterName = StringUtils.hasText(payload.clusterName) ? payload.clusterName.trim() : "服务器主机";
         host.cpuThresholdPercent = payload.cpuThresholdPercent == null ? 85D : payload.cpuThresholdPercent;
         host.diskThresholdPercent = payload.diskThresholdPercent == null ? 85D : payload.diskThresholdPercent;
-        host.checkInterval = payload.checkInterval == null ? 60 : payload.checkInterval;
+        host.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         host.alertGroupId = payload.alertGroupId;
         host.enabled = payload.enabled == null || payload.enabled;
         return host;
@@ -238,6 +241,24 @@ public class HostMonitorService {
     private void mask(HostConfig host) {
         host.sshPasswordCipher = null;
         host.privateKeyCipher = null;
+    }
+
+    private int resolveCheckInterval(Integer value, String unit, Integer fallbackSeconds) {
+        try {
+            return CheckIntervals.fromValueAndUnit(value, unit, fallbackSeconds);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        }
+    }
+
+    private void applyCheckIntervalDisplay(HostConfig host) {
+        try {
+            host.checkInterval = CheckIntervals.normalizeSeconds(host.checkInterval);
+        } catch (IllegalArgumentException ex) {
+            host.checkInterval = CheckIntervals.DEFAULT_SECONDS;
+        }
+        host.checkIntervalValue = CheckIntervals.displayValue(host.checkInterval);
+        host.checkIntervalUnit = CheckIntervals.displayUnit(host.checkInterval);
     }
 
 }

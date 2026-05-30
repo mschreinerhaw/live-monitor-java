@@ -26,7 +26,7 @@ mybatis:
     map-underscore-to-camel-case: true
 
 live-monitor:
-  scheduler-tick-seconds: 5
+  scheduler-tick-seconds: 1
   default-timeout-seconds: 3
   secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}
   template-dir: ./templates

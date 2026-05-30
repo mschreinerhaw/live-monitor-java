@@ -28,5 +28,11 @@ public class AlertChannelPayload {
     public String smsRstype = "text";
     public String smsExtCode;
     public String webhookUrl;
+    public String dingtalkSecret;
+    public String dingtalkAtMobiles;
+    public Boolean dingtalkAtAll = false;
+    public String wecomMentionedList;
+    public String wecomMentionedMobiles;
+    public Boolean wecomAtAll = false;
     public Boolean enabled = true;
 }

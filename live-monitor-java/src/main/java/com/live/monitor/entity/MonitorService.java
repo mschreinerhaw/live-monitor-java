@@ -39,6 +39,8 @@ public class MonitorService {
     public String databasePassword;
     public String databaseQuery;
     public Integer checkInterval;
+    public Integer checkIntervalValue;
+    public String checkIntervalUnit;
     public Long alertConfigId;
     public Long alertGroupId;
     public String alertGroupName;

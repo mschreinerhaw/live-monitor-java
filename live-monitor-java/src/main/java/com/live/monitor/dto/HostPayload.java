@@ -22,8 +22,12 @@ public class HostPayload {
     @Min(1)
     @Max(100)
     public Double diskThresholdPercent = 85D;
-    @Min(5)
+    @Min(1)
+    @Max(31536000)
     public Integer checkInterval = 60;
+    @Min(1)
+    public Integer checkIntervalValue;
+    public String checkIntervalUnit = "seconds";
     public Long alertGroupId;
     public Boolean enabled = true;
 }

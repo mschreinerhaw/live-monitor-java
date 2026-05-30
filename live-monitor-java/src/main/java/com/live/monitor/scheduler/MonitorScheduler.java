@@ -2,6 +2,7 @@ package com.live.monitor.scheduler;
 
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.service.LiveMonitorService;
+import com.live.monitor.util.CheckIntervals;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -41,8 +42,8 @@ public class MonitorScheduler {
         }
         try {
             LocalDateTime last = LocalDateTime.parse(service.lastCheckedAt.substring(0, 19), SQLITE_TIME);
-            int interval = service.checkInterval == null ? 60 : service.checkInterval;
-            return last.plusSeconds(interval).isBefore(LocalDateTime.now());
+            int interval = CheckIntervals.normalizeSeconds(service.checkInterval);
+            return !last.plusSeconds(interval).isAfter(LocalDateTime.now());
         } catch (Exception ex) {
             return true;
         }

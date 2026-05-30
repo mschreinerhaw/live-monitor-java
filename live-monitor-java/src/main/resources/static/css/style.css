@@ -1680,6 +1680,17 @@ textarea {
   height: 42px;
 }
 
+.interval-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 8px;
+}
+
+.form-grid .interval-control input,
+.form-grid .interval-control select {
+  width: 100%;
+}
+
 .service-type-native-select {
   position: absolute;
   width: 1px !important;
