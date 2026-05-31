@@ -11,13 +11,25 @@ async function initDashboard() {
       }
     });
   });
-  document.getElementById("serviceSearch")?.addEventListener("input", (event) => {
-    dashboardState.query = event.target.value.trim().toLowerCase();
-    renderServiceTable();
-  });
+  bindDashboardSearchInput("serviceListSearch");
   initResourceMonitoring();
   await loadDashboard();
   window.setInterval(loadDashboard, 30000);
+}
+
+function bindDashboardSearchInput(id) {
+  document.getElementById(id)?.addEventListener("input", (event) => {
+    setDashboardQuery(event.target.value);
+  });
+}
+
+function setDashboardQuery(value) {
+  dashboardState.query = value.trim().toLowerCase();
+  ["serviceListSearch"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input && input.value !== value) input.value = value;
+  });
+  renderServiceTable();
 }
 
 function initResourceMonitoring() {

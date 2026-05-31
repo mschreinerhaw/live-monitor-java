@@ -28,11 +28,18 @@ public class AlertAdminService {
     private final AlertMapper alertMapper;
     private final ObjectMapper objectMapper;
     private final AlertDeliveryService alertDeliveryService;
+    private final CryptoService cryptoService;
 
-    public AlertAdminService(AlertMapper alertMapper, ObjectMapper objectMapper, AlertDeliveryService alertDeliveryService) {
+    public AlertAdminService(
+        AlertMapper alertMapper,
+        ObjectMapper objectMapper,
+        AlertDeliveryService alertDeliveryService,
+        CryptoService cryptoService
+    ) {
         this.alertMapper = alertMapper;
         this.objectMapper = objectMapper;
         this.alertDeliveryService = alertDeliveryService;
+        this.cryptoService = cryptoService;
     }
 
     public List<Map<String, Object>> listChannels(boolean includeDisabled) {
@@ -50,7 +57,7 @@ public class AlertAdminService {
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
         channel.enabled = payload.enabled == null || payload.enabled;
-        channel.configJson = toJson(channelConfig(payload, null));
+        channel.configJson = toEncryptedJson(channelConfig(payload, null));
         alertMapper.insertChannel(channel);
         return channelToMap(alertMapper.findChannel(channel.id), false);
     }
@@ -67,7 +74,7 @@ public class AlertAdminService {
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
         channel.enabled = payload.enabled == null || payload.enabled;
-        channel.configJson = toJson(channelConfig(payload, parseJson(existing.configJson)));
+        channel.configJson = toEncryptedJson(channelConfig(payload, parseJson(existing.configJson)));
         alertMapper.updateChannel(channel);
         return channelToMap(alertMapper.findChannel(id), false);
     }
@@ -281,7 +288,7 @@ public class AlertAdminService {
             return new HashMap<String, Object>();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(cryptoService.decryptIfEncrypted(json), new TypeReference<Map<String, Object>>() {});
         } catch (Exception ex) {
             return new HashMap<String, Object>();
         }
@@ -293,5 +300,9 @@ public class AlertAdminService {
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to serialize channel config", ex);
         }
+    }
+
+    private String toEncryptedJson(Map<String, Object> value) {
+        return cryptoService.encrypt(toJson(value));
     }
 }

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>主机维护 - Live Monitor</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#176b87">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
 </head>
@@ -22,58 +25,144 @@
   </header>
 
   <main class="page host-page">
-    <section class="detail-head">
+    <section class="detail-head host-hero-head">
       <div>
         <a class="back-link" href="/dashboard">返回监控首页</a>
         <h1>服务器主机维护</h1>
         <p>维护 SSH/SFTP 主机，配置 CPU、磁盘阈值和自动检测间隔。</p>
       </div>
-      <div class="detail-actions">
-        <button id="reloadHostsBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">
-          <i data-lucide="refresh-cw"></i>
-        </button>
-        <button id="newHostBtn" class="primary-button" type="button">
-          <i data-lucide="plus"></i>
-          <span>添加主机</span>
-        </button>
-      </div>
+      <button id="newHostBtn" class="primary-button host-primary-add" type="button">
+        <i data-lucide="plus"></i>
+        <span>添加主机</span>
+      </button>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
+    <section class="host-stat-grid" aria-label="主机统计">
+      <article class="host-stat-card">
+        <span class="host-stat-icon blue"><i data-lucide="server"></i></span>
         <div>
-          <h2>主机列表</h2>
-          <p class="panel-subtitle">保存后会同步为监控服务，并在监控首页按分组展示。</p>
+          <span>主机总数</span>
+          <strong id="hostSummaryTotal">-<small>台</small></strong>
+          <em id="hostSummaryTotalHint">当前资产</em>
         </div>
-        <label class="compact-filter">
-          <span>状态</span>
-          <select id="hostStatusFilter">
-            <option value="enabled">仅启用</option>
-            <option value="all">全部</option>
-          </select>
-        </label>
+      </article>
+      <article class="host-stat-card">
+        <span class="host-stat-icon green"><i data-lucide="monitor-check"></i></span>
+        <div>
+          <span>在线主机</span>
+          <strong id="hostSummaryOnline">-<small>台</small></strong>
+          <em id="hostSummaryOnlineHint">在线率 -</em>
+        </div>
+      </article>
+      <article class="host-stat-card">
+        <span class="host-stat-icon red"><i data-lucide="bell-ring"></i></span>
+        <div>
+          <span>告警主机</span>
+          <strong id="hostSummaryWarning">-<small>台</small></strong>
+          <em>超过阈值</em>
+        </div>
+      </article>
+      <article class="host-stat-card">
+        <span class="host-stat-icon amber"><i data-lucide="cpu"></i></span>
+        <div>
+          <span>平均 CPU 使用率</span>
+          <strong id="hostSummaryAvgCpu">-</strong>
+          <em>最新采集</em>
+        </div>
+      </article>
+      <article class="host-stat-card">
+        <span class="host-stat-icon purple"><i data-lucide="memory-stick"></i></span>
+        <div>
+          <span>平均内存使用率</span>
+          <strong id="hostSummaryAvgMemory">-</strong>
+          <em>最新采集</em>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel host-workbench">
+      <div class="host-workbench-toolbar">
+        <div class="host-filter-tools">
+          <label class="search host-search">
+            <i data-lucide="search"></i>
+            <input id="hostSearch" type="search" placeholder="搜索主机名、IP 或备注">
+          </label>
+          <label class="compact-filter">
+            <span>分组</span>
+            <select id="hostGroupFilter">
+              <option value="all">全部分组</option>
+            </select>
+          </label>
+          <label class="compact-filter">
+            <span>状态</span>
+            <select id="hostStatusFilter">
+              <option value="all">全部状态</option>
+              <option value="online">在线</option>
+              <option value="warning">告警</option>
+              <option value="offline">离线</option>
+              <option value="disabled">停用</option>
+            </select>
+          </label>
+          <label class="compact-filter">
+            <span>采集方式</span>
+            <select id="hostCollectModeFilter">
+              <option value="all">全部方式</option>
+              <option value="ssh">SSH</option>
+            </select>
+          </label>
+        </div>
+        <div class="host-table-actions">
+          <button id="batchHostCheckBtn" class="light-button" type="button">
+            <i data-lucide="radio"></i>
+            <span>批量检测</span>
+          </button>
+          <button id="exportHostsBtn" class="light-button" type="button">
+            <i data-lucide="download"></i>
+            <span>导出</span>
+          </button>
+          <button class="icon-button" type="button" title="表格设置" aria-label="表格设置">
+            <i data-lucide="settings"></i>
+          </button>
+        </div>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap host-table-wrap">
         <table class="data-table host-table">
           <thead>
             <tr>
-              <th>主机</th>
-              <th>分组</th>
-              <th>SSH</th>
-              <th>CPU</th>
-              <th>内存</th>
-              <th>磁盘</th>
-              <th>CPU 阈值</th>
-              <th>磁盘阈值</th>
-              <th>检测间隔</th>
+              <th>主机信息</th>
+              <th>资源状态</th>
+              <th>告警配置</th>
+              <th>采集配置</th>
               <th>状态</th>
-              <th>操作</th>
+              <th class="actions-column">操作</th>
             </tr>
           </thead>
           <tbody id="hostTable">
-            <tr><td colspan="11" class="empty">加载中...</td></tr>
+            <tr><td colspan="6" class="empty">加载中...</td></tr>
           </tbody>
         </table>
+      </div>
+      <div class="host-table-footer">
+        <span id="hostTableTotal">共 0 条记录</span>
+        <div class="host-pagination">
+          <select id="hostPageSize" aria-label="每页条数">
+            <option value="10">10 条/页</option>
+            <option value="20" selected>20 条/页</option>
+            <option value="50">50 条/页</option>
+          </select>
+          <button id="hostPrevPageBtn" class="icon-button" type="button" title="上一页" aria-label="上一页">
+            <i data-lucide="chevron-left"></i>
+          </button>
+          <span id="hostPageButtons" class="host-page-buttons"></span>
+          <button id="hostNextPageBtn" class="icon-button" type="button" title="下一页" aria-label="下一页">
+            <i data-lucide="chevron-right"></i>
+          </button>
+          <label>
+            <span>前往</span>
+            <input id="hostPageJump" type="number" min="1" value="1">
+            <span>页</span>
+          </label>
+        </div>
       </div>
     </section>
   </main>

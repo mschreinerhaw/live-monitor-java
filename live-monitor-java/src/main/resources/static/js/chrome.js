@@ -23,6 +23,10 @@ async function initUserChrome() {
         <i data-lucide="chevron-down"></i>
       </button>
       <div id="userMenuPanel" class="user-menu-panel" role="menu" hidden>
+        <a class="user-menu-link" href="/admin" id="adminMenuLink" role="menuitem" hidden>
+          <i data-lucide="users"></i>
+          <span>\u7528\u6237\u7ef4\u62a4</span>
+        </a>
         <button class="user-menu-logout" type="button" id="userLogoutButton" role="menuitem">
           <i data-lucide="log-out"></i>
           <span>\u9000\u51fa\u767b\u5f55</span>
@@ -39,7 +43,11 @@ async function initUserChrome() {
   if (window.lucide) window.lucide.createIcons();
   try {
     const user = await LiveMonitorApi.currentUser();
-    if (user?.name) document.getElementById("currentUserName").textContent = user.name;
+    if (user?.user_id || user?.display_name || user?.name) {
+      document.getElementById("currentUserName").textContent = user.user_id || user.display_name || user.name;
+    }
+    const adminMenuLink = document.getElementById("adminMenuLink");
+    if (adminMenuLink) adminMenuLink.hidden = !user?.admin;
   } catch (error) {
     // 401 handling lives in api.js.
   }

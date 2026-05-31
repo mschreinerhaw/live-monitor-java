@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>告警设置 - Live Monitor</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#176b87">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
 </head>
@@ -74,12 +77,9 @@
           <p class="panel-subtitle">每种告警类型只登记一条配置，服务绑定后将使用对应配置发送通知。</p>
         </div>
         <div class="panel-actions">
-          <button class="icon-button" id="reloadAlertSettingsBtn" title="刷新">
-            <i data-lucide="refresh-cw"></i>
-          </button>
-          <button class="primary-button" id="newAlertGroupBtn" type="button">
+          <button class="light-button" id="newAlertGroupBtn" type="button">
             <i data-lucide="plus"></i>
-            新增配置
+            <span>新增配置</span>
           </button>
         </div>
       </div>
@@ -111,9 +111,9 @@
             <i data-lucide="plus"></i>
             新增服务绑定
           </button> -->
-          <button class="ghost-button" id="batchAlertActionBtn" type="button">
+          <button class="light-button alert-toolbar-action" id="batchAlertActionBtn" type="button">
             <i data-lucide="settings-2"></i>
-            批量操作
+            <span>批量操作</span>
             <i data-lucide="chevron-down"></i>
           </button>
         </div>
@@ -132,9 +132,6 @@
             <input id="alertServiceSearchInput" type="search" placeholder="搜索服务名称">
             <i data-lucide="search"></i>
           </label>
-          <button class="icon-button" id="reloadAlertBindingBtn" type="button" title="刷新">
-            <i data-lucide="refresh-cw"></i>
-          </button>
         </div>
       </div>
 

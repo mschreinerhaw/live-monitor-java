@@ -3,6 +3,7 @@ package com.live.monitor.alert;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.entity.AlertChannel;
+import com.live.monitor.service.CryptoService;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -74,22 +75,33 @@ public class AlertDeliveryService {
     };
 
     private final ObjectMapper objectMapper;
+    private CryptoService cryptoService;
     private final OkHttpClient httpClient;
     private Path templateDirectory;
 
     @Autowired
     public AlertDeliveryService(ObjectMapper objectMapper) {
-        this(objectMapper, Paths.get("./templates"));
+        this(objectMapper, null, Paths.get("./templates"));
     }
 
     AlertDeliveryService(ObjectMapper objectMapper, Path templateDirectory) {
+        this(objectMapper, null, templateDirectory);
+    }
+
+    AlertDeliveryService(ObjectMapper objectMapper, CryptoService cryptoService, Path templateDirectory) {
         this.objectMapper = objectMapper;
+        this.cryptoService = cryptoService;
         this.templateDirectory = templateDirectory;
         this.httpClient = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
             .build();
+    }
+
+    @Autowired(required = false)
+    public void setCryptoService(CryptoService cryptoService) {
+        this.cryptoService = cryptoService;
     }
 
     @Value("${live-monitor.template-dir:./templates}")
@@ -585,7 +597,8 @@ public class AlertDeliveryService {
             return new HashMap<String, Object>();
         }
         try {
-            return objectMapper.readValue(json, STRING_OBJECT_MAP);
+            String normalized = cryptoService == null ? json : cryptoService.decryptIfEncrypted(json);
+            return objectMapper.readValue(normalized, STRING_OBJECT_MAP);
         } catch (Exception ex) {
             return new HashMap<String, Object>();
         }

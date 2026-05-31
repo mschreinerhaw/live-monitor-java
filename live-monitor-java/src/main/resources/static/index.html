@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ServiceMonitor</title>
+  <title>监控首页 - Live Monitor</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#176b87">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
 </head>
@@ -11,10 +14,6 @@
   <div class="dashboard-shell">
     <div class="dashboard-workspace">
       <header class="topbar">
-        <label class="search global-search">
-          <i data-lucide="search"></i>
-          <input id="serviceSearch" type="search" placeholder="&#25628;&#32034;&#26381;&#21153;&#12289;&#38598;&#32676;&#12289;&#22320;&#22336;">
-        </label>
       </header>
 
       <main class="page dashboard-page">
@@ -74,7 +73,13 @@
         <section class="dashboard-content-grid">
           <div class="panel panel-main service-list-panel">
             <div class="panel-head">
-              <h1>&#26381;&#21153;&#21015;&#34920;</h1>
+              <div class="service-list-title">
+                <h1>&#26381;&#21153;&#21015;&#34920;</h1>
+                <label class="search service-list-search">
+                  <i data-lucide="search"></i>
+                  <input id="serviceListSearch" type="search" placeholder="&#26816;&#32034;&#26381;&#21153;">
+                </label>
+              </div>
               <div class="panel-actions">
                 <a class="light-button service-add-button" href="/services/new">
                   <i data-lucide="plus"></i>

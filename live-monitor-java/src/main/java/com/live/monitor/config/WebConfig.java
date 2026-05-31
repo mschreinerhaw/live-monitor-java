@@ -20,11 +20,17 @@ public class WebConfig implements WebMvcConfigurer {
                 "/dashboard",
                 "/services/**",
                 "/alerts/**",
+                "/hosts",
+                "/hosts/**",
+                "/admin",
+                "/admin/**",
                 "/api/**",
                 "/index.html",
                 "/service.html",
                 "/add_service.html",
-                "/alert_settings.html"
+                "/alert_settings.html",
+                "/hosts.html",
+                "/admin.html"
             )
             .excludePathPatterns("/api/auth/login", "/api/auth/me", "/api/health", "/login.html");
     }

@@ -25,6 +25,7 @@ public class HostMonitorService {
     private final MonitorServiceMapper serviceMapper;
     private final CryptoService cryptoService;
     private final SshService sshService;
+    private final HostResourceMonitorService hostResourceMonitorService;
     private final ObjectMapper objectMapper;
 
     public HostMonitorService(
@@ -32,12 +33,14 @@ public class HostMonitorService {
         MonitorServiceMapper serviceMapper,
         CryptoService cryptoService,
         SshService sshService,
+        HostResourceMonitorService hostResourceMonitorService,
         ObjectMapper objectMapper
     ) {
         this.hostMapper = hostMapper;
         this.serviceMapper = serviceMapper;
         this.cryptoService = cryptoService;
         this.sshService = sshService;
+        this.hostResourceMonitorService = hostResourceMonitorService;
         this.objectMapper = objectMapper;
     }
 
@@ -140,6 +143,81 @@ public class HostMonitorService {
         metrics.put("disk_used_percent", host.diskUsedPercent);
         metrics.put("checked_at", host.metricCheckedAt);
         return metrics;
+    }
+
+    public Map<String, Object> refreshMetrics(Long hostId) {
+        HostConfig host = requireHost(hostId);
+        Map<String, Object> metrics = hostResourceMonitorService.collectAndStore(host, 10000);
+        metrics.put("host_id", host.id);
+        return metrics;
+    }
+
+    public Map<String, Object> refreshAllMetrics() {
+        List<HostConfig> hosts = hostMapper.listHosts(0);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        int success = 0;
+        int failed = 0;
+        for (HostConfig host : hosts) {
+            try {
+                Map<String, Object> metrics = hostResourceMonitorService.collectAndStore(host, 10000);
+                if (metrics.get("cpu_usage_percent") == null && metrics.get("disk_used_percent") == null) {
+                    failed++;
+                } else {
+                    success++;
+                }
+            } catch (Exception ex) {
+                failed++;
+            }
+        }
+        result.put("success", success);
+        result.put("failed", failed);
+        result.put("total", hosts.size());
+        return result;
+    }
+
+    public Map<String, Object> summary() {
+        List<HostConfig> hosts = hostMapper.listHosts(1);
+        int total = hosts.size();
+        int online = 0;
+        int warning = 0;
+        int disabled = 0;
+        double cpuTotal = 0D;
+        int cpuCount = 0;
+        double memoryTotal = 0D;
+        int memoryCount = 0;
+        for (HostConfig host : hosts) {
+            if (!Boolean.TRUE.equals(host.enabled)) {
+                disabled++;
+                continue;
+            }
+            boolean hasMetric = host.cpuUsagePercent != null || host.memoryUsedPercent != null || host.diskUsedPercent != null;
+            if (hasMetric) {
+                online++;
+            }
+            if (host.cpuUsagePercent != null) {
+                cpuTotal += host.cpuUsagePercent;
+                cpuCount++;
+            }
+            if (host.memoryUsedPercent != null) {
+                memoryTotal += host.memoryUsedPercent;
+                memoryCount++;
+            }
+            double cpuThreshold = host.cpuThresholdPercent == null ? 85D : host.cpuThresholdPercent;
+            double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
+            if ((host.cpuUsagePercent != null && host.cpuUsagePercent >= cpuThreshold)
+                || (host.diskUsedPercent != null && host.diskUsedPercent >= diskThreshold)) {
+                warning++;
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("total", total);
+        result.put("online", online);
+        result.put("warning", warning);
+        result.put("offline", Math.max(0, total - online - disabled));
+        result.put("disabled", disabled);
+        result.put("avg_cpu_usage_percent", cpuCount == 0 ? null : Math.round((cpuTotal / cpuCount) * 10D) / 10D);
+        result.put("avg_memory_used_percent", memoryCount == 0 ? null : Math.round((memoryTotal / memoryCount) * 10D) / 10D);
+        return result;
     }
 
     public Map<String, Object> processStatus(Long hostId) {

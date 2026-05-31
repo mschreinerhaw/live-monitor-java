@@ -6,6 +6,7 @@ public class MonitorService {
     public String serviceCategory;
     public String serviceType;
     public String clusterName;
+    public String monitorReason;
     public String endpoint;
     public String host;
     public Integer port;

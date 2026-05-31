@@ -167,6 +167,7 @@ function buildServicePayload(form) {
   data.alert_group_id = data.alert_group_id ? Number(data.alert_group_id) : null;
   data.alert_config_id = null;
   data.cluster_name = data.cluster_name || null;
+  data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
   return data;
 }
@@ -234,6 +235,7 @@ function fillServiceForm(form, service) {
     "service_type",
     "service_name",
     "cluster_name",
+    "monitor_reason",
     "check_timeout_seconds",
     "web_scheme",
     "url",

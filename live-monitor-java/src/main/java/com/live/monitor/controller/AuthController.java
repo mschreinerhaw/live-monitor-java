@@ -5,6 +5,7 @@ import com.live.monitor.entity.TUser;
 import com.live.monitor.service.AuthService;
 import java.util.HashMap;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -43,8 +44,9 @@ public class AuthController {
     }
 
     @GetMapping("/api/auth/me")
-    public Map<String, Object> me(HttpSession session) {
-        Object user = session.getAttribute(SESSION_USER);
+    public Map<String, Object> me(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        Object user = session == null ? null : session.getAttribute(SESSION_USER);
         return currentUser(user instanceof TUser ? (TUser) user : null, user instanceof TUser);
     }
 
@@ -53,7 +55,9 @@ public class AuthController {
         result.put("authenticated", authenticated);
         if (user != null) {
             result.put("user_id", user.userId);
+            result.put("display_name", user.userId);
             result.put("name", user.name == null ? user.userId : user.name);
+            result.put("admin", "admin".equalsIgnoreCase(user.userId));
         }
         return result;
     }

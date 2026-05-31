@@ -34,6 +34,15 @@ let alertSettingsState = {
 };
 let hostState = {
   hosts: [],
+  summary: null,
+  filters: {
+    query: "",
+    status: "all",
+    group: "all",
+    collectMode: "all",
+  },
+  page: 1,
+  pageSize: 20,
   processes: [],
   processStatus: {},
   alertGroups: [],
@@ -53,6 +62,10 @@ let notificationState = {
   alerts: [],
   seenAlertId: Number(localStorage.getItem("liveMonitorSeenAlertId") || 0),
   poller: null,
+};
+let adminState = {
+  users: [],
+  currentUser: null,
 };
 let resourceMetricState = {
   history: {

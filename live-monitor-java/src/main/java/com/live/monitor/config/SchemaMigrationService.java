@@ -17,7 +17,9 @@ public class SchemaMigrationService {
         if (!tableExists("monitor_service")) {
             return;
         }
+        widenColumnIfPresent("tuser", "password", "VARCHAR(512)");
         addColumnIfMissing("monitor_service", "service_category", "VARCHAR(64) NOT NULL DEFAULT 'middleware'");
+        addColumnIfMissing("monitor_service", "monitor_reason", "VARCHAR(1000)");
         addColumnIfMissing("monitor_service", "endpoint", "VARCHAR(1024)");
         addColumnIfMissing("monitor_service", "check_mode", "VARCHAR(64) NOT NULL DEFAULT 'ping'");
         addColumnIfMissing("monitor_service", "check_command", "VARCHAR(100000)");
@@ -55,6 +57,12 @@ public class SchemaMigrationService {
     private void addColumnIfMissing(String tableName, String columnName, String definition) {
         if (tableExists(tableName) && !columnExists(tableName, columnName)) {
             jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
+        }
+    }
+
+    private void widenColumnIfPresent(String tableName, String columnName, String definition) {
+        if (tableExists(tableName) && columnExists(tableName, columnName)) {
+            jdbcTemplate.execute("ALTER TABLE " + tableName + " ALTER COLUMN " + columnName + " " + definition);
         }
     }
 }

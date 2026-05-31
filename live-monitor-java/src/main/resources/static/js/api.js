@@ -1,15 +1,23 @@
 (function () {
   const storedBase = window.localStorage.getItem("liveMonitorApiBase");
   const API_BASE = storedBase || "";
+  const LOGIN_PATH = "/login.html";
 
   async function request(path, options = {}) {
+    const {
+      headers = {},
+      redirectOnUnauthorized = true,
+      ...fetchOptions
+    } = options;
+    const requestHeaders = { ...headers };
+    if (fetchOptions.body !== undefined && !(fetchOptions.body instanceof FormData)) {
+      requestHeaders["Content-Type"] = requestHeaders["Content-Type"] || "application/json";
+    }
+
     const response = await fetch(`${API_BASE}${path}`, {
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      ...options,
+      credentials: API_BASE ? "include" : "same-origin",
+      headers: requestHeaders,
+      ...fetchOptions,
     });
 
     if (response.status === 204) {
@@ -22,8 +30,8 @@
       : await response.text();
 
     if (!response.ok) {
-      if (response.status === 401 && !window.location.pathname.endsWith("/login.html")) {
-        window.location.href = "/login.html";
+      if (response.status === 401 && redirectOnUnauthorized) {
+        redirectToLogin();
         return null;
       }
       const message = payload && (payload.detail || payload.message || payload.error)
@@ -34,7 +42,19 @@
     return payload;
   }
 
+  function redirectToLogin() {
+    if (window.location.pathname.endsWith(LOGIN_PATH)) return;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const target = `${LOGIN_PATH}?redirect=${encodeURIComponent(current)}`;
+    window.location.href = target;
+  }
+
   window.LiveMonitorApi = {
+    login: (username, password) => request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+      redirectOnUnauthorized: false,
+    }),
     dashboard: () => request("/api/dashboard"),
     services: (includeDisabled = false) => request(`/api/services?include_disabled=${includeDisabled}`),
     service: (id) => request(`/api/services/${id}`),
@@ -66,15 +86,22 @@
     alerts: (id, limit = 50) => request(`/api/services/${id}/alerts?limit=${limit}`),
     allAlerts: (limit = 50) => request(`/api/alerts?limit=${limit}`),
     clearAlerts: () => request("/api/alerts", { method: "DELETE" }),
-    currentUser: () => request("/api/auth/me"),
-    logout: () => request("/api/auth/logout", { method: "POST" }),
+    currentUser: () => request("/api/auth/me", { redirectOnUnauthorized: false }),
+    logout: () => request("/api/auth/logout", { method: "POST", redirectOnUnauthorized: false }),
+    users: () => request("/api/admin/users"),
+    createUser: (data) => request("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
+    changePassword: (data) => request("/api/admin/password", { method: "PUT", body: JSON.stringify(data) }),
+    resetUserPassword: (userId, data) => request(`/api/admin/users/${encodeURIComponent(userId)}/password`, { method: "PUT", body: JSON.stringify(data) }),
     systemMetrics: () => request("/api/system-metrics"),
     hosts: (includeDisabled = false) => request(`/api/hosts?include_disabled=${includeDisabled}`),
+    hostSummary: () => request("/api/hosts/summary"),
     host: (id) => request(`/api/hosts/${id}`),
     createHost: (data) => request("/api/hosts", { method: "POST", body: JSON.stringify(data) }),
     updateHost: (id, data) => request(`/api/hosts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteHost: (id) => request(`/api/hosts/${id}`, { method: "DELETE" }),
     hostMetrics: (id) => request(`/api/hosts/${id}/metrics`),
+    refreshHostMetrics: (id) => request(`/api/hosts/${id}/metrics/refresh`, { method: "POST" }),
+    refreshAllHostMetrics: () => request("/api/hosts/metrics/refresh", { method: "POST" }),
     hostProcesses: (id) => request(`/api/hosts/${id}/processes`),
     createHostProcess: (id, data) => request(`/api/hosts/${id}/processes`, { method: "POST", body: JSON.stringify(data) }),
     updateHostProcess: (id, data) => request(`/api/host-processes/${id}`, { method: "PUT", body: JSON.stringify(data) }),

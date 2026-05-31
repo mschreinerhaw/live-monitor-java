@@ -34,6 +34,7 @@ public class LiveMonitorService {
     private final MonitorRunnerService runnerService;
     private final AlertService alertService;
     private final ObjectMapper objectMapper;
+    private final CryptoService cryptoService;
     private final TransactionTemplate transactionTemplate;
 
     public LiveMonitorService(
@@ -42,6 +43,7 @@ public class LiveMonitorService {
         MonitorRunnerService runnerService,
         AlertService alertService,
         ObjectMapper objectMapper,
+        CryptoService cryptoService,
         TransactionTemplate transactionTemplate
     ) {
         this.serviceMapper = serviceMapper;
@@ -49,6 +51,7 @@ public class LiveMonitorService {
         this.runnerService = runnerService;
         this.alertService = alertService;
         this.objectMapper = objectMapper;
+        this.cryptoService = cryptoService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -237,6 +240,7 @@ public class LiveMonitorService {
             ? normalizeType(payload.serviceCategory)
             : inferCategory(service.serviceType);
         service.clusterName = emptyToNull(payload.clusterName);
+        service.monitorReason = emptyToNull(payload.monitorReason);
         service.host = emptyToNull(payload.host);
         service.port = payload.port == null ? defaultPort(service.serviceType) : payload.port;
         service.endpoint = preferredEndpoint(payload, service.port);
@@ -252,7 +256,7 @@ public class LiveMonitorService {
         Map<String, Object> secretConfig = copyMap(payload.secretConfig);
         applyLegacyPayloadConfig(payload, service, config, secretConfig);
         service.configJson = toJson(config);
-        service.secretConfigJson = toJson(secretConfig);
+        service.secretConfigJson = toEncryptedJson(secretConfig);
         hydrateTypedFields(service);
         return service;
     }
@@ -407,7 +411,7 @@ public class LiveMonitorService {
             return;
         }
         Map<String, Object> config = parseJsonMap(service.configJson);
-        Map<String, Object> secretConfig = parseJsonMap(service.secretConfigJson);
+        Map<String, Object> secretConfig = parseSecretJsonMap(service.secretConfigJson);
         applyCheckIntervalDisplay(service);
 
         service.host = stringValue(config, "host", service.host);
@@ -574,12 +578,31 @@ public class LiveMonitorService {
         }
     }
 
+    private Map<String, Object> parseSecretJsonMap(String json) {
+        if (!StringUtils.hasText(json)) {
+            return new LinkedHashMap<String, Object>();
+        }
+        Map<String, Object> plain = parseJsonMap(json);
+        if (!plain.isEmpty() || json.trim().startsWith("{")) {
+            return plain;
+        }
+        return parseJsonMap(cryptoService.decryptIfEncrypted(json));
+    }
+
     private String toJson(Map<String, Object> value) {
         try {
             return objectMapper.writeValueAsString(value == null ? new LinkedHashMap<String, Object>() : value);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid monitor service config");
         }
+    }
+
+    private String toEncryptedJson(Map<String, Object> value) {
+        Map<String, Object> normalized = value == null ? new LinkedHashMap<String, Object>() : value;
+        if (normalized.isEmpty()) {
+            return "{}";
+        }
+        return cryptoService.encrypt(toJson(normalized));
     }
 
     private void putIfNotNull(Map<String, Object> map, String key, Object value) {

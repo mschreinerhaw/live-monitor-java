@@ -9,5 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (page === "service-detail") initServiceDetail();
   if (page === "alert-settings") initAlertSettings();
   if (page === "hosts") initHosts();
+  if (page === "admin") initAdmin();
 });
 

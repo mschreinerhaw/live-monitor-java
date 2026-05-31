@@ -4,6 +4,7 @@ import java.util.Map;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 
 public class ServicePayload {
     @NotBlank
@@ -12,6 +13,8 @@ public class ServicePayload {
     @NotBlank
     public String serviceType;
     public String clusterName;
+    @Size(max = 1000)
+    public String monitorReason;
     public String endpoint;
     public String host;
     @Min(1)
