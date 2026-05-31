@@ -16,28 +16,44 @@ async function initAddService() {
     const isRedis = typeSelect.value === "redis";
     const isZookeeper = typeSelect.value === "zookeeper";
     const isProcess = typeSelect.value === "process";
-    const isDatabase = ["mysql", "oracle", "postgresql", "postgres"].includes(typeSelect.value);
+    const isDatabase = isDatabaseServiceType(typeSelect.value);
+    const isGenericJdbc = typeSelect.value === "jdbc";
     toggleFieldSet(".web-only", isWeb);
-    toggleFieldSet(".host-field", !isWeb);
-    toggleFieldSet(".port-field", !isWeb && !isProcess);
+    toggleFieldSet(".host-field", !isWeb && !isGenericJdbc);
+    toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc);
     toggleFieldSet(".process-only", isProcess);
     toggleFieldSet(".redis-only", isRedis);
     toggleFieldSet(".zookeeper-only", isZookeeper);
     toggleFieldSet(".database-only", isDatabase);
+    toggleFieldSet(".jdbc-only", isGenericJdbc);
+    toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc);
     const urlInput = form.elements.url;
     const hostInput = form.elements.host;
     const portInput = form.elements.port;
     const databaseNameInput = form.elements.database_name;
+    const jdbcDriverClassInput = form.elements.jdbc_driver_class;
+    const jdbcUrlInput = form.elements.jdbc_url;
     const processNameInput = form.elements.process_name;
     const processKeywordInput = form.elements.process_match_keyword;
     const processCommandInput = form.elements.check_command;
     if (urlInput) urlInput.required = isWeb;
-    if (hostInput) hostInput.required = !isWeb && !isProcess;
+    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc;
     if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess;
     if (processNameInput) processNameInput.required = isProcess;
     if (processKeywordInput) processKeywordInput.required = false;
     if (processCommandInput) processCommandInput.required = isProcess;
     if (databaseNameInput) databaseNameInput.required = typeSelect.value === "oracle";
+    if (jdbcDriverClassInput) jdbcDriverClassInput.required = isGenericJdbc;
+    if (jdbcUrlInput) jdbcUrlInput.required = isGenericJdbc;
+    if (jdbcDriverClassInput) {
+      jdbcDriverClassInput.placeholder = {
+        mysql: "可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver",
+        oracle: "可选，例如：oracle.jdbc.OracleDriver",
+        postgresql: "可选，例如：org.postgresql.Driver",
+        postgres: "可选，例如：org.postgresql.Driver",
+        jdbc: "必填，例如：com.microsoft.sqlserver.jdbc.SQLServerDriver",
+      }[typeSelect.value] || "可选，填写 lib 下驱动 jar 对应的 Driver 类";
+    }
     if (portInput && !portInput.value) {
       portInput.placeholder = {
         port: "例如 8080",
@@ -46,6 +62,7 @@ async function initAddService() {
         mysql: "3306",
         oracle: "1521",
         postgresql: "5432",
+        jdbc: "在 JDBC 连接串中填写端口",
         process: "已登录 SSH 主机 IP",
       }[typeSelect.value] || "端口";
     }
@@ -133,24 +150,27 @@ function buildServicePayload(form) {
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
   if (!data.port && serviceType === "postgresql") data.port = 5432;
-  if (serviceType === "process") data.port = null;
+  if (serviceType === "process" || serviceType === "jdbc") data.port = null;
   data.expected_status_code = data.expected_status_code ? Number(data.expected_status_code) : null;
   data.zookeeper_expected_nodes = data.zookeeper_expected_nodes ? Number(data.zookeeper_expected_nodes) : null;
-  const isDatabase = ["mysql", "oracle", "postgresql", "postgres"].includes(serviceType);
+  const isDatabase = isDatabaseServiceType(serviceType);
+  const isGenericJdbc = serviceType === "jdbc";
   const isProcess = serviceType === "process";
   data.service_type = serviceType;
   const isWebUrl = isWebUrlServiceType(serviceType);
   data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
-  data.host = isWebUrl ? null : data.host.trim();
+  data.host = isWebUrl || isGenericJdbc ? null : data.host.trim();
   data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
   data.response_keyword = isWebUrl ? data.response_keyword || null : null;
   data.expected_status_code = isWebUrl ? data.expected_status_code : null;
   data.ignore_ssl_verification = isWebUrl ? data.ignore_ssl_verification : false;
-  data.database_name = isDatabase ? data.database_name || null : null;
+  data.database_name = isDatabase && !isGenericJdbc ? data.database_name || null : null;
   data.database_username = isDatabase ? data.database_username || null : null;
   data.database_password = isDatabase ? data.database_password || null : null;
   data.database_query = isDatabase ? data.database_query || null : null;
   data.expected_result = isDatabase ? data.expected_result || null : null;
+  data.jdbc_driver_class = isDatabase ? data.jdbc_driver_class || null : null;
+  data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
   data.redis_password = serviceType === "redis" ? data.redis_password || null : null;
   data.redis_cluster_mode = serviceType === "redis" ? data.redis_cluster_mode : false;
@@ -257,6 +277,8 @@ function fillServiceForm(form, service) {
     "database_name",
     "database_username",
     "database_query",
+    "jdbc_driver_class",
+    "jdbc_url",
     "expected_result",
     "alert_group_id",
   ].forEach((name) => {
@@ -289,7 +311,7 @@ function fillServiceForm(form, service) {
   }
   if (form.elements.database_password) {
     form.elements.database_password.value = "";
-    form.elements.database_password.placeholder = ["mysql", "oracle", "postgresql", "postgres"].includes(service.service_type)
+    form.elements.database_password.placeholder = isDatabaseServiceType(service.service_type)
       ? "留空则保持原密码"
       : "数据库连接密";
   }
@@ -300,6 +322,70 @@ function fillServiceForm(form, service) {
   if (form.elements.ignore_ssl_verification) {
     form.elements.ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
   }
+}
+
+function isDatabaseServiceType(type) {
+  return ["mysql", "oracle", "postgresql", "postgres", "jdbc"].includes(type);
+}
+
+function statusIconHtml(status) {
+  const icon = {
+    UP: "circle-check",
+    DOWN: "triangle-alert",
+    UNKNOWN: "circle-help",
+  }[status] || "circle-help";
+  return `<i data-lucide="${icon}"></i>`;
+}
+
+function responseSeverity(value) {
+  if (value === null || value === undefined || value === "") return "unknown";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "unknown";
+  if (number >= 1000) return "bad";
+  if (number >= 500) return "warn";
+  return "ok";
+}
+
+function responseStats(results) {
+  const values = results
+    .map((item) => item.response_time_ms)
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!values.length) return null;
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const p95Index = Math.min(values.length - 1, Math.ceil(values.length * 0.95) - 1);
+  return {
+    average: Math.round(total / values.length),
+    p95: Math.round(values[p95Index]),
+  };
+}
+
+function setStateClass(element, prefix, value) {
+  if (!element) return;
+  ["UP", "DOWN", "UNKNOWN", "ok", "warn", "bad", "unknown"].forEach((state) => {
+    element.classList.remove(`${prefix}-${state}`);
+  });
+  element.classList.add(`${prefix}-${value}`);
+}
+
+function renderServiceAlerts(container, alerts) {
+  if (!container) return;
+  if (!alerts.length) {
+    container.innerHTML = '<p class="empty">暂无告警</p>';
+    return;
+  }
+  container.innerHTML = alerts.map((alert) => {
+    const content = alert.alert_content || "-";
+    return `
+      <article class="alert-item">
+        <strong>${escapeHtml(alert.service_name || alert.alert_type || "告警")}</strong>
+        <p class="alert-content" title="${escapeHtml(content)}">${escapeHtml(content)}</p>
+        <small>${escapeHtml(alert.alert_type || "-")} · ${escapeHtml(alert.alert_status || "-")} · ${formatTime(alert.created_at)}</small>
+      </article>
+    `;
+  }).join("");
 }
 
 async function initServiceDetail() {
@@ -342,16 +428,31 @@ async function loadServiceDetail(id) {
     if (isHttpService(service)) openLink.href = service.url;
   }
   const status = statusLabel(service.last_status);
-  document.getElementById("detailStatus").className = `status-pill status-${status}`;
-  document.getElementById("detailStatus").textContent = status;
-  document.getElementById("currentStatus").textContent = status;
-  document.getElementById("currentMessage").textContent = service.last_message || "暂无检测结";
-  document.getElementById("lastResponse").textContent = service.last_response_time_ms ?? "-";
+  const detailStatus = document.getElementById("detailStatus");
+  detailStatus.className = `status-pill status-${status}`;
+  detailStatus.innerHTML = `${statusIconHtml(status)}<span>${status}</span>`;
+  setStateClass(document.getElementById("currentStatusMetric"), "status-card", status);
+
+  document.getElementById("currentStatus").innerHTML = `${statusIconHtml(status)}<span>${status}</span>`;
+  const message = service.last_message || "暂无检测结果";
+  const currentMessage = document.getElementById("currentMessage");
+  currentMessage.textContent = message;
+  currentMessage.title = message;
+
+  const responseSeverityValue = responseSeverity(service.last_response_time_ms);
+  const lastResponse = document.getElementById("lastResponse");
+  lastResponse.className = `latency-value latency-${responseSeverityValue}`;
+  lastResponse.textContent = service.last_response_time_ms ?? "-";
+  setStateClass(document.getElementById("responseMetric"), "metric", responseSeverityValue);
+  const stats = responseStats(results);
+  document.getElementById("responseSummary").textContent = stats
+    ? `平均 ${stats.average} ms / P95 ${stats.p95} ms`
+    : "暂无历史样本";
   document.getElementById("lastChecked").textContent = formatTime(service.last_checked_at);
   document.getElementById("checkInterval").textContent = formatCheckInterval(service.check_interval);
 
   renderResultTable(results);
-  renderAlerts(document.getElementById("detailAlerts"), alerts);
+  renderServiceAlerts(document.getElementById("detailAlerts"), alerts);
   window.LiveMonitorCharts?.renderTrendChart(document.getElementById("trendChart"), results);
   if (window.lucide) window.lucide.createIcons();
 }

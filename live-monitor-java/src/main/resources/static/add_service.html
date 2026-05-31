@@ -45,6 +45,7 @@
             <option value="mysql">MySQL</option>
             <option value="oracle">Oracle</option>
             <option value="postgresql">PostgreSQL</option>
+            <option value="jdbc">通用 JDBC</option>
           </select>
         </div>
 
@@ -201,9 +202,26 @@
           <input name="zookeeper_expected_nodes" type="number" min="1" max="1000" placeholder="例如：3">
         </label>
 
-        <label class="database-only">
+        <label class="database-only standard-database-only">
           <span>数据库名 / 服务名</span>
           <input name="database_name" placeholder="MySQL库名、PostgreSQL库名、Oracle服务名">
+        </label>
+
+        <label class="database-only span-2">
+          <span>JDBC 驱动类</span>
+          <input name="jdbc_driver_class" list="jdbcDriverClassOptions" placeholder="可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver">
+          <datalist id="jdbcDriverClassOptions">
+            <option value="com.mysql.jdbc.Driver"></option>
+            <option value="com.mysql.cj.jdbc.Driver"></option>
+            <option value="oracle.jdbc.OracleDriver"></option>
+            <option value="org.postgresql.Driver"></option>
+            <option value="com.microsoft.sqlserver.jdbc.SQLServerDriver"></option>
+          </datalist>
+        </label>
+
+        <label class="database-only jdbc-only span-2">
+          <span>JDBC 连接串</span>
+          <input name="jdbc_url" placeholder="例如：jdbc:sqlserver://127.0.0.1:1433;databaseName=master;encrypt=false">
         </label>
 
         <label class="database-only">

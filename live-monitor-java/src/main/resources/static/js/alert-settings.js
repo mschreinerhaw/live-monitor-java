@@ -1177,7 +1177,7 @@ function renderAlertServiceTypeTag(type) {
 }
 
 function serviceTypeGroup(type) {
-  if (["mysql", "oracle", "postgresql", "postgres"].includes(type)) return "database";
+  if (["mysql", "oracle", "postgresql", "postgres", "jdbc"].includes(type)) return "database";
   if (["redis", "zookeeper"].includes(type)) return "middleware";
   if (["host", "process"].includes(type)) return "host";
   if (["web", "http", "https", "nginx", "port", "tcp"].includes(type)) return "interface";
@@ -1520,14 +1520,18 @@ function renderResultTable(results) {
     tbody.innerHTML = '<tr><td colspan="4" class="empty">暂无检测历史</td></tr>';
     return;
   }
-  tbody.innerHTML = results.map((item) => `
+  tbody.innerHTML = results.map((item) => {
+    const severity = typeof responseSeverity === "function" ? responseSeverity(item.response_time_ms) : "unknown";
+    const responseText = item.response_time_ms ?? "-";
+    return `
     <tr>
       <td>${renderStatus(item.status)}</td>
-      <td>${item.response_time_ms ?? "-"} ms</td>
+      <td><span class="latency-value latency-${severity}">${responseText} ms</span></td>
       <td>${escapeHtml(item.message || "-")}</td>
       <td>${formatTime(item.checked_at)}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderAlerts(container, alerts, options = {}) {
@@ -1537,13 +1541,16 @@ function renderAlerts(container, alerts, options = {}) {
     container.innerHTML = '<p class="empty">暂无告警</p>';
     return;
   }
-  container.innerHTML = rows.map((alert) => `
+  container.innerHTML = rows.map((alert) => {
+    const content = alert.alert_content || "-";
+    return `
     <article class="alert-item">
       <strong>${escapeHtml(alert.service_name || alert.alert_type || "告警")}</strong>
-      <p>${escapeHtml(alert.alert_content || "-")}</p>
+      <p class="alert-content" title="${escapeHtml(content)}">${escapeHtml(content)}</p>
       <small>${alert.alert_type || "-"} · ${alert.alert_status || "-"} · ${formatTime(alert.created_at)}</small>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderDashboardActivity(container, alerts, results) {

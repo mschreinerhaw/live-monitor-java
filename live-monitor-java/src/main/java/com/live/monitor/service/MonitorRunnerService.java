@@ -78,7 +78,8 @@ public class MonitorRunnerService {
         if ("port".equals(type) || "tcp".equals(type)) {
             return portMonitorService.check(service.host, service.port, timeout);
         }
-        if ("mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)) {
+        if ("mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
+            || "jdbc".equals(type)) {
             return databaseMonitorService.check(
                 type,
                 service.host,
@@ -88,6 +89,8 @@ public class MonitorRunnerService {
                 service.databasePassword,
                 service.databaseQuery,
                 service.expectedResult,
+                service.jdbcDriverClass,
+                service.jdbcUrl,
                 timeout
             );
         }

@@ -18,6 +18,7 @@ function serviceTypeLabel(type) {
     oracle: "Oracle",
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
+    jdbc: "通用 JDBC",
   }[type] || type;
 }
 
@@ -37,6 +38,7 @@ function serviceTypeIcon(type) {
     oracle: "database",
     postgresql: "database",
     postgres: "database",
+    jdbc: "database",
   }[type] || "server";
 }
 
@@ -155,6 +157,9 @@ function endpointText(service) {
   if (service.service_type === "host") {
     return `${service.host || service.endpoint || "-"} / CPU ${service.cpu_threshold_percent ?? "-"}% / 磁盘 ${service.disk_threshold_percent ?? "-"}%`;
   }
+  if (service.service_type === "jdbc") {
+    return service.jdbc_url || service.endpoint || "-";
+  }
   if (["mysql", "oracle", "postgresql", "postgres"].includes(service.service_type)) {
     const endpoint = `${service.host || "-"}:${service.port || "-"}`;
     return service.database_name ? `${endpoint}/${service.database_name}` : endpoint;
@@ -238,6 +243,7 @@ function serviceTypeLabel(type) {
     oracle: "Oracle",
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
+    jdbc: "\u901a\u7528 JDBC",
   }[type] || type || "\u81ea\u5b9a\u4e49\u670d\u52a1";
 }
 

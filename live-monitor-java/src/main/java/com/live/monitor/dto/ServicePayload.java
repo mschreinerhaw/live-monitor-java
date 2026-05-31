@@ -52,6 +52,8 @@ public class ServicePayload {
     public String databaseUsername;
     public String databasePassword;
     public String databaseQuery;
+    public String jdbcDriverClass;
+    public String jdbcUrl;
     @Min(1)
     @Max(31536000)
     public Integer checkInterval = 60;

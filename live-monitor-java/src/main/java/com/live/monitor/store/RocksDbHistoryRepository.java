@@ -118,6 +118,30 @@ public class RocksDbHistoryRepository implements Closeable {
         return rows;
     }
 
+    public synchronized Map<Long, MonitorResult> latestMonitorResultsBefore(String cutoff) {
+        LocalDateTime cutoffTime = parseTime(cutoff);
+        Map<Long, MonitorResult> latestByService = new HashMap<Long, MonitorResult>();
+        Map<Long, LocalDateTime> latestTimeByService = new HashMap<Long, LocalDateTime>();
+        try (RocksIterator iterator = db.newIterator()) {
+            iterator.seekToFirst();
+            while (iterator.isValid()) {
+                if (text(iterator.key()).startsWith("check:")) {
+                    MonitorResult result = mapToMonitorResult(readMap(iterator.value()));
+                    LocalDateTime checkedAt = parseTime(result.checkedAt);
+                    if (result.serviceId != null && checkedAt.isBefore(cutoffTime)) {
+                        LocalDateTime currentLatest = latestTimeByService.get(result.serviceId);
+                        if (currentLatest == null || checkedAt.isAfter(currentLatest)) {
+                            latestTimeByService.put(result.serviceId, checkedAt);
+                            latestByService.put(result.serviceId, result);
+                        }
+                    }
+                }
+                iterator.next();
+            }
+        }
+        return latestByService;
+    }
+
     public synchronized AlertRecord saveAlertRecord(AlertRecord record) {
         return saveAlertRecord(record, null);
     }
@@ -162,6 +186,24 @@ public class RocksDbHistoryRepository implements Closeable {
             }
         }
         return rows;
+    }
+
+    public synchronized int countAlertsBetween(String startInclusive, String endExclusive) {
+        LocalDateTime startTime = parseTime(startInclusive);
+        LocalDateTime endTime = parseTime(endExclusive);
+        int count = 0;
+        try (RocksIterator iterator = db.newIterator()) {
+            iterator.seek(bytes("alert:"));
+            while (iterator.isValid() && text(iterator.key()).startsWith("alert:")) {
+                AlertRecord record = mapToAlertRecord(readMap(iterator.value()));
+                LocalDateTime createdAt = parseTime(record.createdAt);
+                if (!createdAt.isBefore(startTime) && createdAt.isBefore(endTime)) {
+                    count++;
+                }
+                iterator.next();
+            }
+        }
+        return count;
     }
 
     public synchronized int deleteAllAlerts() {

@@ -34,6 +34,10 @@ async function initUserChrome() {
       </div>
     </div>
   `;
+  const dashboardRefresh = document.querySelector(".dashboard-refresh");
+  if (document.body?.dataset?.page === "dashboard" && dashboardRefresh) {
+    userArea.prepend(dashboardRefresh);
+  }
   topbar.appendChild(userArea);
   document.getElementById("notificationBell")?.addEventListener("click", toggleNotificationPanel);
   document.getElementById("userMenuButton")?.addEventListener("click", toggleUserMenu);

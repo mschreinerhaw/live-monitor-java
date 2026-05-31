@@ -44,23 +44,35 @@
     </section>
 
     <section class="summary-grid detail-metrics">
-      <article class="metric">
-        <span class="metric-label">当前状态</span>
+      <article class="metric detail-status-metric status-card-UNKNOWN" id="currentStatusMetric">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="activity"></i></span>
+          <span class="metric-label">当前状态</span>
+        </div>
         <strong id="currentStatus">UNKNOWN</strong>
-        <small id="currentMessage">暂无检测结果</small>
+        <small id="currentMessage" class="metric-message" title="暂无检测结果">暂无检测结果</small>
+      </article>
+      <article class="metric detail-response-metric metric-unknown" id="responseMetric">
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="gauge"></i></span>
+          <span class="metric-label">最近响应时间</span>
+        </div>
+        <strong id="lastResponse" class="latency-value latency-unknown">-</strong>
+        <small id="responseSummary">毫秒</small>
       </article>
       <article class="metric">
-        <span class="metric-label">最近响应时间</span>
-        <strong id="lastResponse">-</strong>
-        <small>毫秒</small>
-      </article>
-      <article class="metric">
-        <span class="metric-label">最近检测时间</span>
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="calendar-clock"></i></span>
+          <span class="metric-label">最近检测时间</span>
+        </div>
         <strong id="lastChecked">-</strong>
         <small>按服务检测间隔刷新</small>
       </article>
       <article class="metric">
-        <span class="metric-label">检测间隔</span>
+        <div class="metric-top">
+          <span class="metric-icon"><i data-lucide="clock"></i></span>
+          <span class="metric-label">检测间隔</span>
+        </div>
         <strong id="checkInterval">-</strong>
         <small>自动调度</small>
       </article>

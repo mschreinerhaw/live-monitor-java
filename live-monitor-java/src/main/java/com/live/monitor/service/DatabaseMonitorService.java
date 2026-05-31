@@ -1,10 +1,18 @@
 package com.live.monitor.service;
 
 import com.live.monitor.dto.CheckResult;
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.ResultSetMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
@@ -12,6 +20,8 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class DatabaseMonitorService {
+    private volatile ClassLoader externalDriverClassLoader;
+
     public CheckResult check(
         String type,
         String host,
@@ -21,19 +31,27 @@ public class DatabaseMonitorService {
         String password,
         String query,
         String expectedResult,
+        String jdbcDriverClass,
+        String jdbcUrl,
         double timeoutSeconds
     ) {
-        if (!StringUtils.hasText(host) || port == null) {
+        String normalizedType = type == null ? "" : type.toLowerCase();
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        if (genericJdbc && (!StringUtils.hasText(jdbcDriverClass) || !StringUtils.hasText(jdbcUrl))) {
+            return new CheckResult("UNKNOWN", null, "JDBC driver class and URL are required");
+        }
+        if (!genericJdbc && (!StringUtils.hasText(host) || port == null)) {
             return new CheckResult("UNKNOWN", null, "Host and port are required for database checks");
         }
-        String normalizedType = type == null ? "" : type.toLowerCase();
         if ("oracle".equals(normalizedType) && !StringUtils.hasText(databaseName)) {
             return new CheckResult("UNKNOWN", null, "Oracle service name or SID is required");
         }
 
         long started = System.nanoTime();
         int timeoutSecondsInt = Math.max(1, (int) Math.ceil(timeoutSeconds));
-        String jdbcUrl = jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
         String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
         try {
             DriverManager.setLoginTimeout(timeoutSecondsInt);
@@ -44,7 +62,7 @@ public class DatabaseMonitorService {
             if (StringUtils.hasText(password)) {
                 properties.put("password", password);
             }
-            try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+            try (Connection connection = connect(url, properties, jdbcDriverClass);
                  Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(timeoutSecondsInt);
                 boolean hasResultSet = statement.execute(sql);
@@ -60,13 +78,64 @@ public class DatabaseMonitorService {
         }
     }
 
-    private String jdbcUrl(String type, String host, Integer port, String databaseName, int timeoutSeconds) {
+    private Connection connect(String jdbcUrl, Properties properties, String driverClassName) throws Exception {
+        if (!StringUtils.hasText(driverClassName)) {
+            return DriverManager.getConnection(jdbcUrl, properties);
+        }
+        ClassLoader classLoader = externalDriverClassLoader();
+        Class<?> driverClass = Class.forName(driverClassName.trim(), true, classLoader);
+        Driver driver = (Driver) driverClass.getDeclaredConstructor().newInstance();
+        Connection connection = driver.connect(jdbcUrl, properties);
+        if (connection == null) {
+            throw new SQLException("Driver " + driverClassName + " does not accept URL: " + jdbcUrl);
+        }
+        return connection;
+    }
+
+    private ClassLoader externalDriverClassLoader() throws Exception {
+        ClassLoader current = externalDriverClassLoader;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (externalDriverClassLoader != null) {
+                return externalDriverClassLoader;
+            }
+            List<URL> urls = new ArrayList<URL>();
+            collectJarUrls(new File("lib"), urls);
+            collectJarUrls(new File("libs"), urls);
+            URL[] jarUrls = urls.toArray(new URL[0]);
+            externalDriverClassLoader = new ExternalDriverClassLoader(jarUrls, Thread.currentThread().getContextClassLoader());
+            return externalDriverClassLoader;
+        }
+    }
+
+    private void collectJarUrls(File directory, List<URL> urls) throws Exception {
+        if (!directory.isDirectory()) {
+            return;
+        }
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (file.isFile() && file.getName().toLowerCase().endsWith(".jar")) {
+                urls.add(file.toURI().toURL());
+            }
+        }
+    }
+
+    private String jdbcUrl(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        int timeoutSeconds,
+        String jdbcDriverClass
+    ) {
         String db = StringUtils.hasText(databaseName) ? databaseName.trim() : "";
         if ("mysql".equals(type)) {
-            return "jdbc:mysql://" + host.trim() + ":" + port + "/" + db
-                + "?connectTimeout=" + timeoutSeconds * 1000
-                + "&socketTimeout=" + timeoutSeconds * 1000
-                + "&useUnicode=true&characterEncoding=utf8&serverTimezone=UTC";
+            return mysqlJdbcUrl(host, port, db, timeoutSeconds, jdbcDriverClass);
         }
         if ("postgresql".equals(type) || "postgres".equals(type)) {
             String databasePath = StringUtils.hasText(db) ? db : "postgres";
@@ -83,6 +152,32 @@ public class DatabaseMonitorService {
         throw new IllegalArgumentException("Unsupported database type: " + type);
     }
 
+    private String mysqlJdbcUrl(
+        String host,
+        Integer port,
+        String databaseName,
+        int timeoutSeconds,
+        String jdbcDriverClass
+    ) {
+        String base = "jdbc:mysql://" + host.trim() + ":" + port + "/" + databaseName
+            + "?connectTimeout=" + timeoutSeconds * 1000
+            + "&socketTimeout=" + timeoutSeconds * 1000
+            + "&useUnicode=true"
+            + "&characterEncoding=UTF-8"
+            + "&useSSL=false"
+            + "&zeroDateTimeBehavior=convertToNull";
+        if (isLegacyMysqlDriver(jdbcDriverClass)) {
+            return base;
+        }
+        return base
+            + "&serverTimezone=UTC"
+            + "&allowPublicKeyRetrieval=true";
+    }
+
+    private boolean isLegacyMysqlDriver(String jdbcDriverClass) {
+        return "com.mysql.jdbc.Driver".equals(StringUtils.hasText(jdbcDriverClass) ? jdbcDriverClass.trim() : "");
+    }
+
     private String defaultQuery(String type) {
         return "oracle".equals(type) ? "SELECT 1 FROM dual" : "SELECT 1";
     }
@@ -95,8 +190,28 @@ public class DatabaseMonitorService {
             if (!resultSet.next()) {
                 return "empty result";
             }
-            Object value = resultSet.getObject(1);
-            return value == null ? "null" : String.valueOf(value);
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            StringBuilder builder = new StringBuilder();
+            int row = 0;
+            do {
+                if (row > 0) {
+                    builder.append(" | ");
+                }
+                for (int column = 1; column <= columnCount; column++) {
+                    if (column > 1) {
+                        builder.append(", ");
+                    }
+                    String label = metaData.getColumnLabel(column);
+                    if (StringUtils.hasText(label)) {
+                        builder.append(label).append("=");
+                    }
+                    Object value = resultSet.getObject(column);
+                    builder.append(value == null ? "null" : String.valueOf(value));
+                }
+                row++;
+            } while (row < 20 && builder.length() < 4000 && resultSet.next());
+            return builder.toString();
         }
     }
 
@@ -110,5 +225,32 @@ public class DatabaseMonitorService {
 
     private int elapsedMs(long started) {
         return (int) TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+    }
+
+    private static final class ExternalDriverClassLoader extends URLClassLoader {
+        private ExternalDriverClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null && !name.startsWith("java.") && !name.startsWith("javax.")) {
+                    try {
+                        loaded = findClass(name);
+                    } catch (ClassNotFoundException ignored) {
+                        // Fall back to the application class loader for framework and shared classes.
+                    }
+                }
+                if (loaded == null) {
+                    loaded = super.loadClass(name, false);
+                }
+                if (resolve) {
+                    resolveClass(loaded);
+                }
+                return loaded;
+            }
+        }
     }
 }

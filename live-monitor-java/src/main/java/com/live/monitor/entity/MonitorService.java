@@ -39,6 +39,8 @@ public class MonitorService {
     public String databaseUsername;
     public String databasePassword;
     public String databaseQuery;
+    public String jdbcDriverClass;
+    public String jdbcUrl;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;

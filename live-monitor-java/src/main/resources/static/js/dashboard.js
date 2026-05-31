@@ -1,5 +1,6 @@
 async function initDashboard() {
   document.getElementById("activityRefreshBtn")?.addEventListener("click", loadDashboard);
+  document.getElementById("serviceExportBtn")?.addEventListener("click", exportServiceListExcel);
   document.getElementById("activityClearReloadBtn")?.addEventListener("click", clearDashboardActivityMessages);
   document.querySelectorAll(".status-filter-grid .metric").forEach((card) => {
     const activate = () => setDashboardFilter(card.dataset.filter || "all");
@@ -157,7 +158,6 @@ async function loadDashboard() {
     renderDashboardMetrics(summary);
     renderServiceTable();
     renderDashboardActivity(document.getElementById("recentAlerts"), data.recent_alerts || [], dashboardState.recentResults);
-    setText("alertMetric", String((data.recent_alerts || []).length));
     const refreshTime = document.getElementById("lastRefreshTime");
     if (refreshTime) refreshTime.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   } catch (error) {
@@ -228,8 +228,107 @@ function renderServiceTable() {
     return;
   }
 
-  container.innerHTML = groups.map(renderServiceGroupCard).join("");
+  container.innerHTML = `
+    <div class="service-list-table-head" role="row">
+      <span></span>
+      <span>状态</span>
+      <span></span>
+      <span>服务信息</span>
+      <span>实例状态</span>
+      <span>最后检测时间</span>
+      <span>操作</span>
+    </div>
+    ${groups.map(renderServiceGroupCard).join("")}
+  `;
   if (window.lucide) window.lucide.createIcons();
+}
+
+function exportServiceListExcel() {
+  const rows = currentServiceExportRows();
+  if (!rows.length) {
+    showToast("暂无可导出的服务数据");
+    return;
+  }
+  const columns = [
+    ["group", "分组"],
+    ["serviceName", "服务名称"],
+    ["serviceType", "服务类型"],
+    ["endpoint", "地址"],
+    ["status", "状态"],
+    ["responseTime", "响应时间(ms)"],
+    ["lastCheckedAt", "最近上报时间"],
+    ["alertGroup", "告警组"],
+    ["checkInterval", "检测间隔"],
+    ["enabled", "是否启用"],
+    ["monitorReason", "监控说明"],
+  ];
+  const xmlRows = [
+    excelRow(columns.map(([, title]) => title), true),
+    ...rows.map((row) => excelRow(columns.map(([key]) => row[key]))),
+  ].join("");
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="Text"><NumberFormat ss:Format="@"/></Style>
+  </Styles>
+  <Worksheet ss:Name="服务列表">
+    <Table>${xmlRows}</Table>
+  </Worksheet>
+</Workbook>`;
+  const blob = new Blob(["\ufeff", xml], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `服务列表_${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  URL.revokeObjectURL(link.href);
+  link.remove();
+  showToast(`已导出 ${rows.length} 条服务数据`);
+}
+
+function currentServiceExportRows() {
+  return buildServiceGroups(dashboardState.services)
+    .flatMap((group) => {
+      const visibleInstances = group.instances.filter((service) =>
+        instanceMatchesDashboardFilter(service, group)
+        && instanceMatchesGroupStatus(service, group.key)
+        && instanceMatchesGroupQuery(service, group.key)
+      );
+      return visibleInstances.map((service) => ({
+        group: group.clusterName || group.name || "默认分组",
+        serviceName: service.service_name || "",
+        serviceType: serviceTypeLabel(service.service_type),
+        endpoint: endpointText(service),
+        status: statusLabel(service.last_status),
+        responseTime: service.last_response_time_ms ?? "",
+        lastCheckedAt: formatTime(service.last_checked_at),
+        alertGroup: service.alert_group_name || "未绑定告警",
+        checkInterval: formatCheckInterval(service.check_interval),
+        enabled: service.enabled ? "是" : "否",
+        monitorReason: service.monitor_reason || "",
+      }));
+    });
+}
+
+function excelRow(values, header = false) {
+  const style = header ? ' ss:StyleID="Header"' : ' ss:StyleID="Text"';
+  return `<Row>${values.map((value) =>
+    `<Cell${style}><Data ss:Type="String">${escapeXml(value ?? "")}</Data></Cell>`
+  ).join("")}</Row>`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 }
 
 function buildServiceGroups(services) {
@@ -928,16 +1027,39 @@ async function applyServiceGroupAlert(index, value) {
 
 
 function renderDashboardMetrics(summary) {
-  const total = Number(summary.total || dashboardState.services.length || 0);
-  const up = Number(summary.up || 0);
-  const down = Number(summary.down || 0);
-  const unknown = Math.max(0, total - up - down);
+  const total = Number(summary.total ?? dashboardState.services.length ?? 0);
+  const instances = Number(summary.instances ?? dashboardState.services.length ?? total);
+  const up = Number(summary.up ?? 0);
+  const down = Number(summary.down ?? 0);
+  const unknown = Math.max(0, instances - up - down);
+  const trends = summary.trends || {};
   setText("totalCount", String(total));
-  setText("instanceCount", String(dashboardState.services.length || total));
+  setText("instanceCount", String(instances));
   setText("upCount", String(up));
   setText("downCount", String(down));
   setText("unknownCount", String(unknown));
+  setText("alertMetric", String(Number(summary.today_alerts ?? 0)));
+  renderDashboardTrend("totalCount", trends.total);
+  renderDashboardTrend("instanceCount", trends.instances);
+  renderDashboardTrend("upCount", trends.up);
+  renderDashboardTrend("downCount", trends.down, true);
+  renderDashboardTrend("alertMetric", trends.alerts, true);
   renderStatusFilterCards();
+}
+
+function renderDashboardTrend(countId, delta, lowerIsBetter = false) {
+  const countNode = document.getElementById(countId);
+  const metric = countNode?.closest(".metric");
+  const small = metric?.querySelector("small");
+  if (!small) return;
+  const value = Number(delta || 0);
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+  const className = lowerIsBetter
+    ? (isPositive ? "trend-down" : "trend-up")
+    : (isNegative ? "trend-down" : "trend-up");
+  const text = value > 0 ? `+${value}` : String(value);
+  small.innerHTML = `较昨日 <span class="${className}">${text}</span>`;
 }
 
 function renderStatusFilterCards() {
@@ -994,6 +1116,7 @@ function renderServiceGroupCard(group) {
   const collapsed = !dashboardState.expandedServiceGroupKeys.has(group.key);
   const addInstanceHref = `/services/new?cluster_name=${encodeURIComponent(group.name)}`;
   const bodyId = `service-group-body-${group.index}`;
+  const latestCheckedAt = latestGroupCheckTime(group.instances);
 
   return `
     <article class="service-row-card service-group-${group.status}">
@@ -1008,7 +1131,7 @@ function renderServiceGroupCard(group) {
           <p>${escapeHtml(types || "\u76d1\u63a7\u670d\u52a1")}</p>
           <p>\u5206\u7ec4: ${escapeHtml(group.clusterName || "\u9ed8\u8ba4\u5206\u7ec4")}</p>
         </div>
-        <div class="service-row-meta">
+        <div class="service-row-stats">
           <div class="service-stat-row" aria-label="\u5b9e\u4f8b\u72b6\u6001\u7b5b\u9009">
             ${renderGroupStatButton("\u5b9e\u4f8b", total, "all", group.index, group.key)}
             ${renderGroupStatButton("\u6b63\u5e38", up, "UP", group.index, group.key)}
@@ -1016,7 +1139,13 @@ function renderServiceGroupCard(group) {
             ${renderGroupStatButton("\u672a\u77e5", unknown, "UNKNOWN", group.index, group.key)}
           </div>
           <p><i data-lucide="bell"></i> \u544a\u8b66\u7b56\u7565: ${escapeHtml(alertBindingText(group))}</p>
-          <p><i data-lucide="clock-3"></i> \u6700\u540e\u66f4\u65b0\u65f6\u95f4: ${formatTime(latestGroupCheckTime(group.instances))}</p>
+        </div>
+        <div class="service-row-time">
+          <i data-lucide="clock-3"></i>
+          <div>
+            <strong>${formatTime(latestCheckedAt)}</strong>
+            <small>${relativeTime(latestCheckedAt)}</small>
+          </div>
         </div>
         <div class="service-row-actions">
           <button class="icon-button" type="button" title="\u7acb\u5373\u68c0\u6d4b" aria-label="\u7acb\u5373\u68c0\u6d4b" onclick="manualCheckGroup(${group.index})">

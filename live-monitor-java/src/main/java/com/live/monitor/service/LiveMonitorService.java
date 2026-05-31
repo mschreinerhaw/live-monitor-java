@@ -10,6 +10,7 @@ import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -28,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class LiveMonitorService {
     private static final TypeReference<Map<String, Object>> STRING_OBJECT_MAP =
         new TypeReference<Map<String, Object>>() {};
+    private static final DateTimeFormatter TEXT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     private final MonitorServiceMapper serviceMapper;
     private final RocksDbHistoryRepository historyRepository;
@@ -129,6 +131,12 @@ public class LiveMonitorService {
 
     public Map<String, Object> dashboard() {
         List<MonitorService> services = listServices(false);
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime yesterdayStart = todayStart.minusDays(1);
+        int serviceTotal = serviceGroupCount(services, null);
+        int yesterdayServiceTotal = serviceGroupCount(services, todayStart);
+        int instanceTotal = services.size();
+        int yesterdayInstanceTotal = serviceCountBefore(services, todayStart);
         Map<String, Object> summary = new HashMap<String, Object>();
         int up = 0;
         int down = 0;
@@ -142,10 +150,24 @@ public class LiveMonitorService {
                 unknown++;
             }
         }
-        summary.put("total", services.size());
+        Map<String, Integer> yesterdayStatus = statusCountBefore(services, todayStart);
+        int todayAlerts = historyRepository.countAlertsBetween(formatTime(todayStart), formatTime(todayStart.plusDays(1)));
+        int yesterdayAlerts = historyRepository.countAlertsBetween(formatTime(yesterdayStart), formatTime(todayStart));
+        Map<String, Object> trends = new HashMap<String, Object>();
+        trends.put("total", serviceTotal - yesterdayServiceTotal);
+        trends.put("instances", instanceTotal - yesterdayInstanceTotal);
+        trends.put("up", up - yesterdayStatus.get("up"));
+        trends.put("down", down - yesterdayStatus.get("down"));
+        trends.put("alerts", todayAlerts - yesterdayAlerts);
+
+        summary.put("total", serviceTotal);
+        summary.put("instances", instanceTotal);
         summary.put("up", up);
         summary.put("down", down);
         summary.put("unknown", unknown);
+        summary.put("today_alerts", todayAlerts);
+        summary.put("yesterday_alerts", yesterdayAlerts);
+        summary.put("trends", trends);
 
         Map<String, Object> dashboard = new HashMap<String, Object>();
         dashboard.put("summary", summary);
@@ -154,6 +176,85 @@ public class LiveMonitorService {
         dashboard.put("recent_results", enrichResults(historyRepository.listRecentMonitorResults(10), services));
         dashboard.put("server_time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return dashboard;
+    }
+
+    private int serviceGroupCount(List<MonitorService> services, LocalDateTime before) {
+        Map<String, Boolean> groups = new HashMap<String, Boolean>();
+        for (MonitorService service : services) {
+            if (before != null && !serviceExistedBefore(service, before)) {
+                continue;
+            }
+            String clusterName = emptyToNull(service.clusterName);
+            String key = clusterName == null ? "service:" + service.id : "cluster:" + clusterName;
+            groups.put(key, Boolean.TRUE);
+        }
+        return groups.size();
+    }
+
+    private int serviceCountBefore(List<MonitorService> services, LocalDateTime before) {
+        int count = 0;
+        for (MonitorService service : services) {
+            if (serviceExistedBefore(service, before)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private Map<String, Integer> statusCountBefore(List<MonitorService> services, LocalDateTime before) {
+        Map<Long, MonitorResult> latestByService = historyRepository.latestMonitorResultsBefore(formatTime(before));
+        Map<String, Integer> counts = new HashMap<String, Integer>();
+        counts.put("up", 0);
+        counts.put("down", 0);
+        counts.put("unknown", 0);
+        for (MonitorService service : services) {
+            if (!serviceExistedBefore(service, before)) {
+                continue;
+            }
+            MonitorResult latest = latestByService.get(service.id);
+            String status = latest == null ? "UNKNOWN" : latest.status;
+            if ("UP".equals(status)) {
+                counts.put("up", counts.get("up") + 1);
+            } else if ("DOWN".equals(status)) {
+                counts.put("down", counts.get("down") + 1);
+            } else {
+                counts.put("unknown", counts.get("unknown") + 1);
+            }
+        }
+        return counts;
+    }
+
+    private boolean serviceExistedBefore(MonitorService service, LocalDateTime before) {
+        if (!StringUtils.hasText(service.createdAt)) {
+            return true;
+        }
+        return parseTime(service.createdAt).isBefore(before);
+    }
+
+    private LocalDateTime parseTime(String value) {
+        if (!StringUtils.hasText(value)) {
+            return LocalDateTime.now();
+        }
+        String text = value.trim().replace('T', ' ');
+        if (text.length() == 19) {
+            text = text + ".000";
+        }
+        if (text.length() > 23) {
+            text = text.substring(0, 23);
+        }
+        try {
+            return LocalDateTime.parse(text, TEXT_TIME);
+        } catch (Exception ignored) {
+            try {
+                return LocalDateTime.parse(value);
+            } catch (Exception ignoredAgain) {
+                return LocalDateTime.now();
+            }
+        }
+    }
+
+    private String formatTime(LocalDateTime value) {
+        return TEXT_TIME.format(value);
     }
 
     public List<MonitorResult> results(Long serviceId, int limit) {
@@ -290,11 +391,17 @@ public class LiveMonitorService {
         if (("port".equals(type) || "tcp".equals(type)) && (!StringUtils.hasText(payload.host) || payload.port == null)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host and port are required for port checks");
         }
-        if (isDatabaseType(type) && !StringUtils.hasText(payload.host)) {
+        if (isDatabaseType(type) && !"jdbc".equals(type) && !StringUtils.hasText(payload.host)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host is required for database services");
         }
         if ("oracle".equals(type) && !StringUtils.hasText(payload.databaseName)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database_name is required for Oracle services");
+        }
+        if ("jdbc".equals(type) && !StringUtils.hasText(payload.jdbcDriverClass)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_driver_class is required for generic JDBC services");
+        }
+        if ("jdbc".equals(type) && !StringUtils.hasText(payload.jdbcUrl)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_url is required for generic JDBC services");
         }
     }
 
@@ -392,11 +499,15 @@ public class LiveMonitorService {
             service.databaseUsername = emptyToNull(payload.databaseUsername);
             service.databasePassword = emptyToNull(payload.databasePassword);
             service.databaseQuery = emptyToNull(payload.databaseQuery);
+            service.jdbcDriverClass = emptyToNull(payload.jdbcDriverClass);
+            service.jdbcUrl = emptyToNull(payload.jdbcUrl);
             service.checkMode = "jdbc_query";
             service.checkCommand = service.databaseQuery;
             putIfNotNull(config, "database_name", service.databaseName);
             putIfNotNull(config, "database_username", service.databaseUsername);
             putIfNotNull(config, "database_query", service.databaseQuery);
+            putIfNotNull(config, "jdbc_driver_class", service.jdbcDriverClass);
+            putIfNotNull(config, "jdbc_url", service.jdbcUrl);
             putIfNotNull(secretConfig, "database_password", service.databasePassword);
             return;
         }
@@ -450,6 +561,8 @@ public class LiveMonitorService {
             service.databaseUsername = stringValue(config, "database_username", null);
             service.databasePassword = stringValue(secretConfig, "database_password", null);
             service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
+            service.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+            service.jdbcUrl = stringValue(config, "jdbc_url", null);
         }
     }
 
@@ -460,6 +573,9 @@ public class LiveMonitorService {
         }
         if (isWebUrlType(normalizeType(payload.serviceType))) {
             return emptyToNull(payload.url);
+        }
+        if ("jdbc".equals(normalizeType(payload.serviceType))) {
+            return emptyToNull(payload.jdbcUrl);
         }
         return endpointFromHostPort(emptyToNull(payload.host), port);
     }
@@ -498,7 +614,7 @@ public class LiveMonitorService {
             return "web";
         }
         if ("mysql".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
-            || "oracle".equals(type) || "sqlserver".equals(type) || "mongodb".equals(type)) {
+            || "oracle".equals(type) || "jdbc".equals(type) || "sqlserver".equals(type) || "mongodb".equals(type)) {
             return "database";
         }
         if ("port".equals(type) || "tcp".equals(type)) {
@@ -547,7 +663,8 @@ public class LiveMonitorService {
     }
 
     private boolean isDatabaseType(String type) {
-        return "mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type);
+        return "mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
+            || "jdbc".equals(type);
     }
 
     private Integer defaultPort(String type) {

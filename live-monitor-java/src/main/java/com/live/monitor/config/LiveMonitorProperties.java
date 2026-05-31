@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "live-monitor")
 public class LiveMonitorProperties {
     private int schedulerTickSeconds = 5;
+    private int schedulerPoolSize = 2;
+    private int monitorWorkerThreads = 4;
+    private int monitorWorkerQueueCapacity = 100;
     private double defaultTimeoutSeconds = 3;
     private String secretKey = "change-this-dev-key";
     private String rocksdbPath = "./data/rocksdb";
@@ -18,7 +21,31 @@ public class LiveMonitorProperties {
     }
 
     public void setSchedulerTickSeconds(int schedulerTickSeconds) {
-        this.schedulerTickSeconds = schedulerTickSeconds;
+        this.schedulerTickSeconds = Math.max(1, schedulerTickSeconds);
+    }
+
+    public int getSchedulerPoolSize() {
+        return schedulerPoolSize;
+    }
+
+    public void setSchedulerPoolSize(int schedulerPoolSize) {
+        this.schedulerPoolSize = Math.max(1, schedulerPoolSize);
+    }
+
+    public int getMonitorWorkerThreads() {
+        return monitorWorkerThreads;
+    }
+
+    public void setMonitorWorkerThreads(int monitorWorkerThreads) {
+        this.monitorWorkerThreads = Math.max(1, monitorWorkerThreads);
+    }
+
+    public int getMonitorWorkerQueueCapacity() {
+        return monitorWorkerQueueCapacity;
+    }
+
+    public void setMonitorWorkerQueueCapacity(int monitorWorkerQueueCapacity) {
+        this.monitorWorkerQueueCapacity = Math.max(0, monitorWorkerQueueCapacity);
     }
 
     public double getDefaultTimeoutSeconds() {
