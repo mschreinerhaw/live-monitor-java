@@ -12,6 +12,7 @@
 - SSH：JSch
 - Redis 检测：Lettuce
 - ZooKeeper 检测：四字命令 / 端口探测
+- 数据库检测：MySQL / Oracle / PostgreSQL / 通用 JDBC
 - Web 检测：OkHttp
 
 ## 结构
@@ -76,6 +77,14 @@ set LIVE_MONITOR_SECRET_KEY=your-long-random-secret
 ```
 
 如果后续多实例部署，要保证各实例使用同一个 `LIVE_MONITOR_SECRET_KEY`，否则历史密文无法解密。
+
+## 通用 JDBC 驱动
+
+除内置 MySQL、Oracle、PostgreSQL 外，添加服务时可选择“通用 JDBC”。将对应数据库的 JDBC 驱动 jar 放到运行目录的 `lib/` 下，页面填写驱动类、JDBC 连接串、用户、密码、检测 SQL 和期望关键字即可。检测会执行 SQL，并在返回结果文本中查找期望关键字。
+
+内置 MySQL 检测默认兼容 MySQL 5.x 和 MySQL 8.x：连接参数会显式设置超时、字符集、禁用 SSL 握手。默认使用项目内置 MySQL 8 驱动；如果要连旧版 MySQL，可把 MySQL 5.x 驱动 jar 放到 `lib/` 下，并在页面 JDBC 驱动类填写 `com.mysql.jdbc.Driver`。MySQL 8 可填写 `com.mysql.cj.jdbc.Driver` 或留空。
+
+MySQL、Oracle、PostgreSQL 也支持可选的 JDBC 驱动类配置。填写后系统会优先从运行目录 `lib/` / `libs/` 下加载对应驱动，适合连接只能使用旧版驱动的数据库。
 
 ## 已提供接口
 
