@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用户维护 - Live Monitor</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#176b87">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body data-page="admin">
+  <header class="topbar">
+    <a class="brand" href="/dashboard">
+      <span class="brand-mark">LM</span>
+      <span>Live Monitor</span>
+    </a>
+    <nav class="nav">
+      <a href="/dashboard">监控首页</a>
+      <a href="/hosts">主机维护</a>
+      <a href="/services/new">添加服务</a>
+      <a href="/alerts/settings">告警设置</a>
+      <a class="active" href="/admin">用户维护</a>
+    </nav>
+  </header>
+
+  <main class="page admin-page">
+    <section class="detail-head">
+      <div>
+        <a class="back-link" href="/dashboard">返回监控首页</a>
+        <h1>用户维护</h1>
+        <p>仅 admin 用户可新增用户和修改用户密码。</p>
+      </div>
+    </section>
+
+    <section id="adminDeniedPanel" class="panel admin-denied-panel" hidden>
+      <div class="empty">当前账号没有用户维护权限。</div>
+    </section>
+
+    <section id="adminContent" hidden>
+      <section class="panel admin-user-panel" id="userListPanel">
+        <div class="panel-head">
+          <div>
+            <h2>用户列表</h2>
+            <p class="panel-subtitle" id="adminCurrentUser">展示系统账号状态和最近登录情况。</p>
+          </div>
+          <div class="admin-panel-actions">
+            <button id="addUserBtn" class="light-button" type="button">
+              <i data-lucide="user-plus"></i>
+              <span>新增用户</span>
+            </button>
+            <button id="reloadUsersBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table admin-user-table">
+            <thead>
+              <tr>
+                <th>账号</th>
+                <th>姓名</th>
+                <th>状态</th>
+                <th>登录次数</th>
+                <th>最近登录</th>
+                <th class="actions-column">操作</th>
+              </tr>
+            </thead>
+            <tbody id="userTable">
+              <tr><td colspan="6" class="empty">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="createUserModal" class="modal-backdrop" hidden>
+    <section class="modal-dialog admin-user-dialog" role="dialog" aria-modal="true" aria-labelledby="createUserTitle">
+      <div class="modal-head">
+        <h2 id="createUserTitle">新增用户</h2>
+        <button class="icon-button" type="button" onclick="closeCreateUserModal()" title="关闭" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="createUserForm" class="form-grid modal-body admin-form">
+        <label>
+          <span>账号</span>
+          <input name="user_id" maxlength="50" autocomplete="off" placeholder="例如：ops01" required>
+        </label>
+        <label>
+          <span>姓名</span>
+          <input name="name" maxlength="30" autocomplete="off" placeholder="例如：运维值班">
+        </label>
+        <label>
+          <span>初始密码</span>
+          <input name="password" type="password" maxlength="128" autocomplete="new-password" required>
+        </label>
+        <label>
+          <span>确认密码</span>
+          <input name="confirm_password" type="password" maxlength="128" autocomplete="new-password" required>
+        </label>
+        <label class="switch-row span-2">
+          <input name="enabled" type="checkbox" checked>
+          <span>启用该用户</span>
+        </label>
+        <div class="form-actions span-2">
+          <button class="light-button" type="button" onclick="closeCreateUserModal()">取消</button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="user-plus"></i>
+            <span>保存用户</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="resetPasswordModal" class="modal-backdrop" hidden>
+    <section class="modal-dialog admin-user-dialog" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
+      <div class="modal-head">
+        <h2 id="resetPasswordTitle">修改用户密码</h2>
+        <button class="icon-button" type="button" onclick="closeResetPasswordModal()" title="关闭" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="resetPasswordForm" class="form-grid modal-body admin-form">
+        <input type="hidden" name="user_id">
+        <label class="span-2">
+          <span>用户</span>
+          <input id="resetUserLabel" type="text" readonly>
+        </label>
+        <label>
+          <span>新密码</span>
+          <input name="new_password" type="password" maxlength="128" autocomplete="new-password" required>
+        </label>
+        <label>
+          <span>确认新密码</span>
+          <input name="confirm_password" type="password" maxlength="128" autocomplete="new-password" required>
+        </label>
+        <div class="form-actions span-2">
+          <button class="light-button" type="button" onclick="closeResetPasswordModal()">取消</button>
+          <button class="primary-button" type="submit">
+            <i data-lucide="key-round"></i>
+            <span>保存密码</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app-state.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/chrome.js"></script>
+  <script src="/js/admin.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

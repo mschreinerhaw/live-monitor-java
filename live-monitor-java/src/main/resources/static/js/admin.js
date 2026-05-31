@@ -1,0 +1,171 @@
+async function initAdmin() {
+  document.getElementById("createUserForm")?.addEventListener("submit", handleCreateUserSubmit);
+  document.getElementById("resetPasswordForm")?.addEventListener("submit", handleResetPasswordSubmit);
+  document.getElementById("addUserBtn")?.addEventListener("click", openCreateUserModal);
+  document.getElementById("reloadUsersBtn")?.addEventListener("click", loadAdminUsers);
+  document.getElementById("userTable")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reset-user]");
+    if (button) openResetPasswordModal(button.dataset.resetUser);
+  });
+  document.getElementById("createUserModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "createUserModal") closeCreateUserModal();
+  });
+  document.getElementById("resetPasswordModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "resetPasswordModal") closeResetPasswordModal();
+  });
+
+  try {
+    const user = await LiveMonitorApi.currentUser();
+    if (!user?.authenticated) {
+      window.location.href = "/login.html?redirect=/admin";
+      return;
+    }
+    adminState.currentUser = user;
+    if (!user.admin) {
+      document.getElementById("adminDeniedPanel").hidden = false;
+      return;
+    }
+    document.getElementById("adminContent").hidden = false;
+    document.getElementById("adminCurrentUser").textContent = `当前管理员：${user.user_id || user.display_name || user.name || "-"}`;
+    await loadAdminUsers();
+  } catch (error) {
+    showToast(error.message || "用户信息加载失败");
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function loadAdminUsers() {
+  const table = document.getElementById("userTable");
+  if (table) {
+    table.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+  }
+  try {
+    adminState.users = await LiveMonitorApi.users() || [];
+    renderAdminUsers();
+  } catch (error) {
+    if (table) {
+      table.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(error.message || "用户列表加载失败")}</td></tr>`;
+    }
+  }
+}
+
+function renderAdminUsers() {
+  const table = document.getElementById("userTable");
+  if (!table) return;
+  if (!adminState.users.length) {
+    table.innerHTML = '<tr><td colspan="6" class="empty">暂无用户</td></tr>';
+    return;
+  }
+  table.innerHTML = adminState.users.map((user) => {
+    const userId = user.user_id || user.userId || "-";
+    const enabled = Number(user.status ?? 1) === 1;
+    return `
+      <tr>
+        <td><strong>${escapeHtml(userId)}</strong></td>
+        <td>${escapeHtml(user.name || "-")}</td>
+        <td><span class="user-status ${enabled ? "enabled" : "disabled"}">${enabled ? "启用" : "停用"}</span></td>
+        <td>${Number(user.logins || 0)}</td>
+        <td>${escapeHtml(formatTime(user.last_login || user.lastLogin) || "-")}</td>
+        <td class="actions-column">
+          <button class="text-button admin-action-text" type="button" data-reset-user="${escapeHtml(userId)}">修改密码</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function openCreateUserModal() {
+  const form = document.getElementById("createUserForm");
+  form?.reset();
+  if (form?.elements.enabled) form.elements.enabled.checked = true;
+  const modal = document.getElementById("createUserModal");
+  if (modal) modal.hidden = false;
+  form?.elements.user_id?.focus();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeCreateUserModal() {
+  const modal = document.getElementById("createUserModal");
+  if (modal) modal.hidden = true;
+}
+
+function openResetPasswordModal(userId) {
+  const form = document.getElementById("resetPasswordForm");
+  if (!form) return;
+  const user = adminState.users.find((item) => (item.user_id || item.userId) === userId);
+  const label = user?.name ? `${userId} / ${user.name}` : userId;
+  form.reset();
+  form.elements.user_id.value = userId;
+  const resetUserLabel = document.getElementById("resetUserLabel");
+  if (resetUserLabel) resetUserLabel.value = label;
+  const title = document.getElementById("resetPasswordTitle");
+  if (title) title.textContent = `修改密码：${userId}`;
+  const modal = document.getElementById("resetPasswordModal");
+  if (modal) modal.hidden = false;
+  form.elements.new_password.focus();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeResetPasswordModal() {
+  const modal = document.getElementById("resetPasswordModal");
+  if (modal) modal.hidden = true;
+}
+
+async function handleCreateUserSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (payload.password !== payload.confirm_password) {
+    showToast("两次输入的初始密码不一致");
+    return;
+  }
+  const submit = form.querySelector("button[type='submit']");
+  submit.disabled = true;
+  try {
+    await LiveMonitorApi.createUser({
+      user_id: payload.user_id.trim(),
+      name: payload.name.trim() || null,
+      password: payload.password,
+      enabled: Boolean(payload.enabled),
+    });
+    showToast("用户已新增");
+    form.reset();
+    form.elements.enabled.checked = true;
+    closeCreateUserModal();
+    await loadAdminUsers();
+  } catch (error) {
+    showToast(error.message || "新增用户失败");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function handleResetPasswordSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (!payload.user_id) {
+    showToast("请选择需要修改密码的用户");
+    return;
+  }
+  if (payload.new_password !== payload.confirm_password) {
+    showToast("两次输入的新密码不一致");
+    return;
+  }
+  const submit = form.querySelector("button[type='submit']");
+  submit.disabled = true;
+  try {
+    await LiveMonitorApi.resetUserPassword(payload.user_id, {
+      new_password: payload.new_password,
+    });
+    showToast("用户密码已更新");
+    form.reset();
+    closeResetPasswordModal();
+  } catch (error) {
+    showToast(error.message || "密码更新失败");
+  } finally {
+    submit.disabled = false;
+  }
+}
