@@ -21,11 +21,11 @@ public class HostResourceMonitorService {
     private static final List<String> IGNORED_FILESYSTEM_PREFIXES = Arrays.asList("/dev/loop", "/dev/sr");
     private static final List<String> IGNORED_MOUNT_PREFIXES = Arrays.asList(
         "/run",
-        "/var/lib/docker",
-        "/var/lib/kubelet",
+        "/var/lib/docker/overlay2",
+        "/var/lib/docker/containers",
+        "/var/lib/kubelet/pods",
         "/snap",
-        "/media",
-        "/mnt"
+        "/media"
     );
 
     private final HostMapper hostMapper;
