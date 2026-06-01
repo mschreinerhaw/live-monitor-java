@@ -72,7 +72,13 @@ public class HostResourceMonitorService {
         Integer cpuCoreCount = parseInteger(sshService.exec(host, cpuCoreCommand(), timeoutMillis));
         Double memoryTotalMb = parseNumber(sshService.exec(host, memoryTotalCommand(), timeoutMillis));
         List<Map<String, Object>> diskMetrics = parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis));
-        Integer diskMountCount = parseInteger(sshService.exec(host, diskMountCountCommand(), timeoutMillis));
+        Integer diskMountCount = parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis));
+        if (diskMountCount == null) {
+            diskMountCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
+        }
+        if (diskMountCount == null) {
+            diskMountCount = parseFdiskDiskCount(sshService.exec(host, fdiskDiskCommand(), timeoutMillis));
+        }
         if (diskMountCount == null && !diskMetrics.isEmpty()) {
             diskMountCount = diskMetrics.size();
         }
@@ -122,13 +128,16 @@ public class HostResourceMonitorService {
             "awk 'NR>1 {use=$5; gsub(\"%\",\"\",use); printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\",$1,$6,use,$2,$4}'";
     }
 
-    private String diskMountCountCommand() {
-        return "lsblk -P -o NAME,PKNAME,TYPE,MOUNTPOINT 2>/dev/null | " +
-            "awk '{name=\"\"; pk=\"\"; type=\"\"; mount=\"\"; for(i=1;i<=NF;i++){split($i,a,\"=\"); v=a[2]; " +
-            "gsub(/\"/,\"\",v); if(a[1]==\"NAME\") name=v; else if(a[1]==\"PKNAME\") pk=v; " +
-            "else if(a[1]==\"TYPE\") type=v; else if(a[1]==\"MOUNTPOINT\") mount=v;} " +
-            "if(mount!=\"\" && type!=\"rom\"){disk=(pk!=\"\"?pk:name); if(disk !~ /^sr[0-9]+$/) seen[disk]=1}} " +
-            "END {for(d in seen) count++; print count+0}'";
+    private String diskDeviceCommand() {
+        return "lsblk -d -n -o NAME,TYPE 2>/dev/null";
+    }
+
+    private String procPartitionsDiskCommand() {
+        return "cat /proc/partitions 2>/dev/null";
+    }
+
+    private String fdiskDiskCommand() {
+        return "fdisk -l 2>/dev/null";
     }
 
     Double parseCpuUsage(String output) {
@@ -188,6 +197,76 @@ public class HostResourceMonitorService {
             disks.add(disk);
         }
         return disks;
+    }
+
+    Integer parseLsblkDiskCount(String output) {
+        if (!StringUtils.hasText(output) || output.contains("Exception:")) {
+            return null;
+        }
+        int count = 0;
+        boolean hasRows = false;
+        String[] lines = output.trim().split("\\r?\\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!StringUtils.hasText(trimmed)) {
+                continue;
+            }
+            String[] parts = trimmed.split("\\s+");
+            if (parts.length < 2) {
+                continue;
+            }
+            hasRows = true;
+            if ("disk".equals(parts[parts.length - 1])) {
+                count++;
+            }
+        }
+        return hasRows ? count : null;
+    }
+
+    Integer parseProcPartitionsDiskCount(String output) {
+        if (!StringUtils.hasText(output) || output.contains("Exception:")) {
+            return null;
+        }
+        int count = 0;
+        boolean hasRows = false;
+        String[] lines = output.trim().split("\\r?\\n");
+        for (String line : lines) {
+            String[] parts = line.trim().split("\\s+");
+            if (parts.length < 4 || !isWholeDiskName(parts[3])) {
+                continue;
+            }
+            hasRows = true;
+            count++;
+        }
+        return hasRows ? count : null;
+    }
+
+    Integer parseFdiskDiskCount(String output) {
+        if (!StringUtils.hasText(output) || output.contains("Exception:")) {
+            return null;
+        }
+        int count = 0;
+        String[] lines = output.trim().split("\\r?\\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("Disk /dev/")) {
+                continue;
+            }
+            int nameStart = "Disk /dev/".length();
+            int nameEnd = trimmed.indexOf(':', nameStart);
+            if (nameEnd <= nameStart) {
+                continue;
+            }
+            String name = trimmed.substring(nameStart, nameEnd);
+            if (isWholeDiskName(name)) {
+                count++;
+            }
+        }
+        return count > 0 ? count : null;
+    }
+
+    private boolean isWholeDiskName(String name) {
+        return name.matches("^(sd[a-z]+|hd[a-z]+|vd[a-z]+|xvd[a-z]+|nvme\\d+n\\d+|mmcblk\\d+|pmem\\d+|dasd[a-z]+)$");
     }
 
     private Double maxDiskUsage(List<Map<String, Object>> diskMetrics) {
