@@ -13,6 +13,7 @@ import org.apache.ibatis.annotations.Update;
 public interface HostMapper {
     String HOST_SELECT = "SELECT h.*, sag.group_id AS alert_group_id, " +
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
+        "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, " +
         "hm.checked_at AS metric_checked_at FROM host_config h " +
         "LEFT JOIN service_alert_group sag ON sag.service_id = h.monitor_service_id " +
         "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
@@ -64,13 +65,20 @@ public interface HostMapper {
         "check_command = #{checkCommand}, enabled = #{enabled} WHERE id = #{id}")
     int updateProcess(HostProcessConfig process);
 
-    @Insert("MERGE INTO host_latest_metric KEY(host_id) " +
-        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, CURRENT_TIMESTAMP)")
+    @Insert("MERGE INTO host_latest_metric " +
+        "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, checked_at) " +
+        "KEY(host_id) VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, CURRENT_TIMESTAMP)")
     int upsertLatestMetric(
         @Param("hostId") Long hostId,
         @Param("cpuUsagePercent") Double cpuUsagePercent,
         @Param("loadAverage") Double loadAverage,
         @Param("memoryUsedPercent") Double memoryUsedPercent,
-        @Param("diskUsedPercent") Double diskUsedPercent
+        @Param("diskUsedPercent") Double diskUsedPercent,
+        @Param("cpuCoreCount") Integer cpuCoreCount,
+        @Param("memoryTotalMb") Double memoryTotalMb,
+        @Param("diskMountCount") Integer diskMountCount,
+        @Param("diskMetricsJson") String diskMetricsJson
     );
 }

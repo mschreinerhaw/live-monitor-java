@@ -13,7 +13,8 @@
     body[data-page="login"] {
       min-height: 100vh;
       background:
-        linear-gradient(180deg, rgba(232, 246, 247, 0.72), rgba(245, 247, 250, 0) 42%),
+        radial-gradient(circle at 18% 12%, rgba(23, 107, 135, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(232, 246, 247, 0.92), rgba(245, 247, 250, 0) 48%),
         var(--bg);
     }
 
@@ -26,40 +27,50 @@
     .login-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       min-height: 64px;
       padding: 0 28px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(12px);
+      background: transparent;
     }
 
     .login-header .brand {
+      gap: 12px;
       color: var(--text);
     }
 
-    .login-header-note {
+    .login-brand-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .login-brand-copy strong {
+      font-size: 15px;
+      line-height: 1.1;
+    }
+
+    .login-brand-copy small {
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 600;
     }
 
     .login-main {
       display: grid;
       place-items: center;
-      padding: 48px 20px;
+      padding: clamp(32px, 7vh, 72px) 20px;
     }
 
     .login-card {
-      width: min(100%, 420px);
-      padding: 30px;
-      border: 1px solid var(--line);
+      width: min(100%, 452px);
+      padding: clamp(26px, 3vw, 34px);
+      border: 1px solid #d7e1ec;
       border-radius: 8px;
       background: var(--panel);
-      box-shadow: var(--shadow);
+      box-shadow: 0 18px 44px rgba(31, 41, 51, 0.12);
     }
 
     .login-title {
-      margin-bottom: 24px;
+      margin-bottom: 18px;
     }
 
     .login-title h1 {
@@ -75,12 +86,12 @@
       margin: 0;
       color: var(--muted);
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     .field-group {
       display: grid;
-      gap: 16px;
+      gap: 15px;
     }
 
     .form-field {
@@ -102,20 +113,21 @@
       left: 13px;
       width: 18px;
       height: 18px;
-      color: #7a8da3;
+      color: #60758c;
       pointer-events: none;
     }
 
     .form-field input {
       width: 100%;
-      height: 42px;
-      border: 1px solid var(--line);
+      height: 46px;
+      border: 1px solid #c7d4e2;
       border-radius: 8px;
       outline: 0;
-      background: #fff;
+      background: #fbfdff;
       color: var(--text);
       padding: 0 42px;
-      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 1px 2px rgba(30, 54, 77, 0.04) inset;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
     }
 
     .form-field input::placeholder {
@@ -124,7 +136,8 @@
 
     .form-field input:focus {
       border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.12);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.13), 0 1px 2px rgba(30, 54, 77, 0.04) inset;
     }
 
     .eye-btn {
@@ -155,24 +168,29 @@
 
     .captcha-row {
       display: grid;
-      grid-template-columns: 1fr 116px;
+      grid-template-columns: 1fr 128px;
       gap: 10px;
       align-items: end;
     }
 
     .captcha-box {
-      height: 42px;
-      border: 1px solid var(--line);
+      display: grid;
+      gap: 2px;
+      place-items: center;
+      height: 46px;
+      border: 1px solid #c7d4e2;
       border-radius: 8px;
       background:
         repeating-linear-gradient(135deg, #f3f7fa 0 8px, #ffffff 8px 16px);
       color: var(--brand-strong);
       cursor: pointer;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     }
 
     .captcha-box:hover,
     .captcha-box:focus-visible {
       border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.1);
       outline: 0;
     }
 
@@ -181,7 +199,6 @@
       align-items: center;
       justify-content: center;
       gap: 5px;
-      height: 100%;
       font-family: Consolas, "Courier New", monospace;
       font-size: 20px;
       font-weight: 800;
@@ -189,12 +206,27 @@
       user-select: none;
     }
 
+    .captcha-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #52667f;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .captcha-hint svg {
+      width: 12px;
+      height: 12px;
+    }
+
     .form-options {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin: 16px 0 12px;
+      margin: 12px 0 8px;
       color: var(--muted);
       font-size: 13px;
     }
@@ -238,11 +270,15 @@
     }
 
     .error-message {
-      min-height: 20px;
-      margin: 0 0 10px;
+      min-height: 18px;
+      margin: 0 0 8px;
       color: var(--red);
       font-size: 13px;
-      line-height: 20px;
+      line-height: 18px;
+    }
+
+    .error-message:empty {
+      min-height: 0;
     }
 
     .login-btn {
@@ -251,7 +287,7 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      height: 42px;
+      height: 46px;
       border: 0;
       border-radius: 8px;
       background: var(--brand);
@@ -277,9 +313,11 @@
       align-items: center;
       gap: 8px;
       margin-top: 18px;
-      padding-top: 18px;
-      border-top: 1px solid #edf1f5;
-      color: var(--muted);
+      padding: 11px 12px;
+      border: 1px solid rgba(22, 138, 82, 0.18);
+      border-radius: 8px;
+      background: #f0fbf5;
+      color: #426257;
       font-size: 13px;
       line-height: 1.5;
     }
@@ -303,16 +341,13 @@
         padding: 0 18px;
       }
 
-      .login-header-note {
-        display: none;
-      }
-
       .login-main {
         align-items: start;
-        padding: 28px 14px;
+        padding: 24px 14px;
       }
 
       .login-card {
+        width: 100%;
         padding: 22px;
       }
 
@@ -328,16 +363,17 @@
     <header class="login-header">
       <a class="brand" href="/dashboard" aria-label="Live Monitor">
         <span class="brand-mark">LM</span>
-        <span>Live Monitor</span>
+        <span class="login-brand-copy">
+          <strong>Live Monitor</strong>
+          <small>监控平台访问入口</small>
+        </span>
       </a>
-      <span class="login-header-note">监控平台访问入口</span>
     </header>
 
     <main class="login-main">
       <section class="login-card" aria-label="登录表单">
         <div class="login-title">
-          <h1>登录系统</h1>
-          <p>使用授权账号访问监控后台。</p>
+          <p>请输入授权账号登录。</p>
         </div>
 
         <form id="loginForm">
@@ -369,7 +405,7 @@
                   <input id="captchaInput" type="text" inputmode="text" autocomplete="off" placeholder="请输入验证码" required>
                 </span>
               </label>
-              <button class="captcha-box" id="captchaButton" type="button" aria-label="刷新验证码">
+              <button class="captcha-box" id="captchaButton" type="button" aria-label="刷新验证码" title="点击刷新验证码">
                 <span class="captcha-code" id="captchaCode" aria-hidden="true"></span>
               </button>
             </div>
@@ -380,9 +416,9 @@
               <input id="remember" type="checkbox">
               <span>记住账号</span>
             </label>
-            <button class="link-btn refresh" type="button" id="refreshCaptcha">
+            <button class="link-btn refresh" type="button" id="refreshCaptcha" aria-label="刷新验证码" title="点击刷新验证码">
               <i data-lucide="refresh-cw"></i>
-              <span>换一张</span>
+              <span>看不清？换一张</span>
             </button>
           </div>
 
@@ -394,7 +430,7 @@
 
           <div class="secure-tip">
             <i data-lucide="shield"></i>
-            <span>后端 API 已开启鉴权，未授权访问会被拦截。</span>
+            <span>已启用访问保护，未登录用户无法进入监控后台。</span>
           </div>
         </form>
       </section>

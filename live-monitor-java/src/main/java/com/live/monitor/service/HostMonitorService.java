@@ -1,6 +1,7 @@
 package com.live.monitor.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.live.monitor.dto.HostPayload;
 import com.live.monitor.dto.HostProcessPayload;
 import com.live.monitor.entity.HostConfig;
@@ -8,6 +9,7 @@ import com.live.monitor.entity.HostProcessConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,11 +23,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class HostMonitorService {
+    private static final TypeReference<List<Map<String, Object>>> DISK_METRICS_TYPE =
+        new TypeReference<List<Map<String, Object>>>() {};
+
     private final HostMapper hostMapper;
     private final MonitorServiceMapper serviceMapper;
     private final CryptoService cryptoService;
     private final SshService sshService;
     private final HostResourceMonitorService hostResourceMonitorService;
+    private final RocksDbHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
     public HostMonitorService(
@@ -34,6 +40,7 @@ public class HostMonitorService {
         CryptoService cryptoService,
         SshService sshService,
         HostResourceMonitorService hostResourceMonitorService,
+        RocksDbHistoryRepository historyRepository,
         ObjectMapper objectMapper
     ) {
         this.hostMapper = hostMapper;
@@ -41,6 +48,7 @@ public class HostMonitorService {
         this.cryptoService = cryptoService;
         this.sshService = sshService;
         this.hostResourceMonitorService = hostResourceMonitorService;
+        this.historyRepository = historyRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -51,6 +59,7 @@ public class HostMonitorService {
                 syncMonitorService(host, host.alertGroupId);
             }
             applyCheckIntervalDisplay(host);
+            attachDiskMetrics(host);
             mask(host);
         }
         return hosts;
@@ -62,6 +71,7 @@ public class HostMonitorService {
             syncMonitorService(host, host.alertGroupId);
         }
         applyCheckIntervalDisplay(host);
+        attachDiskMetrics(host);
         mask(host);
         return host;
     }
@@ -141,6 +151,10 @@ public class HostMonitorService {
         metrics.put("load_average", host.loadAverage);
         metrics.put("memory_used_percent", host.memoryUsedPercent);
         metrics.put("disk_used_percent", host.diskUsedPercent);
+        metrics.put("cpu_core_count", host.cpuCoreCount);
+        metrics.put("memory_total_mb", host.memoryTotalMb);
+        metrics.put("disk_mount_count", host.diskMountCount);
+        metrics.put("disk_metrics", parseDiskMetrics(host.diskMetricsJson));
         metrics.put("checked_at", host.metricCheckedAt);
         return metrics;
     }
@@ -173,6 +187,17 @@ public class HostMonitorService {
         result.put("failed", failed);
         result.put("total", hosts.size());
         return result;
+    }
+
+    public List<Map<String, Object>> metricHistory(Long hostId, Integer days, Integer limit) {
+        requireHost(hostId);
+        int safeDays = Math.max(1, Math.min(days == null ? 7 : days, 30));
+        int safeLimit = Math.max(1, Math.min(limit == null ? 10000 : limit, 10000));
+        List<Map<String, Object>> rows = historyRepository.listHostMetrics(hostId, safeDays, safeLimit);
+        for (Map<String, Object> row : rows) {
+            row.put("disk_metrics", parseDiskMetrics(String.valueOf(row.get("disk_metrics_json"))));
+        }
+        return rows;
     }
 
     public Map<String, Object> summary() {
@@ -218,6 +243,21 @@ public class HostMonitorService {
         result.put("avg_cpu_usage_percent", cpuCount == 0 ? null : Math.round((cpuTotal / cpuCount) * 10D) / 10D);
         result.put("avg_memory_used_percent", memoryCount == 0 ? null : Math.round((memoryTotal / memoryCount) * 10D) / 10D);
         return result;
+    }
+
+    private void attachDiskMetrics(HostConfig host) {
+        host.diskMetrics = parseDiskMetrics(host.diskMetricsJson);
+    }
+
+    private List<Map<String, Object>> parseDiskMetrics(String diskMetricsJson) {
+        if (!StringUtils.hasText(diskMetricsJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(diskMetricsJson, DISK_METRICS_TYPE);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     public Map<String, Object> processStatus(Long hostId) {

@@ -67,6 +67,15 @@ public class HostController {
         return hostMonitorService.metrics(hostId);
     }
 
+    @GetMapping("/api/hosts/{hostId}/metrics/history")
+    public List<Map<String, Object>> metricHistory(
+        @PathVariable Long hostId,
+        @RequestParam(name = "days", defaultValue = "7") Integer days,
+        @RequestParam(name = "limit", defaultValue = "10000") Integer limit
+    ) {
+        return hostMonitorService.metricHistory(hostId, days, limit);
+    }
+
     @PostMapping("/api/hosts/{hostId}/metrics/refresh")
     public Map<String, Object> refreshMetrics(@PathVariable Long hostId) {
         return hostMonitorService.refreshMetrics(hostId);

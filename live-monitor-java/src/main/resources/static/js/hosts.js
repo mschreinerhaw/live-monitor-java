@@ -38,6 +38,9 @@ function bindHostEvents() {
   document.getElementById("hostNextPageBtn")?.addEventListener("click", () => changeHostPage(hostState.page + 1));
   document.getElementById("hostPageJump")?.addEventListener("change", (event) => changeHostPage(Number(event.target.value || 1)));
   document.getElementById("hostForm")?.addEventListener("submit", saveHostForm);
+  document.getElementById("hostRealtimeMetricsBtn")?.addEventListener("click", () => setHostMetricView("realtime"));
+  document.getElementById("hostSevenDayMetricsBtn")?.addEventListener("click", () => setHostMetricView("7d"));
+  document.getElementById("exportHostMetricsBtn")?.addEventListener("click", exportSelectedHostMetricHistory);
   document.getElementById("hostModal")?.addEventListener("click", (event) => {
     if (event.target.id === "hostModal") closeHostModal();
   });
@@ -82,7 +85,7 @@ async function loadHosts() {
     renderHostTable();
   } catch (error) {
     const table = document.getElementById("hostTable");
-    if (table) table.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(error.message)}</td></tr>`;
+    if (table) table.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(error.message)}</td></tr>`;
     showToast(error.message || "主机数据加载失败");
   }
 }
@@ -120,7 +123,7 @@ function renderHostTable() {
   if (hostState.page > pageCount) hostState.page = pageCount;
   const pageRows = rows.slice((hostState.page - 1) * hostState.pageSize, hostState.page * hostState.pageSize);
   if (!pageRows.length) {
-    table.innerHTML = '<tr><td colspan="6" class="empty">暂无主机</td></tr>';
+    table.innerHTML = '<tr><td colspan="7" class="empty">暂无主机</td></tr>';
   } else {
     table.innerHTML = pageRows.map(renderHostRow).join("");
   }
@@ -146,6 +149,7 @@ function renderHostRow(host) {
           </div>
         </div>
       </td>
+      <td>${renderHostConfigInfo(host)}</td>
       <td>${renderResourceStack(host)}</td>
       <td>
         <div class="host-config-stack host-alert-stack">
@@ -180,12 +184,27 @@ function renderHostRow(host) {
   `;
 }
 
+function renderHostConfigInfo(host) {
+  const diskCount = numericMetric(host.disk_mount_count);
+  const disks = normalizeDiskMetrics(host.disk_metrics || host.disk_metrics_json);
+  const uniqueDiskCount = diskCount !== null ? diskCount : (uniqueDiskNames(disks).length || null);
+  return `
+    <div class="host-config-info-stack">
+      <span><i data-lucide="cpu"></i>CPU <strong>${formatCoreCount(host.cpu_core_count)}</strong></span>
+      <span><i data-lucide="memory-stick"></i>内存 <strong>${formatMemorySize(host.memory_total_mb)}</strong></span>
+      <span><i data-lucide="hard-drive"></i>磁盘 <strong>${uniqueDiskCount === null ? "-" : `${uniqueDiskCount} 块`}</strong></span>
+    </div>
+  `;
+}
+
 function renderResourceStack(host) {
+  const disks = normalizeDiskMetrics(host.disk_metrics || host.disk_metrics_json);
+  const diskLabel = disks.length ? `磁盘(${disks.length})` : "磁盘";
   return `
     <div class="host-resource-stack">
       ${renderResourceLine("cpu", "CPU", host.cpu_usage_percent, host.cpu_threshold_percent)}
       ${renderResourceLine("memory-stick", "内存", host.memory_used_percent)}
-      ${renderResourceLine("hard-drive", "磁盘", host.disk_used_percent, host.disk_threshold_percent)}
+      ${renderDiskResourceBlock(host, disks, diskLabel)}
     </div>
   `;
 }
@@ -201,6 +220,63 @@ function renderResourceLine(icon, label, rawValue, threshold = null) {
       <em>${value === null ? "-" : `${Math.round(value)}%`}</em>
     </div>
   `;
+}
+
+function renderDiskResourceBlock(host, disks, diskLabel) {
+  const expanded = hostState.expandedDiskHostIds?.has(Number(host.id));
+  const value = numericMetric(host.disk_used_percent);
+  const percent = value === null ? 0 : Math.max(0, Math.min(100, value));
+  const threshold = numericMetric(host.disk_threshold_percent);
+  const warn = threshold !== null && value !== null && value >= threshold;
+  const listId = `hostDiskMounts${host.id}`;
+  return `
+    <div class="host-resource-disk-block">
+      <button class="host-resource-line host-resource-toggle ${warn ? "warn" : ""}" type="button"
+        onclick="toggleHostDiskMounts(${host.id})" aria-expanded="${expanded}" aria-controls="${listId}"
+        title="${expanded ? "收起磁盘挂载" : "展开磁盘挂载"}">
+        <span><i data-lucide="hard-drive"></i>${diskLabel}<i class="host-resource-chevron ${expanded ? "open" : ""}" data-lucide="chevron-down"></i></span>
+        <b><i style="width:${percent}%"></i></b>
+        <em>${value === null ? "-" : `${Math.round(value)}%`}</em>
+      </button>
+      ${expanded ? renderInlineDiskMounts(disks, listId) : ""}
+    </div>
+  `;
+}
+
+function renderInlineDiskMounts(disks, listId) {
+  if (!disks.length) {
+    return `<div id="${listId}" class="host-inline-disk-list"><span class="host-inline-disk-empty">暂无挂载磁盘数据</span></div>`;
+  }
+  const sorted = [...disks].sort((a, b) => (numericMetric(b.used_percent) || 0) - (numericMetric(a.used_percent) || 0));
+  return `
+    <div id="${listId}" class="host-inline-disk-list">
+      ${sorted.map((disk) => {
+        const used = numericMetric(disk.used_percent);
+        const percent = used === null ? 0 : Math.max(0, Math.min(100, used));
+        const mount = disk.mount || "-";
+        const filesystem = disk.filesystem || "-";
+        return `
+          <div class="host-inline-disk-row">
+            <span title="${escapeHtml(mount)}"><i data-lucide="hard-drive"></i>${escapeHtml(mount)}</span>
+            <b><i style="width:${percent}%"></i></b>
+            <em>${percentText(used)}</em>
+            <small title="${escapeHtml(filesystem)}">${escapeHtml(filesystem)}</small>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function toggleHostDiskMounts(hostId) {
+  const id = Number(hostId);
+  if (!hostState.expandedDiskHostIds) hostState.expandedDiskHostIds = new Set();
+  if (hostState.expandedDiskHostIds.has(id)) {
+    hostState.expandedDiskHostIds.delete(id);
+  } else {
+    hostState.expandedDiskHostIds.add(id);
+  }
+  renderHostTable();
 }
 
 function renderHostPagination(total, pageCount) {
@@ -400,7 +476,10 @@ function closeHostDetailModal() {
 async function selectHost(id) {
   hostState.selectedHostId = id ? Number(id) : null;
   hostState.metrics = null;
+  hostState.metricView = "realtime";
+  hostState.metricHistoryRows = [];
   resetHostMetricHistory();
+  updateHostMetricModeButtons();
   renderSelectedHostSummary();
   renderHostMetrics(null);
 }
@@ -425,6 +504,9 @@ async function loadSelectedHostMetrics(refresh = false) {
     showToast("请先选择主机");
     return;
   }
+  if (hostState.metricView === "7d") {
+    return;
+  }
   renderHostMetricLoading();
   try {
     hostState.metrics = refresh
@@ -443,7 +525,9 @@ function renderHostMetrics(metrics) {
     setHostMetricText("hostCpuValue", "-");
     setHostMetricText("hostLoadValue", "Load -");
     setHostMetricText("hostMemoryValue", "-");
+    setHostMetricText("hostMemoryHint", "Memory used");
     setHostMetricText("hostDiskValue", "-");
+    renderHostDiskMounts([]);
     drawHostMetricCharts();
     return;
   }
@@ -458,7 +542,9 @@ function renderHostMetrics(metrics) {
   setHostMetricText("hostCpuValue", cpu === null ? "-" : `${cpu.toFixed(1)}%`);
   setHostMetricText("hostLoadValue", load === null ? "Load -" : `Load ${load.toFixed(2)}`);
   setHostMetricText("hostMemoryValue", memory === null ? "-" : `${memory.toFixed(1)}%`);
+  setHostMetricText("hostMemoryHint", "Memory used");
   setHostMetricText("hostDiskValue", disk === null ? "-" : `${disk.toFixed(1)}%`);
+  renderHostDiskMounts(normalizeDiskMetrics(metrics.disk_metrics || metrics.disk_metrics_json));
   drawHostMetricCharts();
 }
 
@@ -466,7 +552,112 @@ function renderHostMetricLoading() {
   setHostMetricText("hostCpuValue", "...");
   setHostMetricText("hostLoadValue", "Load ...");
   setHostMetricText("hostMemoryValue", "...");
+  setHostMetricText("hostMemoryHint", "读取中...");
   setHostMetricText("hostDiskValue", "...");
+  setHostMetricText("hostDiskHint", "扫描挂载磁盘...");
+  const list = document.getElementById("hostDiskMountList");
+  if (list) list.innerHTML = "";
+}
+
+async function setHostMetricView(view) {
+  hostState.metricView = view;
+  updateHostMetricModeButtons();
+  if (view === "7d") {
+    await loadSelectedHostMetricHistory();
+    return;
+  }
+  resetHostMetricHistory();
+  renderHostMetrics(null);
+  await loadSelectedHostMetrics(false);
+}
+
+function updateHostMetricModeButtons() {
+  const realtime = document.getElementById("hostRealtimeMetricsBtn");
+  const sevenDay = document.getElementById("hostSevenDayMetricsBtn");
+  const view = hostState.metricView || "realtime";
+  realtime?.classList.toggle("active", view === "realtime");
+  sevenDay?.classList.toggle("active", view === "7d");
+}
+
+async function loadSelectedHostMetricHistory() {
+  if (!hostState.selectedHostId) {
+    showToast("请先选择主机");
+    return;
+  }
+  renderHostMetricHistoryLoading();
+  try {
+    const rows = await LiveMonitorApi.hostMetricHistory(hostState.selectedHostId, 7, 10000);
+    hostState.metricHistoryRows = rows || [];
+    renderHostMetricHistory(hostState.metricHistoryRows);
+  } catch (error) {
+    showToast(error.message || "近7天指标加载失败");
+    renderHostMetricHistory([]);
+  }
+}
+
+function renderHostMetricHistoryLoading() {
+  setHostMetricText("hostCpuValue", "...");
+  setHostMetricText("hostLoadValue", "近7天 ...");
+  setHostMetricText("hostMemoryValue", "...");
+  setHostMetricText("hostMemoryHint", "近7天 ...");
+  setHostMetricText("hostDiskValue", "...");
+  setHostMetricText("hostDiskHint", "近7天 ...");
+  renderHostDiskMounts([]);
+}
+
+function renderHostMetricHistory(rows) {
+  const normalized = (rows || []).filter(Boolean);
+  resetHostMetricHistory();
+  hostState.metricHistory.cpu = metricSeries(normalized, "cpu_usage_percent");
+  hostState.metricHistory.load = metricSeries(normalized, "load_average");
+  hostState.metricHistory.memory = metricSeries(normalized, "memory_used_percent");
+  hostState.metricHistory.disk = metricSeries(normalized, "disk_used_percent");
+
+  const latest = normalized[normalized.length - 1] || null;
+  const latestCpu = latest ? numericMetric(latest.cpu_usage_percent) : null;
+  const latestLoad = latest ? numericMetric(latest.load_average) : null;
+  const latestMemory = latest ? numericMetric(latest.memory_used_percent) : null;
+  const latestDisk = latest ? numericMetric(latest.disk_used_percent) : null;
+  const countText = `近7天 ${normalized.length} 条`;
+
+  setHostMetricText("hostCpuValue", latestCpu === null ? "-" : `${latestCpu.toFixed(1)}%`);
+  setHostMetricText("hostLoadValue", latestLoad === null ? countText : `${countText} / Load ${latestLoad.toFixed(2)}`);
+  setHostMetricText("hostMemoryValue", latestMemory === null ? "-" : `${latestMemory.toFixed(1)}%`);
+  setHostMetricText("hostMemoryHint", countText);
+  setHostMetricText("hostDiskValue", latestDisk === null ? "-" : `${latestDisk.toFixed(1)}%`);
+  renderHostDiskMounts(latest ? normalizeDiskMetrics(latest.disk_metrics || latest.disk_metrics_json) : []);
+  drawHostMetricCharts();
+}
+
+function metricSeries(rows, key) {
+  return rows.map((row) => numericMetric(row[key])).map((value) => value === null ? 0 : value);
+}
+
+function renderHostDiskMounts(disks) {
+  const list = document.getElementById("hostDiskMountList");
+  const hint = document.getElementById("hostDiskHint");
+  if (!list) return;
+  if (!disks.length) {
+    list.innerHTML = '<span class="host-disk-empty">暂无挂载磁盘数据</span>';
+    if (hint) hint.textContent = "挂载磁盘";
+    return;
+  }
+  const sorted = [...disks].sort((a, b) => numericMetric(b.used_percent) - numericMetric(a.used_percent));
+  if (hint) hint.textContent = `挂载磁盘 ${sorted.length} 个 / 最高 ${percentText(sorted[0].used_percent)}`;
+  list.innerHTML = sorted.map((disk) => {
+    const used = numericMetric(disk.used_percent);
+    const percent = used === null ? 0 : Math.max(0, Math.min(100, used));
+    const mount = disk.mount || "-";
+    const filesystem = disk.filesystem || "-";
+    return `
+      <div class="host-disk-mount">
+        <span title="${escapeHtml(mount)}">${escapeHtml(mount)}</span>
+        <b><i style="width:${percent}%"></i></b>
+        <em>${percentText(used)}</em>
+        <small title="${escapeHtml(filesystem)}">${escapeHtml(filesystem)}</small>
+      </div>
+    `;
+  }).join("");
 }
 
 function resetHostMetricHistory() {
@@ -516,9 +707,59 @@ function stopHostListRefresh() {
   hostState.listMetricTimer = null;
 }
 
+async function exportSelectedHostMetricHistory() {
+  if (!hostState.selectedHostId) {
+    showToast("请先选择主机");
+    return;
+  }
+  let rows = hostState.metricHistoryRows || [];
+  if (!rows.length) {
+    try {
+      rows = await LiveMonitorApi.hostMetricHistory(hostState.selectedHostId, 7, 10000);
+      hostState.metricHistoryRows = rows || [];
+    } catch (error) {
+      showToast(error.message || "指标数据导出失败");
+      return;
+    }
+  }
+  if (!rows.length) {
+    showToast("暂无近7天指标数据可导出");
+    return;
+  }
+  const host = selectedHost() || {};
+  const header = ["采集时间", "CPU使用率", "Load", "内存使用率", "磁盘最高使用率", "挂载磁盘"];
+  const body = rows.map((row) => [
+    formatTime(row.checked_at) || row.checked_at || "",
+    percentText(row.cpu_usage_percent),
+    numericMetric(row.load_average) === null ? "" : Number(row.load_average).toFixed(2),
+    percentText(row.memory_used_percent),
+    percentText(row.disk_used_percent),
+    formatDiskMountSummary(row),
+  ]);
+  const csv = [header, ...body].map((row) => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const name = sanitizeFilename(host.host_name || host.ip || `host-${hostState.selectedHostId}`);
+  link.href = url;
+  link.download = `${name}-metrics-7d-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast("近7天指标数据已导出");
+}
+
+function formatDiskMountSummary(row) {
+  const disks = normalizeDiskMetrics(row.disk_metrics || row.disk_metrics_json);
+  return disks.map((disk) => `${disk.mount || "-"} ${percentText(disk.used_percent)}`).join("; ");
+}
+
+function sanitizeFilename(value) {
+  return String(value || "host").replace(/[\\/:*?"<>|]/g, "_");
+}
+
 function exportHosts() {
   const rows = filteredHosts();
-  const header = ["主机名称", "IP", "分组", "SSH", "CPU", "内存", "磁盘", "CPU阈值", "磁盘阈值", "检测间隔", "状态", "最后采集"];
+  const header = ["主机名称", "IP", "分组", "SSH", "CPU使用率", "内存使用率", "磁盘使用率", "CPU核数", "内存总量", "磁盘数量", "CPU阈值", "磁盘阈值", "检测间隔", "状态", "最后采集"];
   const body = rows.map((host) => [
     host.host_name || "",
     host.ip || "",
@@ -527,6 +768,9 @@ function exportHosts() {
     percentText(host.cpu_usage_percent),
     percentText(host.memory_used_percent),
     percentText(host.disk_used_percent),
+    formatCoreCount(host.cpu_core_count),
+    formatMemorySize(host.memory_total_mb),
+    numericMetric(host.disk_mount_count) === null ? "" : `${Math.round(Number(host.disk_mount_count))}`,
     formatThreshold(host.cpu_threshold_percent),
     formatThreshold(host.disk_threshold_percent),
     formatCheckInterval(host.check_interval),
@@ -547,6 +791,32 @@ function csvCell(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
+function normalizeDiskMetrics(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function uniqueDiskNames(disks) {
+  const names = new Set();
+  (disks || []).forEach((disk) => {
+    const filesystem = String(disk.filesystem || "").trim();
+    if (!filesystem || filesystem === "-") return;
+    const name = filesystem.split("/").pop().replace(/[0-9]+$/g, "").replace(/p$/g, "");
+    if (/^sr[0-9]+$/i.test(name)) return;
+    if (name) names.add(name);
+  });
+  return Array.from(names);
+}
+
 function numericMetric(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -560,4 +830,18 @@ function percentText(value) {
 function formatThreshold(value) {
   const number = numericMetric(value);
   return number === null ? "-" : `${Number(number).toFixed(number % 1 ? 1 : 0)}%`;
+}
+
+function formatCoreCount(value) {
+  const number = numericMetric(value);
+  return number === null ? "-" : `${Math.round(number)} 核`;
+}
+
+function formatMemorySize(value) {
+  const number = numericMetric(value);
+  if (number === null) return "-";
+  if (number >= 1024) {
+    return `${Math.round((number / 1024) * 10) / 10} GB`;
+  }
+  return `${Math.round(number)} MB`;
 }

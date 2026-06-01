@@ -262,12 +262,19 @@ public class SqliteToH2RocksMigrationService {
                 continue;
             }
             jdbcTemplate.update(
-                "MERGE INTO host_latest_metric KEY(host_id) VALUES (?, ?, ?, ?, ?, ?)",
+                "MERGE INTO host_latest_metric " +
+                    "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+                    "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, checked_at) " +
+                    "KEY(host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 latest.hostId,
                 latest.cpu,
                 latest.load,
                 latest.memory,
                 latest.disk,
+                null,
+                null,
+                null,
+                null,
                 Timestamp.valueOf(latest.checkedAt)
             );
         }

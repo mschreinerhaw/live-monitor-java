@@ -32,6 +32,10 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_config", "cpu_threshold_percent", "DOUBLE DEFAULT 85");
         addColumnIfMissing("host_config", "disk_threshold_percent", "DOUBLE DEFAULT 85");
         addColumnIfMissing("host_config", "check_interval", "INT DEFAULT 60");
+        addColumnIfMissing("host_latest_metric", "cpu_core_count", "INT");
+        addColumnIfMissing("host_latest_metric", "memory_total_mb", "DOUBLE");
+        addColumnIfMissing("host_latest_metric", "disk_mount_count", "INT");
+        addColumnIfMissing("host_latest_metric", "disk_metrics_json", "VARCHAR(100000)");
     }
 
     private boolean tableExists(String tableName) {

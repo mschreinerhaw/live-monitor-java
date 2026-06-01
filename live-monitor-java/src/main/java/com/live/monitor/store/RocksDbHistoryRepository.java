@@ -221,7 +221,18 @@ public class RocksDbHistoryRepository implements Closeable {
         Double memoryUsedPercent,
         Double diskUsedPercent
     ) {
-        return saveHostMetric(null, hostId, cpuUsagePercent, loadAverage, memoryUsedPercent, diskUsedPercent, null, null);
+        return saveHostMetric(hostId, cpuUsagePercent, loadAverage, memoryUsedPercent, diskUsedPercent, null);
+    }
+
+    public synchronized Map<String, Object> saveHostMetric(
+        Long hostId,
+        Double cpuUsagePercent,
+        Double loadAverage,
+        Double memoryUsedPercent,
+        Double diskUsedPercent,
+        String diskMetricsJson
+    ) {
+        return saveHostMetric(null, hostId, cpuUsagePercent, loadAverage, memoryUsedPercent, diskUsedPercent, diskMetricsJson, null, null);
     }
 
     public synchronized Map<String, Object> saveHostMetric(
@@ -231,6 +242,20 @@ public class RocksDbHistoryRepository implements Closeable {
         Double loadAverage,
         Double memoryUsedPercent,
         Double diskUsedPercent,
+        String checkedAt,
+        String migrationId
+    ) {
+        return saveHostMetric(id, hostId, cpuUsagePercent, loadAverage, memoryUsedPercent, diskUsedPercent, null, checkedAt, migrationId);
+    }
+
+    public synchronized Map<String, Object> saveHostMetric(
+        Long id,
+        Long hostId,
+        Double cpuUsagePercent,
+        Double loadAverage,
+        Double memoryUsedPercent,
+        Double diskUsedPercent,
+        String diskMetricsJson,
         String checkedAt,
         String migrationId
     ) {
@@ -251,10 +276,36 @@ public class RocksDbHistoryRepository implements Closeable {
         value.put("load_average", loadAverage);
         value.put("memory_used_percent", memoryUsedPercent);
         value.put("disk_used_percent", diskUsedPercent);
+        value.put("disk_metrics_json", diskMetricsJson);
         value.put("checked_at", time);
         putMigrationId(value, migrationId);
         put(key("metric", String.valueOf(hostId), "system", keyTime(time) + ":" + metricId), value);
         return value;
+    }
+
+    public synchronized List<Map<String, Object>> listHostMetrics(Long hostId, int days, int limit) {
+        ensureOpen();
+        String prefix = "metric:" + hostId + ":system:";
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(Math.max(1, days));
+        int maxRows = Math.max(1, Math.min(limit, 10000));
+        List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+        try (RocksIterator iterator = db.newIterator()) {
+            seekBeforePrefixEnd(iterator, prefix);
+            while (iterator.isValid() && rows.size() < maxRows) {
+                String key = text(iterator.key());
+                if (!key.startsWith(prefix)) {
+                    break;
+                }
+                Map<String, Object> value = readMap(iterator.value());
+                LocalDateTime checkedAt = parseTime(stringValue(value.get("checked_at")));
+                if (checkedAt.isBefore(cutoff)) {
+                    break;
+                }
+                rows.add(0, value);
+                iterator.prev();
+            }
+        }
+        return rows;
     }
 
     public synchronized long countPrefix(String prefix) {

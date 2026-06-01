@@ -130,6 +130,7 @@
           <thead>
             <tr>
               <th>主机信息</th>
+              <th>配置信息</th>
               <th>资源状态</th>
               <th>告警配置</th>
               <th>采集配置</th>
@@ -138,7 +139,7 @@
             </tr>
           </thead>
           <tbody id="hostTable">
-            <tr><td colspan="6" class="empty">加载中...</td></tr>
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -253,9 +254,23 @@
           <h2 id="selectedHostTitle">主机指标</h2>
           <p class="panel-subtitle" id="selectedHostMeta">打开详情后按主机检测间隔自动刷新。</p>
         </div>
-        <button class="icon-button" type="button" onclick="closeHostDetailModal()" title="关闭" aria-label="关闭">
-          <i data-lucide="x"></i>
-        </button>
+        <div class="host-detail-actions">
+          <button id="hostRealtimeMetricsBtn" class="light-button active" type="button">
+            <i data-lucide="activity"></i>
+            <span>实时</span>
+          </button>
+          <button id="hostSevenDayMetricsBtn" class="light-button" type="button">
+            <i data-lucide="calendar-days"></i>
+            <span>近7天</span>
+          </button>
+          <button id="exportHostMetricsBtn" class="light-button" type="button">
+            <i data-lucide="download"></i>
+            <span>导出</span>
+          </button>
+          <button class="icon-button" type="button" onclick="closeHostDetailModal()" title="关闭" aria-label="关闭">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
       </div>
       <section class="host-dashboard-grid modal-body">
         <article class="host-chart-card">
@@ -272,7 +287,7 @@
             <strong id="hostMemoryValue">-</strong>
           </div>
           <canvas id="hostMemoryChart" width="320" height="120"></canvas>
-          <small>Memory used</small>
+          <small id="hostMemoryHint">Memory used</small>
         </article>
         <article class="host-chart-card">
           <div class="host-chart-head">
@@ -280,7 +295,8 @@
             <strong id="hostDiskValue">-</strong>
           </div>
           <canvas id="hostDiskChart" width="320" height="120"></canvas>
-          <small>Root filesystem</small>
+          <small id="hostDiskHint">挂载磁盘</small>
+          <div id="hostDiskMountList" class="host-disk-mount-list"></div>
         </article>
       </section>
     </section>

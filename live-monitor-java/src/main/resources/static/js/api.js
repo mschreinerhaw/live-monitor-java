@@ -100,6 +100,7 @@
     updateHost: (id, data) => request(`/api/hosts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteHost: (id) => request(`/api/hosts/${id}`, { method: "DELETE" }),
     hostMetrics: (id) => request(`/api/hosts/${id}/metrics`),
+    hostMetricHistory: (id, days = 7, limit = 10000) => request(`/api/hosts/${id}/metrics/history?days=${days}&limit=${limit}`),
     refreshHostMetrics: (id) => request(`/api/hosts/${id}/metrics/refresh`, { method: "POST" }),
     refreshAllHostMetrics: () => request("/api/hosts/metrics/refresh", { method: "POST" }),
     hostProcesses: (id) => request(`/api/hosts/${id}/processes`),

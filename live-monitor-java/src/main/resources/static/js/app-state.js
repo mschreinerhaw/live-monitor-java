@@ -48,9 +48,12 @@ let hostState = {
   alertGroups: [],
   selectedHostId: null,
   metrics: null,
+  metricView: "realtime",
+  metricHistoryRows: [],
   metricTimer: null,
   listMetricTimer: null,
   listMetricSnapshots: {},
+  expandedDiskHostIds: new Set(),
   metricHistory: {
     cpu: [],
     load: [],
