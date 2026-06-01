@@ -7,6 +7,7 @@ import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,17 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class HostResourceMonitorService {
+    private static final List<String> VALID_DISK_FS_TYPES = Arrays.asList("xfs", "ext4", "ext3", "ext2", "btrfs");
+    private static final List<String> IGNORED_FILESYSTEM_PREFIXES = Arrays.asList("/dev/loop", "/dev/sr");
+    private static final List<String> IGNORED_MOUNT_PREFIXES = Arrays.asList(
+        "/run",
+        "/var/lib/docker",
+        "/var/lib/kubelet",
+        "/snap",
+        "/media",
+        "/mnt"
+    );
+
     private final HostMapper hostMapper;
     private final RocksDbHistoryRepository historyRepository;
     private final SshService sshService;
@@ -71,21 +83,19 @@ public class HostResourceMonitorService {
         Double memory = parseNumber(sshService.exec(host, memoryCommand(), timeoutMillis));
         Integer cpuCoreCount = parseInteger(sshService.exec(host, cpuCoreCommand(), timeoutMillis));
         Double memoryTotalMb = parseNumber(sshService.exec(host, memoryTotalCommand(), timeoutMillis));
-        List<Map<String, Object>> diskMetrics = parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis));
-        Integer diskMountCount = parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis));
-        if (diskMountCount == null) {
-            diskMountCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
+        List<Map<String, Object>> mountDisks = parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis));
+        Integer diskDeviceCount = parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis));
+        if (diskDeviceCount == null) {
+            diskDeviceCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
         }
-        if (diskMountCount == null) {
-            diskMountCount = parseFdiskDiskCount(sshService.exec(host, fdiskDiskCommand(), timeoutMillis));
+        if (diskDeviceCount == null) {
+            diskDeviceCount = parseFdiskDiskCount(sshService.exec(host, fdiskDiskCommand(), timeoutMillis));
         }
-        if (diskMountCount == null && !diskMetrics.isEmpty()) {
-            diskMountCount = diskMetrics.size();
-        }
-        Double disk = maxDiskUsage(diskMetrics);
-        String diskMetricsJson = toJson(diskMetrics);
+        Double disk = maxDiskUsage(mountDisks);
+        Integer mountPointCount = mountDisks.size();
+        String diskMetricsJson = toJson(mountDisks);
         historyRepository.saveHostMetric(host.id, cpu, load, memory, disk, diskMetricsJson);
-        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk, cpuCoreCount, memoryTotalMb, diskMountCount, diskMetricsJson);
+        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk, cpuCoreCount, memoryTotalMb, diskDeviceCount, diskMetricsJson);
 
         Map<String, Object> metrics = new LinkedHashMap<String, Object>();
         metrics.put("cpu_usage_percent", cpu);
@@ -94,8 +104,12 @@ public class HostResourceMonitorService {
         metrics.put("disk_used_percent", disk);
         metrics.put("cpu_core_count", cpuCoreCount);
         metrics.put("memory_total_mb", memoryTotalMb);
-        metrics.put("disk_mount_count", diskMountCount);
-        metrics.put("disk_metrics", diskMetrics.isEmpty() ? null : diskMetrics);
+        metrics.put("disk_device_count", diskDeviceCount);
+        metrics.put("disk_mount_count", diskDeviceCount);
+        metrics.put("mount_point_count", mountPointCount);
+        metrics.put("max_disk_usage_percent", disk);
+        metrics.put("disk_metrics", mountDisks.isEmpty() ? null : mountDisks);
+        metrics.put("mounts", mountDisks.isEmpty() ? null : mountDisks);
         return metrics;
     }
 
@@ -124,8 +138,7 @@ public class HostResourceMonitorService {
     }
 
     private String diskCommand() {
-        return "df -P -x tmpfs -x devtmpfs -x squashfs -x overlay -x proc -x sysfs 2>/dev/null | " +
-            "awk 'NR>1 {use=$5; gsub(\"%\",\"\",use); printf \"%s\\t%s\\t%s\\t%s\\t%s\\n\",$1,$6,use,$2,$4}'";
+        return "df -P -T -B1 2>/dev/null";
     }
 
     private String diskDeviceCommand() {
@@ -180,23 +193,67 @@ public class HostResourceMonitorService {
         List<Map<String, Object>> disks = new ArrayList<Map<String, Object>>();
         String[] lines = output.trim().split("\\r?\\n");
         for (String line : lines) {
-            String[] parts = line.split("\\t", -1);
-            if (parts.length < 5) {
+            String trimmed = line.trim();
+            if (!StringUtils.hasText(trimmed) || trimmed.startsWith("Filesystem ")) {
                 continue;
             }
-            Double used = parseNumber(parts[2]);
-            if (used == null) {
+            String[] parts = trimmed.split("\\s+");
+            if (parts.length < 7) {
+                continue;
+            }
+            String filesystem = parts[0];
+            String fsType = parts[1];
+            Long totalBytes = parseLong(parts[2]);
+            Long usedBytes = parseLong(parts[3]);
+            Long availableBytes = parseLong(parts[4]);
+            Double usedPercent = parseNumber(parts[5]);
+            String mountPoint = parts[6];
+            if (totalBytes == null || usedBytes == null || availableBytes == null || usedPercent == null) {
+                continue;
+            }
+            if (!isValidDiskFs(fsType) || isIgnoredFilesystem(filesystem) || isIgnoredMountPoint(mountPoint)) {
                 continue;
             }
             Map<String, Object> disk = new LinkedHashMap<String, Object>();
-            disk.put("filesystem", parts[0]);
-            disk.put("mount", parts[1]);
-            disk.put("used_percent", used);
-            disk.put("total_kb", parseLong(parts[3]));
-            disk.put("available_kb", parseLong(parts[4]));
+            disk.put("mount_point", mountPoint);
+            disk.put("mount", mountPoint);
+            disk.put("filesystem", filesystem);
+            disk.put("fs_type", fsType);
+            disk.put("total_bytes", totalBytes);
+            disk.put("used_bytes", usedBytes);
+            disk.put("available_bytes", availableBytes);
+            disk.put("used_percent", usedPercent.intValue());
             disks.add(disk);
         }
         return disks;
+    }
+
+    private boolean isValidDiskFs(String type) {
+        return type != null && VALID_DISK_FS_TYPES.contains(type.toLowerCase());
+    }
+
+    private boolean isIgnoredFilesystem(String filesystem) {
+        if (filesystem == null) {
+            return false;
+        }
+        for (String prefix : IGNORED_FILESYSTEM_PREFIXES) {
+            if (filesystem.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isIgnoredMountPoint(String mountPoint) {
+        if (mountPoint == null) {
+            return false;
+        }
+        for (String prefix : IGNORED_MOUNT_PREFIXES) {
+            if (mountPoint.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     Integer parseLsblkDiskCount(String output) {
