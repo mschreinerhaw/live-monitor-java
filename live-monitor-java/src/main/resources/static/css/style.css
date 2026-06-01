@@ -919,12 +919,11 @@ textarea {
 .host-page .compact-filter {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 8px 0 12px;
-  border: 1px solid #d7e1ec;
-  border-radius: 8px;
-  background: #fff;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 2px 0 8px;
+  border-radius: 7px;
+  background: #f8fbfe;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
@@ -936,23 +935,35 @@ textarea {
 }
 
 .host-page .compact-filter select {
-  width: 92px;
-  height: 30px;
-  padding: 0 28px 0 8px;
+  width: auto;
+  min-width: 88px;
+  max-width: 150px;
+  height: 28px;
+  padding: 0 24px 0 8px;
   appearance: none;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 6px;
   background:
-    linear-gradient(45deg, transparent 50%, #6f829b 50%) calc(100% - 14px) 12px / 6px 6px no-repeat,
-    linear-gradient(135deg, #6f829b 50%, transparent 50%) calc(100% - 9px) 12px / 6px 6px no-repeat,
-    #f5f9fd;
+    linear-gradient(45deg, transparent 50%, #7f91a8 50%) calc(100% - 13px) 11px / 5px 5px no-repeat,
+    linear-gradient(135deg, #7f91a8 50%, transparent 50%) calc(100% - 9px) 11px / 5px 5px no-repeat,
+    transparent;
   color: #24344d;
   cursor: pointer;
+  font-size: 13px;
   font-weight: 700;
   outline: 0;
+  text-overflow: ellipsis;
+}
+
+.host-page .compact-filter:hover,
+.host-page .compact-filter:focus-within {
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(23, 107, 135, 0.08);
 }
 
 .host-page .compact-filter select:focus {
+  border-color: #b9cedf;
+  background-color: #fff;
   box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.14);
 }
 
