@@ -1,8 +1,8 @@
+target/
 .idea/
-node_modules/
-dist/
-build/
+*.iml
+.classpath
+.project
+.settings/
+logs/
 *.log
-.DS_Store
-Thumbs.db
-/target/
