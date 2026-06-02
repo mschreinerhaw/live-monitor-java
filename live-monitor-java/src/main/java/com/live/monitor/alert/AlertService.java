@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class AlertService {
+    private static final String HOST_RESOURCE_THRESHOLD_ALERT = "host_resource_threshold";
     private static final Pattern CPU_PATTERN = Pattern.compile("CPU\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
     private static final Pattern MEMORY_PATTERN = Pattern.compile("Memory\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
     private static final Pattern DISK_PATTERN = Pattern.compile("Disk\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
@@ -40,6 +41,12 @@ public class AlertService {
     }
 
     public void evaluate(MonitorService service, MonitorResult result, String previousStatus) {
+        if (isHostResourceThresholdAlert(service, result)) {
+            if (!Boolean.FALSE.equals(service.alertGroupEnabled)) {
+                dispatch(service, result, hostResourceThresholdPolicy());
+            }
+            return;
+        }
         if (service.alertGroupId == null) {
             if ("DOWN".equals(result.status) && "UP".equals(previousStatus)) {
                 record(service, "Service changed from UP to DOWN: " + safe(result.message), "record", "success");
@@ -108,6 +115,9 @@ public class AlertService {
 
     private boolean triggered(MonitorService service, MonitorResult result, String previousStatus, AlertPolicy policy) {
         if ("consecutive_down".equals(policy.triggerType)) {
+            if (!"DOWN".equals(result.status)) {
+                return false;
+            }
             int threshold = intValue(policy.triggerValue, 3);
             List<MonitorResult> rows = historyRepository.listMonitorResults(service.id, threshold + 1);
             if (rows.size() < threshold) {
@@ -130,7 +140,25 @@ public class AlertService {
         if ("recovered".equals(policy.triggerType)) {
             return "UP".equals(result.status) && "DOWN".equals(previousStatus);
         }
+        if (HOST_RESOURCE_THRESHOLD_ALERT.equals(policy.triggerType)) {
+            return isHostResourceThresholdAlert(service, result);
+        }
         return false;
+    }
+
+    private boolean isHostResourceThresholdAlert(MonitorService service, MonitorResult result) {
+        return service != null
+            && result != null
+            && "host".equals(normalize(service.serviceType))
+            && HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType);
+    }
+
+    private AlertPolicy hostResourceThresholdPolicy() {
+        AlertPolicy policy = new AlertPolicy();
+        policy.policyName = "Host resource threshold exceeded";
+        policy.triggerType = HOST_RESOURCE_THRESHOLD_ALERT;
+        policy.enabled = true;
+        return policy;
     }
 
     private List<AlertRecord> dispatch(MonitorService service, String content, String fallbackType) {
@@ -260,7 +288,7 @@ public class AlertService {
         if ("DOWN".equals(result.status) || "consecutive_down".equals(policy.triggerType)) {
             return "CRITICAL";
         }
-        if ("latency_gt_ms".equals(policy.triggerType)) {
+        if ("latency_gt_ms".equals(policy.triggerType) || HOST_RESOURCE_THRESHOLD_ALERT.equals(policy.triggerType)) {
             return "WARNING";
         }
         return "INFO";

@@ -54,7 +54,10 @@ let hostState = {
   listMetricTimer: null,
   listMetricSnapshots: {},
   expandedDiskHostIds: new Set(),
+  metricRefreshing: false,
+  expandedMetricChart: null,
   metricHistory: {
+    labels: [],
     cpu: [],
     load: [],
     memory: [],

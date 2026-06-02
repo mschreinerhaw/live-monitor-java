@@ -312,6 +312,9 @@
             <i data-lucide="download"></i>
             <span>导出</span>
           </button>
+          <button id="hostRefreshMetricsBtn" class="icon-button" type="button" title="刷新指标" aria-label="刷新指标">
+            <i data-lucide="refresh-cw"></i>
+          </button>
           <button class="icon-button" type="button" onclick="closeHostDetailModal()" title="关闭" aria-label="关闭">
             <i data-lucide="x"></i>
           </button>
@@ -320,30 +323,64 @@
       <section class="host-dashboard-grid modal-body">
         <article class="host-chart-card">
           <div class="host-chart-head">
-            <span><i data-lucide="cpu"></i>CPU / Load</span>
-            <strong id="hostCpuValue">-</strong>
+            <div class="host-chart-title">
+              <span><i data-lucide="cpu"></i>CPU</span>
+              <small>最近30分钟趋势</small>
+            </div>
+            <div class="host-metric-pair">
+              <strong id="hostCpuValue">-</strong>
+              <small id="hostLoadValue">Load -</small>
+            </div>
           </div>
           <canvas id="hostCpuChart" width="320" height="120"></canvas>
-          <small id="hostLoadValue">Load -</small>
         </article>
         <article class="host-chart-card">
           <div class="host-chart-head">
-            <span><i data-lucide="memory-stick"></i>内存</span>
-            <strong id="hostMemoryValue">-</strong>
+            <div class="host-chart-title">
+              <span><i data-lucide="memory-stick"></i>内存</span>
+              <small>使用率趋势</small>
+            </div>
+            <div class="host-metric-pair">
+              <strong id="hostMemoryValue">-</strong>
+              <small id="hostMemoryHint">Memory used</small>
+              <small id="hostMemoryRemain">-</small>
+            </div>
           </div>
           <canvas id="hostMemoryChart" width="320" height="120"></canvas>
-          <small id="hostMemoryHint">Memory used</small>
         </article>
-        <article class="host-chart-card">
+        <article class="host-chart-card host-disk-overview-card">
           <div class="host-chart-head">
-            <span><i data-lucide="hard-drive"></i>磁盘</span>
-            <strong id="hostDiskValue">-</strong>
+            <div class="host-chart-title">
+              <span><i data-lucide="hard-drive"></i>磁盘 TopN</span>
+              <small id="hostDiskHint">挂载点使用率</small>
+            </div>
+            <div class="host-metric-pair">
+              <strong id="hostDiskValue">-</strong>
+              <small id="hostDiskCapacity">-</small>
+            </div>
           </div>
-          <canvas id="hostDiskChart" width="320" height="120"></canvas>
-          <small id="hostDiskHint">挂载磁盘</small>
           <div id="hostDiskMountList" class="host-disk-mount-list"></div>
         </article>
       </section>
+      <div id="hostChartTooltip" class="host-chart-tooltip" hidden></div>
+    </section>
+  </div>
+
+  <div id="hostChartZoomModal" class="modal-backdrop" hidden>
+    <section class="modal-dialog host-chart-zoom-dialog" role="dialog" aria-modal="true" aria-labelledby="hostChartZoomTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="hostChartZoomTitle">指标趋势</h2>
+          <p class="panel-subtitle" id="hostChartZoomMeta">-</p>
+        </div>
+        <button class="icon-button" id="closeHostChartZoomBtn" type="button" title="关闭" aria-label="关闭">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="host-chart-zoom-body">
+        <canvas id="hostChartZoomCanvas" width="960" height="420"></canvas>
+      </div>
+      <div id="hostChartZoomTooltip" class="host-chart-tooltip" hidden></div>
     </section>
   </div>
 

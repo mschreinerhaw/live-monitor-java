@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class HostResourceMonitorService {
+    static final String HOST_RESOURCE_THRESHOLD_ALERT = "host_resource_threshold";
     private static final List<String> VALID_DISK_FS_TYPES = Arrays.asList("xfs", "ext4", "ext3", "ext2", "btrfs");
     private static final List<String> IGNORED_FILESYSTEM_PREFIXES = Arrays.asList("/dev/loop", "/dev/sr");
     private static final List<String> IGNORED_MOUNT_PREFIXES = Arrays.asList(
@@ -89,7 +90,7 @@ public class HostResourceMonitorService {
         if ((cpuAlertEnabled && cpu >= cpuThreshold)
             || (memoryAlertEnabled && memory >= memoryThreshold)
             || (diskAlertEnabled && disk >= diskThreshold)) {
-            return new CheckResult("DOWN", elapsedMillis(start), message);
+            return new CheckResult("UP", elapsedMillis(start), message, HOST_RESOURCE_THRESHOLD_ALERT);
         }
         return new CheckResult("UP", elapsedMillis(start), message);
     }

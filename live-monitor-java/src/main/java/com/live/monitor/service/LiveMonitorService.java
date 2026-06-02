@@ -116,6 +116,7 @@ public class LiveMonitorService {
             result.status = check.status == null ? "UNKNOWN" : check.status;
             result.responseTimeMs = check.responseTimeMs;
             result.message = check.message;
+            result.alertType = check.alertType;
             MonitorResult stored = historyRepository.saveMonitorResult(result);
             serviceMapper.upsertLatestStatus(
                 stored.serviceId,

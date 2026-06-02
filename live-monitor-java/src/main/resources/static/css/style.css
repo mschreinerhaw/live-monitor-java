@@ -1472,7 +1472,7 @@ textarea {
 }
 
 .host-detail-dialog {
-  width: min(1120px, 100%);
+  width: min(1280px, 100%);
 }
 
 .host-layout {
@@ -1590,8 +1590,8 @@ textarea {
 .host-dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  padding: 16px;
+  gap: 14px;
+  padding: 14px;
 }
 
 .host-detail-actions {
@@ -1599,13 +1599,20 @@ textarea {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .host-detail-actions .light-button {
-  height: 34px;
-  padding: 0 10px;
+  min-width: auto;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 8px;
   font-size: 12px;
+}
+
+.host-detail-actions .light-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .host-detail-actions .light-button.active {
@@ -1614,11 +1621,31 @@ textarea {
   color: var(--brand);
 }
 
+.host-detail-actions .icon-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+}
+
+.host-detail-actions .icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.host-detail-actions .icon-button.is-spinning svg {
+  animation: host-spin 0.9s linear infinite;
+}
+
+@keyframes host-spin {
+  to { transform: rotate(360deg); }
+}
+
 .host-chart-card {
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1626,12 +1653,18 @@ textarea {
 
 .host-chart-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.host-chart-head span {
+.host-chart-title {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.host-chart-title span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1641,23 +1674,45 @@ textarea {
   font-weight: 700;
 }
 
-.host-chart-head svg {
+.host-chart-title svg {
   width: 17px;
   height: 17px;
   color: var(--brand);
 }
 
-.host-chart-head strong {
+.host-chart-title small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.host-metric-pair {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  min-width: 98px;
+}
+
+.host-metric-pair strong {
   color: #14243b;
   font-size: 22px;
   line-height: 1;
   white-space: nowrap;
 }
 
+.host-metric-pair small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .host-chart-card canvas {
   display: block;
   width: 100%;
-  height: 120px;
+  height: 220px;
+  cursor: zoom-in;
 }
 
 .host-chart-card small {
@@ -1665,10 +1720,69 @@ textarea {
   font-size: 12px;
 }
 
+.host-disk-overview-card {
+  align-content: start;
+}
+
+.host-chart-tooltip {
+  position: fixed;
+  z-index: 42;
+  display: grid;
+  min-width: 126px;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  color: #172033;
+  pointer-events: none;
+}
+
+.host-chart-tooltip strong,
+.host-chart-tooltip span,
+.host-chart-tooltip em {
+  display: block;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.host-chart-tooltip strong {
+  font-size: 12px;
+}
+
+.host-chart-tooltip span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.host-chart-tooltip em {
+  color: #0f5268;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.host-chart-zoom-dialog {
+  width: min(1080px, 100%);
+}
+
+.host-chart-zoom-body {
+  padding: 16px;
+}
+
+.host-chart-zoom-body canvas {
+  display: block;
+  width: 100%;
+  height: min(54vh, 420px);
+  min-height: 300px;
+  cursor: crosshair;
+}
+
 .host-disk-mount-list {
   display: grid;
   gap: 8px;
-  max-height: 180px;
+  max-height: 230px;
   overflow: auto;
   padding-right: 2px;
 }
