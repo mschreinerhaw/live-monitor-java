@@ -28,9 +28,11 @@ public interface HostMapper {
     HostConfig findEnabledByAddress(@Param("address") String address);
 
     @Insert("INSERT INTO host_config (host_name, ip, ssh_port, ssh_user, ssh_password_cipher, private_key_cipher, " +
-        "monitor_service_id, cluster_name, cpu_threshold_percent, disk_threshold_percent, check_interval, enabled) " +
+        "monitor_service_id, cluster_name, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
+        "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, check_interval, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
-        "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{diskThresholdPercent}, #{checkInterval}, #{enabled})")
+        "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
+        "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{checkInterval}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertHost(HostConfig host);
 
@@ -38,7 +40,9 @@ public interface HostMapper {
         "ssh_password_cipher = COALESCE(#{sshPasswordCipher}, ssh_password_cipher), " +
         "private_key_cipher = COALESCE(#{privateKeyCipher}, private_key_cipher), monitor_service_id = #{monitorServiceId}, " +
         "cluster_name = #{clusterName}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
-        "disk_threshold_percent = #{diskThresholdPercent}, check_interval = #{checkInterval}, enabled = #{enabled} WHERE id = #{id}")
+        "memory_threshold_percent = #{memoryThresholdPercent}, disk_threshold_percent = #{diskThresholdPercent}, " +
+        "cpu_alert_enabled = #{cpuAlertEnabled}, memory_alert_enabled = #{memoryAlertEnabled}, " +
+        "disk_alert_enabled = #{diskAlertEnabled}, check_interval = #{checkInterval}, enabled = #{enabled} WHERE id = #{id}")
     int updateHost(HostConfig host);
 
     @Update("UPDATE host_config SET monitor_service_id = #{monitorServiceId} WHERE id = #{id}")

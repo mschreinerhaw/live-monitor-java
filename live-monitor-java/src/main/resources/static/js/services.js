@@ -169,6 +169,7 @@ function buildServicePayload(form) {
   data.database_password = isDatabase ? data.database_password || null : null;
   data.database_query = isDatabase ? data.database_query || null : null;
   data.expected_result = isDatabase ? data.expected_result || null : null;
+  data.database_result_operator = isDatabase ? data.database_result_operator || "fuzzy" : "fuzzy";
   data.jdbc_driver_class = isDatabase ? data.jdbc_driver_class || null : null;
   data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
@@ -280,12 +281,14 @@ function fillServiceForm(form, service) {
     "jdbc_driver_class",
     "jdbc_url",
     "expected_result",
+    "database_result_operator",
     "alert_group_id",
   ].forEach((name) => {
     if (form.elements[name]) {
       const defaults = {
         check_timeout_seconds: 3,
         http_method: "GET",
+        database_result_operator: "fuzzy",
         process_match_mode: "fuzzy",
         check_command: service.check_command || service.process_check_command,
         process_min_instances: 1,

@@ -52,6 +52,7 @@ public class ServicePayload {
     public String databaseUsername;
     public String databasePassword;
     public String databaseQuery;
+    public String databaseResultOperator = "fuzzy";
     public String jdbcDriverClass;
     public String jdbcUrl;
     @Min(1)

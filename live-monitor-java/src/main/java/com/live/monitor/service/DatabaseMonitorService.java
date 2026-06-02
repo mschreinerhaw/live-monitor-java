@@ -11,8 +11,10 @@ import java.sql.ResultSetMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.SQLException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class DatabaseMonitorService {
         String password,
         String query,
         String expectedResult,
+        String resultOperator,
         String jdbcDriverClass,
         String jdbcUrl,
         double timeoutSeconds
@@ -66,11 +69,14 @@ public class DatabaseMonitorService {
                  Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(timeoutSecondsInt);
                 boolean hasResultSet = statement.execute(sql);
-                String value = resultValue(statement, hasResultSet);
-                boolean ok = !StringUtils.hasText(expectedResult) || value.contains(expectedResult.trim());
+                QueryResult queryResult = queryResult(statement, hasResultSet);
+                boolean ok = matchesExpectedResult(queryResult, expectedResult, resultOperator);
                 String product = connection.getMetaData().getDatabaseProductName();
                 String version = connection.getMetaData().getDatabaseProductVersion();
-                String message = product + " " + shortText(version, 32) + ", result: " + shortText(value, 120);
+                String message = product + " " + shortText(version, 32) + ", result: " + shortText(queryResult.displayValue, 120);
+                if (StringUtils.hasText(expectedResult)) {
+                    message += ", rule: " + operatorLabel(resultOperator) + " " + expectedResult.trim();
+                }
                 return new CheckResult(ok ? "UP" : "DOWN", elapsedMs(started), message);
             }
         } catch (Exception ex) {
@@ -182,18 +188,20 @@ public class DatabaseMonitorService {
         return "oracle".equals(type) ? "SELECT 1 FROM dual" : "SELECT 1";
     }
 
-    private String resultValue(Statement statement, boolean hasResultSet) throws Exception {
+    private QueryResult queryResult(Statement statement, boolean hasResultSet) throws Exception {
         if (!hasResultSet) {
-            return "update count " + statement.getUpdateCount();
+            int count = statement.getUpdateCount();
+            return new QueryResult("update count " + count, String.valueOf(count));
         }
         try (ResultSet resultSet = statement.getResultSet()) {
             if (!resultSet.next()) {
-                return "empty result";
+                return new QueryResult("empty result", "");
             }
             ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
             StringBuilder builder = new StringBuilder();
             int row = 0;
+            String firstValue = "";
             do {
                 if (row > 0) {
                     builder.append(" | ");
@@ -207,11 +215,103 @@ public class DatabaseMonitorService {
                         builder.append(label).append("=");
                     }
                     Object value = resultSet.getObject(column);
-                    builder.append(value == null ? "null" : String.valueOf(value));
+                    String text = value == null ? "null" : String.valueOf(value);
+                    if (row == 0 && column == 1) {
+                        firstValue = text;
+                    }
+                    builder.append(text);
                 }
                 row++;
             } while (row < 20 && builder.length() < 4000 && resultSet.next());
-            return builder.toString();
+            return new QueryResult(builder.toString(), firstValue);
+        }
+    }
+
+    private boolean matchesExpectedResult(QueryResult result, String expectedResult, String operator) {
+        if (!StringUtils.hasText(expectedResult)) {
+            return true;
+        }
+        String expected = expectedResult.trim();
+        String actual = result.firstValue == null ? "" : result.firstValue.trim();
+        String display = result.displayValue == null ? "" : result.displayValue;
+        String normalizedOperator = normalizeOperator(operator);
+        if ("fuzzy".equals(normalizedOperator)) {
+            String expectedLower = expected.toLowerCase(Locale.ROOT);
+            return display.toLowerCase(Locale.ROOT).contains(expectedLower)
+                || actual.toLowerCase(Locale.ROOT).contains(expectedLower);
+        }
+        if ("exact".equals(normalizedOperator)) {
+            return actual.equals(expected) || display.trim().equals(expected);
+        }
+        if ("eq".equals(normalizedOperator)) {
+            BigDecimal actualNumber = decimalValue(actual);
+            BigDecimal expectedNumber = decimalValue(expected);
+            if (actualNumber != null && expectedNumber != null) {
+                return actualNumber.compareTo(expectedNumber) == 0;
+            }
+            return actual.equals(expected);
+        }
+        BigDecimal actualNumber = decimalValue(actual);
+        BigDecimal expectedNumber = decimalValue(expected);
+        if (actualNumber == null || expectedNumber == null) {
+            return false;
+        }
+        int compared = actualNumber.compareTo(expectedNumber);
+        if ("gt".equals(normalizedOperator)) {
+            return compared > 0;
+        }
+        if ("gte".equals(normalizedOperator)) {
+            return compared >= 0;
+        }
+        if ("lt".equals(normalizedOperator)) {
+            return compared < 0;
+        }
+        if ("lte".equals(normalizedOperator)) {
+            return compared <= 0;
+        }
+        return display.contains(expected) || actual.contains(expected);
+    }
+
+    private String normalizeOperator(String value) {
+        String operator = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        if ("gt".equals(operator) || "gte".equals(operator) || "lt".equals(operator)
+            || "lte".equals(operator) || "eq".equals(operator) || "exact".equals(operator)) {
+            return operator;
+        }
+        return "fuzzy";
+    }
+
+    private String operatorLabel(String value) {
+        String operator = normalizeOperator(value);
+        if ("gt".equals(operator)) {
+            return ">";
+        }
+        if ("gte".equals(operator)) {
+            return ">=";
+        }
+        if ("lt".equals(operator)) {
+            return "<";
+        }
+        if ("lte".equals(operator)) {
+            return "<=";
+        }
+        if ("eq".equals(operator)) {
+            return "=";
+        }
+        if ("exact".equals(operator)) {
+            return "exact";
+        }
+        return "contains";
+    }
+
+    private BigDecimal decimalValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim().replace(",", ""));
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 
@@ -225,6 +325,16 @@ public class DatabaseMonitorService {
 
     private int elapsedMs(long started) {
         return (int) TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+    }
+
+    private static final class QueryResult {
+        private final String displayValue;
+        private final String firstValue;
+
+        private QueryResult(String displayValue, String firstValue) {
+            this.displayValue = displayValue;
+            this.firstValue = firstValue;
+        }
     }
 
     private static final class ExternalDriverClassLoader extends URLClassLoader {

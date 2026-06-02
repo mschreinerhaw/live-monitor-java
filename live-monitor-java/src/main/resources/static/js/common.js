@@ -155,7 +155,7 @@ function endpointText(service) {
     return `${service.host || "-"} / ${service.process_name || service.process_match_keyword || "-"} / ${service.check_command || "-"}`;
   }
   if (service.service_type === "host") {
-    return `${service.host || service.endpoint || "-"} / CPU ${service.cpu_threshold_percent ?? "-"}% / 磁盘 ${service.disk_threshold_percent ?? "-"}%`;
+    return `${service.host || service.endpoint || "-"} / CPU ${alertThresholdText(service.cpu_threshold_percent, service.cpu_alert_enabled)} / 内存 ${alertThresholdText(service.memory_threshold_percent, service.memory_alert_enabled)} / 磁盘 ${alertThresholdText(service.disk_threshold_percent, service.disk_alert_enabled)}`;
   }
   if (service.service_type === "jdbc") {
     return service.jdbc_url || service.endpoint || "-";
@@ -165,6 +165,11 @@ function endpointText(service) {
     return service.database_name ? `${endpoint}/${service.database_name}` : endpoint;
   }
   return `${service.host || "-"}:${service.port || "-"}`;
+}
+
+function alertThresholdText(value, enabled = true) {
+  if (enabled === false) return "关闭";
+  return value === null || value === undefined || value === "" ? "-%" : `${value}%`;
 }
 
 function serviceDetailHref(id) {

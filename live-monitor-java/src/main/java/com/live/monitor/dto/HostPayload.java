@@ -21,7 +21,13 @@ public class HostPayload {
     public Double cpuThresholdPercent = 85D;
     @Min(1)
     @Max(100)
+    public Double memoryThresholdPercent = 85D;
+    @Min(1)
+    @Max(100)
     public Double diskThresholdPercent = 85D;
+    public Boolean cpuAlertEnabled = true;
+    public Boolean memoryAlertEnabled = true;
+    public Boolean diskAlertEnabled = true;
     @Min(1)
     @Max(31536000)
     public Integer checkInterval = 60;

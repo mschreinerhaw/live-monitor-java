@@ -228,9 +228,11 @@ public class HostMonitorService {
                 memoryCount++;
             }
             double cpuThreshold = host.cpuThresholdPercent == null ? 85D : host.cpuThresholdPercent;
+            double memoryThreshold = host.memoryThresholdPercent == null ? 85D : host.memoryThresholdPercent;
             double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
-            if ((host.cpuUsagePercent != null && host.cpuUsagePercent >= cpuThreshold)
-                || (host.diskUsedPercent != null && host.diskUsedPercent >= diskThreshold)) {
+            if ((alertEnabled(host.cpuAlertEnabled) && host.cpuUsagePercent != null && host.cpuUsagePercent >= cpuThreshold)
+                || (alertEnabled(host.memoryAlertEnabled) && host.memoryUsedPercent != null && host.memoryUsedPercent >= memoryThreshold)
+                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent >= diskThreshold)) {
                 warning++;
             }
         }
@@ -299,7 +301,11 @@ public class HostMonitorService {
         host.privateKeyCipher = cryptoService.encrypt(payload.privateKey);
         host.clusterName = StringUtils.hasText(payload.clusterName) ? payload.clusterName.trim() : "服务器主机";
         host.cpuThresholdPercent = payload.cpuThresholdPercent == null ? 85D : payload.cpuThresholdPercent;
+        host.memoryThresholdPercent = payload.memoryThresholdPercent == null ? 85D : payload.memoryThresholdPercent;
         host.diskThresholdPercent = payload.diskThresholdPercent == null ? 85D : payload.diskThresholdPercent;
+        host.cpuAlertEnabled = payload.cpuAlertEnabled == null || payload.cpuAlertEnabled;
+        host.memoryAlertEnabled = payload.memoryAlertEnabled == null || payload.memoryAlertEnabled;
+        host.diskAlertEnabled = payload.diskAlertEnabled == null || payload.diskAlertEnabled;
         host.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         host.alertGroupId = payload.alertGroupId;
         host.enabled = payload.enabled == null || payload.enabled;
@@ -320,7 +326,9 @@ public class HostMonitorService {
         service.cpuThresholdPercent = host.cpuThresholdPercent;
         service.diskThresholdPercent = host.diskThresholdPercent;
         service.checkMode = "host_resource";
-        service.expectedResult = "CPU<" + host.cpuThresholdPercent + ",DISK<" + host.diskThresholdPercent;
+        service.expectedResult = "CPU<" + host.cpuThresholdPercent
+            + ",MEMORY<" + host.memoryThresholdPercent
+            + ",DISK<" + host.diskThresholdPercent;
         service.checkTimeoutSeconds = 10D;
         service.checkInterval = host.checkInterval == null ? 60 : host.checkInterval;
         service.enabled = host.enabled;
@@ -349,7 +357,11 @@ public class HostMonitorService {
             config.put("host", host.ip);
             config.put("port", host.sshPort);
             config.put("cpu_threshold_percent", host.cpuThresholdPercent);
+            config.put("memory_threshold_percent", host.memoryThresholdPercent);
             config.put("disk_threshold_percent", host.diskThresholdPercent);
+            config.put("cpu_alert_enabled", alertEnabled(host.cpuAlertEnabled));
+            config.put("memory_alert_enabled", alertEnabled(host.memoryAlertEnabled));
+            config.put("disk_alert_enabled", alertEnabled(host.diskAlertEnabled));
             return objectMapper.writeValueAsString(config);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid host monitor config");
@@ -359,6 +371,10 @@ public class HostMonitorService {
     private void mask(HostConfig host) {
         host.sshPasswordCipher = null;
         host.privateKeyCipher = null;
+    }
+
+    private boolean alertEnabled(Boolean value) {
+        return value == null || value;
     }
 
     private int resolveCheckInterval(Integer value, String unit, Integer fallbackSeconds) {

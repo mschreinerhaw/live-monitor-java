@@ -30,7 +30,11 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_config", "monitor_service_id", "BIGINT");
         addColumnIfMissing("host_config", "cluster_name", "VARCHAR(255) DEFAULT 'Server Host'");
         addColumnIfMissing("host_config", "cpu_threshold_percent", "DOUBLE DEFAULT 85");
+        addColumnIfMissing("host_config", "memory_threshold_percent", "DOUBLE DEFAULT 85");
         addColumnIfMissing("host_config", "disk_threshold_percent", "DOUBLE DEFAULT 85");
+        addColumnIfMissing("host_config", "cpu_alert_enabled", "INT DEFAULT 1");
+        addColumnIfMissing("host_config", "memory_alert_enabled", "INT DEFAULT 1");
+        addColumnIfMissing("host_config", "disk_alert_enabled", "INT DEFAULT 1");
         addColumnIfMissing("host_config", "check_interval", "INT DEFAULT 60");
         addColumnIfMissing("host_latest_metric", "cpu_core_count", "INT");
         addColumnIfMissing("host_latest_metric", "memory_total_mb", "DOUBLE");

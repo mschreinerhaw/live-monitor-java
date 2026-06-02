@@ -15,7 +15,11 @@ public class HostConfig {
     public Long monitorServiceId;
     public String clusterName;
     public Double cpuThresholdPercent;
+    public Double memoryThresholdPercent;
     public Double diskThresholdPercent;
+    public Boolean cpuAlertEnabled;
+    public Boolean memoryAlertEnabled;
+    public Boolean diskAlertEnabled;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;

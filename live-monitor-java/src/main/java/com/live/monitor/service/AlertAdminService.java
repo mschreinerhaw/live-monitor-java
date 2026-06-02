@@ -52,7 +52,6 @@ public class AlertAdminService {
 
     @Transactional
     public Map<String, Object> createChannel(AlertChannelPayload payload) {
-        assertUniqueChannelType(payload.channelType, null);
         AlertChannel channel = new AlertChannel();
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
@@ -68,7 +67,6 @@ public class AlertAdminService {
         if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "alert channel not found");
         }
-        assertUniqueChannelType(payload.channelType, id);
         AlertChannel channel = new AlertChannel();
         channel.id = id;
         channel.channelName = payload.channelName;
@@ -172,15 +170,6 @@ public class AlertAdminService {
             }
         }
         return deleted;
-    }
-
-    private void assertUniqueChannelType(String channelType, Long currentId) {
-        if (channelType == null || channelType.trim().isEmpty()) {
-            return;
-        }
-        if (alertMapper.countChannelsByType(channelType, currentId) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "相同类型的告警配置已存在");
-        }
     }
 
     private void syncGroupRelations(Long groupId, AlertGroupPayload payload) {

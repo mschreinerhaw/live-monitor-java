@@ -499,6 +499,7 @@ public class LiveMonitorService {
             service.databaseUsername = emptyToNull(payload.databaseUsername);
             service.databasePassword = emptyToNull(payload.databasePassword);
             service.databaseQuery = emptyToNull(payload.databaseQuery);
+            service.databaseResultOperator = databaseResultOperator(payload.databaseResultOperator);
             service.jdbcDriverClass = emptyToNull(payload.jdbcDriverClass);
             service.jdbcUrl = emptyToNull(payload.jdbcUrl);
             service.checkMode = "jdbc_query";
@@ -506,6 +507,7 @@ public class LiveMonitorService {
             putIfNotNull(config, "database_name", service.databaseName);
             putIfNotNull(config, "database_username", service.databaseUsername);
             putIfNotNull(config, "database_query", service.databaseQuery);
+            config.put("database_result_operator", service.databaseResultOperator);
             putIfNotNull(config, "jdbc_driver_class", service.jdbcDriverClass);
             putIfNotNull(config, "jdbc_url", service.jdbcUrl);
             putIfNotNull(secretConfig, "database_password", service.databasePassword);
@@ -555,12 +557,17 @@ public class LiveMonitorService {
         } else if ("host".equals(service.serviceType)) {
             service.hostId = longValue(config, "host_id", service.hostId);
             service.cpuThresholdPercent = doubleValue(config, "cpu_threshold_percent", null);
+            service.memoryThresholdPercent = doubleValue(config, "memory_threshold_percent", null);
             service.diskThresholdPercent = doubleValue(config, "disk_threshold_percent", null);
+            service.cpuAlertEnabled = booleanValue(config, "cpu_alert_enabled", true);
+            service.memoryAlertEnabled = booleanValue(config, "memory_alert_enabled", true);
+            service.diskAlertEnabled = booleanValue(config, "disk_alert_enabled", true);
         } else if (isDatabaseType(service.serviceType)) {
             service.databaseName = stringValue(config, "database_name", null);
             service.databaseUsername = stringValue(config, "database_username", null);
             service.databasePassword = stringValue(secretConfig, "database_password", null);
             service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
+            service.databaseResultOperator = databaseResultOperator(stringValue(config, "database_result_operator", "fuzzy"));
             service.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
             service.jdbcUrl = stringValue(config, "jdbc_url", null);
         }
@@ -665,6 +672,15 @@ public class LiveMonitorService {
     private boolean isDatabaseType(String type) {
         return "mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
             || "jdbc".equals(type);
+    }
+
+    private String databaseResultOperator(String value) {
+        String normalized = normalizeType(value);
+        if ("gt".equals(normalized) || "gte".equals(normalized) || "lt".equals(normalized)
+            || "lte".equals(normalized) || "eq".equals(normalized) || "exact".equals(normalized)) {
+            return normalized;
+        }
+        return "fuzzy";
     }
 
     private Integer defaultPort(String type) {

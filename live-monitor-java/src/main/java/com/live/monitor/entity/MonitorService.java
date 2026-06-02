@@ -15,7 +15,11 @@ public class MonitorService {
     public String expectedResult;
     public Long hostId;
     public Double cpuThresholdPercent;
+    public Double memoryThresholdPercent;
     public Double diskThresholdPercent;
+    public Boolean cpuAlertEnabled;
+    public Boolean memoryAlertEnabled;
+    public Boolean diskAlertEnabled;
     public String processName;
     public String processMatchKeyword;
     public String processMatchMode;
@@ -39,6 +43,7 @@ public class MonitorService {
     public String databaseUsername;
     public String databasePassword;
     public String databaseQuery;
+    public String databaseResultOperator;
     public String jdbcDriverClass;
     public String jdbcUrl;
     public Integer checkInterval;

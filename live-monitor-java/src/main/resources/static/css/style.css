@@ -2339,6 +2339,12 @@ textarea {
   font-size: 13px;
 }
 
+.form-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
@@ -2365,6 +2371,93 @@ textarea {
 .form-grid .interval-control input,
 .form-grid .interval-control select {
   width: 100%;
+}
+
+.host-form-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.host-form-section-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.host-alert-policy-list {
+  display: grid;
+  gap: 8px;
+}
+
+.host-alert-policy-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(168px, 210px);
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.host-alert-policy-name {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.host-alert-policy-toggle {
+  min-width: 84px;
+  justify-content: flex-start;
+  font-size: 13px !important;
+}
+
+.host-alert-threshold-field {
+  display: grid !important;
+  grid-template-columns: auto 78px auto;
+  align-items: center;
+  justify-content: end;
+  gap: 8px !important;
+  color: var(--muted);
+  font-size: 13px !important;
+}
+
+.host-alert-threshold-field input {
+  height: 34px;
+  padding: 0 8px;
+  text-align: right;
+}
+
+.host-alert-threshold-field em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.host-alert-group-row {
+  display: grid !important;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px !important;
+  padding: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px !important;
+}
+
+.host-collect-section .interval-field {
+  display: grid !important;
+  grid-template-columns: 140px minmax(0, 280px);
+  align-items: center;
+  gap: 12px !important;
+}
+
+.host-state-section .switch-row {
+  min-height: 34px;
 }
 
 .service-type-native-select {
@@ -3804,6 +3897,22 @@ textarea {
     grid-column: auto;
   }
 
+  .host-alert-policy-row,
+  .host-alert-group-row,
+  .host-collect-section .interval-field {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .host-alert-policy-toggle,
+  .host-alert-threshold-field {
+    justify-content: flex-start;
+  }
+
+  .host-alert-threshold-field {
+    grid-template-columns: auto minmax(72px, 96px) auto;
+  }
+
   .form-actions {
     justify-content: stretch;
   }
@@ -4020,6 +4129,202 @@ body[data-page="alert-settings"] .panel {
   border: 1px solid #dde6f0;
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+}
+
+body[data-page="alert-settings"] .alert-config-modal {
+  width: min(820px, 100%);
+  font-size: 13px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .modal-head {
+  min-height: 56px;
+  padding: 10px 16px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .modal-head h2 {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .modal-head .panel-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .icon-button {
+  width: 34px;
+  height: 34px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-simple-form {
+  gap: 14px;
+  padding: 16px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-grid label,
+body[data-page="alert-settings"] .alert-config-modal .form-grid .form-field {
+  gap: 6px;
+  font-size: 12px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-grid label > span,
+body[data-page="alert-settings"] .alert-config-modal .recipient-list-field > span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-grid input,
+body[data-page="alert-settings"] .alert-config-modal .form-grid select {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-grid textarea {
+  min-height: 76px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .setting-section {
+  gap: 8px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .section-head h2 {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .choice-list,
+body[data-page="alert-settings"] .alert-config-modal .recipient-summary {
+  gap: 8px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .choice-card,
+body[data-page="alert-settings"] .alert-config-modal .recipient-item {
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .choice-card input {
+  width: 16px;
+  height: 16px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .choice-card strong,
+body[data-page="alert-settings"] .alert-config-modal .recipient-item strong {
+  margin-bottom: 3px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .choice-card small,
+body[data-page="alert-settings"] .alert-config-modal .recipient-item small {
+  font-size: 12px;
+  line-height: 1.38;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-list-field {
+  gap: 6px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-add-row {
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 6px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-add-row .icon-button {
+  width: 36px;
+  height: 36px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-chip-list {
+  min-height: 36px;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-chip {
+  gap: 5px;
+  padding: 4px 6px 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .recipient-empty {
+  font-size: 12px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row {
+  min-height: 34px;
+  gap: 10px !important;
+  font-size: 13px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row input[type="checkbox"] {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 44px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.18);
+  cursor: pointer;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(31, 41, 51, 0.24);
+  transition: transform 0.16s ease;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row input[type="checkbox"]:checked {
+  background: var(--brand);
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+}
+
+body[data-page="alert-settings"] .alert-config-modal .switch-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.28);
+  outline-offset: 2px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .inline-grid {
+  gap: 10px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-actions {
+  padding-top: 2px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .form-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 body[data-page="alert-settings"] .alert-config-layout.binding-mode,

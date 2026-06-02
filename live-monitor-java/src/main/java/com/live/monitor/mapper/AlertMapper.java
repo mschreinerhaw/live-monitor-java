@@ -25,10 +25,6 @@ public interface AlertMapper {
     @Select("SELECT * FROM alert_channel WHERE id = #{id}")
     AlertChannel findChannel(@Param("id") Long id);
 
-    @Select("SELECT COUNT(*) FROM alert_channel WHERE channel_type = #{channelType} " +
-        "AND (#{excludeId} IS NULL OR id <> #{excludeId})")
-    int countChannelsByType(@Param("channelType") String channelType, @Param("excludeId") Long excludeId);
-
     @Select("SELECT c.* FROM alert_channel c JOIN group_channel_rel rel ON rel.channel_id = c.id " +
         "WHERE rel.group_id = #{groupId} ORDER BY c.channel_name")
     List<AlertChannel> listChannelsByGroup(@Param("groupId") Long groupId);

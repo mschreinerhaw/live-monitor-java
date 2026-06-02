@@ -239,9 +239,23 @@
           <input name="expected_result" placeholder="可选，例如：1">
         </label>
 
+        <label class="database-only">
+          <span>结果判断方式</span>
+          <select name="database_result_operator">
+            <option value="fuzzy">模糊匹配</option>
+            <option value="exact">精准匹配</option>
+            <option value="eq">等于</option>
+            <option value="gt">大于</option>
+            <option value="gte">大于等于</option>
+            <option value="lt">小于</option>
+            <option value="lte">小于等于</option>
+          </select>
+        </label>
+
         <label class="database-only span-2">
           <span>检测 SQL</span>
           <input name="database_query" placeholder="留空默认执行 SELECT 1（Oracle 为 SELECT 1 FROM dual）">
+          <small class="form-hint">用于结果判断的查询结果应只返回一行一列；系统会取第一行第一列作为告警阈值判断值。</small>
         </label>
 
         <label class="span-2">

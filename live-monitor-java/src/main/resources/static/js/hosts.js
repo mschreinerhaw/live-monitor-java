@@ -153,8 +153,9 @@ function renderHostRow(host) {
       <td>${renderResourceStack(host)}</td>
       <td>
         <div class="host-config-stack host-alert-stack">
-          <span>CPU 阈值 <strong>${formatThreshold(host.cpu_threshold_percent)}</strong></span>
-          <span>磁盘阈值 <strong>${formatThreshold(host.disk_threshold_percent)}</strong></span>
+          <span>CPU 阈值 <strong>${formatAlertThreshold(host.cpu_threshold_percent, host.cpu_alert_enabled)}</strong></span>
+          <span>内存阈值 <strong>${formatAlertThreshold(host.memory_threshold_percent, host.memory_alert_enabled)}</strong></span>
+          <span>磁盘阈值 <strong>${formatAlertThreshold(host.disk_threshold_percent, host.disk_alert_enabled)}</strong></span>
         </div>
       </td>
       <td>
@@ -202,17 +203,17 @@ function renderResourceStack(host) {
   const diskLabel = disks.length ? `磁盘(${disks.length})` : "磁盘";
   return `
     <div class="host-resource-stack">
-      ${renderResourceLine("cpu", "CPU", host.cpu_usage_percent, host.cpu_threshold_percent)}
-      ${renderResourceLine("memory-stick", "内存", host.memory_used_percent)}
+      ${renderResourceLine("cpu", "CPU", host.cpu_usage_percent, host.cpu_threshold_percent, host.cpu_alert_enabled)}
+      ${renderResourceLine("memory-stick", "内存", host.memory_used_percent, host.memory_threshold_percent, host.memory_alert_enabled)}
       ${renderDiskResourceBlock(host, disks, diskLabel)}
     </div>
   `;
 }
 
-function renderResourceLine(icon, label, rawValue, threshold = null) {
+function renderResourceLine(icon, label, rawValue, threshold = null, thresholdEnabled = true) {
   const value = numericMetric(rawValue);
   const percent = value === null ? 0 : Math.max(0, Math.min(100, value));
-  const warn = threshold !== null && threshold !== undefined && value !== null && value >= Number(threshold);
+  const warn = thresholdEnabled !== false && threshold !== null && threshold !== undefined && value !== null && value >= Number(threshold);
   return `
     <div class="host-resource-line ${warn ? "warn" : ""}">
       <span><i data-lucide="${icon}"></i>${label}</span>
@@ -227,7 +228,7 @@ function renderDiskResourceBlock(host, disks, diskLabel) {
   const value = numericMetric(host.disk_used_percent);
   const percent = value === null ? 0 : Math.max(0, Math.min(100, value));
   const threshold = numericMetric(host.disk_threshold_percent);
-  const warn = threshold !== null && value !== null && value >= threshold;
+  const warn = host.disk_alert_enabled !== false && threshold !== null && value !== null && value >= threshold;
   const listId = `hostDiskMounts${host.id}`;
   return `
     <div class="host-resource-disk-block">
@@ -346,12 +347,21 @@ function hostStateView(host) {
     return { key: "offline", className: "disabled", label: "离线", detail: "等待采集" };
   }
   const cpu = numericMetric(host.cpu_usage_percent);
+  const memory = numericMetric(host.memory_used_percent);
   const disk = numericMetric(host.disk_used_percent);
   const cpuThreshold = numericMetric(host.cpu_threshold_percent);
+  const memoryThreshold = numericMetric(host.memory_threshold_percent);
   const diskThreshold = numericMetric(host.disk_threshold_percent);
-  if ((cpu !== null && cpuThreshold !== null && cpu >= cpuThreshold)
-    || (disk !== null && diskThreshold !== null && disk >= diskThreshold)) {
-    return { key: "warning", className: "danger", label: "告警", detail: cpu !== null && cpuThreshold !== null && cpu >= cpuThreshold ? "CPU 使用率高" : "磁盘使用率高" };
+  if ((host.cpu_alert_enabled !== false && cpu !== null && cpuThreshold !== null && cpu >= cpuThreshold)
+    || (host.memory_alert_enabled !== false && memory !== null && memoryThreshold !== null && memory >= memoryThreshold)
+    || (host.disk_alert_enabled !== false && disk !== null && diskThreshold !== null && disk >= diskThreshold)) {
+    let detail = "磁盘使用率高";
+    if (host.cpu_alert_enabled !== false && cpu !== null && cpuThreshold !== null && cpu >= cpuThreshold) {
+      detail = "CPU 使用率高";
+    } else if (host.memory_alert_enabled !== false && memory !== null && memoryThreshold !== null && memory >= memoryThreshold) {
+      detail = "内存使用率高";
+    }
+    return { key: "warning", className: "danger", label: "告警", detail };
   }
   return { key: "online", className: "enabled", label: "在线", detail: "采集中" };
 }
@@ -383,7 +393,11 @@ function fillHostForm(host) {
   form.elements.ssh_password.value = "";
   form.elements.private_key.value = "";
   form.elements.cpu_threshold_percent.value = host?.cpu_threshold_percent ?? 85;
+  form.elements.memory_threshold_percent.value = host?.memory_threshold_percent ?? 85;
   form.elements.disk_threshold_percent.value = host?.disk_threshold_percent ?? 85;
+  form.elements.cpu_alert_enabled.checked = host ? host.cpu_alert_enabled !== false : true;
+  form.elements.memory_alert_enabled.checked = host ? host.memory_alert_enabled !== false : true;
+  form.elements.disk_alert_enabled.checked = host ? host.disk_alert_enabled !== false : true;
   const intervalParts = secondsToIntervalParts(host?.check_interval || 60);
   form.elements.check_interval_value.value = host?.check_interval_value || intervalParts.value;
   form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
@@ -402,7 +416,11 @@ function buildHostPayload(form) {
     ssh_password: form.elements.ssh_password.value || null,
     private_key: form.elements.private_key.value || null,
     cpu_threshold_percent: Number(form.elements.cpu_threshold_percent.value || 85),
+    memory_threshold_percent: Number(form.elements.memory_threshold_percent.value || 85),
     disk_threshold_percent: Number(form.elements.disk_threshold_percent.value || 85),
+    cpu_alert_enabled: form.elements.cpu_alert_enabled.checked,
+    memory_alert_enabled: form.elements.memory_alert_enabled.checked,
+    disk_alert_enabled: form.elements.disk_alert_enabled.checked,
     check_interval_value: Number(form.elements.check_interval_value.value || 1),
     check_interval_unit: form.elements.check_interval_unit.value || "minutes",
     check_interval: intervalToSeconds(
@@ -494,7 +512,7 @@ function renderSelectedHostSummary() {
   setText(
     "selectedHostMeta",
     host
-      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatThreshold(host.cpu_threshold_percent)} / 磁盘 ${formatThreshold(host.disk_threshold_percent)} / ${formatCheckInterval(host.check_interval)}自动刷新`
+      ? `${host.ip || "-"} / ${host.cluster_name || "服务器主机"} / CPU ${formatAlertThreshold(host.cpu_threshold_percent, host.cpu_alert_enabled)} / 内存 ${formatAlertThreshold(host.memory_threshold_percent, host.memory_alert_enabled)} / 磁盘 ${formatAlertThreshold(host.disk_threshold_percent, host.disk_alert_enabled)} / ${formatCheckInterval(host.check_interval)}自动刷新`
       : "打开详情后按主机检测间隔自动刷新"
   );
 }
@@ -759,7 +777,7 @@ function sanitizeFilename(value) {
 
 function exportHosts() {
   const rows = filteredHosts();
-  const header = ["主机名称", "IP", "分组", "SSH", "CPU使用率", "内存使用率", "磁盘使用率", "CPU核数", "内存总量", "磁盘数量", "CPU阈值", "磁盘阈值", "检测间隔", "状态", "最后采集"];
+  const header = ["主机名称", "IP", "分组", "SSH", "CPU使用率", "内存使用率", "磁盘使用率", "CPU核数", "内存总量", "磁盘数量", "CPU阈值", "内存阈值", "磁盘阈值", "检测间隔", "状态", "最后采集"];
   const body = rows.map((host) => [
     host.host_name || "",
     host.ip || "",
@@ -771,8 +789,9 @@ function exportHosts() {
     formatCoreCount(host.cpu_core_count),
     formatMemorySize(host.memory_total_mb),
     numericMetric(host.disk_mount_count) === null ? "" : `${Math.round(Number(host.disk_mount_count))}`,
-    formatThreshold(host.cpu_threshold_percent),
-    formatThreshold(host.disk_threshold_percent),
+    formatAlertThreshold(host.cpu_threshold_percent, host.cpu_alert_enabled),
+    formatAlertThreshold(host.memory_threshold_percent, host.memory_alert_enabled),
+    formatAlertThreshold(host.disk_threshold_percent, host.disk_alert_enabled),
     formatCheckInterval(host.check_interval),
     hostStateView(host).label,
     formatTime(host.metric_checked_at) || "",
@@ -830,6 +849,10 @@ function percentText(value) {
 function formatThreshold(value) {
   const number = numericMetric(value);
   return number === null ? "-" : `${Number(number).toFixed(number % 1 ? 1 : 0)}%`;
+}
+
+function formatAlertThreshold(value, enabled = true) {
+  return enabled === false ? "关闭" : formatThreshold(value);
 }
 
 function formatCoreCount(value) {

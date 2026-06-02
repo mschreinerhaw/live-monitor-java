@@ -125,7 +125,7 @@ public class AlertService {
                 return false;
             }
             int threshold = intValue(policy.triggerValue, 3000);
-            return result.responseTimeMs > threshold;
+            return "UP".equals(result.status) && result.responseTimeMs > threshold;
         }
         if ("recovered".equals(policy.triggerType)) {
             return "UP".equals(result.status) && "DOWN".equals(previousStatus);

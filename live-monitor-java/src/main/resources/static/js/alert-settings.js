@@ -171,8 +171,8 @@ async function initAlertSettings() {
       emptyText: "暂无 @ 手机号",
     });
     const channelPayload = buildAlertChannelPayload();
-    if (findAlertConfigByType(channelPayload.channel_type, alertSettingsState.selectedGroupId)) {
-      showToast("相同类型的告警配置已存在，请直接修改已有记录");
+    if (findAlertConfigByName(groupName, alertSettingsState.selectedGroupId)) {
+      showToast("告警配置名称已存在，请使用其他名称");
       return;
     }
     if (channelPayload.channel_type === "email" && !channelPayload.alert_email) {
@@ -552,27 +552,23 @@ function groupAlertType(group) {
   return groupPrimaryChannel(group)?.channel_type || "";
 }
 
-function findAlertConfigByType(type, exceptGroupId) {
+function findAlertConfigByName(name, exceptGroupId) {
+  const normalizedName = String(name || "").trim().toLowerCase();
+  if (!normalizedName) return null;
   return alertSettingsState.groups.find((group) =>
-    groupAlertType(group) === type && Number(group.id) !== Number(exceptGroupId || 0)
+    String(group.group_name || "").trim().toLowerCase() === normalizedName
+      && Number(group.id) !== Number(exceptGroupId || 0)
   );
 }
 
 function updateAlertTypeOptions(currentType) {
   const select = document.getElementById("alertChannelTypeSelect");
   if (!select) return;
-  const usedTypes = new Set(
-    alertSettingsState.groups
-      .filter((group) => Number(group.id) !== Number(alertSettingsState.selectedGroupId || 0))
-      .map(groupAlertType)
-      .filter(Boolean)
-  );
   Array.from(select.options).forEach((option) => {
-    option.disabled = usedTypes.has(option.value) && option.value !== currentType;
+    option.disabled = false;
   });
-  if (select.selectedOptions[0]?.disabled) {
-    const nextOption = Array.from(select.options).find((option) => !option.disabled);
-    if (nextOption) select.value = nextOption.value;
+  if (currentType) {
+    select.value = currentType;
   }
   syncChannelInputs();
 }

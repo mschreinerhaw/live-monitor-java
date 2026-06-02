@@ -89,6 +89,7 @@ public class MonitorRunnerService {
                 service.databasePassword,
                 service.databaseQuery,
                 service.expectedResult,
+                service.databaseResultOperator,
                 service.jdbcDriverClass,
                 service.jdbcUrl,
                 timeout

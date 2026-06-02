@@ -202,40 +202,85 @@
           <span>SSH 密码</span>
           <input name="ssh_password" type="password" placeholder="留空保持原密码">
         </label>
-        <label>
-          <span>CPU 告警阈值 (%)</span>
-          <input name="cpu_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
-        </label>
-        <label>
-          <span>磁盘告警阈值 (%)</span>
-          <input name="disk_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
-        </label>
-        <label class="interval-field">
-          <span>检测间隔</span>
-          <span class="interval-control">
-            <input name="check_interval_value" type="number" min="1" max="31536000" value="1">
-            <select name="check_interval_unit" aria-label="检测间隔单位">
-              <option value="seconds">秒</option>
-              <option value="minutes" selected>分钟</option>
-              <option value="hours">小时</option>
-              <option value="days">天</option>
-            </select>
-          </span>
-        </label>
-        <label>
-          <span>告警组</span>
-          <select name="alert_group_id" id="hostAlertGroupSelect">
-            <option value="">不绑定告警组</option>
-          </select>
-        </label>
+        <section class="host-form-section host-alert-policy-section span-2">
+          <div class="host-form-section-head">
+            <h3>告警策略</h3>
+          </div>
+          <div class="host-alert-policy-list">
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">CPU 使用率告警</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="cpu_alert_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>告警阈值</span>
+                <input name="cpu_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
+                <em>%</em>
+              </label>
+            </div>
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">内存使用率告警</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="memory_alert_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>告警阈值</span>
+                <input name="memory_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
+                <em>%</em>
+              </label>
+            </div>
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">磁盘使用率告警</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="disk_alert_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>告警阈值</span>
+                <input name="disk_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
+                <em>%</em>
+              </label>
+            </div>
+            <label class="host-alert-group-row">
+              <span>告警组</span>
+              <select name="alert_group_id" id="hostAlertGroupSelect">
+                <option value="">不绑定告警组</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        <section class="host-form-section host-collect-section span-2">
+          <div class="host-form-section-head">
+            <h3>采集设置</h3>
+          </div>
+          <label class="interval-field">
+            <span>检测间隔</span>
+            <span class="interval-control">
+              <input name="check_interval_value" type="number" min="1" max="31536000" value="1">
+              <select name="check_interval_unit" aria-label="检测间隔单位">
+                <option value="seconds">秒</option>
+                <option value="minutes" selected>分钟</option>
+                <option value="hours">小时</option>
+                <option value="days">天</option>
+              </select>
+            </span>
+          </label>
+        </section>
         <label class="span-2">
           <span>私钥</span>
           <textarea name="private_key" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
         </label>
-        <label class="switch-row span-2">
-          <input name="enabled" type="checkbox" checked>
-          <span>启用此主机</span>
-        </label>
+        <section class="host-form-section host-state-section span-2">
+          <div class="host-form-section-head">
+            <h3>主机状态</h3>
+          </div>
+          <label class="switch-row">
+            <input name="enabled" type="checkbox" checked>
+            <span>启用此主机</span>
+          </label>
+        </section>
         <div class="form-actions span-2">
           <button class="ghost-button" type="button" onclick="closeHostModal()">取消</button>
           <button class="primary-button" type="submit">

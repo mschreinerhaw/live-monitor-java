@@ -57,21 +57,38 @@ public class HostResourceMonitorService {
         Double cpu = metricValue(metrics, "cpu_usage_percent");
         Double memory = metricValue(metrics, "memory_used_percent");
         Double disk = metricValue(metrics, "disk_used_percent");
-        if (cpu == null || disk == null) {
-            return new CheckResult("UNKNOWN", elapsedMillis(start), "Unable to parse host CPU or disk usage");
-        }
 
-        double cpuThreshold = service.cpuThresholdPercent == null ? 85D : service.cpuThresholdPercent;
-        double diskThreshold = service.diskThresholdPercent == null ? 85D : service.diskThresholdPercent;
+        boolean cpuAlertEnabled = alertEnabled(host.cpuAlertEnabled);
+        boolean memoryAlertEnabled = alertEnabled(host.memoryAlertEnabled);
+        boolean diskAlertEnabled = alertEnabled(host.diskAlertEnabled);
+        double cpuThreshold = host.cpuThresholdPercent == null ? 85D : host.cpuThresholdPercent;
+        double memoryThreshold = host.memoryThresholdPercent == null ? 85D : host.memoryThresholdPercent;
+        double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
         String message = String.format(
-            "CPU %.1f%% / %.1f%%, Memory %s, Disk %.1f%% / %.1f%%",
-            cpu,
-            cpuThreshold,
-            memory == null ? "-" : String.format("%.1f%%", memory),
-            disk,
-            diskThreshold
+            "CPU %s / %s, Memory %s / %s, Disk %s / %s",
+            percentText(cpu),
+            thresholdText(cpuAlertEnabled, cpuThreshold),
+            percentText(memory),
+            thresholdText(memoryAlertEnabled, memoryThreshold),
+            percentText(disk),
+            thresholdText(diskAlertEnabled, diskThreshold)
         );
-        if (cpu >= cpuThreshold || disk >= diskThreshold) {
+        List<String> missingMetrics = new ArrayList<String>();
+        if (cpuAlertEnabled && cpu == null) {
+            missingMetrics.add("CPU");
+        }
+        if (memoryAlertEnabled && memory == null) {
+            missingMetrics.add("memory");
+        }
+        if (diskAlertEnabled && disk == null) {
+            missingMetrics.add("disk");
+        }
+        if (!missingMetrics.isEmpty()) {
+            return new CheckResult("UNKNOWN", elapsedMillis(start), "Unable to parse host " + String.join("/", missingMetrics) + " usage. " + message);
+        }
+        if ((cpuAlertEnabled && cpu >= cpuThreshold)
+            || (memoryAlertEnabled && memory >= memoryThreshold)
+            || (diskAlertEnabled && disk >= diskThreshold)) {
             return new CheckResult("DOWN", elapsedMillis(start), message);
         }
         return new CheckResult("UP", elapsedMillis(start), message);
@@ -116,6 +133,18 @@ public class HostResourceMonitorService {
     private Double metricValue(Map<String, Object> metrics, String key) {
         Object value = metrics.get(key);
         return value instanceof Number ? ((Number) value).doubleValue() : null;
+    }
+
+    private boolean alertEnabled(Boolean value) {
+        return value == null || value;
+    }
+
+    private String percentText(Double value) {
+        return value == null ? "-" : String.format("%.1f%%", value);
+    }
+
+    private String thresholdText(boolean enabled, double threshold) {
+        return enabled ? String.format("%.1f%%", threshold) : "disabled";
     }
 
     private String cpuCommand() {
