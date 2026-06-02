@@ -3,6 +3,8 @@ package com.live.monitor.alert;
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertPolicy;
 import com.live.monitor.entity.AlertRecord;
+import com.live.monitor.entity.AlertState;
+import com.live.monitor.entity.CheckEvent;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.AlertMapper;
@@ -22,9 +24,19 @@ import org.springframework.util.StringUtils;
 @Service
 public class AlertService {
     private static final String HOST_RESOURCE_THRESHOLD_ALERT = "host_resource_threshold";
+    private static final String AVAILABILITY_ALERT_KEY = "availability";
+    private static final String STATE_NORMAL = "NORMAL";
+    private static final String STATE_PENDING = "PENDING";
+    private static final String STATE_ALERTING = "ALERTING";
+    private static final String STATE_RECOVERED = "RECOVERED";
+    private static final int DEFAULT_DOWN_CONFIRM_THRESHOLD = 3;
+    private static final int DEFAULT_RECOVER_CONFIRM_THRESHOLD = 2;
     private static final Pattern CPU_PATTERN = Pattern.compile("CPU\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
     private static final Pattern MEMORY_PATTERN = Pattern.compile("Memory\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
     private static final Pattern DISK_PATTERN = Pattern.compile("Disk\\s+([0-9.]+)%", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CPU_THRESHOLD_PATTERN = Pattern.compile("CPU\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MEMORY_THRESHOLD_PATTERN = Pattern.compile("Memory\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DISK_THRESHOLD_PATTERN = Pattern.compile("Disk\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
 
     private final AlertMapper alertMapper;
     private final RocksDbHistoryRepository historyRepository;
@@ -40,51 +52,255 @@ public class AlertService {
         this.deliveryService = deliveryService;
     }
 
+    public void publishCheckEvent(MonitorService service, MonitorResult result) {
+        CheckEvent event = checkEvent(result);
+        alertMapper.insertCheckEvent(event);
+        consumeCheckEvent(service, event);
+    }
+
     public void evaluate(MonitorService service, MonitorResult result, String previousStatus) {
-        if (isHostResourceThresholdAlert(service, result)) {
-            if (!Boolean.FALSE.equals(service.alertGroupEnabled)) {
-                dispatch(service, result, hostResourceThresholdPolicy());
-            }
-            return;
-        }
-        if (service.alertGroupId == null) {
-            if ("DOWN".equals(result.status) && "UP".equals(previousStatus)) {
-                record(service, "Service changed from UP to DOWN: " + safe(result.message), "record", "success");
-            }
-            return;
-        }
-        if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
-            return;
-        }
-        List<AlertPolicy> policies = alertMapper.listPoliciesByGroup(service.alertGroupId);
-        for (AlertPolicy policy : policies) {
-            if (!Boolean.TRUE.equals(policy.enabled) || !triggered(service, result, previousStatus, policy)) {
-                continue;
-            }
-            dispatch(service, result, policy);
-        }
+        publishCheckEvent(service, result);
     }
 
     public AlertRecord testAlert(MonitorService service) {
         List<AlertRecord> records = dispatch(
             service,
             "[Test Alert] Service " + service.serviceName + " alert delivery test.",
+            "test",
             "test"
         );
         return records.isEmpty()
-            ? record(service, "No alert record generated.", "test", "failed")
+            ? record(service, "No alert record generated.", "test", "failed", "test")
             : records.get(0);
     }
 
-    private List<AlertRecord> dispatch(MonitorService service, MonitorResult result, AlertPolicy policy) {
+    private CheckEvent checkEvent(MonitorResult result) {
+        CheckEvent event = new CheckEvent();
+        event.serviceId = result.serviceId;
+        event.status = result.status;
+        event.responseTimeMs = result.responseTimeMs;
+        event.message = result.message;
+        event.alertType = result.alertType;
+        event.checkedAt = result.checkedAt;
+        return event;
+    }
+
+    private MonitorResult monitorResult(CheckEvent event) {
+        MonitorResult result = new MonitorResult();
+        result.serviceId = event.serviceId;
+        result.status = event.status;
+        result.responseTimeMs = event.responseTimeMs;
+        result.message = event.message;
+        result.alertType = event.alertType;
+        result.checkedAt = event.checkedAt;
+        return result;
+    }
+
+    private AlertState state(Long serviceId, String alertKey) {
+        AlertState existing = alertMapper.findAlertState(serviceId, alertKey);
+        if (existing != null) {
+            return existing;
+        }
+        AlertState state = new AlertState();
+        state.serviceId = serviceId;
+        state.alertKey = alertKey;
+        state.state = STATE_NORMAL;
+        state.failCount = 0;
+        state.recoverCount = 0;
+        return state;
+    }
+
+    private void applyState(
+        AlertState state,
+        String status,
+        int failCount,
+        int recoverCount,
+        AlertPolicy activePolicy,
+        MonitorResult result,
+        CheckEvent event
+    ) {
+        state.state = status;
+        state.failCount = failCount;
+        state.recoverCount = recoverCount;
+        state.activePolicyId = activePolicy == null ? null : activePolicy.id;
+        state.activeTriggerType = activePolicy == null ? null : activePolicy.triggerType;
+        state.lastStatus = result.status;
+        state.lastMessage = result.message;
+        state.lastEventAt = event.checkedAt;
+        if (STATE_ALERTING.equals(status) && activePolicy != null) {
+            state.lastAlertAt = event.checkedAt;
+        }
+        alertMapper.upsertAlertState(state);
+    }
+
+    private AlertPolicy firstEnabledPolicy(List<AlertPolicy> policies, String triggerType) {
+        for (AlertPolicy policy : policies) {
+            if (Boolean.TRUE.equals(policy.enabled) && triggerType.equals(policy.triggerType)) {
+                return policy;
+            }
+        }
+        return null;
+    }
+
+    private AlertPolicy defaultDownPolicy() {
+        AlertPolicy policy = new AlertPolicy();
+        policy.policyName = "DOWN consecutive " + DEFAULT_DOWN_CONFIRM_THRESHOLD + " times";
+        policy.triggerType = "consecutive_down";
+        policy.triggerValue = String.valueOf(DEFAULT_DOWN_CONFIRM_THRESHOLD);
+        policy.enabled = true;
+        return policy;
+    }
+
+    private void consumeCheckEvent(MonitorService service, CheckEvent event) {
+        MonitorResult result = monitorResult(event);
+        if (isHostResourceThresholdAlert(service, result)) {
+            confirmHostResource(service, result, event, new ArrayList<AlertPolicy>());
+            alertMapper.markCheckEventConsumed(event.id);
+            return;
+        }
+        List<AlertPolicy> policies = service.alertGroupId == null || Boolean.FALSE.equals(service.alertGroupEnabled)
+            ? new ArrayList<AlertPolicy>()
+            : alertMapper.listPoliciesByGroup(service.alertGroupId);
+
+        confirmAvailability(service, result, event, policies);
+        confirmLatency(service, result, event, policies);
+        confirmHostResource(service, result, event, policies);
+        alertMapper.markCheckEventConsumed(event.id);
+    }
+
+    private void confirmAvailability(
+        MonitorService service,
+        MonitorResult result,
+        CheckEvent event,
+        List<AlertPolicy> policies
+    ) {
+        AlertPolicy downPolicy = firstEnabledPolicy(policies, "consecutive_down");
+        AlertPolicy recoverPolicy = firstEnabledPolicy(policies, "recovered");
+        boolean canNotify = service.alertGroupId != null && !Boolean.FALSE.equals(service.alertGroupEnabled) && downPolicy != null;
+        if (downPolicy == null) {
+            downPolicy = defaultDownPolicy();
+        }
+
+        AlertState state = state(service.id, AVAILABILITY_ALERT_KEY);
+        if ("DOWN".equals(result.status)) {
+            int failCount = intValue(state.failCount, 0) + 1;
+            int threshold = intValue(downPolicy.triggerValue, DEFAULT_DOWN_CONFIRM_THRESHOLD);
+            if (failCount >= threshold) {
+                boolean enteringAlert = !STATE_ALERTING.equals(state.state);
+                applyState(state, STATE_ALERTING, failCount, 0, downPolicy, result, event);
+                if (enteringAlert) {
+                    if (canNotify) {
+                        dispatch(service, result, downPolicy, AVAILABILITY_ALERT_KEY);
+                    } else if (service.alertGroupId == null) {
+                        record(
+                            service,
+                            "Service confirmed DOWN after " + threshold + " checks: " + safe(result.message),
+                            "record",
+                            "success",
+                            AVAILABILITY_ALERT_KEY
+                        );
+                    }
+                }
+                return;
+            }
+            applyState(state, STATE_PENDING, failCount, 0, downPolicy, result, event);
+            return;
+        }
+
+        if ("UP".equals(result.status)) {
+            if (STATE_ALERTING.equals(state.state)) {
+                int recoverCount = intValue(state.recoverCount, 0) + 1;
+                if (recoverCount >= DEFAULT_RECOVER_CONFIRM_THRESHOLD) {
+                    if (canNotify && recoverPolicy != null) {
+                        dispatch(service, result, recoverPolicy, AVAILABILITY_ALERT_KEY);
+                    }
+                    applyState(state, STATE_RECOVERED, 0, recoverCount, null, result, event);
+                    return;
+                }
+                applyState(state, STATE_ALERTING, 0, recoverCount, downPolicy, result, event);
+                return;
+            }
+            applyState(state, STATE_RECOVERED.equals(state.state) ? STATE_NORMAL : STATE_NORMAL, 0, 0, null, result, event);
+        }
+    }
+
+    private void confirmLatency(
+        MonitorService service,
+        MonitorResult result,
+        CheckEvent event,
+        List<AlertPolicy> policies
+    ) {
+        if (service.alertGroupId == null || Boolean.FALSE.equals(service.alertGroupEnabled)) {
+            return;
+        }
+        for (AlertPolicy policy : policies) {
+            if (!Boolean.TRUE.equals(policy.enabled) || !"latency_gt_ms".equals(policy.triggerType)) {
+                continue;
+            }
+            String alertKey = "latency_gt_ms:" + policy.id;
+            AlertState state = state(service.id, alertKey);
+            boolean slow = "UP".equals(result.status)
+                && result.responseTimeMs != null
+                && result.responseTimeMs > intValue(policy.triggerValue, 3000);
+            if (slow) {
+                int failCount = intValue(state.failCount, 0) + 1;
+                boolean enteringAlert = !STATE_ALERTING.equals(state.state);
+                applyState(state, STATE_ALERTING, failCount, 0, policy, result, event);
+                if (enteringAlert) {
+                    dispatch(service, result, policy, alertKey);
+                }
+            } else if (STATE_ALERTING.equals(state.state) || STATE_PENDING.equals(state.state)) {
+                applyState(state, STATE_NORMAL, 0, 0, null, result, event);
+            }
+        }
+    }
+
+    private void confirmHostResource(
+        MonitorService service,
+        MonitorResult result,
+        CheckEvent event,
+        List<AlertPolicy> policies
+    ) {
+        if (!"host".equals(normalize(service.serviceType))) {
+            return;
+        }
+        AlertState state = state(service.id, HOST_RESOURCE_THRESHOLD_ALERT);
+        boolean thresholdExceeded = isHostResourceThresholdAlert(service, result);
+        AlertPolicy thresholdPolicy = hostResourceThresholdPolicy();
+        if (thresholdExceeded) {
+            int failCount = intValue(state.failCount, 0) + 1;
+            boolean enteringAlert = !STATE_ALERTING.equals(state.state);
+            applyState(state, STATE_ALERTING, failCount, 0, thresholdPolicy, result, event);
+            if (enteringAlert && service.alertGroupId != null && !Boolean.FALSE.equals(service.alertGroupEnabled)) {
+                dispatch(service, result, thresholdPolicy, HOST_RESOURCE_THRESHOLD_ALERT);
+            }
+            return;
+        }
+        if (STATE_ALERTING.equals(state.state)) {
+            int recoverCount = intValue(state.recoverCount, 0) + 1;
+            if (recoverCount >= DEFAULT_RECOVER_CONFIRM_THRESHOLD) {
+                AlertPolicy recoverPolicy = firstEnabledPolicy(policies, "recovered");
+                if (service.alertGroupId != null && !Boolean.FALSE.equals(service.alertGroupEnabled) && recoverPolicy != null) {
+                    dispatch(service, result, recoverPolicy, HOST_RESOURCE_THRESHOLD_ALERT);
+                }
+                applyState(state, STATE_RECOVERED, 0, recoverCount, null, result, event);
+                return;
+            }
+            applyState(state, STATE_ALERTING, 0, recoverCount, thresholdPolicy, result, event);
+        } else if (STATE_RECOVERED.equals(state.state)) {
+            applyState(state, STATE_NORMAL, 0, 0, null, result, event);
+        }
+    }
+
+    private List<AlertRecord> dispatch(MonitorService service, MonitorResult result, AlertPolicy policy, String alertKey) {
         String fallbackContent = defaultContent(service, result, policy);
         List<AlertRecord> records = new ArrayList<AlertRecord>();
         if (service.alertGroupId == null) {
-            records.add(record(service, fallbackContent + " Delivery skipped: no alert group bound.", policy.triggerType, "failed"));
+            records.add(record(service, fallbackContent + " Delivery skipped: no alert group bound.", policy.triggerType, "failed", alertKey));
             return records;
         }
         if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
-            records.add(record(service, fallbackContent + " Delivery skipped: alert group is disabled.", policy.triggerType, "failed"));
+            records.add(record(service, fallbackContent + " Delivery skipped: alert group is disabled.", policy.triggerType, "failed", alertKey));
             return records;
         }
 
@@ -104,11 +320,12 @@ public class AlertService {
                 service,
                 recordContent,
                 StringUtils.hasText(channel.channelType) ? channel.channelType : policy.triggerType,
-                delivery.success ? "success" : "failed"
+                delivery.success ? "success" : "failed",
+                alertKey
             ));
         }
         if (enabledChannels == 0) {
-            records.add(record(service, fallbackContent + " Delivery skipped: no enabled alert channels.", policy.triggerType, "failed"));
+            records.add(record(service, fallbackContent + " Delivery skipped: no enabled alert channels.", policy.triggerType, "failed", alertKey));
         }
         return records;
     }
@@ -161,14 +378,14 @@ public class AlertService {
         return policy;
     }
 
-    private List<AlertRecord> dispatch(MonitorService service, String content, String fallbackType) {
+    private List<AlertRecord> dispatch(MonitorService service, String content, String fallbackType, String alertKey) {
         List<AlertRecord> records = new ArrayList<AlertRecord>();
         if (service.alertGroupId == null) {
-            records.add(record(service, content + " Delivery skipped: no alert group bound.", fallbackType, "failed"));
+            records.add(record(service, content + " Delivery skipped: no alert group bound.", fallbackType, "failed", alertKey));
             return records;
         }
         if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
-            records.add(record(service, content + " Delivery skipped: alert group is disabled.", fallbackType, "failed"));
+            records.add(record(service, content + " Delivery skipped: alert group is disabled.", fallbackType, "failed", alertKey));
             return records;
         }
 
@@ -187,16 +404,17 @@ public class AlertService {
                 service,
                 recordContent,
                 StringUtils.hasText(channel.channelType) ? channel.channelType : fallbackType,
-                delivery.success ? "success" : "failed"
+                delivery.success ? "success" : "failed",
+                alertKey
             ));
         }
         if (enabledChannels == 0) {
-            records.add(record(service, content + " Delivery skipped: no enabled alert channels.", fallbackType, "failed"));
+            records.add(record(service, content + " Delivery skipped: no enabled alert channels.", fallbackType, "failed", alertKey));
         }
         return records;
     }
 
-    private AlertRecord record(MonitorService service, String content, String type, String status) {
+    private AlertRecord record(MonitorService service, String content, String type, String status, String alertKey) {
         AlertRecord record = new AlertRecord();
         record.serviceId = service.id;
         record.alertType = type;
@@ -205,7 +423,9 @@ public class AlertService {
         record.serviceName = service.serviceName;
         record.serviceType = service.serviceType;
         record.clusterName = service.clusterName;
-        return historyRepository.saveAlertRecord(record);
+        AlertRecord saved = historyRepository.saveAlertRecord(record);
+        alertMapper.insertNotifyRecord(service.id, alertKey, saved.id, type, status, content);
+        return saved;
     }
 
     private String content(
@@ -252,6 +472,8 @@ public class AlertService {
         variables.put("duration", "-");
         variables.put("responseTime", result.responseTimeMs == null ? "-" : result.responseTimeMs);
         variables.put("errorMsg", safe(result.message));
+        variables.put("alertReason", alertReason(service, result));
+        variables.put("recoverReason", recoverReason(service, result, policy));
         variables.put("cpu", hostMetrics.get("cpu"));
         variables.put("memory", hostMetrics.get("memory"));
         variables.put("disk", hostMetrics.get("disk"));
@@ -269,6 +491,76 @@ public class AlertService {
     private String firstMatch(Pattern pattern, String value) {
         Matcher matcher = pattern.matcher(value == null ? "" : value);
         return matcher.find() ? matcher.group(1) : "-";
+    }
+
+    private String alertReason(MonitorService service, MonitorResult result) {
+        if ("host".equals(normalize(service.serviceType))) {
+            return hostAlertReason(result.message);
+        }
+        return safe(result.message);
+    }
+
+    private String recoverReason(MonitorService service, MonitorResult result, AlertPolicy policy) {
+        if ("host".equals(normalize(service.serviceType))) {
+            return hostRecoverReason(result.message);
+        }
+        if ("recovered".equals(policy.triggerType)) {
+            return "本次检测状态恢复为 UP";
+        }
+        return "-";
+    }
+
+    private String hostAlertReason(String message) {
+        List<String> reasons = new ArrayList<String>();
+        addExceededReason(reasons, hostThreshold(CPU_THRESHOLD_PATTERN, message, "CPU使用率"));
+        addExceededReason(reasons, hostThreshold(MEMORY_THRESHOLD_PATTERN, message, "内存使用率"));
+        addExceededReason(reasons, hostThreshold(DISK_THRESHOLD_PATTERN, message, "磁盘使用率"));
+        return reasons.isEmpty() ? safe(message) : String.join("；", reasons);
+    }
+
+    private String hostRecoverReason(String message) {
+        List<String> reasons = new ArrayList<String>();
+        addRecoverReason(reasons, hostThreshold(CPU_THRESHOLD_PATTERN, message, "CPU使用率"));
+        addRecoverReason(reasons, hostThreshold(MEMORY_THRESHOLD_PATTERN, message, "内存使用率"));
+        addRecoverReason(reasons, hostThreshold(DISK_THRESHOLD_PATTERN, message, "磁盘使用率"));
+        return reasons.isEmpty() ? "-" : "所有已启用指标低于告警阈值（" + String.join("；", reasons) + "）";
+    }
+
+    private HostThreshold hostThreshold(Pattern pattern, String message, String label) {
+        Matcher matcher = pattern.matcher(message == null ? "" : message);
+        if (!matcher.find()) {
+            return null;
+        }
+        Double value = doubleValue(matcher.group(1));
+        String thresholdText = matcher.group(2);
+        if (value == null || "disabled".equalsIgnoreCase(thresholdText)) {
+            return null;
+        }
+        Double threshold = doubleValue(thresholdText.replace("%", ""));
+        return threshold == null ? null : new HostThreshold(label, matcher.group(1), value, thresholdText, threshold);
+    }
+
+    private void addExceededReason(List<String> reasons, HostThreshold metric) {
+        if (metric != null && metric.value >= metric.threshold) {
+            reasons.add(metric.label + " " + metric.valueText + "% >= 告警阈值 " + metric.thresholdText);
+        }
+    }
+
+    private void addRecoverReason(List<String> reasons, HostThreshold metric) {
+        if (metric != null) {
+            reasons.add(metric.label + " < " + metric.thresholdText);
+        }
+    }
+
+    private Double doubleValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Double.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String instanceName(MonitorService service) {
@@ -325,7 +617,27 @@ public class AlertService {
         }
     }
 
+    private int intValue(Integer value, int defaultValue) {
+        return value == null ? defaultValue : Math.max(0, value);
+    }
+
     private String safe(String value) {
         return StringUtils.hasText(value) ? value : "-";
+    }
+
+    private static class HostThreshold {
+        final String label;
+        final String valueText;
+        final double value;
+        final String thresholdText;
+        final double threshold;
+
+        HostThreshold(String label, String valueText, double value, String thresholdText, double threshold) {
+            this.label = label;
+            this.valueText = valueText;
+            this.value = value;
+            this.thresholdText = thresholdText;
+            this.threshold = threshold;
+        }
     }
 }

@@ -108,7 +108,6 @@ public class LiveMonitorService {
 
     public MonitorResult checkAndStore(Long id) {
         MonitorService service = requireService(id);
-        String previousStatus = serviceMapper.latestStatus(id);
         CheckResult check = runnerService.run(service);
         return transactionTemplate.execute(status -> {
             MonitorResult result = new MonitorResult();
@@ -125,7 +124,7 @@ public class LiveMonitorService {
                 stored.message,
                 stored.checkedAt
             );
-            alertService.evaluate(service, stored, previousStatus);
+            alertService.publishCheckEvent(service, stored);
             return stored;
         });
     }

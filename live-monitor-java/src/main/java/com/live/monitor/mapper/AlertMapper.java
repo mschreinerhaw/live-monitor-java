@@ -3,6 +3,8 @@ package com.live.monitor.mapper;
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertGroup;
 import com.live.monitor.entity.AlertPolicy;
+import com.live.monitor.entity.AlertState;
+import com.live.monitor.entity.CheckEvent;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -80,4 +82,37 @@ public interface AlertMapper {
     @Select("SELECT COUNT(*) FROM service_alert_group WHERE group_id = #{groupId}")
     int countServicesByGroup(@Param("groupId") Long groupId);
 
+    @Insert("INSERT INTO monitor_check_event (" +
+        "service_id, status, response_time_ms, message, alert_type, checked_at, consumed" +
+        ") VALUES (" +
+        "#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{alertType}, #{checkedAt}, 0)")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertCheckEvent(CheckEvent event);
+
+    @Update("UPDATE monitor_check_event SET consumed = 1, consumed_at = CURRENT_TIMESTAMP WHERE id = #{id}")
+    int markCheckEventConsumed(@Param("id") Long id);
+
+    @Select("SELECT * FROM alert_state WHERE service_id = #{serviceId} AND alert_key = #{alertKey}")
+    AlertState findAlertState(@Param("serviceId") Long serviceId, @Param("alertKey") String alertKey);
+
+    @Insert("MERGE INTO alert_state (" +
+        "service_id, alert_key, state, fail_count, recover_count, active_policy_id, active_trigger_type, " +
+        "last_status, last_message, last_event_at, last_alert_at, updated_at" +
+        ") KEY(service_id, alert_key) VALUES (" +
+        "#{serviceId}, #{alertKey}, #{state}, #{failCount}, #{recoverCount}, #{activePolicyId}, #{activeTriggerType}, " +
+        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP)")
+    int upsertAlertState(AlertState state);
+
+    @Insert("INSERT INTO alert_notify_record (" +
+        "service_id, alert_key, alert_record_id, alert_type, notify_status, notify_message" +
+        ") VALUES (" +
+        "#{serviceId}, #{alertKey}, #{alertRecordId}, #{alertType}, #{notifyStatus}, #{notifyMessage})")
+    int insertNotifyRecord(
+        @Param("serviceId") Long serviceId,
+        @Param("alertKey") String alertKey,
+        @Param("alertRecordId") Long alertRecordId,
+        @Param("alertType") String alertType,
+        @Param("notifyStatus") String notifyStatus,
+        @Param("notifyMessage") String notifyMessage
+    );
 }
