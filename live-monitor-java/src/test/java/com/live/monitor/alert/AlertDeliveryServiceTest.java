@@ -169,6 +169,24 @@ class AlertDeliveryServiceTest {
     }
 
     @Test
+    void rendersHostResourceTemplateReasons(@TempDir Path templateDir) {
+        Map<String, Object> variables = new LinkedHashMap<String, Object>();
+        variables.put("host", "10.0.0.8");
+        variables.put("cpu", "45.0");
+        variables.put("memory", "90.0");
+        variables.put("disk", "20.0");
+        variables.put("alertReason", "内存使用率 90.0% >= 告警阈值 80.0%");
+        variables.put("recoverReason", "所有已启用指标低于告警阈值（CPU使用率 < 85.0%；内存使用率 < 80.0%）");
+        variables.put("alertTime", "2026-06-02 18:10:00");
+
+        String rendered = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"))
+            .renderTemplate("alert_host_resource.j2", variables, "fallback");
+
+        assertTrue(rendered.contains("告警发送原因：内存使用率 90.0% >= 告警阈值 80.0%"));
+        assertTrue(rendered.contains("恢复原因：所有已启用指标低于告警阈值"));
+    }
+
+    @Test
     void rendersExternalTemplateBeforeBundledResource(@TempDir Path templateDir) throws Exception {
         Files.write(
             templateDir.resolve("sms_service_alert.j2"),
