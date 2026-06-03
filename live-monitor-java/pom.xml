@@ -27,6 +27,7 @@
         <mysql.version>8.0.33</mysql.version>
         <postgresql.version>42.7.3</postgresql.version>
         <oracle.version>19.22.0.0</oracle.version>
+        <antlr4.version>4.9.3</antlr4.version>
     </properties>
 
     <dependencies>
@@ -88,6 +89,11 @@
             <version>2.28.2</version>
         </dependency>
         <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>${antlr4.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -114,6 +120,13 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.live.monitor.LiveMonitorApplication</mainClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerId>javac</compilerId>
+                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
                 </configuration>
             </plugin>
             <plugin>
