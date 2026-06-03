@@ -129,6 +129,78 @@ class LiveMonitorServiceTest {
         assertEquals(java.util.Arrays.asList("code", "status"), created.databaseAssertionFields);
     }
 
+    @Test
+    void createsApiServiceAsSeparateHttpRequestType() throws Exception {
+        ObjectMapper requestMapper = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ServicePayload payload = requestMapper.readValue(
+            "{"
+                + "\"service_name\":\"Order API Health\","
+                + "\"service_type\":\"api\","
+                + "\"url\":\"https://api.example.com/v1/health\","
+                + "\"http_method\":\"POST\","
+                + "\"expected_status_code\":200,"
+                + "\"api_headers\":[{\"name\":\"X-App-Code\",\"value\":\"trade\"}],"
+                + "\"api_content_type\":\"application/json\","
+                + "\"api_request_body\":\"{\\\"custNo\\\":\\\"10001\\\"}\","
+                + "\"api_auth_type\":\"custom_header\","
+                + "\"api_auth_app_id\":\"order-monitor\","
+                + "\"api_response_time_ms\":3000,"
+                + "\"api_json_assertions\":\"$.code == 0\","
+                + "\"api_text_assertion_mode\":\"contains\","
+                + "\"api_text_assertion_value\":\"success\","
+                + "\"api_assertion_expression\":\"json(\\\"$.code\\\") == 0 && responseMs() < 3000\","
+                + "\"check_interval\":60,"
+                + "\"check_timeout_seconds\":3,"
+                + "\"enabled\":true"
+                + "}",
+            ServicePayload.class
+        );
+
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        AtomicReference<MonitorService> storedRow = new AtomicReference<MonitorService>();
+        when(serviceMapper.insert(any(MonitorService.class))).thenAnswer(invocation -> {
+            MonitorService inserted = invocation.getArgument(0);
+            inserted.id = 44L;
+            storedRow.set(databaseRow(inserted));
+            return 1;
+        });
+        when(serviceMapper.findById(44L)).thenAnswer(invocation -> storedRow.get());
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            mock(MonitorRunnerService.class),
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        MonitorService created = service.create(payload);
+        Map<String, Object> config = objectMapper.readValue(storedRow.get().configJson, MAP_TYPE);
+
+        assertEquals("api", storedRow.get().serviceType);
+        assertEquals("api", storedRow.get().serviceCategory);
+        assertEquals("api", created.serviceType);
+        assertEquals("api", created.serviceCategory);
+        assertEquals("https://api.example.com/v1/health", config.get("url"));
+        assertEquals("POST", config.get("http_method"));
+        assertEquals(200, ((Number) config.get("expected_status_code")).intValue());
+        assertEquals("application/json", config.get("api_content_type"));
+        assertEquals("{\"custNo\":\"10001\"}", config.get("api_request_body"));
+        assertEquals("custom_header", config.get("api_auth_type"));
+        assertEquals("order-monitor", config.get("api_auth_app_id"));
+        assertEquals(3000, ((Number) config.get("api_response_time_ms")).intValue());
+        assertEquals("$.code == 0", config.get("api_json_assertions"));
+        assertEquals("contains", config.get("api_text_assertion_mode"));
+        assertEquals("success", config.get("api_text_assertion_value"));
+        assertEquals("json(\"$.code\") == 0 && responseMs() < 3000", config.get("api_assertion_expression"));
+        assertEquals("application/json", created.apiContentType);
+        assertEquals(1, created.apiHeaders.size());
+        assertEquals("X-App-Code", created.apiHeaders.get(0).get("name"));
+    }
+
     private MonitorService databaseRow(MonitorService source) {
         MonitorService row = new MonitorService();
         row.id = source.id;
