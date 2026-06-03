@@ -52,6 +52,8 @@ async function initUserChrome() {
     }
     const adminMenuLink = document.getElementById("adminMenuLink");
     if (adminMenuLink) adminMenuLink.hidden = !user?.admin;
+    const dashboardEmbedBtn = document.getElementById("dashboardEmbedBtn");
+    if (dashboardEmbedBtn) dashboardEmbedBtn.hidden = !user?.admin || !!user?.embed;
   } catch (error) {
     // 401 handling lives in api.js.
   }
@@ -168,6 +170,7 @@ async function logout() {
   try {
     await LiveMonitorApi.logout();
   } finally {
+    window.sessionStorage.removeItem("liveMonitorEmbedToken");
     window.location.href = "/login.html";
   }
 }

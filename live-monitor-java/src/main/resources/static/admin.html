@@ -39,7 +39,18 @@
     </section>
 
     <section id="adminContent" hidden>
-      <section class="panel admin-user-panel" id="userListPanel">
+      <div class="admin-tabs" role="tablist" aria-label="用户维护">
+        <button id="usersTab" class="admin-tab active" type="button" role="tab" aria-selected="true" aria-controls="userListPanel" data-admin-tab="users">
+          <i data-lucide="users"></i>
+          <span>用户维护</span>
+        </button>
+        <button id="auditLogsTab" class="admin-tab" type="button" role="tab" aria-selected="false" aria-controls="auditLogPanel" data-admin-tab="audit">
+          <i data-lucide="clipboard-list"></i>
+          <span>登录/登出审计日志</span>
+        </button>
+      </div>
+
+      <section class="panel admin-user-panel admin-tab-panel" id="userListPanel" role="tabpanel" aria-labelledby="usersTab">
         <div class="panel-head">
           <div>
             <h2>用户列表</h2>
@@ -69,6 +80,35 @@
             </thead>
             <tbody id="userTable">
               <tr><td colspan="6" class="empty">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel admin-audit-panel admin-tab-panel" id="auditLogPanel" role="tabpanel" aria-labelledby="auditLogsTab" hidden>
+        <div class="panel-head">
+          <div>
+            <h2>登录/登出审计日志</h2>
+            <p class="panel-subtitle">记录当前系统用户的登录、登出 IP 和发生时间。</p>
+          </div>
+          <div class="admin-panel-actions">
+            <button id="reloadAuditLogsBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table admin-audit-table">
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>IP</th>
+                <th>动作</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogTable">
+              <tr><td colspan="4" class="empty">加载中...</td></tr>
             </tbody>
           </table>
         </div>

@@ -1,6 +1,12 @@
 async function initDashboard() {
   document.getElementById("activityRefreshBtn")?.addEventListener("click", loadDashboard);
   document.getElementById("serviceExportBtn")?.addEventListener("click", exportServiceListExcel);
+  document.getElementById("dashboardEmbedBtn")?.addEventListener("click", showEmbedUrl);
+  document.getElementById("embedModalCloseBtn")?.addEventListener("click", closeEmbedModal);
+  document.getElementById("embedModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "embedModal") closeEmbedModal();
+  });
+  document.getElementById("embedCopyBtn")?.addEventListener("click", copyEmbedUrl);
   document.getElementById("activityClearReloadBtn")?.addEventListener("click", clearDashboardActivityMessages);
   document.querySelectorAll(".status-filter-grid .metric").forEach((card) => {
     const activate = () => setDashboardFilter(card.dataset.filter || "all");
@@ -122,6 +128,76 @@ function formatMetric(value) {
 function setText(id, value) {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
+}
+
+async function showEmbedUrl() {
+  const button = document.getElementById("dashboardEmbedBtn");
+  button?.setAttribute("disabled", "disabled");
+  try {
+    const result = await LiveMonitorApi.createEmbedToken({
+      view_id: document.body?.dataset?.page || "dashboard",
+      target_path: currentAuthUrlTargetPath(),
+    });
+    const input = document.getElementById("embedUrlInput");
+    if (input) {
+      input.value = result.url || "";
+      input.focus();
+      input.select();
+    }
+    const expire = document.getElementById("embedModalExpire");
+    if (expire) {
+      expire.textContent = result.long_term
+        ? "\u957f\u671f\u6709\u6548"
+        : result.expires_at
+        ? `\u6709\u6548\u81f3 ${formatTime(result.expires_at)}`
+        : "\u6709\u6548\u671f 24 \u5c0f\u65f6";
+    }
+    const modal = document.getElementById("embedModal");
+    if (modal) modal.hidden = false;
+    try {
+      await copyText(result.url || "");
+      showToast("\u5d4c\u5165 URL \u5df2\u751f\u6210\u5e76\u590d\u5236");
+    } catch (copyError) {
+      showToast("\u5d4c\u5165 URL \u5df2\u751f\u6210");
+    }
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    button?.removeAttribute("disabled");
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function currentAuthUrlTargetPath() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("token");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function closeEmbedModal() {
+  const modal = document.getElementById("embedModal");
+  if (modal) modal.hidden = true;
+}
+
+async function copyEmbedUrl() {
+  const input = document.getElementById("embedUrlInput");
+  if (!input?.value) return;
+  input.select();
+  try {
+    await copyText(input.value);
+    showToast("\u5d4c\u5165 URL \u5df2\u590d\u5236");
+  } catch (error) {
+    showToast("\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236");
+  }
+}
+
+async function copyText(value) {
+  if (!value) return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  document.execCommand("copy");
 }
 
 function clearDashboardActivityMessages() {

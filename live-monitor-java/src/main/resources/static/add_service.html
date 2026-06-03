@@ -38,6 +38,7 @@
           <span>服务类型</span>
           <select name="service_type" id="serviceType" class="service-type-native-select" required>
             <option value="web">Web 应用 (HTTP/HTTPS)</option>
+            <option value="api">API 接口请求</option>
             <option value="process">进程检测</option>
             <option value="port">端口检测 (TCP/UDP)</option>
             <option value="redis">Redis</option>
@@ -82,21 +83,21 @@
           <input name="check_timeout_seconds" type="number" min="0.2" max="60" step="0.1" value="3" required>
         </label>
 
-        <label class="web-only">
-          <span>应用协议</span>
+        <label class="web-only web-monitor-only">
+          <span data-web-label="应用协议" data-api-label="接口协议">应用协议</span>
           <select name="web_scheme">
             <option value="https">HTTPS 应用</option>
             <option value="http">HTTP 应用</option>
           </select>
         </label>
 
-        <label class="web-only">
-          <span>URL</span>
-          <input name="url" type="text" inputmode="url" placeholder="example.com/health 或 https://example.com/health">
+        <label class="web-only web-monitor-only">
+          <span data-web-label="URL" data-api-label="接口地址">URL</span>
+          <input name="url" type="text" inputmode="url" placeholder="example.com/health 或 https://example.com/health" data-web-placeholder="example.com/health 或 https://example.com/health" data-api-placeholder="api.example.com/v1/health 或 https://api.example.com/v1/health">
         </label>
 
-        <label class="web-only">
-          <span>HTTP 方法</span>
+        <label class="web-only web-monitor-only">
+          <span data-web-label="HTTP 方法" data-api-label="请求方法">HTTP 方法</span>
           <select name="http_method">
             <option value="GET">GET</option>
             <option value="HEAD">HEAD</option>
@@ -104,42 +105,174 @@
           </select>
         </label>
 
-        <label class="web-only">
-          <span>状态码校验</span>
+        <label class="web-only web-monitor-only">
+          <span data-web-label="状态码校验" data-api-label="接口状态码校验">状态码校验</span>
           <input name="expected_status_code" type="number" min="100" max="599" placeholder="默认 2xx/3xx">
         </label>
 
-        <label class="web-only span-2">
-          <span>关键字检测</span>
-          <input name="response_keyword" placeholder="例如：login success">
+        <label class="web-only web-monitor-only span-2">
+          <span data-web-label="关键字检测" data-api-label="响应关键字检测">关键字检测</span>
+          <input name="response_keyword" placeholder="例如：login success" data-web-placeholder="例如：login success" data-api-placeholder="例如：success、token、业务字段值">
         </label>
 
-        <label class="result-rule-only span-2">
-          <span>响应断言规则</span>
-          <textarea name="api_assertion_expression" rows="3" placeholder='contains("success") && json("$.code") == 0'></textarea>
-          <small class="form-hint">字段推荐使用小写 JSONPath，例如 json("$.rows[0].code") == 0。</small>
-          <small class="form-hint">用于判断接口或查询返回是否符合预期，规则不通过则触发告警。</small>
-        </label>
-
-        <label class="result-rule-only">
-          <span>样例状态码</span>
-          <input name="rule_test_status_code" type="number" min="100" max="599" value="200">
-        </label>
-
-        <label class="result-rule-only">
-          <span>样例耗时（ms）</span>
-          <input name="rule_test_response_time_ms" type="number" min="0" value="68">
-        </label>
-
-        <label class="result-rule-only span-2">
-          <span>样例响应体</span>
-          <textarea name="rule_test_body" rows="4" placeholder='{"code":0,"message":"success"}'></textarea>
-        </label>
-
-        <label class="switch-row web-only span-2">
+        <label class="switch-row web-only web-monitor-only span-2">
           <input name="ignore_ssl_verification" type="checkbox">
           <span>忽略 HTTPS 证书验证（自签名）</span>
         </label>
+
+        <section class="api-form-section api-only span-2">
+          <div class="host-form-section-head">
+            <h3>请求配置</h3>
+          </div>
+          <div class="api-form-grid">
+            <label class="span-2">
+              <span>请求URL *</span>
+              <input name="api_url" type="text" inputmode="url" placeholder="https://api.xxx.com/order/query">
+            </label>
+            <label>
+              <span>请求方式 *</span>
+              <select name="api_http_method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="PATCH">PATCH</option>
+              </select>
+            </label>
+            <label>
+              <span>Content-Type</span>
+              <select name="api_content_type">
+                <option value="application/json">application/json</option>
+                <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                <option value="multipart/form-data">multipart/form-data</option>
+                <option value="text/xml">text/xml</option>
+              </select>
+            </label>
+            <label class="switch-row span-2">
+              <input name="api_ignore_ssl_verification" type="checkbox">
+              <span>忽略 HTTPS 证书验证（自签名）</span>
+            </label>
+            <div class="api-header-editor span-2">
+              <div class="api-inline-head">
+                <span>请求头 Header</span>
+                <button id="addApiHeaderBtn" class="ghost-button compact-button" type="button">
+                  <i data-lucide="plus"></i>
+                  <span>增加</span>
+                </button>
+              </div>
+              <div id="apiHeaderRows" class="api-header-rows"></div>
+            </div>
+            <label class="api-body-only span-2">
+              <span>请求体 Body</span>
+              <textarea name="api_request_body" rows="7" spellcheck="false" placeholder='{"custNo":"10001","date":"2026-06-03"}'></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="api-form-section api-auth-section api-only span-2">
+          <div class="host-form-section-head">
+            <h3>认证配置</h3>
+          </div>
+          <div class="api-form-grid">
+            <label>
+              <span>认证方式</span>
+              <select name="api_auth_type">
+                <option value="none">无认证</option>
+                <option value="basic">Basic 认证</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="custom_header">自定义 Header 认证</option>
+              </select>
+            </label>
+            <label class="api-auth-basic">
+              <span>用户名</span>
+              <input name="api_basic_username" autocomplete="off">
+            </label>
+            <label class="api-auth-basic">
+              <span>密码</span>
+              <input name="api_basic_password" type="password" autocomplete="new-password">
+            </label>
+            <label class="api-auth-bearer span-2">
+              <span>Token</span>
+              <input name="api_bearer_token" type="password" autocomplete="new-password" placeholder="Bearer Token">
+            </label>
+            <label class="api-auth-custom">
+              <span>AppId</span>
+              <input name="api_auth_app_id" autocomplete="off">
+            </label>
+            <label class="api-auth-custom">
+              <span>AppSecret</span>
+              <input name="api_auth_app_secret" type="password" autocomplete="new-password">
+            </label>
+          </div>
+        </section>
+
+        <section class="api-form-section api-assert-section api-only span-2">
+          <div class="host-form-section-head">
+            <h3>响应断言</h3>
+          </div>
+          <div class="assertion-mode-tabs" role="radiogroup" aria-label="API 响应断言配置方式">
+            <label class="assertion-mode-card">
+              <input type="radio" name="api_assertion_mode" value="visual" checked>
+              <span>可视化配置</span>
+            </label>
+            <label class="assertion-mode-card">
+              <input type="radio" name="api_assertion_mode" value="dsl">
+              <span>高级 DSL</span>
+            </label>
+          </div>
+          <div class="api-form-grid">
+            <label data-api-assertion-visual>
+              <span>状态码</span>
+              <input name="api_expected_status_code" type="number" min="100" max="599" value="200">
+            </label>
+            <label data-api-assertion-visual>
+              <span>响应时间小于（ms）</span>
+              <input name="api_response_time_ms" type="number" min="1" placeholder="3000">
+            </label>
+            <label class="span-2" data-api-assertion-visual>
+              <span>JSON断言</span>
+              <textarea name="api_json_assertions" rows="4" spellcheck="false" placeholder='$.code == 0&#10;$.success == true&#10;$.data.status == "UP"'></textarea>
+            </label>
+            <label data-api-assertion-visual>
+              <span>文本断言</span>
+              <select name="api_text_assertion_mode">
+                <option value="contains">包含</option>
+                <option value="not_contains">不包含</option>
+              </select>
+            </label>
+            <label data-api-assertion-visual>
+              <span>文本内容</span>
+              <input name="api_text_assertion_value" placeholder="success">
+            </label>
+            <label class="span-2 assertion-preview-field" data-api-assertion-visual>
+              <span>DSL 预览</span>
+              <button id="generateApiAssertionDslBtn" class="ghost-button compact-button" type="button">
+                <i data-lucide="code-2"></i>
+                <span>生成</span>
+              </button>
+              <textarea id="apiAssertionDslPreview" rows="3" spellcheck="false" readonly hidden placeholder="点击生成后查看 DSL"></textarea>
+            </label>
+            <label class="span-2" data-api-assertion-dsl hidden>
+              <span>高级 DSL 断言</span>
+              <textarea name="api_advanced_assertion_expression" rows="4" spellcheck="false" placeholder='json("$.code") == 0 && json("$.status") == "OK" && responseMs() < 3000'></textarea>
+              <small class="form-hint">选择高级 DSL 后，上面的可视化断言不会参与保存。</small>
+            </label>
+          </div>
+        </section>
+
+        <section class="api-form-section api-test-section api-only span-2">
+          <div class="api-test-head">
+            <div>
+              <h3>请求测试</h3>
+              <p>执行一次真实请求并展示响应结果</p>
+            </div>
+            <button id="apiTestRequestBtn" class="primary-button" type="button">
+              <i data-lucide="send"></i>
+              <span>测试请求</span>
+            </button>
+          </div>
+          <div id="apiRequestTestResult" class="api-test-result" hidden></div>
+        </section>
 
         <label class="host-port host-field">
           <span>地址</span>
@@ -256,12 +389,20 @@
           <input name="database_password" type="password" placeholder="数据库连接密码">
         </label>
 
-        <label class="database-only">
+        <label class="database-only database-rule-mode-field span-2">
+          <span>规则配置方式</span>
+          <select name="database_rule_mode">
+            <option value="simple" selected>简单规则</option>
+            <option value="advanced">高级响应断言规则</option>
+          </select>
+        </label>
+
+        <label class="database-only database-simple-rule-only">
           <span>期望结果</span>
           <input name="expected_result" placeholder="可选，例如：1">
         </label>
 
-        <label class="database-only">
+        <label class="database-only database-simple-rule-only">
           <span>结果判断方式</span>
           <select name="database_result_operator">
             <option value="fuzzy">模糊匹配</option>
@@ -272,6 +413,64 @@
             <option value="lt">小于</option>
             <option value="lte">小于等于</option>
           </select>
+        </label>
+
+        <section class="api-form-section assertion-config-section result-rule-only span-2">
+          <div class="host-form-section-head">
+            <h3>高级响应断言规则</h3>
+          </div>
+          <div class="assertion-mode-tabs" role="radiogroup" aria-label="响应断言配置方式">
+            <label class="assertion-mode-card">
+              <input type="radio" name="result_assertion_mode" value="visual" checked>
+              <span>可视化配置</span>
+            </label>
+            <label class="assertion-mode-card">
+              <input type="radio" name="result_assertion_mode" value="dsl">
+              <span>高级 DSL</span>
+            </label>
+          </div>
+          <div class="assertion-mode-panel" data-result-assertion-visual>
+            <div class="api-inline-head">
+              <span>断言条件</span>
+              <button id="addResultAssertionRuleBtn" class="ghost-button compact-button" type="button">
+                <i data-lucide="plus"></i>
+                <span>增加</span>
+              </button>
+            </div>
+            <div id="resultAssertionRows" class="assertion-rule-rows"></div>
+            <div class="api-inline-head assertion-preview-head">
+              <span>DSL 预览</span>
+              <button id="generateResultAssertionDslBtn" class="ghost-button compact-button" type="button">
+                <i data-lucide="code-2"></i>
+                <span>生成</span>
+              </button>
+            </div>
+            <label class="assertion-preview-field" hidden>
+              <span>生成的 DSL</span>
+              <textarea id="resultAssertionDslPreview" rows="3" spellcheck="false" readonly placeholder="点击生成后查看 DSL"></textarea>
+            </label>
+          </div>
+          <label class="assertion-mode-panel" data-result-assertion-dsl hidden>
+            <span>高级 DSL 断言</span>
+            <textarea name="result_advanced_assertion_expression" rows="4" spellcheck="false" placeholder='contains("success") && json("$.code") == 0'></textarea>
+            <small class="form-hint">选择高级 DSL 后，可视化配置不会参与保存。</small>
+          </label>
+          <input name="api_assertion_expression" type="hidden">
+        </section>
+
+        <label class="result-rule-only">
+          <span>样例状态码</span>
+          <input name="rule_test_status_code" type="number" min="100" max="599" value="200">
+        </label>
+
+        <label class="result-rule-only">
+          <span>样例耗时（ms）</span>
+          <input name="rule_test_response_time_ms" type="number" min="0" value="68">
+        </label>
+
+        <label class="result-rule-only span-2">
+          <span>样例响应体</span>
+          <textarea name="rule_test_body" rows="4" placeholder='{"code":0,"message":"success"}'></textarea>
         </label>
 
         <label class="database-only span-2">

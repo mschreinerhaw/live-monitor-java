@@ -82,6 +82,10 @@
                             </label>
                         </div>
                         <div class="panel-actions">
+                            <button class="light-button service-add-button" id="dashboardEmbedBtn" type="button" hidden>
+                                <i data-lucide="panel-top-open"></i>
+                                <span>&#23884;&#20837;&#26597;&#30475;</span>
+                            </button>
                             <button class="light-button service-add-button" id="serviceExportBtn" type="button">
                                 <i data-lucide="download"></i>
                                 <span>导出 Excel</span>
@@ -167,6 +171,26 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
+<div id="embedModal" class="modal-backdrop" hidden>
+    <div class="embed-modal" role="dialog" aria-modal="true" aria-labelledby="embedModalTitle">
+        <div class="embed-modal-head">
+            <div>
+                <h2 id="embedModalTitle">&#23884;&#20837;&#26597;&#30475; URL</h2>
+                <p id="embedModalExpire">&#26377;&#25928;&#26399; 24 &#23567;&#26102;</p>
+            </div>
+            <button class="icon-button" id="embedModalCloseBtn" type="button" title="&#20851;&#38381;" aria-label="&#20851;&#38381;">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="embed-url-row">
+            <input id="embedUrlInput" type="text" readonly>
+            <button class="primary-button" id="embedCopyBtn" type="button">
+                <i data-lucide="copy"></i>
+                <span>&#22797;&#21046;</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <script src="/js/api.js"></script>
 <script src="/js/app-state.js"></script>

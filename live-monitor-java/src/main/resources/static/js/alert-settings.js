@@ -1033,6 +1033,7 @@ function renderAlertServiceTypeFilter() {
   const current = alertSettingsState.filters.serviceType || "all";
   const types = Array.from(new Set(alertSettingsState.services.map((service) => serviceTypeGroup(service.service_type))));
   const labels = {
+    api: "API 接口",
     interface: "接口服务",
     database: "数据",
     middleware: "中间",
@@ -1173,6 +1174,7 @@ function renderAlertServiceTypeTag(type) {
 }
 
 function serviceTypeGroup(type) {
+  if (type === "api") return "api";
   if (["mysql", "oracle", "postgresql", "postgres", "jdbc"].includes(type)) return "database";
   if (["redis", "zookeeper"].includes(type)) return "middleware";
   if (["host", "process"].includes(type)) return "host";

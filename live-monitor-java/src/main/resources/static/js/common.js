@@ -5,6 +5,7 @@ function statusLabel(status) {
 function serviceTypeLabel(type) {
   return {
     web: "Web 应用 (HTTP/HTTPS)",
+    api: "API 接口请求",
     http: "HTTP 应用",
     https: "HTTPS 应用",
     nginx: "Nginx",
@@ -25,6 +26,7 @@ function serviceTypeLabel(type) {
 function serviceTypeIcon(type) {
   return {
     web: "globe",
+    api: "braces",
     http: "globe",
     https: "lock",
     nginx: "network",
@@ -185,7 +187,7 @@ function isHttpService(service) {
 }
 
 function isWebUrlServiceType(type) {
-  return ["web", "http", "https", "nginx"].includes(type);
+  return ["web", "api", "http", "https", "nginx"].includes(type);
 }
 
 function serviceOpenButton(service) {
@@ -235,6 +237,7 @@ function escapeHtml(value) {
 function serviceTypeLabel(type) {
   return {
     web: "\u0057\u0065\u0062 \u5e94\u7528 (HTTP/HTTPS)",
+    api: "API \u63a5\u53e3\u8bf7\u6c42",
     http: "HTTP \u5e94\u7528",
     https: "HTTPS \u5e94\u7528",
     nginx: "Nginx",

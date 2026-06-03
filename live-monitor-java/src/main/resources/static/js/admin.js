@@ -3,6 +3,10 @@ async function initAdmin() {
   document.getElementById("resetPasswordForm")?.addEventListener("submit", handleResetPasswordSubmit);
   document.getElementById("addUserBtn")?.addEventListener("click", openCreateUserModal);
   document.getElementById("reloadUsersBtn")?.addEventListener("click", loadAdminUsers);
+  document.getElementById("reloadAuditLogsBtn")?.addEventListener("click", loadAuditLogs);
+  document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => setAdminTab(tab.dataset.adminTab));
+  });
   document.getElementById("userTable")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reset-user]");
     if (button) openResetPasswordModal(button.dataset.resetUser);
@@ -27,12 +31,32 @@ async function initAdmin() {
     }
     document.getElementById("adminContent").hidden = false;
     document.getElementById("adminCurrentUser").textContent = `当前管理员：${user.user_id || user.display_name || user.name || "-"}`;
-    await loadAdminUsers();
+    setAdminTab("users");
+    await Promise.all([loadAdminUsers(), loadAuditLogs()]);
   } catch (error) {
     showToast(error.message || "用户信息加载失败");
   }
 
   if (window.lucide) window.lucide.createIcons();
+}
+
+function setAdminTab(tabName) {
+  const normalized = tabName === "audit" ? "audit" : "users";
+  const panels = {
+    users: document.getElementById("userListPanel"),
+    audit: document.getElementById("auditLogPanel"),
+  };
+  Object.entries(panels).forEach(([name, panel]) => {
+    if (panel) panel.hidden = name !== normalized;
+  });
+  document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+    const active = tab.dataset.adminTab === normalized;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  if (normalized === "audit" && !adminState.auditLogs.length) {
+    loadAuditLogs();
+  }
 }
 
 async function loadAdminUsers() {
@@ -70,6 +94,49 @@ function renderAdminUsers() {
         <td class="actions-column">
           <button class="text-button admin-action-text" type="button" data-reset-user="${escapeHtml(userId)}">修改密码</button>
         </td>
+      </tr>
+    `;
+  }).join("");
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function loadAuditLogs() {
+  const table = document.getElementById("auditLogTable");
+  if (table) {
+    table.innerHTML = '<tr><td colspan="4" class="empty">加载中...</td></tr>';
+  }
+  try {
+    adminState.auditLogs = await LiveMonitorApi.auditLogs() || [];
+    renderAuditLogs();
+  } catch (error) {
+    if (table) {
+      table.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(error.message || "审计日志加载失败")}</td></tr>`;
+    }
+  }
+}
+
+function renderAuditLogs() {
+  const table = document.getElementById("auditLogTable");
+  if (!table) return;
+  if (!adminState.auditLogs.length) {
+    table.innerHTML = '<tr><td colspan="4" class="empty">暂无审计日志</td></tr>';
+    return;
+  }
+  table.innerHTML = adminState.auditLogs.map((log) => {
+    const userId = log.user_id || log.userId || "-";
+    const userName = log.user_name || log.userName || "";
+    const action = log.action || "-";
+    const actionLabel = action === "LOGOUT" ? "登出" : "登录";
+    const eventTime = log.event_time || log.eventTime;
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(userId)}</strong>
+          ${userName && userName !== userId ? `<span class="audit-user-name">${escapeHtml(userName)}</span>` : ""}
+        </td>
+        <td>${escapeHtml(log.ip_address || log.ipAddress || "-")}</td>
+        <td><span class="audit-action ${action === "LOGOUT" ? "logout" : "login"}">${actionLabel}</span></td>
+        <td>${escapeHtml(formatTime(eventTime) || "-")}</td>
       </tr>
     `;
   }).join("");

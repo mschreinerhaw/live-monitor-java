@@ -33,6 +33,7 @@ live-monitor:
   default-timeout-seconds: 3
   database-result-max-rows: 5
   database-query-timeout-seconds: 3
+  embed-token-long-term: false
   secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}
   template-dir: ./templates
   rocksdb-path: ./data/rocksdb
@@ -45,9 +46,6 @@ logging:
   logback:
     rollingpolicy:
       max-file-size: 100MB
-
-
-
       max-history: 30
   level:
     root: INFO

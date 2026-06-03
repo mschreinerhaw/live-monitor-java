@@ -2,19 +2,25 @@
   const storedBase = window.localStorage.getItem("liveMonitorApiBase");
   const API_BASE = storedBase || "";
   const LOGIN_PATH = "/login.html";
+  const EMBED_TOKEN = getAuthUrlToken();
+  bindAuthUrlNavigation();
 
   async function request(path, options = {}) {
     const {
       headers = {},
-      redirectOnUnauthorized = true,
+      redirectOnUnauthorized = !EMBED_TOKEN,
+      skipEmbedToken = false,
       ...fetchOptions
     } = options;
     const requestHeaders = { ...headers };
     if (fetchOptions.body !== undefined && !(fetchOptions.body instanceof FormData)) {
       requestHeaders["Content-Type"] = requestHeaders["Content-Type"] || "application/json";
     }
+    if (EMBED_TOKEN && !skipEmbedToken) {
+      requestHeaders["X-Embed-Token"] = requestHeaders["X-Embed-Token"] || EMBED_TOKEN;
+    }
 
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${API_BASE}${withEmbedToken(path, skipEmbedToken)}`, {
       credentials: API_BASE ? "include" : "same-origin",
       headers: requestHeaders,
       ...fetchOptions,
@@ -49,11 +55,44 @@
     window.location.href = target;
   }
 
+  function getAuthUrlToken() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token") || "";
+    if (token) {
+      window.sessionStorage.setItem("liveMonitorEmbedToken", token);
+      return token;
+    }
+    if (window.location.pathname.endsWith(LOGIN_PATH)) {
+      window.sessionStorage.removeItem("liveMonitorEmbedToken");
+      return "";
+    }
+    return window.sessionStorage.getItem("liveMonitorEmbedToken") || "";
+  }
+
+  function withEmbedToken(path, skipEmbedToken = false) {
+    if (skipEmbedToken || !EMBED_TOKEN || !path.startsWith("/api/")) return path;
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}token=${encodeURIComponent(EMBED_TOKEN)}`;
+  }
+
+  function bindAuthUrlNavigation() {
+    if (!EMBED_TOKEN) return;
+    document.addEventListener("click", (event) => {
+      const link = event.target.closest("a[href]");
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const url = new URL(link.getAttribute("href"), window.location.origin);
+      if (url.origin !== window.location.origin || url.pathname.startsWith("/api/") || url.pathname === LOGIN_PATH) return;
+      url.searchParams.set("token", EMBED_TOKEN);
+      link.href = `${url.pathname}${url.search}${url.hash}`;
+    }, true);
+  }
+
   window.LiveMonitorApi = {
     login: (username, password) => request("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
       redirectOnUnauthorized: false,
+      skipEmbedToken: true,
     }),
     dashboard: () => request("/api/dashboard"),
     services: (includeDisabled = false) => request(`/api/services?include_disabled=${includeDisabled}`),
@@ -90,7 +129,9 @@
     clearAlerts: () => request("/api/alerts", { method: "DELETE" }),
     currentUser: () => request("/api/auth/me", { redirectOnUnauthorized: false }),
     logout: () => request("/api/auth/logout", { method: "POST", redirectOnUnauthorized: false }),
+    createEmbedToken: (data = {}) => request("/api/embed-token", { method: "POST", body: JSON.stringify(data) }),
     users: () => request("/api/admin/users"),
+    auditLogs: () => request("/api/admin/audit-logs"),
     createUser: (data) => request("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
     changePassword: (data) => request("/api/admin/password", { method: "PUT", body: JSON.stringify(data) }),
     resetUserPassword: (userId, data) => request(`/api/admin/users/${encodeURIComponent(userId)}/password`, { method: "PUT", body: JSON.stringify(data) }),

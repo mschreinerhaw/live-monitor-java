@@ -73,6 +73,7 @@ let notificationState = {
 };
 let adminState = {
   users: [],
+  auditLogs: [],
   currentUser: null,
 };
 let resourceMetricState = {

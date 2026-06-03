@@ -3,6 +3,9 @@ async function initAddService() {
   const typeSelect = document.getElementById("serviceType");
   const webSchemeSelect = form.elements.web_scheme;
   let editingExistingService = false;
+  let hydratingServiceForm = false;
+  let activeDatabaseType = isDatabaseServiceType(typeSelect.value) ? typeSelect.value : "";
+  const databaseTypeDrafts = {};
   initServiceTypePicker(typeSelect);
   const hostOptionsPromise = loadProcessHostOptions(form);
   const pathMatch = window.location.pathname.match(/\/services\/(\d+)\/edit$/);
@@ -14,13 +17,16 @@ async function initAddService() {
   }
   const syncFields = () => {
     const isWeb = isWebUrlServiceType(typeSelect.value);
+    const isApi = typeSelect.value === "api";
     const isRedis = typeSelect.value === "redis";
     const isZookeeper = typeSelect.value === "zookeeper";
     const isProcess = typeSelect.value === "process";
     const isDatabase = isDatabaseServiceType(typeSelect.value);
     const isGenericJdbc = typeSelect.value === "jdbc";
-    toggleFieldSet(".web-only", isWeb);
-    toggleFieldSet(".result-rule-only", isWeb || isDatabase);
+    toggleFieldSet(".web-only", isWeb && !isApi);
+    toggleFieldSet(".web-monitor-only", isWeb && !isApi);
+    toggleFieldSet(".api-only", isApi);
+    toggleFieldSet(".result-rule-only", !isApi && isDatabase);
     toggleFieldSet(".host-field", !isWeb && !isGenericJdbc);
     toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc);
     toggleFieldSet(".process-only", isProcess);
@@ -29,7 +35,9 @@ async function initAddService() {
     toggleFieldSet(".database-only", isDatabase);
     toggleFieldSet(".jdbc-only", isGenericJdbc);
     toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc);
+    syncApiFieldCopy(form, isApi);
     const urlInput = form.elements.url;
+    const apiUrlInput = form.elements.api_url;
     const hostInput = form.elements.host;
     const portInput = form.elements.port;
     const databaseNameInput = form.elements.database_name;
@@ -38,7 +46,8 @@ async function initAddService() {
     const processNameInput = form.elements.process_name;
     const processKeywordInput = form.elements.process_match_keyword;
     const processCommandInput = form.elements.check_command;
-    if (urlInput) urlInput.required = isWeb;
+    if (urlInput) urlInput.required = isWeb && !isApi;
+    if (apiUrlInput) apiUrlInput.required = isApi;
     if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc;
     if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess;
     if (processNameInput) processNameInput.required = isProcess;
@@ -47,6 +56,11 @@ async function initAddService() {
     if (databaseNameInput) databaseNameInput.required = typeSelect.value === "oracle";
     if (jdbcDriverClassInput) jdbcDriverClassInput.required = isGenericJdbc;
     if (jdbcUrlInput) jdbcUrlInput.required = isGenericJdbc;
+    syncApiMethodFields(form);
+    syncApiAuthFields(form);
+    syncApiTestVisibility(isApi);
+    syncDatabaseRuleMode(form);
+    syncResultAssertionMode(form);
     if (jdbcDriverClassInput) {
       jdbcDriverClassInput.placeholder = {
         mysql: "可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver",
@@ -68,34 +82,70 @@ async function initAddService() {
         process: "已登录 SSH 主机 IP",
       }[typeSelect.value] || "端口";
     }
+    if (isDatabase) {
+      applyDatabaseTypePlaceholders(form, typeSelect.value);
+    }
   };
-  typeSelect.addEventListener("change", syncFields);
+  const handleServiceTypeChange = () => {
+    const nextType = typeSelect.value;
+    if (!hydratingServiceForm && activeDatabaseType && activeDatabaseType !== nextType) {
+      databaseTypeDrafts[activeDatabaseType] = snapshotDatabaseTypeConfig(form);
+    }
+    syncFields();
+    if (isDatabaseServiceType(nextType)) {
+      if (!hydratingServiceForm && activeDatabaseType !== nextType) {
+        restoreDatabaseTypeConfig(form, databaseTypeDrafts[nextType], nextType);
+      }
+      activeDatabaseType = nextType;
+    } else {
+      activeDatabaseType = "";
+    }
+  };
+  typeSelect.addEventListener("change", handleServiceTypeChange);
   webSchemeSelect?.addEventListener("change", () => normalizeWebUrlInput(form));
+  form.elements.api_http_method?.addEventListener("change", () => syncApiMethodFields(form));
+  form.elements.api_auth_type?.addEventListener("change", () => syncApiAuthFields(form));
+  document.getElementById("addApiHeaderBtn")?.addEventListener("click", () => addApiHeaderRow());
   form.elements.enabled?.addEventListener("change", () => syncServiceEditingLock(form, editingExistingService));
+  initAssertionModeControls(form);
+  renderApiHeaderRows([]);
   syncFields();
   await loadServiceAlertConfigOptions(form);
   await hostOptionsPromise;
 
-  document.getElementById("testConnectionBtn")?.addEventListener("click", async () => {
+  const runConnectionTest = async (targetBox) => {
     const resultBox = document.getElementById("connectionTestResult");
+    const apiResultBox = targetBox || null;
     if (!form.reportValidity()) return;
-    if (resultBox) {
-      resultBox.hidden = false;
-      resultBox.className = "test-result span-2 testing";
-      resultBox.textContent = "正在测试连接...";
+    if (!validateServiceAssertionConfig(form)) return;
+    const activeResultBox = apiResultBox || resultBox;
+    if (activeResultBox) {
+      activeResultBox.hidden = false;
+      activeResultBox.className = apiResultBox ? "api-test-result testing" : "test-result span-2 testing";
+      activeResultBox.textContent = typeSelect.value === "api" ? "正在测试请求..." : "正在测试连接...";
     }
     try {
       const result = await LiveMonitorApi.testService(buildServicePayload(form));
-      if (resultBox) {
-        resultBox.className = `test-result span-2 ${result.status === "UP" ? "ok" : "bad"}`;
-        resultBox.innerHTML = `${escapeHtml(result.status)} · 响应时间 ${result.response_time_ms ?? "-"}ms · ${escapeHtml(result.message || "-")}`;
+      if (activeResultBox) {
+        if (apiResultBox) {
+          renderApiRequestTestResult(activeResultBox, result);
+        } else {
+          activeResultBox.className = `test-result span-2 ${result.status === "UP" ? "ok" : "bad"}`;
+          activeResultBox.innerHTML = `${escapeHtml(result.status)} · 响应时间 ${result.response_time_ms ?? "-"}ms · ${escapeHtml(result.message || "-")}`;
+        }
       }
     } catch (error) {
-      if (resultBox) {
-        resultBox.className = "test-result span-2 bad";
-        resultBox.textContent = error.message;
+      if (activeResultBox) {
+        activeResultBox.className = apiResultBox ? "api-test-result bad" : "test-result span-2 bad";
+        activeResultBox.textContent = error.message;
       }
     }
+  };
+  document.getElementById("testConnectionBtn")?.addEventListener("click", async () => {
+    await runConnectionTest();
+  });
+  document.getElementById("apiTestRequestBtn")?.addEventListener("click", async () => {
+    await runConnectionTest(document.getElementById("apiRequestTestResult"));
   });
 
   if (editId) {
@@ -107,8 +157,14 @@ async function initAddService() {
       document.getElementById("serviceFormNav").textContent = "编辑服务";
       document.querySelector("#serviceFormSubmit span").textContent = "保存修改";
       document.getElementById("serviceFormCancel").href = serviceDetailHref(editService.id);
-      fillServiceForm(form, editService);
-      typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      hydratingServiceForm = true;
+      try {
+        fillServiceForm(form, editService);
+        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        activeDatabaseType = isDatabaseServiceType(typeSelect.value) ? typeSelect.value : "";
+      } finally {
+        hydratingServiceForm = false;
+      }
       syncServiceEditingLock(form, editingExistingService);
     } catch (error) {
       showToast(error.message);
@@ -117,6 +173,7 @@ async function initAddService() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!validateServiceAssertionConfig(form)) return;
     const restoreLockedControls = unlockServiceFormForSubmit(form);
     const data = buildServicePayload(form);
     restoreLockedControls();
@@ -136,6 +193,7 @@ async function initAddService() {
 
   document.getElementById("testRuleBtn")?.addEventListener("click", async () => {
     const resultBox = document.getElementById("connectionTestResult");
+    if (!validateResultVisualAssertionConfig(form)) return;
     const payload = buildRuleTestPayload(form);
     if (!payload.expression) {
       showToast("请先填写响应断言规则");
@@ -196,6 +254,8 @@ function syncServiceEditingLock(form, editingExistingService = false) {
   if (testRuleButton) testRuleButton.disabled = locked;
   const previewButton = document.getElementById("databasePreviewBtn");
   if (previewButton) previewButton.disabled = locked;
+  const apiTestButton = document.getElementById("apiTestRequestBtn");
+  if (apiTestButton) apiTestButton.disabled = locked;
 }
 
 function isServiceLockExemptControl(control) {
@@ -204,7 +264,8 @@ function isServiceLockExemptControl(control) {
     || control.id === "serviceFormSubmit"
     || control.id === "testConnectionBtn"
     || control.id === "testRuleBtn"
-    || control.id === "databasePreviewBtn";
+    || control.id === "databasePreviewBtn"
+    || control.id === "apiTestRequestBtn";
 }
 
 function unlockServiceFormForSubmit(form) {
@@ -224,6 +285,712 @@ function toggleFieldSet(selector, visible) {
   document.querySelectorAll(selector).forEach((item) => {
     item.style.display = visible ? "" : "none";
   });
+}
+
+function syncApiFieldCopy(form, isApi) {
+  const copyKey = isApi ? "api" : "web";
+  form.querySelectorAll("[data-web-label][data-api-label]").forEach((item) => {
+    item.textContent = item.dataset[`${copyKey}Label`] || item.textContent;
+  });
+  form.querySelectorAll("[data-web-placeholder][data-api-placeholder]").forEach((item) => {
+    item.placeholder = item.dataset[`${copyKey}Placeholder`] || item.placeholder;
+  });
+}
+
+function syncApiMethodFields(form) {
+  const method = form.elements.api_http_method?.value || "GET";
+  const showBody = method === "POST" || method === "PUT";
+  toggleFieldSet(".api-body-only", showBody);
+}
+
+function syncApiAuthFields(form) {
+  const authType = form.elements.api_auth_type?.value || "none";
+  toggleFieldSet(".api-auth-basic", authType === "basic");
+  toggleFieldSet(".api-auth-bearer", authType === "bearer");
+  toggleFieldSet(".api-auth-custom", authType === "custom_header");
+}
+
+function syncApiTestVisibility(isApi) {
+  const testButton = document.getElementById("testConnectionBtn");
+  if (testButton) testButton.style.display = isApi ? "none" : "";
+}
+
+function renderApiHeaderRows(headers = []) {
+  const container = document.getElementById("apiHeaderRows");
+  if (!container) return;
+  container.innerHTML = "";
+  const rows = headers.length ? headers : [{ name: "Content-Type", value: "application/json" }];
+  rows.forEach((header) => addApiHeaderRow(header.name, header.value));
+}
+
+function addApiHeaderRow(name = "", value = "") {
+  const container = document.getElementById("apiHeaderRows");
+  if (!container) return;
+  const row = document.createElement("div");
+  row.className = "api-header-row";
+  row.innerHTML = `
+    <input data-api-header-name placeholder="Header 名称" value="${escapeHtml(name)}">
+    <input data-api-header-value placeholder="Header 值" value="${escapeHtml(value)}">
+    <button class="icon-button" type="button" title="删除请求头">
+      <i data-lucide="trash-2"></i>
+    </button>
+  `;
+  row.querySelector("button")?.addEventListener("click", () => row.remove());
+  container.appendChild(row);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function collectApiHeaders() {
+  return Array.from(document.querySelectorAll("#apiHeaderRows .api-header-row"))
+    .map((row) => ({
+      name: row.querySelector("[data-api-header-name]")?.value?.trim() || "",
+      value: row.querySelector("[data-api-header-value]")?.value?.trim() || "",
+    }))
+    .filter((header) => header.name);
+}
+
+const DATABASE_TYPE_CONFIG_FIELDS = [
+  "host",
+  "port",
+  "database_name",
+  "database_username",
+  "database_password",
+  "jdbc_driver_class",
+  "jdbc_url",
+  "database_rule_mode",
+  "expected_result",
+  "database_result_operator",
+  "database_query",
+  "result_advanced_assertion_expression",
+  "rule_test_status_code",
+  "rule_test_response_time_ms",
+  "rule_test_body",
+];
+
+function snapshotDatabaseTypeConfig(form) {
+  const fields = {};
+  DATABASE_TYPE_CONFIG_FIELDS.forEach((name) => {
+    if (form.elements[name]) fields[name] = form.elements[name].value;
+  });
+  return {
+    fields,
+    resultAssertionMode: assertionModeValue(form, "result_assertion_mode"),
+    assertionRows: collectResultAssertionRuleRows(),
+    databaseAssertionFields: form.dataset.databaseAssertionFields || "[]",
+  };
+}
+
+function restoreDatabaseTypeConfig(form, draft, serviceType) {
+  const fields = draft?.fields || defaultDatabaseTypeConfig(serviceType);
+  DATABASE_TYPE_CONFIG_FIELDS.forEach((name) => {
+    if (form.elements[name]) form.elements[name].value = fields[name] ?? "";
+  });
+  setAssertionModeValue(form, "result_assertion_mode", draft?.resultAssertionMode || "visual");
+  renderResultAssertionRuleRows(draft?.assertionRows?.length ? draft.assertionRows : [{ type: "json_compare" }]);
+  form.dataset.databaseAssertionFields = draft?.databaseAssertionFields || "[]";
+  applyDatabaseTypePlaceholders(form, serviceType);
+  resetDatabasePreviewPanel();
+  hideAssertionDslPreviews();
+  syncDatabaseRuleMode(form);
+  syncResultAssertionMode(form);
+}
+
+function defaultDatabaseTypeConfig(serviceType) {
+  return {
+    host: "",
+    port: "",
+    database_name: "",
+    database_username: "",
+    database_password: "",
+    jdbc_driver_class: serviceType === "jdbc" ? "" : "",
+    jdbc_url: "",
+    database_rule_mode: "simple",
+    expected_result: "",
+    database_result_operator: "fuzzy",
+    database_query: "",
+    result_advanced_assertion_expression: "",
+    rule_test_status_code: "200",
+    rule_test_response_time_ms: "68",
+    rule_test_body: "",
+  };
+}
+
+function collectResultAssertionRuleRows() {
+  return Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row")).map((row) => ({
+    type: row.querySelector("[data-assertion-type]")?.value || "json_compare",
+    path: row.querySelector("[data-assertion-path]")?.value || "",
+    operator: row.querySelector("[data-assertion-operator]")?.value || "==",
+    value: row.querySelector("[data-assertion-value]")?.value || "",
+  }));
+}
+
+function renderResultAssertionRuleRows(rules = []) {
+  const container = document.getElementById("resultAssertionRows");
+  if (!container) return;
+  container.innerHTML = "";
+  const rows = rules.length ? rules : [{ type: "json_compare" }];
+  rows.forEach((rule) => addResultAssertionRuleRow(rule));
+  updateAssertionDeleteButtons();
+}
+
+function resetDatabasePreviewPanel() {
+  const panel = document.getElementById("databasePreviewPanel");
+  if (!panel) return;
+  panel.hidden = true;
+  panel.innerHTML = "";
+  panel.className = "test-result database-only span-2";
+}
+
+function applyDatabaseTypePlaceholders(form, serviceType) {
+  const portInput = form.elements.port;
+  const databaseNameInput = form.elements.database_name;
+  const jdbcDriverClassInput = form.elements.jdbc_driver_class;
+  if (portInput && !portInput.value) {
+    portInput.placeholder = {
+      mysql: "3306",
+      oracle: "1521",
+      postgresql: "5432",
+      postgres: "5432",
+      jdbc: "在 JDBC 连接串中填写端口",
+    }[serviceType] || "端口";
+  }
+  if (databaseNameInput) {
+    databaseNameInput.placeholder = {
+      mysql: "MySQL 库名，例如：app",
+      oracle: "Oracle 服务名，例如：ORCLPDB1",
+      postgresql: "PostgreSQL 库名，例如：app",
+      postgres: "PostgreSQL 库名，例如：app",
+    }[serviceType] || "数据库名 / 服务名";
+  }
+  if (jdbcDriverClassInput) {
+    jdbcDriverClassInput.placeholder = {
+      mysql: "可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver",
+      oracle: "可选，例如：oracle.jdbc.OracleDriver",
+      postgresql: "可选，例如：org.postgresql.Driver",
+      postgres: "可选，例如：org.postgresql.Driver",
+      jdbc: "必填，例如：com.microsoft.sqlserver.jdbc.SQLServerDriver",
+    }[serviceType] || "可选，填写 lib 下驱动 jar 对应的 Driver 类";
+  }
+}
+
+function initAssertionModeControls(form) {
+  initResultAssertionBuilder();
+  document.getElementById("generateApiAssertionDslBtn")?.addEventListener("click", () => {
+    showApiAssertionDslPreview(form);
+  });
+  document.getElementById("generateResultAssertionDslBtn")?.addEventListener("click", () => {
+    showResultAssertionDslPreview(form);
+  });
+  form.querySelectorAll('input[name="api_assertion_mode"], input[name="result_assertion_mode"], [name="database_rule_mode"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      syncApiAssertionMode(form);
+      syncDatabaseRuleMode(form);
+      syncResultAssertionMode(form);
+      hideAssertionDslPreviews();
+    });
+  });
+  form.addEventListener("input", (event) => {
+    if (event.target?.closest?.(".api-assert-section, .assertion-config-section")) {
+      hideAssertionDslPreviews();
+    }
+  });
+  form.addEventListener("change", (event) => {
+    const row = event.target?.closest?.(".assertion-rule-row");
+    if (row) updateAssertionRuleRowState(row);
+    if (event.target?.closest?.(".api-assert-section, .assertion-config-section")) {
+      hideAssertionDslPreviews();
+    }
+  });
+  syncApiAssertionMode(form);
+  syncDatabaseRuleMode(form);
+  syncResultAssertionMode(form);
+  hideAssertionDslPreviews();
+}
+
+function initResultAssertionBuilder() {
+  const container = document.getElementById("resultAssertionRows");
+  if (!container) return;
+  document.getElementById("addResultAssertionRuleBtn")?.addEventListener("click", () => {
+    addResultAssertionRuleRow({ type: "json_compare" });
+    hideAssertionDslPreviews();
+  });
+  if (!container.querySelector(".assertion-rule-row")) {
+    addResultAssertionRuleRow({ type: "json_compare" });
+  }
+}
+
+function addResultAssertionRuleRow(rule = {}) {
+  const container = document.getElementById("resultAssertionRows");
+  if (!container) return;
+  const row = document.createElement("div");
+  row.className = "assertion-rule-row";
+  row.innerHTML = `
+    <select data-assertion-type aria-label="断言类型">
+      <option value="json_compare">JSON 字段</option>
+      <option value="contains">文本包含</option>
+      <option value="not_contains">文本不包含</option>
+      <option value="icontains">文本包含（忽略大小写）</option>
+      <option value="response_time">响应时间</option>
+      <option value="status">HTTP 状态码</option>
+      <option value="regex_compare">正则提取</option>
+    </select>
+    <input data-assertion-path aria-label="字段路径" placeholder="$.code" required>
+    <select data-assertion-operator aria-label="比较方式">
+      <option value="==">等于</option>
+      <option value="!=">不等于</option>
+      <option value=">">大于</option>
+      <option value=">=">大于等于</option>
+      <option value="<">小于</option>
+      <option value="<=">小于等于</option>
+    </select>
+    <input data-assertion-value aria-label="期望值" placeholder="0" required>
+    <button class="icon-button" type="button" title="删除断言">
+      <i data-lucide="trash-2"></i>
+    </button>
+  `;
+  row.querySelector("[data-assertion-type]").value = rule.type || "json_compare";
+  row.querySelector("[data-assertion-path]").value = rule.path || "";
+  row.querySelector("[data-assertion-operator]").value = rule.operator || "==";
+  row.querySelector("[data-assertion-value]").value = rule.value || "";
+  row.querySelector("button")?.addEventListener("click", () => {
+    if (container.querySelectorAll(".assertion-rule-row").length <= 1) {
+      resetAssertionRuleRow(row);
+      showToast("至少保留一条可视化断言");
+      return;
+    }
+    row.remove();
+    updateAssertionDeleteButtons();
+    hideAssertionDslPreviews();
+  });
+  container.appendChild(row);
+  updateAssertionRuleRowState(row);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function updateAssertionRuleRowState(row) {
+  const type = row.querySelector("[data-assertion-type]")?.value || "json_compare";
+  const pathInput = row.querySelector("[data-assertion-path]");
+  const operatorSelect = row.querySelector("[data-assertion-operator]");
+  const valueInput = row.querySelector("[data-assertion-value]");
+  const typeChanged = row.dataset.assertionType !== type;
+  row.dataset.assertionType = type;
+  const textRule = ["contains", "not_contains", "icontains"].includes(type);
+  const noPathRule = textRule || type === "response_time" || type === "status";
+  row.classList.toggle("assertion-rule-row-text", textRule);
+  row.classList.toggle("assertion-rule-row-short", !textRule && noPathRule);
+  pathInput.style.display = noPathRule ? "none" : "";
+  operatorSelect.style.display = textRule ? "none" : "";
+  pathInput.disabled = noPathRule;
+  operatorSelect.disabled = textRule;
+  pathInput.required = !noPathRule;
+  valueInput.required = true;
+  pathInput.removeAttribute("pattern");
+  pathInput.removeAttribute("maxlength");
+  valueInput.removeAttribute("pattern");
+  valueInput.removeAttribute("min");
+  valueInput.removeAttribute("max");
+  valueInput.removeAttribute("inputmode");
+  if (type === "json_compare") {
+    pathInput.placeholder = "$.code";
+    pathInput.pattern = "\\$([.][A-Za-z_][A-Za-z0-9_]*|\\[[0-9]+\\])*";
+    pathInput.maxLength = 180;
+    pathInput.title = 'JSONPath 需以 $ 开头，例如 $.code 或 $.rows[0].code';
+    valueInput.placeholder = "0、true 或 OK";
+    valueInput.maxLength = 200;
+    valueInput.title = "期望值支持数字、true、false、null 或文本";
+  } else if (type === "regex_compare") {
+    pathInput.placeholder = "CPU:\\s*([0-9.]+)";
+    pathInput.maxLength = 240;
+    pathInput.title = "填写正则表达式；如需比较数值，请使用捕获组提取";
+    valueInput.placeholder = "80";
+    valueInput.maxLength = 200;
+    valueInput.title = "期望值支持数字或文本";
+  } else if (type === "response_time") {
+    valueInput.placeholder = "3000";
+    valueInput.type = "number";
+    valueInput.min = "0";
+    valueInput.inputMode = "numeric";
+    valueInput.title = "填写非负毫秒数";
+    if (typeChanged) operatorSelect.value = "<";
+  } else if (type === "status") {
+    valueInput.placeholder = "200";
+    valueInput.type = "number";
+    valueInput.min = "100";
+    valueInput.max = "599";
+    valueInput.inputMode = "numeric";
+    valueInput.title = "填写 100 到 599 的 HTTP 状态码";
+    if (typeChanged) operatorSelect.value = "==";
+  } else {
+    valueInput.placeholder = "success";
+    valueInput.maxLength = 500;
+    valueInput.title = "填写要匹配的响应文本";
+  }
+  if (type !== "response_time" && type !== "status") {
+    valueInput.type = "text";
+  }
+  updateAssertionDeleteButtons();
+}
+
+function resetAssertionRuleRow(row) {
+  row.querySelector("[data-assertion-type]").value = "json_compare";
+  row.querySelector("[data-assertion-path]").value = "";
+  row.querySelector("[data-assertion-operator]").value = "==";
+  const valueInput = row.querySelector("[data-assertion-value]");
+  valueInput.type = "text";
+  valueInput.value = "";
+  row.dataset.assertionType = "";
+  updateAssertionRuleRowState(row);
+  hideAssertionDslPreviews();
+}
+
+function updateAssertionDeleteButtons() {
+  const rows = Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"));
+  rows.forEach((row) => {
+    const button = row.querySelector("button");
+    if (!button) return;
+    button.disabled = rows.length <= 1;
+    button.title = rows.length <= 1 ? "至少保留一条断言" : "删除断言";
+  });
+}
+
+function syncApiAssertionMode(form) {
+  const useDsl = assertionModeValue(form, "api_assertion_mode") === "dsl";
+  document.querySelectorAll("[data-api-assertion-visual]").forEach((item) => {
+    item.hidden = useDsl;
+    setPanelControlsDisabled(item, useDsl);
+  });
+  document.querySelectorAll("[data-api-assertion-dsl]").forEach((item) => {
+    item.hidden = !useDsl;
+    setPanelControlsDisabled(item, !useDsl);
+  });
+}
+
+function syncResultAssertionMode(form) {
+  const useDsl = assertionModeValue(form, "result_assertion_mode") === "dsl";
+  const blockedByDatabaseSimpleMode = isDatabaseServiceType(form?.elements.service_type?.value)
+    && databaseRuleModeValue(form) !== "advanced";
+  document.querySelectorAll("[data-result-assertion-visual]").forEach((item) => {
+    item.hidden = useDsl;
+    setPanelControlsDisabled(item, useDsl || blockedByDatabaseSimpleMode);
+  });
+  document.querySelectorAll("[data-result-assertion-dsl]").forEach((item) => {
+    item.hidden = !useDsl;
+    setPanelControlsDisabled(item, !useDsl || blockedByDatabaseSimpleMode);
+  });
+}
+
+function syncDatabaseRuleMode(form) {
+  const isDatabase = isDatabaseServiceType(form?.elements.service_type?.value);
+  const useAdvanced = isDatabase && databaseRuleModeValue(form) === "advanced";
+  document.querySelectorAll(".database-simple-rule-only").forEach((item) => {
+    item.hidden = isDatabase && useAdvanced;
+    setPanelControlsDisabled(item, isDatabase && useAdvanced);
+  });
+  document.querySelectorAll(".result-rule-only").forEach((item) => {
+    const hiddenForDatabase = isDatabase && !useAdvanced;
+    item.hidden = hiddenForDatabase;
+    setPanelControlsDisabled(item, hiddenForDatabase);
+  });
+  const testRuleButton = document.getElementById("testRuleBtn");
+  if (testRuleButton && isDatabase) {
+    testRuleButton.disabled = !useAdvanced;
+  }
+}
+
+function setPanelControlsDisabled(container, disabled) {
+  container.querySelectorAll("input, select, textarea, button").forEach((control) => {
+    control.disabled = disabled;
+  });
+}
+
+function assertionModeValue(form, name) {
+  return form?.querySelector(`input[name="${name}"]:checked`)?.value
+    || form?.elements?.[name]?.value
+    || "visual";
+}
+
+function setAssertionModeValue(form, name, value) {
+  const input = form?.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (input) {
+    input.checked = true;
+  } else if (form?.elements?.[name]) {
+    form.elements[name].value = value;
+  }
+}
+
+function databaseRuleModeValue(form) {
+  return assertionModeValue(form, "database_rule_mode");
+}
+
+function isDatabaseAdvancedRuleMode(form) {
+  return isDatabaseServiceType(form?.elements.service_type?.value) && databaseRuleModeValue(form) === "advanced";
+}
+
+function hideAssertionDslPreviews() {
+  const apiPreview = document.getElementById("apiAssertionDslPreview");
+  if (apiPreview) {
+    apiPreview.hidden = true;
+    apiPreview.value = "";
+  }
+  const resultPreview = document.getElementById("resultAssertionDslPreview");
+  if (resultPreview) {
+    resultPreview.value = "";
+    const resultPreviewField = resultPreview.closest(".assertion-preview-field");
+    if (resultPreviewField) resultPreviewField.hidden = true;
+  }
+}
+
+function showApiAssertionDslPreview(form) {
+  if (!form) return;
+  if (!validateApiVisualAssertionConfig(form)) return;
+  const apiPreview = document.getElementById("apiAssertionDslPreview");
+  if (!apiPreview) return;
+  apiPreview.value = buildApiVisualAssertionExpression(form);
+  apiPreview.hidden = false;
+}
+
+function showResultAssertionDslPreview(form) {
+  if (!form) return;
+  if (!validateResultVisualAssertionConfig(form)) return;
+  const resultPreview = document.getElementById("resultAssertionDslPreview");
+  if (!resultPreview) return;
+  const expression = buildResultVisualAssertionExpression();
+  resultPreview.value = expression;
+  const resultPreviewField = resultPreview.closest(".assertion-preview-field");
+  if (resultPreviewField) resultPreviewField.hidden = false;
+  if (form.elements.api_assertion_expression) {
+    form.elements.api_assertion_expression.value = expression;
+  }
+}
+
+function validateServiceAssertionConfig(form) {
+  if (!form) return true;
+  if (form.elements.service_type?.value === "api" && assertionModeValue(form, "api_assertion_mode") === "visual") {
+    return validateApiVisualAssertionConfig(form);
+  }
+  if (isDatabaseAdvancedRuleMode(form) && assertionModeValue(form, "result_assertion_mode") === "visual") {
+    return validateResultVisualAssertionConfig(form);
+  }
+  return true;
+}
+
+function validateApiVisualAssertionConfig(form) {
+  const responseTime = form.elements.api_response_time_ms?.value?.trim();
+  if (responseTime && !isPositiveNumber(responseTime)) {
+    return failAssertionInput(form.elements.api_response_time_ms, "响应时间必须填写大于 0 的毫秒数");
+  }
+  const jsonAssertions = form.elements.api_json_assertions?.value || "";
+  const invalidLine = jsonAssertions
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .find((line) => !isValidJsonAssertionLine(line));
+  if (invalidLine) {
+    return failAssertionInput(form.elements.api_json_assertions, `JSON断言格式不正确：${invalidLine}`);
+  }
+  return true;
+}
+
+function validateResultVisualAssertionConfig(form) {
+  if (assertionModeValue(form, "result_assertion_mode") === "dsl") return true;
+  const rows = Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"));
+  if (!rows.length) {
+    addResultAssertionRuleRow({ type: "json_compare" });
+    showToast("至少保留一条可视化断言");
+    return false;
+  }
+  for (const row of rows) {
+    const invalid = invalidAssertionRule(row);
+    if (invalid) {
+      return failAssertionInput(invalid.control, invalid.message);
+    }
+  }
+  return true;
+}
+
+function invalidAssertionRule(row) {
+  const type = row.querySelector("[data-assertion-type]")?.value || "json_compare";
+  const pathInput = row.querySelector("[data-assertion-path]");
+  const valueInput = row.querySelector("[data-assertion-value]");
+  const path = pathInput?.value?.trim() || "";
+  const value = valueInput?.value?.trim() || "";
+  if (type === "json_compare") {
+    if (!isValidJsonPath(path)) return { control: pathInput, message: "JSON 字段路径需以 $ 开头，例如 $.code 或 $.rows[0].code" };
+    if (!value) return { control: valueInput, message: "JSON 字段断言需要填写期望值" };
+  } else if (type === "regex_compare") {
+    if (!path) return { control: pathInput, message: "正则提取需要填写正则表达式" };
+    try {
+      new RegExp(path);
+    } catch (error) {
+      return { control: pathInput, message: "正则表达式格式不正确" };
+    }
+    if (!value) return { control: valueInput, message: "正则提取需要填写期望值" };
+  } else if (type === "response_time") {
+    if (!isNonNegativeNumber(value)) return { control: valueInput, message: "响应时间需要填写非负毫秒数" };
+  } else if (type === "status") {
+    if (!/^\d+$/.test(value) || Number(value) < 100 || Number(value) > 599) {
+      return { control: valueInput, message: "HTTP 状态码需要填写 100 到 599 的整数" };
+    }
+  } else if (!value) {
+    return { control: valueInput, message: "文本断言需要填写匹配内容" };
+  }
+  return null;
+}
+
+function failAssertionInput(control, message) {
+  if (control) {
+    control.focus();
+    control.setCustomValidity(message);
+    control.reportValidity();
+    window.setTimeout(() => control.setCustomValidity(""), 0);
+  }
+  showToast(message);
+  return false;
+}
+
+function buildApiAssertionExpression(form) {
+  if (assertionModeValue(form, "api_assertion_mode") === "dsl") {
+    return form.elements.api_advanced_assertion_expression?.value?.trim() || "";
+  }
+  return buildApiVisualAssertionExpression(form);
+}
+
+function buildApiVisualAssertionExpression(form) {
+  const expressions = [];
+  const responseTime = form.elements.api_response_time_ms?.value;
+  if (responseTime) {
+    expressions.push(`responseMs() < ${Number(responseTime)}`);
+  }
+  const jsonAssertions = form.elements.api_json_assertions?.value || "";
+  jsonAssertions.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line) => {
+    expressions.push(normalizeJsonAssertionLine(line));
+  });
+  const textValue = form.elements.api_text_assertion_value?.value?.trim();
+  if (textValue) {
+    const fn = form.elements.api_text_assertion_mode?.value === "not_contains" ? "notContains" : "contains";
+    expressions.push(`${fn}("${escapeRuleString(textValue)}")`);
+  }
+  return expressions.join(" && ");
+}
+
+function buildResultAssertionExpression(form) {
+  if (assertionModeValue(form, "result_assertion_mode") === "dsl") {
+    return form.elements.result_advanced_assertion_expression?.value?.trim() || "";
+  }
+  return buildResultVisualAssertionExpression();
+}
+
+function buildResultVisualAssertionExpression() {
+  return Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"))
+    .map((row) => assertionRuleExpression(row))
+    .filter(Boolean)
+    .join(" && ");
+}
+
+function assertionRuleExpression(row) {
+  const type = row.querySelector("[data-assertion-type]")?.value || "json_compare";
+  const path = row.querySelector("[data-assertion-path]")?.value?.trim() || "";
+  const operator = row.querySelector("[data-assertion-operator]")?.value || "==";
+  const value = row.querySelector("[data-assertion-value]")?.value?.trim() || "";
+  if (["contains", "not_contains", "icontains"].includes(type)) {
+    if (!value) return "";
+    const fn = { contains: "contains", not_contains: "notContains", icontains: "icontains" }[type];
+    return `${fn}("${escapeRuleString(value)}")`;
+  }
+  if (type === "response_time") {
+    if (!value) return "";
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    return `responseMs() ${operator} ${number}`;
+  }
+  if (type === "status") {
+    if (!value) return "";
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    return `status() ${operator} ${number}`;
+  }
+  if (type === "regex_compare") {
+    if (!path || !value) return "";
+    return `regex("${escapeRuleString(path)}") ${operator} ${formatRuleOperand(value)}`;
+  }
+  if (!path || !value) return "";
+  return `json("${escapeRuleString(path)}") ${operator} ${formatRuleOperand(value)}`;
+}
+
+function normalizeJsonAssertionLine(line) {
+  if (/^json\s*\(/i.test(line)) return line;
+  const match = line.match(/^(\$[^\s=!<>]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
+  if (!match) return line;
+  return `json("${escapeRuleString(match[1])}") ${match[2]} ${match[3]}`;
+}
+
+function isValidJsonAssertionLine(line) {
+  const functionMatch = line.match(/^json\s*\(\s*"([^"]+)"\s*\)\s*(==|!=|>=|<=|>|<)\s*(.+)$/i);
+  if (functionMatch) {
+    return isValidJsonPath(functionMatch[1]) && Boolean(functionMatch[3]?.trim());
+  }
+  const match = line.match(/^(\$[^\s=!<>]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
+  return Boolean(match && isValidJsonPath(match[1]) && match[3]?.trim());
+}
+
+function isValidJsonPath(value) {
+  return /^\$([.][A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*$/.test(String(value || "").trim());
+}
+
+function isNonNegativeNumber(value) {
+  const number = Number(value);
+  return value !== "" && Number.isFinite(number) && number >= 0;
+}
+
+function isPositiveNumber(value) {
+  const number = Number(value);
+  return value !== "" && Number.isFinite(number) && number > 0;
+}
+
+function escapeRuleString(value) {
+  return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function formatRuleOperand(value) {
+  const text = String(value || "").trim();
+  if (!text) return '""';
+  if (/^-?\d+(\.\d+)?$/.test(text) || /^(true|false|null)$/i.test(text)) return text.toLowerCase();
+  if (/^".*"$/.test(text)) return text;
+  return `"${escapeRuleString(text)}"`;
+}
+
+function renderApiRequestTestResult(container, result) {
+  container.hidden = false;
+  container.className = `api-test-result ${result.status === "UP" ? "ok" : "bad"}`;
+  const size = formatBytes(result.response_size_bytes);
+  const body = result.response_body || "";
+  container.innerHTML = `
+    <div class="api-test-metrics">
+      <div><span>HTTP状态码</span><strong>${escapeHtml(result.http_status_code ?? "-")}</strong></div>
+      <div><span>响应时间</span><strong>${escapeHtml(result.response_time_ms ?? "-")}ms</strong></div>
+      <div><span>响应大小</span><strong>${escapeHtml(size)}</strong></div>
+      <div><span>检测结果</span><strong>${escapeHtml(result.status || "-")}</strong></div>
+    </div>
+    <pre>${escapeHtml(prettyResponseBody(body))}</pre>
+    <small>${escapeHtml(result.message || "-")}</small>
+  `;
+}
+
+function prettyResponseBody(body) {
+  if (!body) return "";
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch (error) {
+    return body;
+  }
+}
+
+function formatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes)) return "-";
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${bytes}B`;
 }
 
 function secondsToServiceMinuteSecondParts(seconds, fallbackSeconds = 60, allowZero = false) {
@@ -283,20 +1050,60 @@ function buildServicePayload(form) {
   const isProcess = serviceType === "process";
   data.service_type = serviceType;
   const isWebUrl = isWebUrlServiceType(serviceType);
-  data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
+  const isApi = serviceType === "api";
+  const isDatabaseAdvancedRule = isDatabaseAdvancedRuleMode(form);
+  if (isApi) {
+    const apiVisualMode = assertionModeValue(form, "api_assertion_mode") !== "dsl";
+    data.url = normalizeWebUrl(data.api_url, "https");
+    data.http_method = data.api_http_method || "GET";
+    data.expected_status_code = apiVisualMode && data.api_expected_status_code ? Number(data.api_expected_status_code) : null;
+    data.response_keyword = null;
+    data.api_assertion_expression = buildApiAssertionExpression(form) || null;
+    data.ignore_ssl_verification = Boolean(form.elements.api_ignore_ssl_verification?.checked);
+    data.api_headers = collectApiHeaders();
+    data.api_content_type = data.api_content_type || "application/json";
+    data.api_request_body = ["POST", "PUT"].includes(data.http_method) ? data.api_request_body || null : null;
+    data.api_auth_type = data.api_auth_type || "none";
+    data.api_basic_username = data.api_auth_type === "basic" ? data.api_basic_username || null : null;
+    data.api_basic_password = data.api_auth_type === "basic" ? data.api_basic_password || null : null;
+    data.api_bearer_token = data.api_auth_type === "bearer" ? data.api_bearer_token || null : null;
+    data.api_auth_app_id = data.api_auth_type === "custom_header" ? data.api_auth_app_id || null : null;
+    data.api_auth_app_secret = data.api_auth_type === "custom_header" ? data.api_auth_app_secret || null : null;
+    data.api_response_time_ms = apiVisualMode && data.api_response_time_ms ? Number(data.api_response_time_ms) : null;
+    data.api_json_assertions = apiVisualMode ? data.api_json_assertions?.trim() || null : null;
+    data.api_text_assertion_mode = apiVisualMode ? data.api_text_assertion_mode || "contains" : "contains";
+    data.api_text_assertion_value = apiVisualMode ? data.api_text_assertion_value?.trim() || null : null;
+  } else {
+    data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
+    data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
+    data.response_keyword = isWebUrl ? data.response_keyword || null : null;
+    data.api_assertion_expression = isDatabase && isDatabaseAdvancedRule
+      ? buildResultAssertionExpression(form) || null
+      : null;
+    data.expected_status_code = isWebUrl ? data.expected_status_code : null;
+    data.ignore_ssl_verification = isWebUrl ? data.ignore_ssl_verification : false;
+    data.api_headers = [];
+    data.api_content_type = null;
+    data.api_request_body = null;
+    data.api_auth_type = "none";
+    data.api_basic_username = null;
+    data.api_basic_password = null;
+    data.api_bearer_token = null;
+    data.api_auth_app_id = null;
+    data.api_auth_app_secret = null;
+    data.api_response_time_ms = null;
+    data.api_json_assertions = null;
+    data.api_text_assertion_mode = "contains";
+    data.api_text_assertion_value = null;
+  }
   data.host = isWebUrl || isGenericJdbc ? null : data.host.trim();
-  data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
-  data.response_keyword = isWebUrl ? data.response_keyword || null : null;
-  data.api_assertion_expression = isWebUrl || isDatabase ? data.api_assertion_expression?.trim() || null : null;
-  data.expected_status_code = isWebUrl ? data.expected_status_code : null;
-  data.ignore_ssl_verification = isWebUrl ? data.ignore_ssl_verification : false;
   data.database_name = isDatabase && !isGenericJdbc ? data.database_name || null : null;
   data.database_username = isDatabase ? data.database_username || null : null;
   data.database_password = isDatabase ? data.database_password || null : null;
   data.database_query = isDatabase ? data.database_query || null : null;
-  data.expected_result = isDatabase ? data.expected_result || null : null;
-  data.database_result_operator = isDatabase ? data.database_result_operator || "fuzzy" : "fuzzy";
-  data.database_assertion_fields = isDatabase ? selectedDatabaseAssertionFields(form) : [];
+  data.expected_result = isDatabase && !isDatabaseAdvancedRule ? data.expected_result || null : null;
+  data.database_result_operator = isDatabase && !isDatabaseAdvancedRule ? data.database_result_operator || "fuzzy" : "fuzzy";
+  data.database_assertion_fields = isDatabase && isDatabaseAdvancedRule ? selectedDatabaseAssertionFields(form) : [];
   data.jdbc_driver_class = isDatabase ? data.jdbc_driver_class || null : null;
   data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
@@ -317,6 +1124,15 @@ function buildServicePayload(form) {
   data.cluster_name = data.cluster_name || null;
   data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
+  delete data.api_url;
+  delete data.api_http_method;
+  delete data.api_expected_status_code;
+  delete data.api_assertion_mode;
+  delete data.api_advanced_assertion_expression;
+  delete data.api_ignore_ssl_verification;
+  delete data.result_assertion_mode;
+  delete data.result_advanced_assertion_expression;
+  delete data.database_rule_mode;
   delete data.service_alert_cooldown_unit;
   delete data.rule_test_status_code;
   delete data.rule_test_response_time_ms;
@@ -341,13 +1157,13 @@ function buildDatabasePreviewPayload(form) {
   data.jdbc_driver_class = data.jdbc_driver_class || null;
   data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
   data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
-  data.database_assertion_fields = selectedDatabaseAssertionFields(form);
+  data.database_assertion_fields = isDatabaseAdvancedRuleMode(form) ? selectedDatabaseAssertionFields(form) : [];
   return data;
 }
 
 function buildRuleTestPayload(form) {
   return {
-    expression: form.elements.api_assertion_expression?.value?.trim() || "",
+    expression: buildResultAssertionExpression(form),
     status_code: Number(form.elements.rule_test_status_code?.value || 200),
     response_time_ms: Number(form.elements.rule_test_response_time_ms?.value || 0),
     body: form.elements.rule_test_body?.value || "",
@@ -520,6 +1336,15 @@ function fillServiceForm(form, service) {
     "expected_status_code",
     "response_keyword",
     "api_assertion_expression",
+    "api_content_type",
+    "api_request_body",
+    "api_auth_type",
+    "api_basic_username",
+    "api_auth_app_id",
+    "api_response_time_ms",
+    "api_json_assertions",
+    "api_text_assertion_mode",
+    "api_text_assertion_value",
     "host",
     "host_id",
     "port",
@@ -548,6 +1373,9 @@ function fillServiceForm(form, service) {
       const defaults = {
         check_timeout_seconds: 3,
         http_method: "GET",
+        api_content_type: "application/json",
+        api_auth_type: "none",
+        api_text_assertion_mode: "contains",
         database_result_operator: "fuzzy",
         process_match_mode: "fuzzy",
         check_command: service.check_command || service.process_check_command,
@@ -585,6 +1413,60 @@ function fillServiceForm(form, service) {
       ? "留空则保持原密码"
       : "Redis AUTH 密码";
   }
+  if (form.elements.api_url) {
+    form.elements.api_url.value = service.url || "";
+  }
+  if (form.elements.api_http_method) {
+    form.elements.api_http_method.value = service.http_method || "GET";
+  }
+  if (form.elements.api_expected_status_code) {
+    form.elements.api_expected_status_code.value = service.expected_status_code || 200;
+  }
+  if (form.elements.api_ignore_ssl_verification) {
+    form.elements.api_ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
+  }
+  renderApiHeaderRows(service.api_headers || []);
+  if (form.elements.api_basic_password) {
+    form.elements.api_basic_password.value = "";
+    form.elements.api_basic_password.placeholder = service.api_auth_type === "basic" ? "留空则保持原密码" : "";
+  }
+  if (form.elements.api_bearer_token) {
+    form.elements.api_bearer_token.value = "";
+    form.elements.api_bearer_token.placeholder = service.api_auth_type === "bearer" ? "留空则保持原 Token" : "Bearer Token";
+  }
+  if (form.elements.api_auth_app_secret) {
+    form.elements.api_auth_app_secret.value = "";
+    form.elements.api_auth_app_secret.placeholder = service.api_auth_type === "custom_header" ? "留空则保持原 AppSecret" : "";
+  }
+  if (form.elements.api_advanced_assertion_expression
+    && service.service_type === "api"
+    && service.api_assertion_expression
+    && !service.api_response_time_ms
+    && !service.api_json_assertions
+    && !service.api_text_assertion_value) {
+    form.elements.api_advanced_assertion_expression.value = service.api_assertion_expression;
+  }
+  if (service.service_type === "api" && form.elements.api_advanced_assertion_expression) {
+    const visualExpression = buildApiVisualAssertionExpression(form);
+    const savedExpression = service.api_assertion_expression || "";
+    if (savedExpression && savedExpression !== visualExpression) {
+      setAssertionModeValue(form, "api_assertion_mode", "dsl");
+      form.elements.api_advanced_assertion_expression.value = savedExpression;
+    } else {
+      setAssertionModeValue(form, "api_assertion_mode", "visual");
+    }
+  } else if (form.elements.result_advanced_assertion_expression) {
+    const savedExpression = service.api_assertion_expression || "";
+    if (isDatabaseServiceType(service.service_type)) {
+      setAssertionModeValue(form, "database_rule_mode", savedExpression ? "advanced" : "simple");
+    }
+    if (savedExpression) {
+      setAssertionModeValue(form, "result_assertion_mode", "dsl");
+      form.elements.result_advanced_assertion_expression.value = savedExpression;
+    } else {
+      setAssertionModeValue(form, "result_assertion_mode", "visual");
+    }
+  }
   if (form.elements.database_password) {
     form.elements.database_password.value = "";
     form.elements.database_password.placeholder = isDatabaseServiceType(service.service_type)
@@ -601,6 +1483,12 @@ function fillServiceForm(form, service) {
   if (form.elements.ignore_ssl_verification) {
     form.elements.ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
   }
+  syncApiMethodFields(form);
+  syncApiAuthFields(form);
+  syncApiAssertionMode(form);
+  syncDatabaseRuleMode(form);
+  syncResultAssertionMode(form);
+  hideAssertionDslPreviews();
   renderDatabaseSelectedFields(form, service.database_assertion_fields || []);
 }
 
