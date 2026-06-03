@@ -28,6 +28,9 @@ public class HostPayload {
     public Boolean cpuAlertEnabled = true;
     public Boolean memoryAlertEnabled = true;
     public Boolean diskAlertEnabled = true;
+    public Boolean resourceAlertDurationEnabled = true;
+    public Boolean resourceRecoverDurationEnabled = true;
+    public Boolean resourceAlertCooldownEnabled = true;
     @Min(1)
     @Max(31536000)
     public Integer resourceAlertDurationSeconds = 180;

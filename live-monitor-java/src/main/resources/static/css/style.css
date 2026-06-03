@@ -2608,6 +2608,22 @@ textarea {
   text-align: right;
 }
 
+.host-alert-duration-field {
+  grid-template-columns: max-content 88px 76px;
+}
+
+.host-alert-duration-field select {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.host-alert-duration-field input:disabled,
+.host-alert-duration-field select:disabled {
+  background: #eef3f8;
+  color: #8a98aa;
+  cursor: not-allowed;
+}
+
 .host-alert-threshold-field em {
   color: var(--muted);
   font-style: normal;
@@ -4101,6 +4117,10 @@ textarea {
   .host-alert-threshold-field {
     grid-template-columns: minmax(72px, max-content) minmax(72px, 96px) max-content;
     justify-content: flex-start;
+  }
+
+  .host-alert-duration-field {
+    grid-template-columns: minmax(72px, max-content) minmax(72px, 96px) 76px;
   }
 
   .form-actions {

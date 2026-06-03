@@ -154,7 +154,9 @@ public class HostResourceMonitorService {
     }
 
     private boolean sustainedThresholdExceeded(HostConfig host, Map<String, Object> currentMetrics, ResourceThreshold... thresholds) {
-        int requiredSamples = requiredSamples(host.resourceAlertDurationSeconds, host.checkInterval);
+        int requiredSamples = alertEnabled(host.resourceAlertDurationEnabled)
+            ? requiredSamples(host.resourceAlertDurationSeconds, host.checkInterval)
+            : 1;
         List<Map<String, Object>> rows = recentHostMetrics(host.id, requiredSamples);
         if (rows.isEmpty()) {
             rows.add(currentMetrics);

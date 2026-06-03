@@ -308,6 +308,9 @@ public class HostMonitorService {
         host.cpuAlertEnabled = payload.cpuAlertEnabled == null || payload.cpuAlertEnabled;
         host.memoryAlertEnabled = payload.memoryAlertEnabled == null || payload.memoryAlertEnabled;
         host.diskAlertEnabled = payload.diskAlertEnabled == null || payload.diskAlertEnabled;
+        host.resourceAlertDurationEnabled = payload.resourceAlertDurationEnabled == null || payload.resourceAlertDurationEnabled;
+        host.resourceRecoverDurationEnabled = payload.resourceRecoverDurationEnabled == null || payload.resourceRecoverDurationEnabled;
+        host.resourceAlertCooldownEnabled = payload.resourceAlertCooldownEnabled == null || payload.resourceAlertCooldownEnabled;
         host.resourceAlertDurationSeconds = positiveOrDefault(payload.resourceAlertDurationSeconds, 180);
         host.resourceRecoverDurationSeconds = positiveOrDefault(payload.resourceRecoverDurationSeconds, 180);
         host.resourceAlertCooldownSeconds = nonNegativeOrDefault(payload.resourceAlertCooldownSeconds, 600);
@@ -367,6 +370,9 @@ public class HostMonitorService {
             config.put("cpu_alert_enabled", alertEnabled(host.cpuAlertEnabled));
             config.put("memory_alert_enabled", alertEnabled(host.memoryAlertEnabled));
             config.put("disk_alert_enabled", alertEnabled(host.diskAlertEnabled));
+            config.put("resource_alert_duration_enabled", alertEnabled(host.resourceAlertDurationEnabled));
+            config.put("resource_recover_duration_enabled", alertEnabled(host.resourceRecoverDurationEnabled));
+            config.put("resource_alert_cooldown_enabled", alertEnabled(host.resourceAlertCooldownEnabled));
             config.put("resource_alert_duration_seconds", positiveOrDefault(host.resourceAlertDurationSeconds, 180));
             config.put("resource_recover_duration_seconds", positiveOrDefault(host.resourceRecoverDurationSeconds, 180));
             config.put("resource_alert_cooldown_seconds", nonNegativeOrDefault(host.resourceAlertCooldownSeconds, 600));

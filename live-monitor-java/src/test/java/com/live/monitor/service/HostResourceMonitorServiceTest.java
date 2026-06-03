@@ -202,6 +202,21 @@ class HostResourceMonitorServiceTest {
     }
 
     @Test
+    void checkAlertsImmediatelyWhenAlertDurationConfirmationDisabled() {
+        HostConfig host = hostWithThresholds();
+        host.checkInterval = 30;
+        host.resourceAlertDurationEnabled = false;
+        host.resourceAlertDurationSeconds = 180;
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "90.0", "40.0", "20%");
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertEquals(HostResourceMonitorService.HOST_RESOURCE_THRESHOLD_ALERT, result.alertType);
+    }
+
+    @Test
     void checkDoesNotAlertWhenCpuEqualsThreshold() {
         HostConfig host = hostWithThresholds();
         host.cpuThresholdPercent = 85D;

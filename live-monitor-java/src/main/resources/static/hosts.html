@@ -245,21 +245,48 @@
               </label>
             </div>
             <div class="host-alert-policy-row">
-              <span class="host-alert-policy-name">持续超限</span>
-              <label class="host-alert-threshold-field">
-                <span>告警持续</span>
+              <span class="host-alert-policy-name">连续异常</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="resource_alert_duration_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field host-alert-duration-field">
+                <span>时长</span>
                 <input name="resource_alert_duration_seconds" type="number" min="1" max="31536000" step="1" value="180">
-                <em>秒</em>
+                <select name="resource_alert_duration_unit" aria-label="连续异常单位">
+                  <option value="seconds">秒</option>
+                  <option value="minutes">分钟</option>
+                </select>
               </label>
-              <label class="host-alert-threshold-field">
-                <span>恢复持续</span>
+            </div>
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">连续恢复</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="resource_recover_duration_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field host-alert-duration-field">
+                <span>时长</span>
                 <input name="resource_recover_duration_seconds" type="number" min="1" max="31536000" step="1" value="180">
-                <em>秒</em>
+                <select name="resource_recover_duration_unit" aria-label="连续恢复单位">
+                  <option value="seconds">秒</option>
+                  <option value="minutes">分钟</option>
+                </select>
               </label>
-              <label class="host-alert-threshold-field">
-                <span>冷却时间</span>
+            </div>
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">告警冷却</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="resource_alert_cooldown_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field host-alert-duration-field">
+                <span>时长</span>
                 <input name="resource_alert_cooldown_seconds" type="number" min="0" max="31536000" step="1" value="600">
-                <em>秒</em>
+                <select name="resource_alert_cooldown_unit" aria-label="告警冷却单位">
+                  <option value="seconds">秒</option>
+                  <option value="minutes">分钟</option>
+                </select>
               </label>
             </div>
             <label class="host-alert-group-row">

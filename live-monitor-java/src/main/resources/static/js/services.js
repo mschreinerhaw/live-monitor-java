@@ -134,6 +134,29 @@ function toggleFieldSet(selector, visible) {
   });
 }
 
+function secondsToServiceMinuteSecondParts(seconds, fallbackSeconds = 60, allowZero = false) {
+  const fallback = allowZero ? Math.max(0, Number(fallbackSeconds || 0)) : Math.max(1, Number(fallbackSeconds || 60));
+  const normalized = Number.isFinite(Number(seconds)) ? Number(seconds) : fallback;
+  const value = allowZero ? Math.max(0, normalized) : Math.max(1, normalized);
+  if (value >= 60 && value % 60 === 0) return { value: value / 60, unit: "minutes" };
+  return { value, unit: "seconds" };
+}
+
+function setServiceDurationField(form, valueName, unitName, seconds, fallbackSeconds, allowZero = false) {
+  const parts = secondsToServiceMinuteSecondParts(seconds ?? fallbackSeconds, fallbackSeconds, allowZero);
+  form.elements[valueName].value = parts.value;
+  form.elements[unitName].value = parts.unit;
+}
+
+function serviceDurationFieldToSeconds(form, valueName, unitName, fallbackSeconds, allowZero = false) {
+  const valueText = form.elements[valueName]?.value;
+  const value = valueText === "" ? NaN : Number(valueText);
+  if (!Number.isFinite(value)) return fallbackSeconds;
+  const multiplier = form.elements[unitName]?.value === "minutes" ? 60 : 1;
+  const min = allowZero ? 0 : 1;
+  return Math.min(Math.max(min, Math.round(value * multiplier)), 31536000);
+}
+
 function buildServicePayload(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const serviceType = ["http", "https"].includes(data.service_type) ? "web" : data.service_type;
@@ -149,7 +172,13 @@ function buildServicePayload(form) {
   data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
   data.service_consecutive_failures = Number(data.service_consecutive_failures || 3);
   data.service_recover_successes = Number(data.service_recover_successes || 2);
-  data.service_alert_cooldown_seconds = Number(data.service_alert_cooldown_seconds || 600);
+  data.service_alert_cooldown_seconds = serviceDurationFieldToSeconds(
+    form,
+    "service_alert_cooldown_seconds",
+    "service_alert_cooldown_unit",
+    600,
+    true
+  );
   data.port = data.port ? Number(data.port) : null;
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
@@ -194,6 +223,7 @@ function buildServicePayload(form) {
   data.cluster_name = data.cluster_name || null;
   data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
+  delete data.service_alert_cooldown_unit;
   return data;
 }
 
@@ -315,6 +345,16 @@ function fillServiceForm(form, service) {
   }
   if (form.elements.check_interval_unit) {
     form.elements.check_interval_unit.value = service.check_interval_unit || intervalParts.unit;
+  }
+  if (form.elements.service_alert_cooldown_seconds && form.elements.service_alert_cooldown_unit) {
+    setServiceDurationField(
+      form,
+      "service_alert_cooldown_seconds",
+      "service_alert_cooldown_unit",
+      service.service_alert_cooldown_seconds,
+      600,
+      true
+    );
   }
   if (form.elements.redis_password) {
     form.elements.redis_password.value = "";

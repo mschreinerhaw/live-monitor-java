@@ -414,12 +414,18 @@ public class AlertService {
     }
 
     private int hostResourceRecoverThreshold(MonitorService service) {
+        if (!booleanConfig(service, "resource_recover_duration_enabled", true)) {
+            return 1;
+        }
         int duration = intConfig(service, "resource_recover_duration_seconds", 180);
         int interval = service == null || service.checkInterval == null || service.checkInterval < 1 ? 60 : service.checkInterval;
         return Math.max(1, (int) Math.ceil((double) duration / interval));
     }
 
     private boolean hostResourceInCooldown(MonitorService service, AlertState state, CheckEvent event) {
+        if (!booleanConfig(service, "resource_alert_cooldown_enabled", true)) {
+            return false;
+        }
         int cooldownSeconds = intConfig(service, "resource_alert_cooldown_seconds", 600);
         if (cooldownSeconds <= 0 || state == null || !StringUtils.hasText(state.lastAlertAt)) {
             return false;

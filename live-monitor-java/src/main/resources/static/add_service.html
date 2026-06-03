@@ -279,10 +279,13 @@
                 <input name="service_recover_successes" type="number" min="1" max="1000" step="1" value="2">
                 <em>次</em>
               </label>
-              <label class="host-alert-threshold-field">
+              <label class="host-alert-threshold-field host-alert-duration-field">
                 <span>冷却时间</span>
-                <input name="service_alert_cooldown_seconds" type="number" min="0" max="31536000" step="1" value="600">
-                <em>秒</em>
+                <input name="service_alert_cooldown_seconds" type="number" min="0" max="31536000" step="1" value="10">
+                <select name="service_alert_cooldown_unit" aria-label="冷却时间单位">
+                  <option value="seconds">秒</option>
+                  <option value="minutes" selected>分钟</option>
+                </select>
               </label>
             </div>
           </div>

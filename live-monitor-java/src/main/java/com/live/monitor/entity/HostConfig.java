@@ -20,6 +20,9 @@ public class HostConfig {
     public Boolean cpuAlertEnabled;
     public Boolean memoryAlertEnabled;
     public Boolean diskAlertEnabled;
+    public Boolean resourceAlertDurationEnabled;
+    public Boolean resourceRecoverDurationEnabled;
+    public Boolean resourceAlertCooldownEnabled;
     public Integer resourceAlertDurationSeconds;
     public Integer resourceRecoverDurationSeconds;
     public Integer resourceAlertCooldownSeconds;

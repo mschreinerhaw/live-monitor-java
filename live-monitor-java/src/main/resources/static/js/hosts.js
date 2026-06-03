@@ -41,6 +41,8 @@ function bindHostEvents() {
   document.getElementById("hostNextPageBtn")?.addEventListener("click", () => changeHostPage(hostState.page + 1));
   document.getElementById("hostPageJump")?.addEventListener("change", (event) => changeHostPage(Number(event.target.value || 1)));
   document.getElementById("hostForm")?.addEventListener("submit", saveHostForm);
+  bindHostAlertThresholdToggleEvents();
+  bindHostDurationToggleEvents();
   document.getElementById("hostRealtimeMetricsBtn")?.addEventListener("click", () => setHostMetricView("realtime"));
   document.getElementById("hostSevenDayMetricsBtn")?.addEventListener("click", () => setHostMetricView("7d"));
   document.getElementById("hostRefreshMetricsBtn")?.addEventListener("click", refreshSelectedHostMetrics);
@@ -165,9 +167,9 @@ function renderHostRow(host) {
           <span>CPU 阈值 <strong>${formatAlertThreshold(host.cpu_threshold_percent, host.cpu_alert_enabled)}</strong></span>
           <span>内存阈值 <strong>${formatAlertThreshold(host.memory_threshold_percent, host.memory_alert_enabled)}</strong></span>
           <span>挂载点阈值 <strong>${formatAlertThreshold(host.disk_threshold_percent, host.disk_alert_enabled)}</strong></span>
-          <span>持续时间 <strong>${formatCheckInterval(host.resource_alert_duration_seconds ?? 180)}</strong></span>
-          <span>恢复持续 <strong>${formatCheckInterval(host.resource_recover_duration_seconds ?? 180)}</strong></span>
-          <span>冷却时间 <strong>${formatCheckInterval(host.resource_alert_cooldown_seconds ?? 600)}</strong></span>
+          <span>连续异常 <strong>${formatDurationSetting(host.resource_alert_duration_seconds ?? 180, host.resource_alert_duration_enabled)}</strong></span>
+          <span>连续恢复 <strong>${formatDurationSetting(host.resource_recover_duration_seconds ?? 180, host.resource_recover_duration_enabled)}</strong></span>
+          <span>告警冷却 <strong>${formatDurationSetting(host.resource_alert_cooldown_seconds ?? 600, host.resource_alert_cooldown_enabled)}</strong></span>
         </div>
       </td>
       <td>
@@ -374,6 +376,97 @@ function closeHostModal() {
   if (modal) modal.hidden = true;
 }
 
+const hostAlertThresholdToggleFields = [
+  {
+    toggleName: "cpu_alert_enabled",
+    valueName: "cpu_threshold_percent",
+  },
+  {
+    toggleName: "memory_alert_enabled",
+    valueName: "memory_threshold_percent",
+  },
+  {
+    toggleName: "disk_alert_enabled",
+    valueName: "disk_threshold_percent",
+  },
+];
+
+function bindHostAlertThresholdToggleEvents() {
+  const form = document.getElementById("hostForm");
+  if (!form) return;
+  hostAlertThresholdToggleFields.forEach((field) => {
+    form.elements[field.toggleName]?.addEventListener("change", () => syncHostAlertThresholdToggle(form, field));
+  });
+}
+
+function syncHostAlertThresholdToggle(form, field) {
+  const enabled = form.elements[field.toggleName]?.checked !== false;
+  if (form.elements[field.valueName]) form.elements[field.valueName].disabled = !enabled;
+}
+
+function syncHostAlertThresholdToggles(form) {
+  hostAlertThresholdToggleFields.forEach((field) => syncHostAlertThresholdToggle(form, field));
+}
+
+const hostDurationToggleFields = [
+  {
+    toggleName: "resource_alert_duration_enabled",
+    valueName: "resource_alert_duration_seconds",
+    unitName: "resource_alert_duration_unit",
+  },
+  {
+    toggleName: "resource_recover_duration_enabled",
+    valueName: "resource_recover_duration_seconds",
+    unitName: "resource_recover_duration_unit",
+  },
+  {
+    toggleName: "resource_alert_cooldown_enabled",
+    valueName: "resource_alert_cooldown_seconds",
+    unitName: "resource_alert_cooldown_unit",
+  },
+];
+
+function bindHostDurationToggleEvents() {
+  const form = document.getElementById("hostForm");
+  if (!form) return;
+  hostDurationToggleFields.forEach((field) => {
+    form.elements[field.toggleName]?.addEventListener("change", () => syncHostDurationToggle(form, field));
+  });
+}
+
+function syncHostDurationToggle(form, field) {
+  const enabled = form.elements[field.toggleName]?.checked !== false;
+  if (form.elements[field.valueName]) form.elements[field.valueName].disabled = !enabled;
+  if (form.elements[field.unitName]) form.elements[field.unitName].disabled = !enabled;
+}
+
+function syncHostDurationToggles(form) {
+  hostDurationToggleFields.forEach((field) => syncHostDurationToggle(form, field));
+}
+
+function secondsToMinuteSecondParts(seconds, fallbackSeconds = 60, allowZero = false) {
+  const fallback = allowZero ? Math.max(0, Number(fallbackSeconds || 0)) : Math.max(1, Number(fallbackSeconds || 60));
+  const normalized = Number.isFinite(Number(seconds)) ? Number(seconds) : fallback;
+  const value = allowZero ? Math.max(0, normalized) : Math.max(1, normalized);
+  if (value >= 60 && value % 60 === 0) return { value: value / 60, unit: "minutes" };
+  return { value, unit: "seconds" };
+}
+
+function setHostDurationField(form, valueName, unitName, seconds, fallbackSeconds, allowZero = false) {
+  const parts = secondsToMinuteSecondParts(seconds ?? fallbackSeconds, fallbackSeconds, allowZero);
+  form.elements[valueName].value = parts.value;
+  form.elements[unitName].value = parts.unit;
+}
+
+function hostDurationFieldToSeconds(form, valueName, unitName, fallbackSeconds, allowZero = false) {
+  const valueText = form.elements[valueName]?.value;
+  const value = valueText === "" ? NaN : Number(valueText);
+  if (!Number.isFinite(value)) return fallbackSeconds;
+  const multiplier = form.elements[unitName]?.value === "minutes" ? 60 : 1;
+  const min = allowZero ? 0 : 1;
+  return Math.min(Math.max(min, Math.round(value * multiplier)), 31536000);
+}
+
 function fillHostForm(host) {
   const form = document.getElementById("hostForm");
   if (!form) return;
@@ -389,12 +482,17 @@ function fillHostForm(host) {
   form.elements.cpu_threshold_percent.value = host?.cpu_threshold_percent ?? 85;
   form.elements.memory_threshold_percent.value = host?.memory_threshold_percent ?? 85;
   form.elements.disk_threshold_percent.value = host?.disk_threshold_percent ?? 85;
-  form.elements.resource_alert_duration_seconds.value = host?.resource_alert_duration_seconds ?? 180;
-  form.elements.resource_recover_duration_seconds.value = host?.resource_recover_duration_seconds ?? 180;
-  form.elements.resource_alert_cooldown_seconds.value = host?.resource_alert_cooldown_seconds ?? 600;
+  setHostDurationField(form, "resource_alert_duration_seconds", "resource_alert_duration_unit", host?.resource_alert_duration_seconds, 180);
+  setHostDurationField(form, "resource_recover_duration_seconds", "resource_recover_duration_unit", host?.resource_recover_duration_seconds, 180);
+  setHostDurationField(form, "resource_alert_cooldown_seconds", "resource_alert_cooldown_unit", host?.resource_alert_cooldown_seconds, 600, true);
   form.elements.cpu_alert_enabled.checked = host ? host.cpu_alert_enabled !== false : true;
   form.elements.memory_alert_enabled.checked = host ? host.memory_alert_enabled !== false : true;
   form.elements.disk_alert_enabled.checked = host ? host.disk_alert_enabled !== false : true;
+  syncHostAlertThresholdToggles(form);
+  form.elements.resource_alert_duration_enabled.checked = host ? host.resource_alert_duration_enabled !== false : true;
+  form.elements.resource_recover_duration_enabled.checked = host ? host.resource_recover_duration_enabled !== false : true;
+  form.elements.resource_alert_cooldown_enabled.checked = host ? host.resource_alert_cooldown_enabled !== false : true;
+  syncHostDurationToggles(form);
   const intervalParts = secondsToIntervalParts(host?.check_interval || 60);
   form.elements.check_interval_value.value = host?.check_interval_value || intervalParts.value;
   form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
@@ -415,9 +513,12 @@ function buildHostPayload(form) {
     cpu_threshold_percent: Number(form.elements.cpu_threshold_percent.value || 85),
     memory_threshold_percent: Number(form.elements.memory_threshold_percent.value || 85),
     disk_threshold_percent: Number(form.elements.disk_threshold_percent.value || 85),
-    resource_alert_duration_seconds: Number(form.elements.resource_alert_duration_seconds.value || 180),
-    resource_recover_duration_seconds: Number(form.elements.resource_recover_duration_seconds.value || 180),
-    resource_alert_cooldown_seconds: Number(form.elements.resource_alert_cooldown_seconds.value || 600),
+    resource_alert_duration_enabled: form.elements.resource_alert_duration_enabled.checked,
+    resource_recover_duration_enabled: form.elements.resource_recover_duration_enabled.checked,
+    resource_alert_cooldown_enabled: form.elements.resource_alert_cooldown_enabled.checked,
+    resource_alert_duration_seconds: hostDurationFieldToSeconds(form, "resource_alert_duration_seconds", "resource_alert_duration_unit", 180),
+    resource_recover_duration_seconds: hostDurationFieldToSeconds(form, "resource_recover_duration_seconds", "resource_recover_duration_unit", 180),
+    resource_alert_cooldown_seconds: hostDurationFieldToSeconds(form, "resource_alert_cooldown_seconds", "resource_alert_cooldown_unit", 600, true),
     cpu_alert_enabled: form.elements.cpu_alert_enabled.checked,
     memory_alert_enabled: form.elements.memory_alert_enabled.checked,
     disk_alert_enabled: form.elements.disk_alert_enabled.checked,
@@ -1422,6 +1523,10 @@ function formatThreshold(value) {
 
 function formatAlertThreshold(value, enabled = true) {
   return enabled === false ? "关闭" : formatThreshold(value);
+}
+
+function formatDurationSetting(seconds, enabled = true) {
+  return enabled === false ? "关闭" : formatCheckInterval(seconds);
 }
 
 function formatCoreCount(value) {

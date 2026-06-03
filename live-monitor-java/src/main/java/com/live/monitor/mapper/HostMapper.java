@@ -30,10 +30,12 @@ public interface HostMapper {
     @Insert("INSERT INTO host_config (host_name, ip, ssh_port, ssh_user, ssh_password_cipher, private_key_cipher, " +
         "monitor_service_id, cluster_name, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
         "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, resource_alert_duration_seconds, " +
+        "resource_alert_duration_enabled, resource_recover_duration_enabled, resource_alert_cooldown_enabled, " +
         "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
         "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
         "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{resourceAlertDurationSeconds}, " +
+        "#{resourceAlertDurationEnabled}, #{resourceRecoverDurationEnabled}, #{resourceAlertCooldownEnabled}, " +
         "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertHost(HostConfig host);
@@ -45,6 +47,9 @@ public interface HostMapper {
         "memory_threshold_percent = #{memoryThresholdPercent}, disk_threshold_percent = #{diskThresholdPercent}, " +
         "cpu_alert_enabled = #{cpuAlertEnabled}, memory_alert_enabled = #{memoryAlertEnabled}, " +
         "disk_alert_enabled = #{diskAlertEnabled}, resource_alert_duration_seconds = #{resourceAlertDurationSeconds}, " +
+        "resource_alert_duration_enabled = #{resourceAlertDurationEnabled}, " +
+        "resource_recover_duration_enabled = #{resourceRecoverDurationEnabled}, " +
+        "resource_alert_cooldown_enabled = #{resourceAlertCooldownEnabled}, " +
         "resource_recover_duration_seconds = #{resourceRecoverDurationSeconds}, " +
         "resource_alert_cooldown_seconds = #{resourceAlertCooldownSeconds}, check_interval = #{checkInterval}, " +
         "enabled = #{enabled} WHERE id = #{id}")
