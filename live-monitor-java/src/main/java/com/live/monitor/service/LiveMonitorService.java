@@ -108,6 +108,9 @@ public class LiveMonitorService {
 
     public MonitorResult checkAndStore(Long id) {
         MonitorService service = requireService(id);
+        if (!Boolean.TRUE.equals(service.enabled)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "service is disabled");
+        }
         CheckResult check = runnerService.run(service);
         return transactionTemplate.execute(status -> {
             MonitorResult result = new MonitorResult();

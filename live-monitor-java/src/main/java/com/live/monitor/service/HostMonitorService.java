@@ -162,6 +162,9 @@ public class HostMonitorService {
 
     public Map<String, Object> refreshMetrics(Long hostId) {
         HostConfig host = requireHost(hostId);
+        if (!Boolean.TRUE.equals(host.enabled)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "host is disabled");
+        }
         Map<String, Object> metrics = hostResourceMonitorService.collectAndStore(host, 10000);
         metrics.put("host_id", host.id);
         return metrics;

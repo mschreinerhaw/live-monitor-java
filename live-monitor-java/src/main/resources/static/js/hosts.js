@@ -41,6 +41,10 @@ function bindHostEvents() {
   document.getElementById("hostNextPageBtn")?.addEventListener("click", () => changeHostPage(hostState.page + 1));
   document.getElementById("hostPageJump")?.addEventListener("change", (event) => changeHostPage(Number(event.target.value || 1)));
   document.getElementById("hostForm")?.addEventListener("submit", saveHostForm);
+  document.getElementById("hostForm")?.elements.enabled?.addEventListener("change", (event) => {
+    const form = event.target.form;
+    syncHostEditingLock(form, Boolean(form?.elements.id?.value));
+  });
   bindHostAlertThresholdToggleEvents();
   bindHostDurationToggleEvents();
   document.getElementById("hostRealtimeMetricsBtn")?.addEventListener("click", () => setHostMetricView("realtime"));
@@ -498,7 +502,30 @@ function fillHostForm(host) {
   form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
   form.elements.alert_group_id.value = host?.alert_group_id || "";
   form.elements.enabled.checked = host ? Boolean(host.enabled) : true;
+  syncHostEditingLock(form, Boolean(host));
   setText("hostModalTitle", host ? "编辑主机" : "添加主机");
+}
+
+function syncHostEditingLock(form, editingExistingHost = false) {
+  if (!form) return;
+  const locked = Boolean(editingExistingHost && form.elements.enabled && !form.elements.enabled.checked);
+  form.classList.toggle("form-edit-locked", locked);
+  Array.from(form.elements).forEach((control) => {
+    if (isHostLockExemptControl(control)) return;
+    control.disabled = locked;
+  });
+  if (!locked) {
+    syncHostAlertThresholdToggles(form);
+    syncHostDurationToggles(form);
+  }
+}
+
+function isHostLockExemptControl(control) {
+  if (!control) return true;
+  return control.name === "enabled"
+    || control.type === "submit"
+    || control.type === "button"
+    || control.type === "hidden";
 }
 
 function buildHostPayload(form) {

@@ -2,6 +2,7 @@ async function initAddService() {
   const form = document.getElementById("serviceForm");
   const typeSelect = document.getElementById("serviceType");
   const webSchemeSelect = form.elements.web_scheme;
+  let editingExistingService = false;
   initServiceTypePicker(typeSelect);
   const hostOptionsPromise = loadProcessHostOptions(form);
   const pathMatch = window.location.pathname.match(/\/services\/(\d+)\/edit$/);
@@ -69,6 +70,7 @@ async function initAddService() {
   };
   typeSelect.addEventListener("change", syncFields);
   webSchemeSelect?.addEventListener("change", () => normalizeWebUrlInput(form));
+  form.elements.enabled?.addEventListener("change", () => syncServiceEditingLock(form, editingExistingService));
   syncFields();
   await loadServiceAlertConfigOptions(form);
   await hostOptionsPromise;
@@ -97,6 +99,7 @@ async function initAddService() {
 
   if (editId) {
     try {
+      editingExistingService = true;
       const editService = await LiveMonitorApi.service(editId);
       document.title = "编辑服务 - Live Monitor";
       document.getElementById("serviceFormTitle").textContent = "编辑监控服务";
@@ -105,6 +108,7 @@ async function initAddService() {
       document.getElementById("serviceFormCancel").href = serviceDetailHref(editService.id);
       fillServiceForm(form, editService);
       typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      syncServiceEditingLock(form, editingExistingService);
     } catch (error) {
       showToast(error.message);
     }
@@ -112,7 +116,9 @@ async function initAddService() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const restoreLockedControls = unlockServiceFormForSubmit(form);
     const data = buildServicePayload(form);
+    restoreLockedControls();
 
     try {
       const service = editId
@@ -126,6 +132,39 @@ async function initAddService() {
       showToast(error.message);
     }
   });
+}
+
+function syncServiceEditingLock(form, editingExistingService = false) {
+  if (!form) return;
+  const locked = Boolean(editingExistingService && form.elements.enabled && !form.elements.enabled.checked);
+  form.classList.toggle("form-edit-locked", locked);
+  Array.from(form.elements).forEach((control) => {
+    if (isServiceLockExemptControl(control)) return;
+    control.disabled = locked;
+    control.dataset.serviceEditLocked = locked ? "true" : "";
+  });
+  const testButton = document.getElementById("testConnectionBtn");
+  if (testButton) testButton.disabled = locked;
+}
+
+function isServiceLockExemptControl(control) {
+  if (!control) return true;
+  return control.name === "enabled"
+    || control.id === "serviceFormSubmit"
+    || control.id === "testConnectionBtn";
+}
+
+function unlockServiceFormForSubmit(form) {
+  const controls = Array.from(form.elements).filter((control) => control.dataset.serviceEditLocked === "true");
+  controls.forEach((control) => {
+    control.disabled = false;
+  });
+  return () => {
+    if (form.elements.enabled?.checked) return;
+    controls.forEach((control) => {
+      control.disabled = true;
+    });
+  };
 }
 
 function toggleFieldSet(selector, visible) {
