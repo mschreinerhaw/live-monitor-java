@@ -372,10 +372,10 @@ public class LiveMonitorService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service_type must contain only letters, numbers, dot, dash, or underscore");
         }
         if (isWebUrlType(type) && !StringUtils.hasText(payload.url)) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "url is required for web services");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "url is required for HTTP request services");
         }
         if (isWebUrlType(type) && !isHttpUrl(payload.url)) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "web service url must start with http:// or https://");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service url must start with http:// or https://");
         }
         if ("process".equals(type)
             && (!StringUtils.hasText(payload.host) && payload.hostId == null)) {
@@ -412,6 +412,9 @@ public class LiveMonitorService {
     private void maskSecrets(MonitorService service) {
         service.redisPassword = null;
         service.databasePassword = null;
+        service.apiBasicPassword = null;
+        service.apiBearerToken = null;
+        service.apiAuthAppSecret = null;
         service.secretConfigJson = null;
     }
 
@@ -434,6 +437,19 @@ public class LiveMonitorService {
             service.expectedStatusCode = payload.expectedStatusCode;
             service.responseKeyword = emptyToNull(payload.responseKeyword);
             service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.apiHeaders = cleanHeaderList(payload.apiHeaders);
+            service.apiContentType = emptyToNull(payload.apiContentType);
+            service.apiRequestBody = emptyToNull(payload.apiRequestBody);
+            service.apiAuthType = apiAuthType(payload.apiAuthType);
+            service.apiBasicUsername = emptyToNull(payload.apiBasicUsername);
+            service.apiBasicPassword = emptyToNull(payload.apiBasicPassword);
+            service.apiBearerToken = emptyToNull(payload.apiBearerToken);
+            service.apiAuthAppId = emptyToNull(payload.apiAuthAppId);
+            service.apiAuthAppSecret = emptyToNull(payload.apiAuthAppSecret);
+            service.apiResponseTimeMs = payload.apiResponseTimeMs;
+            service.apiJsonAssertions = emptyToNull(payload.apiJsonAssertions);
+            service.apiTextAssertionMode = apiTextAssertionMode(payload.apiTextAssertionMode);
+            service.apiTextAssertionValue = emptyToNull(payload.apiTextAssertionValue);
             service.ignoreSslVerification = Boolean.TRUE.equals(payload.ignoreSslVerification);
             service.endpoint = service.endpoint == null ? service.url : service.endpoint;
             service.expectedResult = service.expectedResult == null && service.expectedStatusCode != null
@@ -444,6 +460,19 @@ public class LiveMonitorService {
             putIfNotNull(config, "expected_status_code", service.expectedStatusCode);
             putIfNotNull(config, "response_keyword", service.responseKeyword);
             putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "api_headers", service.apiHeaders);
+            putIfNotNull(config, "api_content_type", service.apiContentType);
+            putIfNotNull(config, "api_request_body", service.apiRequestBody);
+            config.put("api_auth_type", service.apiAuthType);
+            putIfNotNull(config, "api_basic_username", service.apiBasicUsername);
+            putIfNotNull(config, "api_auth_app_id", service.apiAuthAppId);
+            putIfNotNull(config, "api_response_time_ms", service.apiResponseTimeMs);
+            putIfNotNull(config, "api_json_assertions", service.apiJsonAssertions);
+            config.put("api_text_assertion_mode", service.apiTextAssertionMode);
+            putIfNotNull(config, "api_text_assertion_value", service.apiTextAssertionValue);
+            putIfNotNull(secretConfig, "api_basic_password", service.apiBasicPassword);
+            putIfNotNull(secretConfig, "api_bearer_token", service.apiBearerToken);
+            putIfNotNull(secretConfig, "api_auth_app_secret", service.apiAuthAppSecret);
             config.put("ignore_ssl_verification", service.ignoreSslVerification);
             return;
         }
@@ -564,6 +593,19 @@ public class LiveMonitorService {
             service.expectedStatusCode = intValue(config, "expected_status_code", null);
             service.responseKeyword = stringValue(config, "response_keyword", null);
             service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.apiHeaders = headerListValue(config, "api_headers");
+            service.apiContentType = stringValue(config, "api_content_type", null);
+            service.apiRequestBody = stringValue(config, "api_request_body", null);
+            service.apiAuthType = apiAuthType(stringValue(config, "api_auth_type", "none"));
+            service.apiBasicUsername = stringValue(config, "api_basic_username", null);
+            service.apiBasicPassword = stringValue(secretConfig, "api_basic_password", null);
+            service.apiBearerToken = stringValue(secretConfig, "api_bearer_token", null);
+            service.apiAuthAppId = stringValue(config, "api_auth_app_id", null);
+            service.apiAuthAppSecret = stringValue(secretConfig, "api_auth_app_secret", null);
+            service.apiResponseTimeMs = intValue(config, "api_response_time_ms", null);
+            service.apiJsonAssertions = stringValue(config, "api_json_assertions", null);
+            service.apiTextAssertionMode = apiTextAssertionMode(stringValue(config, "api_text_assertion_mode", "contains"));
+            service.apiTextAssertionValue = stringValue(config, "api_text_assertion_value", null);
             service.ignoreSslVerification = booleanValue(config, "ignore_ssl_verification", false);
         } else if ("redis".equals(service.serviceType)) {
             service.redisUsername = stringValue(config, "redis_username", null);
@@ -645,6 +687,9 @@ public class LiveMonitorService {
     }
 
     private String inferCategory(String type) {
+        if ("api".equals(type)) {
+            return "api";
+        }
         if ("web".equals(type) || "http".equals(type) || "https".equals(type) || "nginx".equals(type)) {
             return "web";
         }
@@ -670,7 +715,10 @@ public class LiveMonitorService {
     private boolean hasSecretPayload(ServicePayload payload) {
         return !copyMap(payload.secretConfig).isEmpty()
             || StringUtils.hasText(payload.redisPassword)
-            || StringUtils.hasText(payload.databasePassword);
+            || StringUtils.hasText(payload.databasePassword)
+            || StringUtils.hasText(payload.apiBasicPassword)
+            || StringUtils.hasText(payload.apiBearerToken)
+            || StringUtils.hasText(payload.apiAuthAppSecret);
     }
 
     private boolean sameType(String left, String right) {
@@ -694,7 +742,7 @@ public class LiveMonitorService {
     }
 
     private boolean isWebUrlType(String type) {
-        return "web".equals(type) || "nginx".equals(type);
+        return "web".equals(type) || "api".equals(type) || "nginx".equals(type);
     }
 
     private boolean isDatabaseType(String type) {
@@ -748,6 +796,65 @@ public class LiveMonitorService {
             }
         }
         return result;
+    }
+
+    private List<Map<String, String>> cleanHeaderList(List<Map<String, String>> source) {
+        List<Map<String, String>> result = new java.util.ArrayList<Map<String, String>>();
+        if (source == null) {
+            return result;
+        }
+        for (Map<String, String> item : source) {
+            if (item == null) {
+                continue;
+            }
+            String name = emptyToNull(item.get("name"));
+            String value = item.get("value") == null ? "" : String.valueOf(item.get("value")).trim();
+            if (name == null) {
+                continue;
+            }
+            Map<String, String> header = new LinkedHashMap<String, String>();
+            header.put("name", name);
+            header.put("value", value);
+            result.add(header);
+        }
+        return result;
+    }
+
+    private List<Map<String, String>> headerListValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        List<Map<String, String>> result = new java.util.ArrayList<Map<String, String>>();
+        if (!(value instanceof Iterable<?>)) {
+            return result;
+        }
+        for (Object item : (Iterable<?>) value) {
+            if (!(item instanceof Map<?, ?>)) {
+                continue;
+            }
+            Map<?, ?> itemMap = (Map<?, ?>) item;
+            String name = itemMap.get("name") == null ? null : emptyToNull(String.valueOf(itemMap.get("name")));
+            String headerValue = itemMap.get("value") == null ? "" : String.valueOf(itemMap.get("value"));
+            if (name == null) {
+                continue;
+            }
+            Map<String, String> header = new LinkedHashMap<String, String>();
+            header.put("name", name);
+            header.put("value", headerValue);
+            result.add(header);
+        }
+        return result;
+    }
+
+    private String apiAuthType(String value) {
+        String normalized = normalizeType(value);
+        if ("basic".equals(normalized) || "bearer".equals(normalized) || "custom_header".equals(normalized)) {
+            return normalized;
+        }
+        return "none";
+    }
+
+    private String apiTextAssertionMode(String value) {
+        String normalized = normalizeType(value);
+        return "not_contains".equals(normalized) ? "not_contains" : "contains";
     }
 
     private Map<String, Object> parseJsonMap(String json) {

@@ -13,6 +13,7 @@ public class LiveMonitorProperties {
     private double defaultTimeoutSeconds = 3;
     private int databaseResultMaxRows = 5;
     private int databaseQueryTimeoutSeconds = 3;
+    private boolean embedTokenLongTerm = false;
     private String secretKey = "change-this-dev-key";
     private String rocksdbPath = "./data/rocksdb";
     private String sqlitePath = "./data/live_monitor.db";
@@ -72,6 +73,14 @@ public class LiveMonitorProperties {
 
     public void setDatabaseQueryTimeoutSeconds(int databaseQueryTimeoutSeconds) {
         this.databaseQueryTimeoutSeconds = Math.max(1, Math.min(60, databaseQueryTimeoutSeconds));
+    }
+
+    public boolean isEmbedTokenLongTerm() {
+        return embedTokenLongTerm;
+    }
+
+    public void setEmbedTokenLongTerm(boolean embedTokenLongTerm) {
+        this.embedTokenLongTerm = embedTokenLongTerm;
     }
 
     public String getSecretKey() {

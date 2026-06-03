@@ -3,7 +3,9 @@ package com.live.monitor.controller;
 import com.live.monitor.dto.ChangePasswordPayload;
 import com.live.monitor.dto.CreateUserPayload;
 import com.live.monitor.dto.ResetUserPasswordPayload;
+import com.live.monitor.entity.LoginAuditLog;
 import com.live.monitor.entity.TUser;
+import com.live.monitor.service.LoginAuditLogService;
 import com.live.monitor.service.UserAdminService;
 import java.util.List;
 import javax.servlet.http.HttpSession;
@@ -21,14 +23,22 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 public class AdminUserController {
     private final UserAdminService userAdminService;
+    private final LoginAuditLogService loginAuditLogService;
 
-    public AdminUserController(UserAdminService userAdminService) {
+    public AdminUserController(UserAdminService userAdminService,
+                               LoginAuditLogService loginAuditLogService) {
         this.userAdminService = userAdminService;
+        this.loginAuditLogService = loginAuditLogService;
     }
 
     @GetMapping("/api/admin/users")
     public List<TUser> users(HttpSession session) {
         return userAdminService.listUsers(currentUser(session));
+    }
+
+    @GetMapping("/api/admin/audit-logs")
+    public List<LoginAuditLog> auditLogs(HttpSession session) {
+        return loginAuditLogService.listRecent(currentUser(session));
     }
 
     @PostMapping("/api/admin/users")

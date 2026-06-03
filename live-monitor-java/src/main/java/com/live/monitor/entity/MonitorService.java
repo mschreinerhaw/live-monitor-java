@@ -1,6 +1,7 @@
 package com.live.monitor.entity;
 
 import java.util.List;
+import java.util.Map;
 
 public class MonitorService {
     public Long id;
@@ -38,6 +39,19 @@ public class MonitorService {
     public Integer expectedStatusCode;
     public String responseKeyword;
     public String apiAssertionExpression;
+    public List<Map<String, String>> apiHeaders;
+    public String apiContentType;
+    public String apiRequestBody;
+    public String apiAuthType;
+    public String apiBasicUsername;
+    public String apiBasicPassword;
+    public String apiBearerToken;
+    public String apiAuthAppId;
+    public String apiAuthAppSecret;
+    public Integer apiResponseTimeMs;
+    public String apiJsonAssertions;
+    public String apiTextAssertionMode;
+    public String apiTextAssertionValue;
     public Boolean ignoreSslVerification;
     public Double checkTimeoutSeconds;
     public String redisUsername;

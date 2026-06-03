@@ -5,6 +5,9 @@ public class CheckResult {
     public Integer responseTimeMs;
     public String message;
     public String alertType;
+    public Integer httpStatusCode;
+    public Long responseSizeBytes;
+    public String responseBody;
 
     public CheckResult() {
     }
