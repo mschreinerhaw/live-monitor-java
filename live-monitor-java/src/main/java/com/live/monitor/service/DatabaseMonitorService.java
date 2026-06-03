@@ -28,7 +28,6 @@ import org.springframework.util.StringUtils;
 @Service
 public class DatabaseMonitorService {
     private static final int ABSOLUTE_MAX_RESULT_ROWS = 10;
-    private static final int MAX_QUERY_TIMEOUT_SECONDS = 60;
     private static final String[] FORBIDDEN_SQL_KEYWORDS = {
         "insert", "update", "delete", "drop", "alter", "truncate", "call",
         "merge", "create", "replace", "grant", "revoke", "execute", "exec"
@@ -402,10 +401,13 @@ public class DatabaseMonitorService {
     }
 
     private int queryTimeoutSeconds(double timeoutSeconds) {
-        if (Double.isNaN(timeoutSeconds) || Double.isInfinite(timeoutSeconds)) {
-            return 1;
+        if (properties != null) {
+            return properties.getDatabaseQueryTimeoutSeconds();
         }
-        return Math.max(1, Math.min(MAX_QUERY_TIMEOUT_SECONDS, (int) Math.ceil(timeoutSeconds)));
+        if (Double.isNaN(timeoutSeconds) || Double.isInfinite(timeoutSeconds)) {
+            return 3;
+        }
+        return Math.max(1, Math.min(60, (int) Math.ceil(timeoutSeconds)));
     }
 
     private void validateReadOnlySql(String sql) {

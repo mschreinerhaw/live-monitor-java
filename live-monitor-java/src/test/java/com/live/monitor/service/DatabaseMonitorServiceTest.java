@@ -165,6 +165,20 @@ class DatabaseMonitorServiceTest {
     }
 
     @Test
+    void clampsConfiguredDatabaseQueryTimeoutSeconds() {
+        LiveMonitorProperties properties = new LiveMonitorProperties();
+
+        properties.setDatabaseQueryTimeoutSeconds(0);
+        assertEquals(1, properties.getDatabaseQueryTimeoutSeconds());
+
+        properties.setDatabaseQueryTimeoutSeconds(120);
+        assertEquals(60, properties.getDatabaseQueryTimeoutSeconds());
+
+        properties.setDatabaseQueryTimeoutSeconds(8);
+        assertEquals(8, properties.getDatabaseQueryTimeoutSeconds());
+    }
+
+    @Test
     void rejectsNonSelectSqlForChecks() {
         CheckResult result = check("DELETE FROM health_check", null, "fuzzy");
 

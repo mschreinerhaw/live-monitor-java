@@ -12,6 +12,7 @@ public class LiveMonitorProperties {
     private int monitorWorkerQueueCapacity = 100;
     private double defaultTimeoutSeconds = 3;
     private int databaseResultMaxRows = 5;
+    private int databaseQueryTimeoutSeconds = 3;
     private String secretKey = "change-this-dev-key";
     private String rocksdbPath = "./data/rocksdb";
     private String sqlitePath = "./data/live_monitor.db";
@@ -63,6 +64,14 @@ public class LiveMonitorProperties {
 
     public void setDatabaseResultMaxRows(int databaseResultMaxRows) {
         this.databaseResultMaxRows = Math.max(1, Math.min(10, databaseResultMaxRows));
+    }
+
+    public int getDatabaseQueryTimeoutSeconds() {
+        return databaseQueryTimeoutSeconds;
+    }
+
+    public void setDatabaseQueryTimeoutSeconds(int databaseQueryTimeoutSeconds) {
+        this.databaseQueryTimeoutSeconds = Math.max(1, Math.min(60, databaseQueryTimeoutSeconds));
     }
 
     public String getSecretKey() {

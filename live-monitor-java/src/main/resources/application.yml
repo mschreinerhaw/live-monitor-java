@@ -32,6 +32,7 @@ live-monitor:
   monitor-worker-queue-capacity: 100
   default-timeout-seconds: 3
   database-result-max-rows: 5
+  database-query-timeout-seconds: 3
   secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}
   template-dir: ./templates
   rocksdb-path: ./data/rocksdb
