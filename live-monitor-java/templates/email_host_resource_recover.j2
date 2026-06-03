@@ -1,0 +1,28 @@
+<h2 style="color:#2e7d32">✅ 主机资源恢复</h2>
+
+<table>
+<tr><td>主机IP</td><td>{{ host }}</td></tr>
+<tr><td>恢复时间</td><td>{{ recoverTime }}</td></tr>
+<tr><td>告警持续</td><td>{{ duration }}</td></tr>
+<tr><td>告警ID</td><td>{{ alertId }}</td></tr>
+</table>
+
+<hr>
+<b>恢复指标</b>
+<pre>{{ recoverItems }}</pre>
+
+<hr>
+<b>当前资源</b>
+<table>
+<tr><td>CPU</td><td>{{ cpuText }}</td></tr>
+<tr><td>内存</td><td>{{ memoryText }}</td></tr>
+<tr><td>磁盘</td><td>{{ diskText }}</td></tr>
+</table>
+
+<hr>
+<b>恢复原因</b>
+<pre>{{ recoverReason }}</pre>
+
+<hr>
+<b>历史告警</b>
+<pre>{{ historyAlert }}</pre>

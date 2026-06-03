@@ -1,0 +1,26 @@
+<h2 style="color:#d32f2f">🚨 主机资源告警</h2>
+
+<table>
+<tr><td>主机IP</td><td>{{ host }}</td></tr>
+<tr><td>告警级别</td><td>{{ level }}</td></tr>
+<tr><td>告警时间</td><td>{{ alertTime }}</td></tr>
+<tr><td>告警ID</td><td>{{ alertId }}</td></tr>
+</table>
+
+<hr>
+<b>告警指标</b>
+<pre>{{ alertItems }}</pre>
+
+<hr>
+<b>资源概览</b>
+<table>
+<tr><td>CPU</td><td>{{ cpuText }}</td></tr>
+<tr><td>内存</td><td>{{ memoryText }}</td></tr>
+<tr><td>磁盘</td><td>{{ diskText }}</td></tr>
+</table>
+
+<hr>
+<b>告警原因</b>
+<pre>{{ alertReason }}</pre>
+
+<p>请及时检查主机运行状态。</p>
