@@ -355,6 +355,7 @@ public class LiveMonitorService {
 
         Map<String, Object> config = copyMap(payload.config);
         Map<String, Object> secretConfig = copyMap(payload.secretConfig);
+        applyServiceAlertConfig(payload, service, config);
         applyLegacyPayloadConfig(payload, service, config, secretConfig);
         service.configJson = toJson(config);
         service.secretConfigJson = toEncryptedJson(secretConfig);
@@ -519,6 +520,17 @@ public class LiveMonitorService {
         }
     }
 
+    private void applyServiceAlertConfig(ServicePayload payload, MonitorService service, Map<String, Object> config) {
+        service.serviceAlertEnabled = payload.serviceAlertEnabled == null || payload.serviceAlertEnabled;
+        service.serviceConsecutiveFailures = positiveOrDefault(payload.serviceConsecutiveFailures, 3);
+        service.serviceRecoverSuccesses = positiveOrDefault(payload.serviceRecoverSuccesses, 2);
+        service.serviceAlertCooldownSeconds = nonNegativeOrDefault(payload.serviceAlertCooldownSeconds, 600);
+        config.put("service_alert_enabled", service.serviceAlertEnabled);
+        config.put("service_consecutive_failures", service.serviceConsecutiveFailures);
+        config.put("service_recover_successes", service.serviceRecoverSuccesses);
+        config.put("service_alert_cooldown_seconds", service.serviceAlertCooldownSeconds);
+    }
+
     private void hydrateTypedFields(MonitorService service) {
         if (service == null) {
             return;
@@ -529,6 +541,10 @@ public class LiveMonitorService {
 
         service.host = stringValue(config, "host", service.host);
         service.port = intValue(config, "port", service.port);
+        service.serviceAlertEnabled = booleanValue(config, "service_alert_enabled", true);
+        service.serviceConsecutiveFailures = positiveOrDefault(intValue(config, "service_consecutive_failures", 3), 3);
+        service.serviceRecoverSuccesses = positiveOrDefault(intValue(config, "service_recover_successes", 2), 2);
+        service.serviceAlertCooldownSeconds = nonNegativeOrDefault(intValue(config, "service_alert_cooldown_seconds", 600), 600);
         if (service.endpoint == null) {
             service.endpoint = endpointFromHostPort(service.host, service.port);
         }
@@ -681,6 +697,14 @@ public class LiveMonitorService {
             return normalized;
         }
         return "fuzzy";
+    }
+
+    private int positiveOrDefault(Integer value, int fallback) {
+        return value == null || value < 1 ? fallback : value;
+    }
+
+    private int nonNegativeOrDefault(Integer value, int fallback) {
+        return value == null || value < 0 ? fallback : value;
     }
 
     private Integer defaultPort(String type) {

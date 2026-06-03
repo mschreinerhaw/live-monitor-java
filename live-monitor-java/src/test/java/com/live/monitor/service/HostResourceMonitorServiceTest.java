@@ -14,6 +14,9 @@ import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -77,6 +80,29 @@ class HostResourceMonitorServiceTest {
             "nvme0n1 disk\n";
 
         assertEquals(2, service.parseLsblkDiskCount(output));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parsePhysicalDiskMetricsReadsCapacityAndMountPoints() {
+        String output = "NAME=\"sda\" TYPE=\"disk\" SIZE=\"107374182400\" PKNAME=\"\" MOUNTPOINT=\"\"\n" +
+            "NAME=\"sda1\" TYPE=\"part\" SIZE=\"536870912\" PKNAME=\"sda\" MOUNTPOINT=\"/boot\"\n" +
+            "NAME=\"sda2\" TYPE=\"part\" SIZE=\"106837311488\" PKNAME=\"sda\" MOUNTPOINT=\"/\"\n" +
+            "NAME=\"nvme0n1\" TYPE=\"disk\" SIZE=\"214748364800\" PKNAME=\"\" MOUNTPOINT=\"\"\n" +
+            "NAME=\"nvme0n1p1\" TYPE=\"part\" SIZE=\"214748364800\" PKNAME=\"nvme0n1\" MOUNTPOINT=\"/data\"\n" +
+            "NAME=\"loop0\" TYPE=\"loop\" SIZE=\"67108864\" PKNAME=\"\" MOUNTPOINT=\"/snap/core\"\n";
+
+        List<Map<String, Object>> disks = service.parsePhysicalDiskMetrics(output);
+
+        assertEquals(2, disks.size());
+        assertEquals("sda", disks.get(0).get("name"));
+        assertEquals("/dev/sda", disks.get(0).get("device"));
+        assertEquals(107374182400L, disks.get(0).get("total_bytes"));
+        assertEquals(true, disks.get(0).get("mounted"));
+        assertEquals(Arrays.asList("/boot", "/"), (List<String>) disks.get(0).get("mount_points"));
+        assertEquals("nvme0n1", disks.get(1).get("name"));
+        assertEquals(214748364800L, disks.get(1).get("total_bytes"));
+        assertEquals(Arrays.asList("/data"), (List<String>) disks.get(1).get("mount_points"));
     }
 
     @Test
@@ -147,6 +173,47 @@ class HostResourceMonitorServiceTest {
         assertEquals("CPU 45.0% / 85.0%, Memory 40.0% / 85.0%, Disk 95.0% / disabled", result.message);
     }
 
+    @Test
+    void checkRequiresConfiguredConsecutiveCpuSamplesBeforeAlerting() {
+        HostConfig host = hostWithThresholds();
+        host.checkInterval = 30;
+        host.resourceAlertDurationSeconds = 180;
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "90.0", "40.0", "20%", metricRows(5, 90D, 40D, 20D));
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertNull(result.alertType);
+    }
+
+    @Test
+    void checkAlertsAfterConfiguredConsecutiveCpuSamples() {
+        HostConfig host = hostWithThresholds();
+        host.checkInterval = 30;
+        host.resourceAlertDurationSeconds = 180;
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "90.0", "40.0", "20%", metricRows(6, 90D, 40D, 20D));
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertEquals(HostResourceMonitorService.HOST_RESOURCE_THRESHOLD_ALERT, result.alertType);
+    }
+
+    @Test
+    void checkDoesNotAlertWhenCpuEqualsThreshold() {
+        HostConfig host = hostWithThresholds();
+        host.cpuThresholdPercent = 85D;
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "85.0", "40.0", "20%");
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertNull(result.alertType);
+    }
+
     private HostConfig hostWithThresholds() {
         HostConfig host = new HostConfig();
         host.id = 1L;
@@ -157,6 +224,10 @@ class HostResourceMonitorServiceTest {
         host.cpuAlertEnabled = true;
         host.memoryAlertEnabled = true;
         host.diskAlertEnabled = true;
+        host.checkInterval = 30;
+        host.resourceAlertDurationSeconds = 1;
+        host.resourceRecoverDurationSeconds = 180;
+        host.resourceAlertCooldownSeconds = 600;
         return host;
     }
 
@@ -174,10 +245,21 @@ class HostResourceMonitorServiceTest {
         String memoryPercent,
         String diskPercent
     ) {
+        return monitorWithMetrics(host, cpuPercent, memoryPercent, diskPercent, null);
+    }
+
+    private HostResourceMonitorService monitorWithMetrics(
+        HostConfig host,
+        String cpuPercent,
+        String memoryPercent,
+        String diskPercent,
+        List<Map<String, Object>> historyRows
+    ) {
         HostMapper hostMapper = mock(HostMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
         SshService sshService = mock(SshService.class);
         when(hostMapper.findHost(1L)).thenReturn(host);
+        when(historyRepository.listHostMetrics(any(), anyInt(), anyInt())).thenReturn(historyRows);
         when(sshService.exec(any(HostConfig.class), anyString(), anyInt())).thenAnswer(invocation -> {
             String command = invocation.getArgument(1);
             if (command.contains("/proc/stat")) {
@@ -205,5 +287,17 @@ class HostResourceMonitorServiceTest {
             return "";
         });
         return new HostResourceMonitorService(hostMapper, historyRepository, sshService, new ObjectMapper());
+    }
+
+    private List<Map<String, Object>> metricRows(int count, Double cpu, Double memory, Double disk) {
+        List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+        for (int i = 0; i < count; i++) {
+            Map<String, Object> row = new LinkedHashMap<String, Object>();
+            row.put("cpu_usage_percent", cpu);
+            row.put("memory_used_percent", memory);
+            row.put("disk_used_percent", disk);
+            rows.add(row);
+        }
+        return rows;
     }
 }

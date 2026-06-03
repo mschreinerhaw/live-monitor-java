@@ -20,6 +20,10 @@ public class MonitorService {
     public Boolean cpuAlertEnabled;
     public Boolean memoryAlertEnabled;
     public Boolean diskAlertEnabled;
+    public Boolean serviceAlertEnabled;
+    public Integer serviceConsecutiveFailures;
+    public Integer serviceRecoverSuccesses;
+    public Integer serviceAlertCooldownSeconds;
     public String processName;
     public String processMatchKeyword;
     public String processMatchMode;

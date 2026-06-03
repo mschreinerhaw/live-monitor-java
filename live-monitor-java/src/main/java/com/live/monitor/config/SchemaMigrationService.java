@@ -36,11 +36,15 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_config", "cpu_alert_enabled", "INT DEFAULT 1");
         addColumnIfMissing("host_config", "memory_alert_enabled", "INT DEFAULT 1");
         addColumnIfMissing("host_config", "disk_alert_enabled", "INT DEFAULT 1");
+        addColumnIfMissing("host_config", "resource_alert_duration_seconds", "INT DEFAULT 180");
+        addColumnIfMissing("host_config", "resource_recover_duration_seconds", "INT DEFAULT 180");
+        addColumnIfMissing("host_config", "resource_alert_cooldown_seconds", "INT DEFAULT 600");
         addColumnIfMissing("host_config", "check_interval", "INT DEFAULT 60");
         addColumnIfMissing("host_latest_metric", "cpu_core_count", "INT");
         addColumnIfMissing("host_latest_metric", "memory_total_mb", "DOUBLE");
         addColumnIfMissing("host_latest_metric", "disk_mount_count", "INT");
         addColumnIfMissing("host_latest_metric", "disk_metrics_json", "VARCHAR(100000)");
+        addColumnIfMissing("host_latest_metric", "physical_disk_metrics_json", "VARCHAR(100000)");
     }
 
     private void createEventDrivenAlertTables() {

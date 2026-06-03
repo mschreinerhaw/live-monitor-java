@@ -166,6 +166,9 @@ CREATE TABLE IF NOT EXISTS host_config (
     cpu_alert_enabled INT DEFAULT 1,
     memory_alert_enabled INT DEFAULT 1,
     disk_alert_enabled INT DEFAULT 1,
+    resource_alert_duration_seconds INT DEFAULT 180,
+    resource_recover_duration_seconds INT DEFAULT 180,
+    resource_alert_cooldown_seconds INT DEFAULT 600,
     check_interval INT DEFAULT 60,
     enabled INT DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -193,6 +196,7 @@ CREATE TABLE IF NOT EXISTS host_latest_metric (
     memory_total_mb DOUBLE,
     disk_mount_count INT,
     disk_metrics_json VARCHAR(100000),
+    physical_disk_metrics_json VARCHAR(100000),
     checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(host_id) REFERENCES host_config(id) ON DELETE CASCADE
 );

@@ -50,10 +50,12 @@ let hostState = {
   metrics: null,
   metricView: "realtime",
   metricHistoryRows: [],
+  metricLifecycleToken: 0,
   metricTimer: null,
   listMetricTimer: null,
   listMetricSnapshots: {},
   expandedDiskHostIds: new Set(),
+  expandedPhysicalDiskHostIds: new Set(),
   metricRefreshing: false,
   expandedMetricChart: null,
   metricHistory: {

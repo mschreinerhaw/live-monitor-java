@@ -61,6 +61,16 @@ public class ServicePayload {
     @Min(1)
     public Integer checkIntervalValue;
     public String checkIntervalUnit = "seconds";
+    public Boolean serviceAlertEnabled = true;
+    @Min(1)
+    @Max(1000)
+    public Integer serviceConsecutiveFailures = 3;
+    @Min(1)
+    @Max(1000)
+    public Integer serviceRecoverSuccesses = 2;
+    @Min(0)
+    @Max(31536000)
+    public Integer serviceAlertCooldownSeconds = 600;
     public Long alertConfigId;
     public Long alertGroupId;
     public Boolean enabled = true;

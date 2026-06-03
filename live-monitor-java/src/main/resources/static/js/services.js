@@ -138,6 +138,7 @@ function buildServicePayload(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const serviceType = ["http", "https"].includes(data.service_type) ? "web" : data.service_type;
   data.enabled = form.elements.enabled.checked;
+  data.service_alert_enabled = form.elements.service_alert_enabled?.checked !== false;
   data.ignore_ssl_verification = Boolean(form.elements.ignore_ssl_verification?.checked);
   data.redis_cluster_mode = Boolean(form.elements.redis_cluster_mode?.checked);
   const intervalValue = Number(data.check_interval_value || 1);
@@ -146,6 +147,9 @@ function buildServicePayload(form) {
   data.check_interval_value = intervalValue;
   data.check_interval_unit = intervalUnit;
   data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
+  data.service_consecutive_failures = Number(data.service_consecutive_failures || 3);
+  data.service_recover_successes = Number(data.service_recover_successes || 2);
+  data.service_alert_cooldown_seconds = Number(data.service_alert_cooldown_seconds || 600);
   data.port = data.port ? Number(data.port) : null;
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
@@ -282,6 +286,9 @@ function fillServiceForm(form, service) {
     "jdbc_url",
     "expected_result",
     "database_result_operator",
+    "service_consecutive_failures",
+    "service_recover_successes",
+    "service_alert_cooldown_seconds",
     "alert_group_id",
   ].forEach((name) => {
     if (form.elements[name]) {
@@ -293,6 +300,9 @@ function fillServiceForm(form, service) {
         check_command: service.check_command || service.process_check_command,
         process_min_instances: 1,
         zookeeper_check_command: "ruok",
+        service_consecutive_failures: 3,
+        service_recover_successes: 2,
+        service_alert_cooldown_seconds: 600,
       };
       form.elements[name].value = name === "web_scheme"
         ? webSchemeFromUrl(service.url)
@@ -319,6 +329,9 @@ function fillServiceForm(form, service) {
       : "数据库连接密";
   }
   form.elements.enabled.checked = Boolean(service.enabled);
+  if (form.elements.service_alert_enabled) {
+    form.elements.service_alert_enabled.checked = service.service_alert_enabled !== false;
+  }
   if (form.elements.redis_cluster_mode) {
     form.elements.redis_cluster_mode.checked = Boolean(service.redis_cluster_mode);
   }

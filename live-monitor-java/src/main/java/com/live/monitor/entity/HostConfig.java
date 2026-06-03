@@ -20,6 +20,9 @@ public class HostConfig {
     public Boolean cpuAlertEnabled;
     public Boolean memoryAlertEnabled;
     public Boolean diskAlertEnabled;
+    public Integer resourceAlertDurationSeconds;
+    public Integer resourceRecoverDurationSeconds;
+    public Integer resourceAlertCooldownSeconds;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;
@@ -34,6 +37,9 @@ public class HostConfig {
     @JsonIgnore
     public String diskMetricsJson;
     public List<Map<String, Object>> diskMetrics;
+    @JsonIgnore
+    public String physicalDiskMetricsJson;
+    public List<Map<String, Object>> physicalDiskMetrics;
     public String metricCheckedAt;
     public Boolean enabled;
     public String createdAt;

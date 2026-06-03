@@ -99,7 +99,7 @@ class AlertServiceTest {
     }
 
     @Test
-    void hostResourceTemplateVariablesIncludeAlertAndRecoverReasons() {
+    void hostResourceTemplateVariablesIdentifyTriggeredMetrics() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
         AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
@@ -109,6 +109,7 @@ class AlertServiceTest {
         monitorService.host = "10.0.0.8";
         MonitorResult result = monitorResult("UP", 120);
         result.alertType = "host_resource_threshold";
+        result.checkedAt = "2026-06-03 09:06:44";
         result.message = "CPU 45.0% / 85.0%, Memory 90.0% / 80.0%, Disk 20.0% / disabled";
 
         AlertChannel channel = new AlertChannel();
@@ -124,8 +125,121 @@ class AlertServiceTest {
         ArgumentCaptor<Map<String, Object>> variablesCaptor = ArgumentCaptor.forClass(Map.class);
         verify(deliveryService).renderTemplate(eq("alert_host_resource.j2"), variablesCaptor.capture(), anyString());
         Map<String, Object> variables = variablesCaptor.getValue();
-        org.junit.jupiter.api.Assertions.assertEquals("内存使用率 90.0% >= 告警阈值 80.0%", variables.get("alertReason"));
-        org.junit.jupiter.api.Assertions.assertEquals("所有已启用指标低于告警阈值（CPU使用率 < 85.0%；内存使用率 < 80.0%）", variables.get("recoverReason"));
+        org.junit.jupiter.api.Assertions.assertEquals("内存使用率超过告警阈值（90.0% > 80.0%）", variables.get("alertReason"));
+        org.junit.jupiter.api.Assertions.assertEquals("1项指标超过阈值", variables.get("alertSummary"));
+        org.junit.jupiter.api.Assertions.assertEquals("10.0.0.8", variables.get("host"));
+        org.junit.jupiter.api.Assertions.assertEquals("45.0%", variables.get("cpuText"));
+        org.junit.jupiter.api.Assertions.assertEquals("90.0%", variables.get("memoryText"));
+        org.junit.jupiter.api.Assertions.assertEquals("20.0%", variables.get("diskText"));
+        org.junit.jupiter.api.Assertions.assertEquals("HOST-20260603090644", variables.get("alertId"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("alertItems")).contains("❌ 内存使用率"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("alertItems")).contains("超限幅度：+10.0%"));
+    }
+
+    @Test
+    void hostResourceRecoveryTemplateKeepsPreviousAlertSnapshot() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, deliveryService);
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "host";
+        monitorService.host = "192.168.195.232";
+        monitorService.configJson = "{\"resource_recover_duration_seconds\":120}";
+        Map<String, AlertState> states = new HashMap<String, AlertState>();
+
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "sms";
+        channel.enabled = true;
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.singletonList(recoveredPolicy()));
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(channel));
+        when(alertMapper.findAlertState(anyLong(), anyString())).thenAnswer(invocation ->
+            states.get(invocation.getArgument(0) + ":" + invocation.getArgument(1))
+        );
+        when(alertMapper.upsertAlertState(any(AlertState.class))).thenAnswer(invocation -> {
+            AlertState state = invocation.getArgument(0);
+            states.put(state.serviceId + ":" + state.alertKey, state);
+            return 1;
+        });
+        when(deliveryService.renderTemplate(anyString(), any(Map.class), anyString())).thenReturn("rendered");
+        when(deliveryService.send(eq(channel), eq("rendered"))).thenReturn(AlertDeliveryService.DeliveryResult.success());
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MonitorResult alert = monitorResult("UP", 120);
+        alert.alertType = "host_resource_threshold";
+        alert.checkedAt = "2026-06-03 09:06:44";
+        alert.message = "CPU 92.4% / 85.0%, Memory 54.9% / 85.0%, Disk 44.0% / 85.0%";
+        service.evaluate(monitorService, alert, "UP");
+
+        MonitorResult firstNormal = monitorResult("UP", 110);
+        firstNormal.checkedAt = "2026-06-03 09:10:00";
+        firstNormal.message = "CPU 78.2% / 85.0%, Memory 52.1% / 85.0%, Disk 44.0% / 85.0%";
+        service.evaluate(monitorService, firstNormal, "UP");
+
+        MonitorResult recovered = monitorResult("UP", 100);
+        recovered.checkedAt = "2026-06-03 09:16:22";
+        recovered.message = "CPU 78.2% / 85.0%, Memory 52.1% / 85.0%, Disk 44.0% / 85.0%";
+        service.evaluate(monitorService, recovered, "UP");
+
+        ArgumentCaptor<String> templateCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Map<String, Object>> variablesCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(deliveryService, times(2)).renderTemplate(templateCaptor.capture(), variablesCaptor.capture(), anyString());
+        org.junit.jupiter.api.Assertions.assertEquals("alert_host_resource.j2", templateCaptor.getAllValues().get(0));
+        org.junit.jupiter.api.Assertions.assertEquals("alert_host_resource_recover.j2", templateCaptor.getAllValues().get(1));
+
+        Map<String, Object> variables = variablesCaptor.getAllValues().get(1);
+        org.junit.jupiter.api.Assertions.assertEquals("CPU使用率已恢复正常（78.2% < 85.0%）", variables.get("recoverReason"));
+        org.junit.jupiter.api.Assertions.assertEquals("9分钟38秒", variables.get("duration"));
+        org.junit.jupiter.api.Assertions.assertEquals("HOST-20260603090644", variables.get("alertId"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("recoverItems")).contains("✅ CPU使用率"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("historyAlert")).contains("CPU使用率：92.4%"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("historyAlert")).contains("告警时间：2026-06-03 09:06:44"));
+    }
+
+    @Test
+    void hostResourceCooldownSuppressesRepeatedNotificationAfterRecovery() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "host";
+        monitorService.checkInterval = 60;
+        monitorService.configJson = "{\"resource_recover_duration_seconds\":60,\"resource_alert_cooldown_seconds\":600}";
+        Map<String, AlertState> states = new HashMap<String, AlertState>();
+
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.findAlertState(anyLong(), anyString())).thenAnswer(invocation ->
+            states.get(invocation.getArgument(0) + ":" + invocation.getArgument(1))
+        );
+        when(alertMapper.upsertAlertState(any(AlertState.class))).thenAnswer(invocation -> {
+            AlertState state = invocation.getArgument(0);
+            states.put(state.serviceId + ":" + state.alertKey, state);
+            return 1;
+        });
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MonitorResult firstAlert = monitorResult("UP", 120);
+        firstAlert.alertType = "host_resource_threshold";
+        firstAlert.checkedAt = "2026-06-03 09:00:00";
+        firstAlert.message = "CPU 90.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
+        service.evaluate(monitorService, firstAlert, "UP");
+
+        MonitorResult recovered = monitorResult("UP", 100);
+        recovered.checkedAt = "2026-06-03 09:01:00";
+        recovered.message = "CPU 70.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
+        service.evaluate(monitorService, recovered, "UP");
+
+        MonitorResult secondAlert = monitorResult("UP", 120);
+        secondAlert.alertType = "host_resource_threshold";
+        secondAlert.checkedAt = "2026-06-03 09:05:00";
+        secondAlert.message = "CPU 91.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
+        service.evaluate(monitorService, secondAlert, "UP");
+
+        verify(historyRepository, times(1)).saveAlertRecord(any(AlertRecord.class));
+        AlertState state = states.get("1:host_resource_threshold");
+        org.junit.jupiter.api.Assertions.assertEquals("ALERTING", state.state);
+        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:00:00", state.lastAlertAt);
     }
 
     @Test
@@ -166,6 +280,100 @@ class AlertServiceTest {
         verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
     }
 
+    @Test
+    void availabilityUsesServiceConfiguredFailureAndRecoveryCounts() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceConsecutiveFailures = 4;
+        monitorService.serviceRecoverSuccesses = 3;
+        Map<String, AlertState> states = new HashMap<String, AlertState>();
+
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.findAlertState(anyLong(), anyString())).thenAnswer(invocation ->
+            states.get(invocation.getArgument(0) + ":" + invocation.getArgument(1))
+        );
+        when(alertMapper.upsertAlertState(any(AlertState.class))).thenAnswer(invocation -> {
+            AlertState state = invocation.getArgument(0);
+            states.put(state.serviceId + ":" + state.alertKey, state);
+            return 1;
+        });
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "UP");
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "DOWN");
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "DOWN");
+        verify(historyRepository, never()).saveAlertRecord(any(AlertRecord.class));
+
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "DOWN");
+        verify(historyRepository, times(1)).saveAlertRecord(any(AlertRecord.class));
+
+        service.evaluate(monitorService, monitorResult("UP", 100), "DOWN");
+        service.evaluate(monitorService, monitorResult("UP", 100), "UP");
+        verify(historyRepository, times(1)).saveAlertRecord(any(AlertRecord.class));
+
+        service.evaluate(monitorService, monitorResult("UP", 100), "UP");
+        verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
+    }
+
+    @Test
+    void availabilityCooldownSuppressesRepeatedNotificationAfterRecovery() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceAlertCooldownSeconds = 600;
+        Map<String, AlertState> states = new HashMap<String, AlertState>();
+
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.findAlertState(anyLong(), anyString())).thenAnswer(invocation ->
+            states.get(invocation.getArgument(0) + ":" + invocation.getArgument(1))
+        );
+        when(alertMapper.upsertAlertState(any(AlertState.class))).thenAnswer(invocation -> {
+            AlertState state = invocation.getArgument(0);
+            states.put(state.serviceId + ":" + state.alertKey, state);
+            return 1;
+        });
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:00:00"), "UP");
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:01:00"), "DOWN");
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:02:00"), "DOWN");
+        verify(historyRepository, times(1)).saveAlertRecord(any(AlertRecord.class));
+
+        service.evaluate(monitorService, monitorResultAt("UP", "2026-06-03 09:03:00"), "DOWN");
+        service.evaluate(monitorService, monitorResultAt("UP", "2026-06-03 09:04:00"), "UP");
+        verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
+
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:05:00"), "UP");
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:06:00"), "DOWN");
+        service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:07:00"), "DOWN");
+
+        verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
+        AlertState state = states.get("1:availability");
+        org.junit.jupiter.api.Assertions.assertEquals("ALERTING", state.state);
+        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:02:00", state.lastAlertAt);
+    }
+
+    @Test
+    void availabilityAlertCanBeDisabledPerService() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceAlertEnabled = false;
+
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "UP");
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "DOWN");
+        service.evaluate(monitorService, monitorResult("DOWN", 100), "DOWN");
+
+        verify(historyRepository, never()).saveAlertRecord(any(AlertRecord.class));
+        verify(alertMapper, never()).upsertAlertState(any(AlertState.class));
+    }
+
     private MonitorService monitorService() {
         MonitorService service = new MonitorService();
         service.id = 1L;
@@ -182,6 +390,12 @@ class AlertServiceTest {
         result.status = status;
         result.responseTimeMs = responseTimeMs;
         result.message = "HTTP timeout";
+        return result;
+    }
+
+    private MonitorResult monitorResultAt(String status, String checkedAt) {
+        MonitorResult result = monitorResult(status, 100);
+        result.checkedAt = checkedAt;
         return result;
     }
 

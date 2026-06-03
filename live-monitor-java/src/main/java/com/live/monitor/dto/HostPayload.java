@@ -30,6 +30,15 @@ public class HostPayload {
     public Boolean diskAlertEnabled = true;
     @Min(1)
     @Max(31536000)
+    public Integer resourceAlertDurationSeconds = 180;
+    @Min(1)
+    @Max(31536000)
+    public Integer resourceRecoverDurationSeconds = 180;
+    @Min(0)
+    @Max(31536000)
+    public Integer resourceAlertCooldownSeconds = 600;
+    @Min(1)
+    @Max(31536000)
     public Integer checkInterval = 60;
     @Min(1)
     public Integer checkIntervalValue;

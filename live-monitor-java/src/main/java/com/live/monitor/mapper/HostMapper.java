@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Update;
 public interface HostMapper {
     String HOST_SELECT = "SELECT h.*, sag.group_id AS alert_group_id, " +
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
-        "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, " +
+        "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, hm.physical_disk_metrics_json, " +
         "hm.checked_at AS metric_checked_at FROM host_config h " +
         "LEFT JOIN service_alert_group sag ON sag.service_id = h.monitor_service_id " +
         "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
@@ -29,10 +29,12 @@ public interface HostMapper {
 
     @Insert("INSERT INTO host_config (host_name, ip, ssh_port, ssh_user, ssh_password_cipher, private_key_cipher, " +
         "monitor_service_id, cluster_name, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
-        "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, check_interval, enabled) " +
+        "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, resource_alert_duration_seconds, " +
+        "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
         "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
-        "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{checkInterval}, #{enabled})")
+        "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{resourceAlertDurationSeconds}, " +
+        "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertHost(HostConfig host);
 
@@ -42,7 +44,10 @@ public interface HostMapper {
         "cluster_name = #{clusterName}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
         "memory_threshold_percent = #{memoryThresholdPercent}, disk_threshold_percent = #{diskThresholdPercent}, " +
         "cpu_alert_enabled = #{cpuAlertEnabled}, memory_alert_enabled = #{memoryAlertEnabled}, " +
-        "disk_alert_enabled = #{diskAlertEnabled}, check_interval = #{checkInterval}, enabled = #{enabled} WHERE id = #{id}")
+        "disk_alert_enabled = #{diskAlertEnabled}, resource_alert_duration_seconds = #{resourceAlertDurationSeconds}, " +
+        "resource_recover_duration_seconds = #{resourceRecoverDurationSeconds}, " +
+        "resource_alert_cooldown_seconds = #{resourceAlertCooldownSeconds}, check_interval = #{checkInterval}, " +
+        "enabled = #{enabled} WHERE id = #{id}")
     int updateHost(HostConfig host);
 
     @Update("UPDATE host_config SET monitor_service_id = #{monitorServiceId} WHERE id = #{id}")
@@ -71,9 +76,9 @@ public interface HostMapper {
 
     @Insert("MERGE INTO host_latest_metric " +
         "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
-        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, checked_at) " +
+        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
         "KEY(host_id) VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
-        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, CURRENT_TIMESTAMP)")
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, CURRENT_TIMESTAMP)")
     int upsertLatestMetric(
         @Param("hostId") Long hostId,
         @Param("cpuUsagePercent") Double cpuUsagePercent,
@@ -83,6 +88,7 @@ public interface HostMapper {
         @Param("cpuCoreCount") Integer cpuCoreCount,
         @Param("memoryTotalMb") Double memoryTotalMb,
         @Param("diskMountCount") Integer diskMountCount,
-        @Param("diskMetricsJson") String diskMetricsJson
+        @Param("diskMetricsJson") String diskMetricsJson,
+        @Param("physicalDiskMetricsJson") String physicalDiskMetricsJson
     );
 }

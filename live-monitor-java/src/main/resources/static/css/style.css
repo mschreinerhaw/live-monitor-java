@@ -1155,42 +1155,6 @@ textarea {
   background: #dc2626;
 }
 
-.host-resource-toggle {
-  width: 100%;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.host-resource-disk-block .host-resource-line b i {
-  background: #7c3aed;
-}
-
-.host-resource-disk-block .host-resource-line {
-  grid-template-columns: 70px 88px 42px;
-  color: #26384f;
-  font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.host-resource-disk-block .host-resource-line > span {
-  gap: 5px;
-}
-
-.host-resource-disk-block .host-resource-line > span > svg:first-child {
-  width: 18px;
-  height: 18px;
-  color: #5b21b6;
-}
-
-.host-resource-disk-block .host-resource-line.warn b i {
-  background: #dc2626;
-}
-
 .host-resource-chevron {
   width: 15px !important;
   height: 15px !important;
@@ -1208,82 +1172,10 @@ textarea {
   text-align: right;
 }
 
-.host-inline-disk-list {
-  display: grid;
-  gap: 7px;
-  margin-left: 20px;
-  padding: 8px 8px 8px 10px;
-  border-left: 2px solid #dbeafe;
-  border-radius: 0 8px 8px 0;
-  background: #f8fafc;
-}
-
-.host-inline-disk-row {
-  display: grid;
-  grid-template-columns: minmax(44px, 0.8fr) minmax(58px, 1fr) 38px;
-  grid-template-areas:
-    "mount bar value"
-    "fs fs fs";
-  align-items: center;
-  gap: 3px 7px;
-  min-width: 0;
-  color: #24344d;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.host-inline-disk-row span {
-  grid-area: mount;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.host-inline-disk-row span svg {
-  flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
-  color: #0f766e;
-}
-
-.host-inline-disk-row b {
-  grid-area: bar;
-  height: 5px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e6edf5;
-}
-
-.host-inline-disk-row b i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #0f766e;
-}
-
-.host-inline-disk-row em {
-  grid-area: value;
-  color: #172033;
-  font-style: normal;
-  text-align: right;
-}
-
-.host-inline-disk-row small,
 .host-inline-disk-empty {
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
-}
-
-.host-inline-disk-row small {
-  grid-area: fs;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .host-config-stack {
@@ -1317,6 +1209,58 @@ textarea {
 .host-config-info-stack strong {
   color: #172033;
   font-size: 12px;
+}
+
+.host-config-disk-toggle {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #24344d;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.host-config-disk-toggle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-config-disk-toggle > strong {
+  white-space: nowrap;
+}
+
+.host-config-disk-list {
+  display: grid;
+  gap: 5px;
+  margin-left: 20px;
+  padding-left: 10px;
+  border-left: 2px solid #dbeafe;
+}
+
+.host-config-disk-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.host-config-disk-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-config-disk-row strong {
+  white-space: nowrap;
 }
 
 .host-config-stack strong {
@@ -1685,6 +1629,12 @@ textarea {
   font-size: 12px;
 }
 
+.host-chart-title .host-chart-stats {
+  color: #334155;
+  font-weight: 700;
+  white-space: normal;
+}
+
 .host-metric-pair {
   display: grid;
   justify-items: end;
@@ -1708,11 +1658,104 @@ textarea {
   white-space: nowrap;
 }
 
-.host-chart-card canvas {
+.host-metric-chart {
   display: block;
   width: 100%;
   height: 220px;
   cursor: zoom-in;
+}
+
+.host-realtime-panel {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+}
+
+.host-semi-gauge {
+  --value: 0;
+  --gauge-deg: 0deg;
+  --gauge-color: #2563eb;
+  position: relative;
+  width: min(190px, 100%);
+  aspect-ratio: 2 / 1;
+  justify-self: center;
+  overflow: hidden;
+}
+
+.host-semi-gauge.memory {
+  --gauge-color: #16a34a;
+}
+
+.host-semi-gauge::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 200%;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 270deg,
+      var(--gauge-color) var(--gauge-deg),
+      #e6edf5 0 180deg,
+      transparent 0
+    );
+}
+
+.host-semi-gauge::after {
+  content: "";
+  position: absolute;
+  left: 13%;
+  right: 13%;
+  bottom: -74%;
+  height: 148%;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.host-semi-gauge-inner {
+  position: absolute;
+  z-index: 1;
+  inset: auto 8px 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.host-semi-gauge-inner strong {
+  color: #14243b;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.host-disk-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e8f7ef;
+  color: #047857;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.host-disk-status.warn {
+  background: #fff7df;
+  color: #a16207;
+}
+
+.host-disk-status.bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.host-disk-status.muted,
+.host-disk-status.loading {
+  background: #edf2f7;
+  color: #64748b;
 }
 
 .host-chart-card small {
@@ -1767,11 +1810,15 @@ textarea {
   width: min(1080px, 100%);
 }
 
+.host-chart-zoom-dialog .modal-head {
+  flex-wrap: wrap;
+}
+
 .host-chart-zoom-body {
   padding: 16px;
 }
 
-.host-chart-zoom-body canvas {
+.host-chart-zoom-body .host-metric-chart {
   display: block;
   width: 100%;
   height: min(54vh, 420px);
@@ -1789,10 +1836,8 @@ textarea {
 
 .host-disk-mount {
   display: grid;
-  grid-template-columns: minmax(54px, 0.8fr) minmax(70px, 1fr) 42px;
-  grid-template-areas:
-    "mount bar value"
-    "fs fs fs";
+  grid-template-columns: minmax(54px, 0.76fr) minmax(70px, 1fr) 42px 46px;
+  grid-template-areas: "mount bar value state";
   align-items: center;
   gap: 4px 8px;
   color: #25364d;
@@ -1829,14 +1874,11 @@ textarea {
   text-align: right;
 }
 
-.host-disk-mount small {
-  grid-area: fs;
-  overflow: hidden;
-  color: var(--muted);
+.host-disk-mount > .host-disk-status {
+  grid-area: state;
+  min-height: 20px;
+  padding: 0 7px;
   font-size: 11px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .host-disk-empty {
@@ -1876,12 +1918,25 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .host-realtime-panel {
+    grid-template-columns: 1fr;
+  }
+
   .host-list-panel {
     position: static;
   }
 
   .host-list {
     max-height: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .host-disk-mount {
+    grid-template-columns: minmax(0, 1fr) 48px 48px;
+    grid-template-areas:
+      "mount value state"
+      "bar bar bar";
   }
 }
 
@@ -2509,37 +2564,42 @@ textarea {
 }
 
 .host-alert-policy-row {
-  display: grid;
-  grid-template-columns: minmax(140px, 1fr) auto minmax(168px, 210px);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  min-height: 46px;
-  padding: 8px 10px;
+  gap: 10px 16px;
+  min-height: 52px;
+  padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #fff;
 }
 
 .host-alert-policy-name {
+  flex: 0 0 144px;
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
+  line-height: 34px;
 }
 
 .host-alert-policy-toggle {
-  min-width: 84px;
+  flex: 0 0 86px;
+  min-height: 34px;
   justify-content: flex-start;
   font-size: 13px !important;
 }
 
 .host-alert-threshold-field {
   display: grid !important;
-  grid-template-columns: auto 78px auto;
+  grid-template-columns: max-content 88px max-content;
   align-items: center;
-  justify-content: end;
+  flex: 0 0 auto;
+  min-height: 34px;
   gap: 8px !important;
   color: var(--muted);
   font-size: 13px !important;
+  line-height: 1;
 }
 
 .host-alert-threshold-field input {
@@ -4018,13 +4078,29 @@ textarea {
     align-items: stretch;
   }
 
+  .host-alert-policy-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .host-alert-policy-name,
   .host-alert-policy-toggle,
   .host-alert-threshold-field {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .host-alert-policy-name {
+    line-height: 1.4;
+  }
+
+  .host-alert-policy-toggle {
     justify-content: flex-start;
   }
 
   .host-alert-threshold-field {
-    grid-template-columns: auto minmax(72px, 96px) auto;
+    grid-template-columns: minmax(72px, max-content) minmax(72px, 96px) max-content;
+    justify-content: flex-start;
   }
 
   .form-actions {

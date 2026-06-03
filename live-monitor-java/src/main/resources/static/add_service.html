@@ -258,6 +258,36 @@
           <small class="form-hint">用于结果判断的查询结果应只返回一行一列；系统会取第一行第一列作为告警阈值判断值。</small>
         </label>
 
+        <section class="host-form-section host-alert-policy-section span-2">
+          <div class="host-form-section-head">
+            <h3>告警配置</h3>
+          </div>
+          <div class="host-alert-policy-list">
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">服务可用性告警</span>
+              <label class="host-alert-policy-toggle switch-row">
+                <input name="service_alert_enabled" type="checkbox" checked>
+                <span>启用</span>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>连续失败</span>
+                <input name="service_consecutive_failures" type="number" min="1" max="1000" step="1" value="3">
+                <em>次</em>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>恢复确认</span>
+                <input name="service_recover_successes" type="number" min="1" max="1000" step="1" value="2">
+                <em>次</em>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>冷却时间</span>
+                <input name="service_alert_cooldown_seconds" type="number" min="0" max="31536000" step="1" value="600">
+                <em>秒</em>
+              </label>
+            </div>
+          </div>
+        </section>
+
         <label class="span-2">
           <span>告警组</span>
           <select name="alert_group_id" id="serviceAlertGroupSelect">

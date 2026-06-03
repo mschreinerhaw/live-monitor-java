@@ -87,9 +87,9 @@ public class HostResourceMonitorService {
         if (!missingMetrics.isEmpty()) {
             return new CheckResult("UNKNOWN", elapsedMillis(start), "Unable to parse host " + String.join("/", missingMetrics) + " usage. " + message);
         }
-        if ((cpuAlertEnabled && cpu >= cpuThreshold)
-            || (memoryAlertEnabled && memory >= memoryThreshold)
-            || (diskAlertEnabled && disk >= diskThreshold)) {
+        if (sustainedThresholdExceeded(host, metrics, new ResourceThreshold("cpu_usage_percent", cpuAlertEnabled, cpuThreshold),
+            new ResourceThreshold("memory_used_percent", memoryAlertEnabled, memoryThreshold),
+            new ResourceThreshold("disk_used_percent", diskAlertEnabled, diskThreshold))) {
             return new CheckResult("UP", elapsedMillis(start), message, HOST_RESOURCE_THRESHOLD_ALERT);
         }
         return new CheckResult("UP", elapsedMillis(start), message);
@@ -102,7 +102,10 @@ public class HostResourceMonitorService {
         Integer cpuCoreCount = parseInteger(sshService.exec(host, cpuCoreCommand(), timeoutMillis));
         Double memoryTotalMb = parseNumber(sshService.exec(host, memoryTotalCommand(), timeoutMillis));
         List<Map<String, Object>> mountDisks = parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis));
-        Integer diskDeviceCount = parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis));
+        String physicalDiskOutput = sshService.exec(host, physicalDiskCommand(), timeoutMillis);
+        List<Map<String, Object>> physicalDisks = parsePhysicalDiskMetrics(physicalDiskOutput);
+        attachPhysicalDiskDetails(mountDisks, physicalDisks);
+        Integer diskDeviceCount = physicalDisks.isEmpty() ? parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis)) : physicalDisks.size();
         if (diskDeviceCount == null) {
             diskDeviceCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
         }
@@ -112,8 +115,9 @@ public class HostResourceMonitorService {
         Double disk = maxDiskUsage(mountDisks);
         Integer mountPointCount = mountDisks.size();
         String diskMetricsJson = toJson(mountDisks);
+        String physicalDiskMetricsJson = toJson(physicalDisks);
         historyRepository.saveHostMetric(host.id, cpu, load, memory, disk, diskMetricsJson);
-        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk, cpuCoreCount, memoryTotalMb, diskDeviceCount, diskMetricsJson);
+        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk, cpuCoreCount, memoryTotalMb, diskDeviceCount, diskMetricsJson, physicalDiskMetricsJson);
 
         Map<String, Object> metrics = new LinkedHashMap<String, Object>();
         metrics.put("cpu_usage_percent", cpu);
@@ -127,6 +131,7 @@ public class HostResourceMonitorService {
         metrics.put("mount_point_count", mountPointCount);
         metrics.put("max_disk_usage_percent", disk);
         metrics.put("disk_metrics", mountDisks.isEmpty() ? null : mountDisks);
+        metrics.put("physical_disk_metrics", physicalDisks.isEmpty() ? null : physicalDisks);
         metrics.put("mounts", mountDisks.isEmpty() ? null : mountDisks);
         return metrics;
     }
@@ -146,6 +151,63 @@ public class HostResourceMonitorService {
 
     private String thresholdText(boolean enabled, double threshold) {
         return enabled ? String.format("%.1f%%", threshold) : "disabled";
+    }
+
+    private boolean sustainedThresholdExceeded(HostConfig host, Map<String, Object> currentMetrics, ResourceThreshold... thresholds) {
+        int requiredSamples = requiredSamples(host.resourceAlertDurationSeconds, host.checkInterval);
+        List<Map<String, Object>> rows = recentHostMetrics(host.id, requiredSamples);
+        if (rows.isEmpty()) {
+            rows.add(currentMetrics);
+        }
+        if (rows.size() < requiredSamples) {
+            return false;
+        }
+        for (ResourceThreshold threshold : thresholds) {
+            if (!threshold.enabled) {
+                continue;
+            }
+            boolean exceeded = true;
+            for (Map<String, Object> row : rows) {
+                Double value = metricValue(row, threshold.metricKey);
+                if (value == null || value <= threshold.thresholdPercent) {
+                    exceeded = false;
+                    break;
+                }
+            }
+            if (exceeded) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<Map<String, Object>> recentHostMetrics(Long hostId, int requiredSamples) {
+        if (historyRepository == null || hostId == null) {
+            return new ArrayList<Map<String, Object>>();
+        }
+        List<Map<String, Object>> rows = historyRepository.listHostMetrics(hostId, 1, requiredSamples);
+        if (rows == null) {
+            return new ArrayList<Map<String, Object>>();
+        }
+        return new ArrayList<Map<String, Object>>(rows);
+    }
+
+    private int requiredSamples(Integer durationSeconds, Integer checkIntervalSeconds) {
+        int duration = durationSeconds == null || durationSeconds < 1 ? 180 : durationSeconds;
+        int interval = checkIntervalSeconds == null || checkIntervalSeconds < 1 ? 60 : checkIntervalSeconds;
+        return Math.max(1, (int) Math.ceil((double) duration / interval));
+    }
+
+    private static class ResourceThreshold {
+        private final String metricKey;
+        private final boolean enabled;
+        private final double thresholdPercent;
+
+        private ResourceThreshold(String metricKey, boolean enabled, double thresholdPercent) {
+            this.metricKey = metricKey;
+            this.enabled = enabled;
+            this.thresholdPercent = thresholdPercent;
+        }
     }
 
     private String cpuCommand() {
@@ -173,6 +235,10 @@ public class HostResourceMonitorService {
 
     private String diskDeviceCommand() {
         return "lsblk -d -n -o NAME,TYPE 2>/dev/null";
+    }
+
+    private String physicalDiskCommand() {
+        return "lsblk -b -P -o NAME,TYPE,SIZE,PKNAME,MOUNTPOINT 2>/dev/null";
     }
 
     private String procPartitionsDiskCommand() {
@@ -256,6 +322,125 @@ public class HostResourceMonitorService {
             disks.add(disk);
         }
         return disks;
+    }
+
+    List<Map<String, Object>> parsePhysicalDiskMetrics(String output) {
+        if (!StringUtils.hasText(output) || output.contains("Exception:")) {
+            return Collections.emptyList();
+        }
+        List<Map<String, Object>> disks = new ArrayList<Map<String, Object>>();
+        Map<String, Map<String, Object>> disksByName = new LinkedHashMap<String, Map<String, Object>>();
+        List<Map<String, String>> rows = new ArrayList<Map<String, String>>();
+        String[] lines = output.trim().split("\\r?\\n");
+        for (String line : lines) {
+            Map<String, String> row = parseLsblkPairs(line);
+            if (!row.isEmpty()) {
+                rows.add(row);
+            }
+            String name = cleanDiskName(row.get("NAME"));
+            String type = row.get("TYPE");
+            if (!StringUtils.hasText(name) || !"disk".equals(type) || !isWholeDiskName(name)) {
+                continue;
+            }
+            Long totalBytes = parseLong(row.get("SIZE"));
+            Map<String, Object> disk = new LinkedHashMap<String, Object>();
+            disk.put("name", name);
+            disk.put("device", "/dev/" + name);
+            disk.put("total_bytes", totalBytes);
+            disk.put("mount_points", new ArrayList<String>());
+            disk.put("mounted", false);
+            disks.add(disk);
+            disksByName.put(name, disk);
+        }
+        for (Map<String, String> row : rows) {
+            String mountPoint = row.get("MOUNTPOINT");
+            if (!StringUtils.hasText(mountPoint) || isIgnoredMountPoint(mountPoint)) {
+                continue;
+            }
+            String parentName = cleanDiskName(row.get("PKNAME"));
+            if (!StringUtils.hasText(parentName) && "disk".equals(row.get("TYPE"))) {
+                parentName = cleanDiskName(row.get("NAME"));
+            }
+            Map<String, Object> disk = disksByName.get(parentName);
+            if (disk == null) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            List<String> mountPoints = (List<String>) disk.get("mount_points");
+            if (!mountPoints.contains(mountPoint)) {
+                mountPoints.add(mountPoint);
+            }
+            disk.put("mounted", true);
+        }
+        return disks;
+    }
+
+    private void attachPhysicalDiskDetails(List<Map<String, Object>> mountDisks, List<Map<String, Object>> physicalDisks) {
+        if (mountDisks == null || mountDisks.isEmpty() || physicalDisks == null || physicalDisks.isEmpty()) {
+            return;
+        }
+        for (Map<String, Object> mountDisk : mountDisks) {
+            String mount = String.valueOf(mountDisk.get("mount"));
+            for (Map<String, Object> physicalDisk : physicalDisks) {
+                @SuppressWarnings("unchecked")
+                List<String> mountPoints = (List<String>) physicalDisk.get("mount_points");
+                if (mountPoints == null || !mountPoints.contains(mount)) {
+                    continue;
+                }
+                mountDisk.put("physical_disk_name", physicalDisk.get("name"));
+                mountDisk.put("physical_disk_device", physicalDisk.get("device"));
+                mountDisk.put("physical_disk_total_bytes", physicalDisk.get("total_bytes"));
+                break;
+            }
+        }
+    }
+
+    private Map<String, String> parseLsblkPairs(String line) {
+        Map<String, String> pairs = new LinkedHashMap<String, String>();
+        if (!StringUtils.hasText(line)) {
+            return pairs;
+        }
+        int index = 0;
+        while (index < line.length()) {
+            while (index < line.length() && Character.isWhitespace(line.charAt(index))) {
+                index++;
+            }
+            int equals = line.indexOf('=', index);
+            if (equals <= index) {
+                break;
+            }
+            String key = line.substring(index, equals);
+            index = equals + 1;
+            String value = "";
+            if (index < line.length() && line.charAt(index) == '"') {
+                int end = line.indexOf('"', index + 1);
+                if (end < 0) {
+                    end = line.length();
+                }
+                value = line.substring(index + 1, end);
+                index = end + 1;
+            } else {
+                int end = index;
+                while (end < line.length() && !Character.isWhitespace(line.charAt(end))) {
+                    end++;
+                }
+                value = line.substring(index, end);
+                index = end;
+            }
+            pairs.put(key, value);
+        }
+        return pairs;
+    }
+
+    private String cleanDiskName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return null;
+        }
+        String cleaned = name.trim();
+        if (cleaned.startsWith("/dev/")) {
+            cleaned = cleaned.substring("/dev/".length());
+        }
+        return cleaned;
     }
 
     private boolean isValidDiskFs(String type) {

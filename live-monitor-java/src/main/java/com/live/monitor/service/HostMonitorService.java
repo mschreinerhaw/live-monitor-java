@@ -155,6 +155,7 @@ public class HostMonitorService {
         metrics.put("memory_total_mb", host.memoryTotalMb);
         metrics.put("disk_mount_count", host.diskMountCount);
         metrics.put("disk_metrics", parseDiskMetrics(host.diskMetricsJson));
+        metrics.put("physical_disk_metrics", parseDiskMetrics(host.physicalDiskMetricsJson));
         metrics.put("checked_at", host.metricCheckedAt);
         return metrics;
     }
@@ -230,9 +231,9 @@ public class HostMonitorService {
             double cpuThreshold = host.cpuThresholdPercent == null ? 85D : host.cpuThresholdPercent;
             double memoryThreshold = host.memoryThresholdPercent == null ? 85D : host.memoryThresholdPercent;
             double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
-            if ((alertEnabled(host.cpuAlertEnabled) && host.cpuUsagePercent != null && host.cpuUsagePercent >= cpuThreshold)
-                || (alertEnabled(host.memoryAlertEnabled) && host.memoryUsedPercent != null && host.memoryUsedPercent >= memoryThreshold)
-                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent >= diskThreshold)) {
+            if ((alertEnabled(host.cpuAlertEnabled) && host.cpuUsagePercent != null && host.cpuUsagePercent > cpuThreshold)
+                || (alertEnabled(host.memoryAlertEnabled) && host.memoryUsedPercent != null && host.memoryUsedPercent > memoryThreshold)
+                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent > diskThreshold)) {
                 warning++;
             }
         }
@@ -249,6 +250,7 @@ public class HostMonitorService {
 
     private void attachDiskMetrics(HostConfig host) {
         host.diskMetrics = parseDiskMetrics(host.diskMetricsJson);
+        host.physicalDiskMetrics = parseDiskMetrics(host.physicalDiskMetricsJson);
     }
 
     private List<Map<String, Object>> parseDiskMetrics(String diskMetricsJson) {
@@ -306,6 +308,9 @@ public class HostMonitorService {
         host.cpuAlertEnabled = payload.cpuAlertEnabled == null || payload.cpuAlertEnabled;
         host.memoryAlertEnabled = payload.memoryAlertEnabled == null || payload.memoryAlertEnabled;
         host.diskAlertEnabled = payload.diskAlertEnabled == null || payload.diskAlertEnabled;
+        host.resourceAlertDurationSeconds = positiveOrDefault(payload.resourceAlertDurationSeconds, 180);
+        host.resourceRecoverDurationSeconds = positiveOrDefault(payload.resourceRecoverDurationSeconds, 180);
+        host.resourceAlertCooldownSeconds = nonNegativeOrDefault(payload.resourceAlertCooldownSeconds, 600);
         host.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         host.alertGroupId = payload.alertGroupId;
         host.enabled = payload.enabled == null || payload.enabled;
@@ -362,6 +367,9 @@ public class HostMonitorService {
             config.put("cpu_alert_enabled", alertEnabled(host.cpuAlertEnabled));
             config.put("memory_alert_enabled", alertEnabled(host.memoryAlertEnabled));
             config.put("disk_alert_enabled", alertEnabled(host.diskAlertEnabled));
+            config.put("resource_alert_duration_seconds", positiveOrDefault(host.resourceAlertDurationSeconds, 180));
+            config.put("resource_recover_duration_seconds", positiveOrDefault(host.resourceRecoverDurationSeconds, 180));
+            config.put("resource_alert_cooldown_seconds", nonNegativeOrDefault(host.resourceAlertCooldownSeconds, 600));
             return objectMapper.writeValueAsString(config);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid host monitor config");
@@ -375,6 +383,14 @@ public class HostMonitorService {
 
     private boolean alertEnabled(Boolean value) {
         return value == null || value;
+    }
+
+    private int positiveOrDefault(Integer value, int fallback) {
+        return value == null || value < 1 ? fallback : value;
+    }
+
+    private int nonNegativeOrDefault(Integer value, int fallback) {
+        return value == null || value < 0 ? fallback : value;
     }
 
     private int resolveCheckInterval(Integer value, String unit, Integer fallbackSeconds) {

@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#176b87">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
+  <script src="/vendor/echarts/echarts.min.js"></script>
 </head>
 <body data-page="hosts">
   <header class="topbar">
@@ -29,7 +30,7 @@
       <div>
         <a class="back-link" href="/dashboard">返回监控首页</a>
         <h1>服务器主机维护</h1>
-        <p>维护 SSH/SFTP 主机，配置 CPU、磁盘阈值和自动检测间隔。</p>
+        <p>维护 SSH/SFTP 主机，配置 CPU、挂载点阈值和自动检测间隔。</p>
       </div>
       <button id="newHostBtn" class="primary-button host-primary-add" type="button">
         <i data-lucide="plus"></i>
@@ -232,7 +233,7 @@
               </label>
             </div>
             <div class="host-alert-policy-row">
-              <span class="host-alert-policy-name">磁盘使用率告警</span>
+              <span class="host-alert-policy-name">挂载点使用率告警</span>
               <label class="host-alert-policy-toggle switch-row">
                 <input name="disk_alert_enabled" type="checkbox" checked>
                 <span>启用</span>
@@ -241,6 +242,24 @@
                 <span>告警阈值</span>
                 <input name="disk_threshold_percent" type="number" min="1" max="100" step="0.1" value="85">
                 <em>%</em>
+              </label>
+            </div>
+            <div class="host-alert-policy-row">
+              <span class="host-alert-policy-name">持续超限</span>
+              <label class="host-alert-threshold-field">
+                <span>告警持续</span>
+                <input name="resource_alert_duration_seconds" type="number" min="1" max="31536000" step="1" value="180">
+                <em>秒</em>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>恢复持续</span>
+                <input name="resource_recover_duration_seconds" type="number" min="1" max="31536000" step="1" value="180">
+                <em>秒</em>
+              </label>
+              <label class="host-alert-threshold-field">
+                <span>冷却时间</span>
+                <input name="resource_alert_cooldown_seconds" type="number" min="0" max="31536000" step="1" value="600">
+                <em>秒</em>
               </label>
             </div>
             <label class="host-alert-group-row">
@@ -321,48 +340,62 @@
         </div>
       </div>
       <section class="host-dashboard-grid modal-body">
-        <article class="host-chart-card">
+        <article class="host-chart-card host-metric-card">
           <div class="host-chart-head">
             <div class="host-chart-title">
               <span><i data-lucide="cpu"></i>CPU</span>
-              <small>最近30分钟趋势</small>
+              <small id="hostCpuModeHint">实时状态</small>
+              <small id="hostCpuStats" class="host-chart-stats" hidden>当前 - | 平均 - | 最大 - | 阈值 -</small>
             </div>
             <div class="host-metric-pair">
               <strong id="hostCpuValue">-</strong>
-              <small id="hostLoadValue">Load -</small>
             </div>
           </div>
-          <canvas id="hostCpuChart" width="320" height="120"></canvas>
+          <div id="hostCpuRealtime" class="host-realtime-panel">
+            <div id="hostCpuGauge" class="host-semi-gauge" style="--value:0;--gauge-deg:0deg" role="img" aria-label="CPU 使用率">
+              <div class="host-semi-gauge-inner">
+                <strong id="hostCpuGaugeValue">-</strong>
+              </div>
+            </div>
+          </div>
+          <div id="hostCpuChart" class="host-metric-chart" role="img" aria-label="CPU 使用率趋势" hidden></div>
         </article>
-        <article class="host-chart-card">
+        <article class="host-chart-card host-metric-card">
           <div class="host-chart-head">
             <div class="host-chart-title">
               <span><i data-lucide="memory-stick"></i>内存</span>
-              <small>使用率趋势</small>
+              <small id="hostMemoryModeHint">实时状态</small>
+              <small id="hostMemoryStats" class="host-chart-stats" hidden>当前 - | 平均 - | 最大 - | 阈值 -</small>
             </div>
             <div class="host-metric-pair">
               <strong id="hostMemoryValue">-</strong>
-              <small id="hostMemoryHint">Memory used</small>
-              <small id="hostMemoryRemain">-</small>
             </div>
           </div>
-          <canvas id="hostMemoryChart" width="320" height="120"></canvas>
+          <div id="hostMemoryRealtime" class="host-realtime-panel">
+            <div id="hostMemoryGauge" class="host-semi-gauge memory" style="--value:0;--gauge-deg:0deg" role="img" aria-label="内存使用率">
+              <div class="host-semi-gauge-inner">
+                <strong id="hostMemoryGaugeValue">-</strong>
+              </div>
+            </div>
+          </div>
+          <div id="hostMemoryChart" class="host-metric-chart" role="img" aria-label="内存使用率趋势" hidden></div>
         </article>
         <article class="host-chart-card host-disk-overview-card">
           <div class="host-chart-head">
             <div class="host-chart-title">
-              <span><i data-lucide="hard-drive"></i>磁盘 TopN</span>
+              <span><i data-lucide="folder-tree"></i>挂载点 TopN</span>
               <small id="hostDiskHint">挂载点使用率</small>
+              <small id="hostDiskTopSummary" class="host-chart-stats">最高挂载点：-</small>
             </div>
             <div class="host-metric-pair">
               <strong id="hostDiskValue">-</strong>
               <small id="hostDiskCapacity">-</small>
+              <small id="hostDiskAlertDistance">-</small>
             </div>
           </div>
           <div id="hostDiskMountList" class="host-disk-mount-list"></div>
         </article>
       </section>
-      <div id="hostChartTooltip" class="host-chart-tooltip" hidden></div>
     </section>
   </div>
 
@@ -378,9 +411,8 @@
         </button>
       </div>
       <div class="host-chart-zoom-body">
-        <canvas id="hostChartZoomCanvas" width="960" height="420"></canvas>
+        <div id="hostChartZoomCanvas" class="host-metric-chart host-metric-chart-zoom" role="img" aria-label="指标趋势放大图"></div>
       </div>
-      <div id="hostChartZoomTooltip" class="host-chart-tooltip" hidden></div>
     </section>
   </div>
 
