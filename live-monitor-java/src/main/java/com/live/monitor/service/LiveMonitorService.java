@@ -433,6 +433,7 @@ public class LiveMonitorService {
             service.httpMethod = StringUtils.hasText(payload.httpMethod) ? payload.httpMethod.toUpperCase(Locale.ROOT) : "GET";
             service.expectedStatusCode = payload.expectedStatusCode;
             service.responseKeyword = emptyToNull(payload.responseKeyword);
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
             service.ignoreSslVerification = Boolean.TRUE.equals(payload.ignoreSslVerification);
             service.endpoint = service.endpoint == null ? service.url : service.endpoint;
             service.expectedResult = service.expectedResult == null && service.expectedStatusCode != null
@@ -442,6 +443,7 @@ public class LiveMonitorService {
             config.put("http_method", service.httpMethod);
             putIfNotNull(config, "expected_status_code", service.expectedStatusCode);
             putIfNotNull(config, "response_keyword", service.responseKeyword);
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
             config.put("ignore_ssl_verification", service.ignoreSslVerification);
             return;
         }
@@ -504,6 +506,8 @@ public class LiveMonitorService {
             service.databasePassword = emptyToNull(payload.databasePassword);
             service.databaseQuery = emptyToNull(payload.databaseQuery);
             service.databaseResultOperator = databaseResultOperator(payload.databaseResultOperator);
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.databaseAssertionFields = cleanStringList(payload.databaseAssertionFields);
             service.jdbcDriverClass = emptyToNull(payload.jdbcDriverClass);
             service.jdbcUrl = emptyToNull(payload.jdbcUrl);
             service.checkMode = "jdbc_query";
@@ -512,6 +516,8 @@ public class LiveMonitorService {
             putIfNotNull(config, "database_username", service.databaseUsername);
             putIfNotNull(config, "database_query", service.databaseQuery);
             config.put("database_result_operator", service.databaseResultOperator);
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "database_assertion_fields", service.databaseAssertionFields);
             putIfNotNull(config, "jdbc_driver_class", service.jdbcDriverClass);
             putIfNotNull(config, "jdbc_url", service.jdbcUrl);
             putIfNotNull(secretConfig, "database_password", service.databasePassword);
@@ -557,6 +563,7 @@ public class LiveMonitorService {
             service.httpMethod = stringValue(config, "http_method", "GET");
             service.expectedStatusCode = intValue(config, "expected_status_code", null);
             service.responseKeyword = stringValue(config, "response_keyword", null);
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
             service.ignoreSslVerification = booleanValue(config, "ignore_ssl_verification", false);
         } else if ("redis".equals(service.serviceType)) {
             service.redisUsername = stringValue(config, "redis_username", null);
@@ -587,6 +594,8 @@ public class LiveMonitorService {
             service.databasePassword = stringValue(secretConfig, "database_password", null);
             service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
             service.databaseResultOperator = databaseResultOperator(stringValue(config, "database_result_operator", "fuzzy"));
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.databaseAssertionFields = stringListValue(config, "database_assertion_fields");
             service.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
             service.jdbcUrl = stringValue(config, "jdbc_url", null);
         }
@@ -727,6 +736,20 @@ public class LiveMonitorService {
         return source == null ? new LinkedHashMap<String, Object>() : new LinkedHashMap<String, Object>(source);
     }
 
+    private List<String> cleanStringList(List<String> source) {
+        List<String> result = new java.util.ArrayList<String>();
+        if (source == null) {
+            return result;
+        }
+        for (String item : source) {
+            String value = emptyToNull(item);
+            if (value != null && !result.contains(value)) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
     private Map<String, Object> parseJsonMap(String json) {
         if (!StringUtils.hasText(json)) {
             return new LinkedHashMap<String, Object>();
@@ -830,6 +853,20 @@ public class LiveMonitorService {
             return Boolean.valueOf(String.valueOf(value));
         }
         return fallback;
+    }
+
+    private List<String> stringListValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        List<String> result = new java.util.ArrayList<String>();
+        if (value instanceof Iterable<?>) {
+            for (Object item : (Iterable<?>) value) {
+                String text = item == null ? null : String.valueOf(item).trim();
+                if (StringUtils.hasText(text) && !result.contains(text)) {
+                    result.add(text);
+                }
+            }
+        }
+        return result;
     }
 
     private String emptyToNull(String value) {

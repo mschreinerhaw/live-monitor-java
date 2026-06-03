@@ -1,5 +1,7 @@
 package com.live.monitor.entity;
 
+import java.util.List;
+
 public class MonitorService {
     public Long id;
     public String serviceName;
@@ -35,6 +37,7 @@ public class MonitorService {
     public String httpMethod;
     public Integer expectedStatusCode;
     public String responseKeyword;
+    public String apiAssertionExpression;
     public Boolean ignoreSslVerification;
     public Double checkTimeoutSeconds;
     public String redisUsername;
@@ -48,6 +51,7 @@ public class MonitorService {
     public String databasePassword;
     public String databaseQuery;
     public String databaseResultOperator;
+    public List<String> databaseAssertionFields;
     public String jdbcDriverClass;
     public String jdbcUrl;
     public Integer checkInterval;

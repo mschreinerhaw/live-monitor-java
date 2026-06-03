@@ -114,6 +114,28 @@
           <input name="response_keyword" placeholder="例如：login success">
         </label>
 
+        <label class="result-rule-only span-2">
+          <span>响应断言规则</span>
+          <textarea name="api_assertion_expression" rows="3" placeholder='contains("success") && json("$.code") == 0'></textarea>
+          <small class="form-hint">字段推荐使用小写 JSONPath，例如 json("$.rows[0].code") == 0。</small>
+          <small class="form-hint">用于判断接口或查询返回是否符合预期，规则不通过则触发告警。</small>
+        </label>
+
+        <label class="result-rule-only">
+          <span>样例状态码</span>
+          <input name="rule_test_status_code" type="number" min="100" max="599" value="200">
+        </label>
+
+        <label class="result-rule-only">
+          <span>样例耗时（ms）</span>
+          <input name="rule_test_response_time_ms" type="number" min="0" value="68">
+        </label>
+
+        <label class="result-rule-only span-2">
+          <span>样例响应体</span>
+          <textarea name="rule_test_body" rows="4" placeholder='{"code":0,"message":"success"}'></textarea>
+        </label>
+
         <label class="switch-row web-only span-2">
           <input name="ignore_ssl_verification" type="checkbox">
           <span>忽略 HTTPS 证书验证（自签名）</span>
@@ -255,8 +277,11 @@
         <label class="database-only span-2">
           <span>检测 SQL</span>
           <input name="database_query" placeholder="留空默认执行 SELECT 1（Oracle 为 SELECT 1 FROM dual）">
-          <small class="form-hint">用于结果判断的查询结果应只返回一行一列；系统会取第一行第一列作为告警阈值判断值。</small>
+          <small class="form-hint">仅允许只读 SELECT；查询预览和检测都会使用超时限制，预览行数受系统配置控制且最多 10 行。</small>
+          <small class="form-hint">用于结果判断的查询结果优先取第一行第一列；字段返回 JSON 或文本时可使用返回规则继续判断。</small>
         </label>
+
+        <div id="databasePreviewPanel" class="test-result database-only span-2" hidden></div>
 
         <section class="host-form-section host-alert-policy-section span-2">
           <div class="host-form-section-head">
@@ -310,6 +335,14 @@
           <button id="testConnectionBtn" class="ghost-button" type="button">
             <i data-lucide="plug-zap"></i>
             <span>测试连接</span>
+          </button>
+          <button id="testRuleBtn" class="ghost-button result-rule-only" type="button">
+            <i data-lucide="flask-conical"></i>
+            <span>测试规则</span>
+          </button>
+          <button id="databasePreviewBtn" class="ghost-button database-only" type="button">
+            <i data-lucide="table-2"></i>
+            <span>查询预览</span>
           </button>
           <button id="serviceFormSubmit" class="primary-button" type="submit">
             <i data-lucide="save"></i>

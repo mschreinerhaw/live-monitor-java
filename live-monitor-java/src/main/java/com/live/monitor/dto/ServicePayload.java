@@ -1,5 +1,6 @@
 package com.live.monitor.dto;
 
+import java.util.List;
 import java.util.Map;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -26,6 +27,7 @@ public class ServicePayload {
     @Max(599)
     public Integer expectedStatusCode;
     public String responseKeyword;
+    public String apiAssertionExpression;
     public Boolean ignoreSslVerification = false;
     public String checkMode;
     public String checkCommand;
@@ -53,6 +55,7 @@ public class ServicePayload {
     public String databasePassword;
     public String databaseQuery;
     public String databaseResultOperator = "fuzzy";
+    public List<String> databaseAssertionFields;
     public String jdbcDriverClass;
     public String jdbcUrl;
     @Min(1)

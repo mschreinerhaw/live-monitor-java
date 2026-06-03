@@ -1,6 +1,7 @@
 package com.live.monitor.service;
 
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.rule.ApiRuleEvaluator;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +19,8 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class WebMonitorService {
+    private final ApiRuleEvaluator apiRuleEvaluator;
+
     private static final X509TrustManager TRUST_ALL_CERTS = new X509TrustManager() {
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) {
@@ -35,11 +38,27 @@ public class WebMonitorService {
 
     private static final HostnameVerifier TRUST_ALL_HOSTNAMES = (hostname, session) -> true;
 
+    public WebMonitorService(ApiRuleEvaluator apiRuleEvaluator) {
+        this.apiRuleEvaluator = apiRuleEvaluator;
+    }
+
     public CheckResult check(
         String url,
         String method,
         Integer expectedStatusCode,
         String keyword,
+        boolean ignoreSslVerification,
+        double timeoutSeconds
+    ) {
+        return check(url, method, expectedStatusCode, keyword, null, ignoreSslVerification, timeoutSeconds);
+    }
+
+    public CheckResult check(
+        String url,
+        String method,
+        Integer expectedStatusCode,
+        String keyword,
+        String apiAssertionExpression,
         boolean ignoreSslVerification,
         double timeoutSeconds
     ) {
@@ -72,16 +91,49 @@ public class WebMonitorService {
             int code = response.code();
             boolean statusOk = expectedStatusCode == null ? code >= 200 && code < 400 : code == expectedStatusCode;
             boolean keywordOk = true;
-            if (StringUtils.hasText(keyword)) {
+            boolean apiRuleOk = true;
+            String text = null;
+            if (StringUtils.hasText(keyword) || StringUtils.hasText(apiAssertionExpression)) {
                 ResponseBody responseBody = response.body();
-                String text = responseBody == null ? "" : responseBody.string();
+                text = responseBody == null ? "" : responseBody.string();
+            }
+            if (StringUtils.hasText(keyword)) {
                 keywordOk = text.contains(keyword);
             }
-            String message = "HTTP " + code + (StringUtils.hasText(keyword) ? ", keyword " + (keywordOk ? "matched" : "missing") : "");
-            return new CheckResult(statusOk && keywordOk ? "UP" : "DOWN", elapsed, message);
+            ApiRuleEvaluator.Evaluation apiRule = null;
+            if (StringUtils.hasText(apiAssertionExpression)) {
+                apiRule = apiRuleEvaluator.evaluate(
+                    apiAssertionExpression,
+                    new ApiRuleEvaluator.ResponseContext(code, elapsed, text)
+                );
+                apiRuleOk = apiRule.matched;
+            }
+            String message = "HTTP " + code
+                + (StringUtils.hasText(keyword) ? ", keyword " + (keywordOk ? "matched" : "missing") : "")
+                + (apiRule == null ? "" : ", " + apiRule.message + ruleDetail(apiRule));
+            return new CheckResult(statusOk && keywordOk && apiRuleOk ? "UP" : "DOWN", elapsed, message);
         } catch (Exception ex) {
             return new CheckResult("DOWN", elapsedMs(started), ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
+    }
+
+    private String ruleDetail(ApiRuleEvaluator.Evaluation apiRule) {
+        String detail = "";
+        if (StringUtils.hasText(apiRule.hitContent)) {
+            detail += ", hit: " + shortText(apiRule.hitContent, 120);
+        }
+        if (StringUtils.hasText(apiRule.failureReason)) {
+            detail += ", reason: " + shortText(apiRule.failureReason, 120);
+        }
+        return detail;
+    }
+
+    private String shortText(String value, int limit) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= limit ? normalized : normalized.substring(0, limit - 3) + "...";
     }
 
     private int elapsedMs(long started) {

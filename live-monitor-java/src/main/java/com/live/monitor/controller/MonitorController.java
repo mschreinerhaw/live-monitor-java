@@ -2,12 +2,16 @@ package com.live.monitor.controller;
 
 import com.live.monitor.alert.AlertService;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.dto.DatabasePreviewPayload;
+import com.live.monitor.dto.RuleTestPayload;
 import com.live.monitor.dto.ServiceAlertGroupPayload;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.rule.ApiRuleEvaluator;
+import com.live.monitor.service.DatabaseMonitorService;
 import com.live.monitor.service.LiveMonitorService;
 import com.live.monitor.util.CheckIntervals;
 import java.time.OffsetDateTime;
@@ -32,15 +36,21 @@ public class MonitorController {
     private final LiveMonitorService liveMonitorService;
     private final MonitorServiceMapper serviceMapper;
     private final AlertService alertService;
+    private final ApiRuleEvaluator apiRuleEvaluator;
+    private final DatabaseMonitorService databaseMonitorService;
 
     public MonitorController(
         LiveMonitorService liveMonitorService,
         MonitorServiceMapper serviceMapper,
-        AlertService alertService
+        AlertService alertService,
+        ApiRuleEvaluator apiRuleEvaluator,
+        DatabaseMonitorService databaseMonitorService
     ) {
         this.liveMonitorService = liveMonitorService;
         this.serviceMapper = serviceMapper;
         this.alertService = alertService;
+        this.apiRuleEvaluator = apiRuleEvaluator;
+        this.databaseMonitorService = databaseMonitorService;
     }
 
     @GetMapping("/api/health")
@@ -70,6 +80,38 @@ public class MonitorController {
     @PostMapping("/api/services/test")
     public CheckResult testService(@Valid @RequestBody ServicePayload payload) {
         return liveMonitorService.test(payload);
+    }
+
+    @PostMapping("/api/rules/test")
+    public ApiRuleEvaluator.Evaluation testRule(@Valid @RequestBody RuleTestPayload payload) {
+        return apiRuleEvaluator.evaluate(
+            payload.expression,
+            new ApiRuleEvaluator.ResponseContext(
+                payload.statusCode == null ? 200 : payload.statusCode,
+                payload.responseTimeMs == null ? 0 : payload.responseTimeMs,
+                payload.body
+            )
+        );
+    }
+
+    @PostMapping("/api/database/preview")
+    public DatabaseMonitorService.PreviewResult databasePreview(@Valid @RequestBody DatabasePreviewPayload payload) {
+        try {
+            return databaseMonitorService.preview(
+                payload.serviceType,
+                payload.host,
+                payload.port,
+                payload.databaseName,
+                payload.databaseUsername,
+                payload.databasePassword,
+                payload.databaseQuery,
+                payload.jdbcDriverClass,
+                payload.jdbcUrl,
+                payload.checkTimeoutSeconds == null ? 3D : payload.checkTimeoutSeconds
+            );
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        }
     }
 
     @GetMapping("/api/services/{serviceId}")

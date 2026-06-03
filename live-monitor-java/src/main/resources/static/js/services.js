@@ -20,6 +20,7 @@ async function initAddService() {
     const isDatabase = isDatabaseServiceType(typeSelect.value);
     const isGenericJdbc = typeSelect.value === "jdbc";
     toggleFieldSet(".web-only", isWeb);
+    toggleFieldSet(".result-rule-only", isWeb || isDatabase);
     toggleFieldSet(".host-field", !isWeb && !isGenericJdbc);
     toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc);
     toggleFieldSet(".process-only", isProcess);
@@ -132,6 +133,52 @@ async function initAddService() {
       showToast(error.message);
     }
   });
+
+  document.getElementById("testRuleBtn")?.addEventListener("click", async () => {
+    const resultBox = document.getElementById("connectionTestResult");
+    const payload = buildRuleTestPayload(form);
+    if (!payload.expression) {
+      showToast("请先填写响应断言规则");
+      return;
+    }
+    if (resultBox) {
+      resultBox.hidden = false;
+      resultBox.className = "test-result span-2 testing";
+      resultBox.textContent = "正在测试规则...";
+    }
+    try {
+      const result = await LiveMonitorApi.testRule(payload);
+      if (resultBox) {
+        resultBox.className = `test-result span-2 ${result.matched ? "ok" : "bad"}`;
+        resultBox.innerHTML = renderRuleTestResult(payload, result);
+      }
+    } catch (error) {
+      if (resultBox) {
+        resultBox.className = "test-result span-2 bad";
+        resultBox.textContent = error.message;
+      }
+    }
+  });
+
+  document.getElementById("databasePreviewBtn")?.addEventListener("click", async () => {
+    const panel = document.getElementById("databasePreviewPanel");
+    const payload = buildDatabasePreviewPayload(form);
+    if (!payload.service_type) return;
+    if (panel) {
+      panel.hidden = false;
+      panel.className = "test-result database-only span-2 testing";
+      panel.textContent = "正在查询预览...";
+    }
+    try {
+      const preview = await LiveMonitorApi.databasePreview(payload);
+      renderDatabasePreview(form, preview);
+    } catch (error) {
+      if (panel) {
+        panel.className = "test-result database-only span-2 bad";
+        panel.textContent = error.message;
+      }
+    }
+  });
 }
 
 function syncServiceEditingLock(form, editingExistingService = false) {
@@ -145,13 +192,19 @@ function syncServiceEditingLock(form, editingExistingService = false) {
   });
   const testButton = document.getElementById("testConnectionBtn");
   if (testButton) testButton.disabled = locked;
+  const testRuleButton = document.getElementById("testRuleBtn");
+  if (testRuleButton) testRuleButton.disabled = locked;
+  const previewButton = document.getElementById("databasePreviewBtn");
+  if (previewButton) previewButton.disabled = locked;
 }
 
 function isServiceLockExemptControl(control) {
   if (!control) return true;
   return control.name === "enabled"
     || control.id === "serviceFormSubmit"
-    || control.id === "testConnectionBtn";
+    || control.id === "testConnectionBtn"
+    || control.id === "testRuleBtn"
+    || control.id === "databasePreviewBtn";
 }
 
 function unlockServiceFormForSubmit(form) {
@@ -234,6 +287,7 @@ function buildServicePayload(form) {
   data.host = isWebUrl || isGenericJdbc ? null : data.host.trim();
   data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
   data.response_keyword = isWebUrl ? data.response_keyword || null : null;
+  data.api_assertion_expression = isWebUrl || isDatabase ? data.api_assertion_expression?.trim() || null : null;
   data.expected_status_code = isWebUrl ? data.expected_status_code : null;
   data.ignore_ssl_verification = isWebUrl ? data.ignore_ssl_verification : false;
   data.database_name = isDatabase && !isGenericJdbc ? data.database_name || null : null;
@@ -242,6 +296,7 @@ function buildServicePayload(form) {
   data.database_query = isDatabase ? data.database_query || null : null;
   data.expected_result = isDatabase ? data.expected_result || null : null;
   data.database_result_operator = isDatabase ? data.database_result_operator || "fuzzy" : "fuzzy";
+  data.database_assertion_fields = isDatabase ? selectedDatabaseAssertionFields(form) : [];
   data.jdbc_driver_class = isDatabase ? data.jdbc_driver_class || null : null;
   data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
@@ -263,7 +318,135 @@ function buildServicePayload(form) {
   data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
   delete data.service_alert_cooldown_unit;
+  delete data.rule_test_status_code;
+  delete data.rule_test_response_time_ms;
+  delete data.rule_test_body;
   return data;
+}
+
+function buildDatabasePreviewPayload(form) {
+  const data = Object.fromEntries(new FormData(form).entries());
+  const serviceType = ["http", "https"].includes(data.service_type) ? "web" : data.service_type;
+  const isGenericJdbc = serviceType === "jdbc";
+  data.service_type = serviceType;
+  data.host = isGenericJdbc ? null : data.host?.trim() || null;
+  data.port = data.port ? Number(data.port) : null;
+  if (!data.port && serviceType === "mysql") data.port = 3306;
+  if (!data.port && serviceType === "oracle") data.port = 1521;
+  if (!data.port && serviceType === "postgresql") data.port = 5432;
+  data.database_name = !isGenericJdbc ? data.database_name || null : null;
+  data.database_username = data.database_username || null;
+  data.database_password = data.database_password || null;
+  data.database_query = data.database_query || null;
+  data.jdbc_driver_class = data.jdbc_driver_class || null;
+  data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
+  data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
+  data.database_assertion_fields = selectedDatabaseAssertionFields(form);
+  return data;
+}
+
+function buildRuleTestPayload(form) {
+  return {
+    expression: form.elements.api_assertion_expression?.value?.trim() || "",
+    status_code: Number(form.elements.rule_test_status_code?.value || 200),
+    response_time_ms: Number(form.elements.rule_test_response_time_ms?.value || 0),
+    body: form.elements.rule_test_body?.value || "",
+  };
+}
+
+function renderRuleTestResult(payload, result) {
+  const status = result.matched ? "通过" : "不通过";
+  const hit = result.hit_content || "-";
+  const reason = result.failure_reason || "-";
+  return [
+    `返回状态码：${escapeHtml(String(payload.status_code))}`,
+    `响应耗时：${escapeHtml(String(payload.response_time_ms))}ms`,
+    `规则结果：${status}`,
+    `命中内容：${escapeHtml(hit)}`,
+    `失败原因：${escapeHtml(reason)}`,
+  ].join("<br>");
+}
+
+function selectedDatabaseAssertionFields(form) {
+  const checked = Array.from(document.querySelectorAll("#databasePreviewPanel input[data-database-field]:checked"))
+    .map((input) => input.value)
+    .filter(Boolean);
+  if (checked.length) {
+    form.dataset.databaseAssertionFields = JSON.stringify(checked);
+    return checked;
+  }
+  try {
+    return JSON.parse(form.dataset.databaseAssertionFields || "[]");
+  } catch (error) {
+    return [];
+  }
+}
+
+function renderDatabaseSelectedFields(form, fields = []) {
+  form.dataset.databaseAssertionFields = JSON.stringify(fields || []);
+  const panel = document.getElementById("databasePreviewPanel");
+  if (!panel || !fields?.length) return;
+  panel.hidden = false;
+  panel.className = "test-result database-only span-2";
+  panel.innerHTML = `已选择检测字段：${fields.map((field) => `<code>${escapeHtml(field)}</code>`).join(" ")}`;
+}
+
+function renderDatabasePreview(form, preview) {
+  const panel = document.getElementById("databasePreviewPanel");
+  if (!panel) return;
+  const columns = preview?.columns || [];
+  const rows = preview?.rows || [];
+  const selected = new Set(selectedDatabaseAssertionFields(form));
+  panel.hidden = false;
+  panel.className = "test-result database-only span-2";
+  if (!columns.length) {
+    panel.textContent = preview?.message || "查询没有返回结果集";
+    return;
+  }
+  const fieldControls = columns.map((column) => `
+    <label class="switch-row">
+      <input type="checkbox" data-database-field value="${escapeHtml(column)}" ${selected.has(column) ? "checked" : ""}>
+      <span>${escapeHtml(column)}</span>
+    </label>
+  `).join("");
+  const head = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+  const body = rows.map((row) => `
+    <tr>${columns.map((column) => `<td>${escapeHtml(row?.[column] ?? "")}</td>`).join("")}</tr>
+  `).join("");
+  panel.innerHTML = `
+    <div class="database-preview-fields">${fieldControls}</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body || `<tr><td colspan="${columns.length}">无数据</td></tr>`}</tbody>
+      </table>
+    </div>
+    <small class="form-hint">${escapeHtml(preview?.message || `预览最多显示 ${preview?.max_rows || 5} 行`)}</small>
+  `;
+  panel.querySelectorAll("input[data-database-field]").forEach((input) => {
+    input.addEventListener("change", () => {
+      syncDatabaseAssertionFieldsFromPreview(form, rows);
+    });
+  });
+  syncDatabaseAssertionFieldsFromPreview(form, rows);
+}
+
+function syncDatabaseAssertionFieldsFromPreview(form, rows = []) {
+  const fields = Array.from(document.querySelectorAll("#databasePreviewPanel input[data-database-field]:checked"))
+    .map((input) => input.value)
+    .filter(Boolean);
+  form.dataset.databaseAssertionFields = JSON.stringify(fields);
+  if (fields.length && form.elements.rule_test_body) {
+    const projectedRows = rows.map((row) => {
+      const item = {};
+      fields.forEach((field) => {
+        item[field] = row?.[field] ?? null;
+        item[String(field).toLowerCase()] = row?.[field] ?? null;
+      });
+      return item;
+    });
+    form.elements.rule_test_body.value = JSON.stringify({ rows: projectedRows }, null, 2);
+  }
 }
 
 async function loadProcessHostOptions(form) {
@@ -336,6 +519,7 @@ function fillServiceForm(form, service) {
     "http_method",
     "expected_status_code",
     "response_keyword",
+    "api_assertion_expression",
     "host",
     "host_id",
     "port",
@@ -417,6 +601,7 @@ function fillServiceForm(form, service) {
   if (form.elements.ignore_ssl_verification) {
     form.elements.ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
   }
+  renderDatabaseSelectedFields(form, service.database_assertion_fields || []);
 }
 
 function isDatabaseServiceType(type) {

@@ -172,18 +172,28 @@ class AlertDeliveryServiceTest {
     void rendersHostResourceTemplateReasons(@TempDir Path templateDir) {
         Map<String, Object> variables = new LinkedHashMap<String, Object>();
         variables.put("host", "10.0.0.8");
-        variables.put("cpu", "45.0");
-        variables.put("memory", "90.0");
-        variables.put("disk", "20.0");
-        variables.put("alertReason", "内存使用率 90.0% >= 告警阈值 80.0%");
-        variables.put("recoverReason", "所有已启用指标低于告警阈值（CPU使用率 < 85.0%；内存使用率 < 80.0%）");
+        variables.put("cpuText", "45.0% / 85.0%");
+        variables.put("memoryText", "90.0% / 80.0%");
+        variables.put("diskText", "20.0% / 90.0%");
+        variables.put("alertItems", "MEM");
+        variables.put("recoverItems", "MEM");
+        variables.put("alertReason", "MEMORY_USED_90_GE_80");
+        variables.put("recoverReason", "ALL_RESOURCE_METRICS_RECOVERED");
+        variables.put("alertSummary", "memory threshold breached");
+        variables.put("historyAlert", "MEMORY_USED_90_GE_80");
+        variables.put("duration", "180s");
+        variables.put("alertId", "alert-001");
         variables.put("alertTime", "2026-06-02 18:10:00");
+        variables.put("recoverTime", "2026-06-02 18:13:00");
 
-        String rendered = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"))
-            .renderTemplate("alert_host_resource.j2", variables, "fallback");
+        AlertDeliveryService service = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"));
+        String rendered = service.renderTemplate("alert_host_resource.j2", variables, "fallback");
+        String recoverRendered = service.renderTemplate("alert_host_resource_recover.j2", variables, "fallback");
 
-        assertTrue(rendered.contains("告警发送原因：内存使用率 90.0% >= 告警阈值 80.0%"));
-        assertTrue(rendered.contains("恢复原因：所有已启用指标低于告警阈值"));
+        assertTrue(rendered.contains("MEMORY_USED_90_GE_80"));
+        assertTrue(rendered.contains("memory threshold breached"));
+        assertTrue(recoverRendered.contains("ALL_RESOURCE_METRICS_RECOVERED"));
+        assertTrue(recoverRendered.contains("MEMORY_USED_90_GE_80"));
     }
 
     @Test

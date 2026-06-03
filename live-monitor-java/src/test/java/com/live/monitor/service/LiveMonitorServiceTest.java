@@ -34,6 +34,7 @@ class LiveMonitorServiceTest {
                 + "\"service_name\":\"Checkout Health\","
                 + "\"service_type\":\"web\","
                 + "\"url\":\"https://example.com/health\","
+                + "\"api_assertion_expression\":\"contains(\\\"success\\\") && json(\\\"$.code\\\") == 0\","
                 + "\"check_interval\":60,"
                 + "\"check_timeout_seconds\":3,"
                 + "\"service_alert_enabled\":false,"
@@ -72,10 +73,60 @@ class LiveMonitorServiceTest {
         assertEquals(5, ((Number) config.get("service_consecutive_failures")).intValue());
         assertEquals(4, ((Number) config.get("service_recover_successes")).intValue());
         assertEquals(120, ((Number) config.get("service_alert_cooldown_seconds")).intValue());
+        assertEquals("contains(\"success\") && json(\"$.code\") == 0", config.get("api_assertion_expression"));
         assertFalse(created.serviceAlertEnabled);
         assertEquals(5, created.serviceConsecutiveFailures.intValue());
         assertEquals(4, created.serviceRecoverSuccesses.intValue());
         assertEquals(120, created.serviceAlertCooldownSeconds.intValue());
+        assertEquals("contains(\"success\") && json(\"$.code\") == 0", created.apiAssertionExpression);
+    }
+
+    @Test
+    void createsDatabaseServiceWithSelectedAssertionFieldsPersistedAndHydrated() throws Exception {
+        ObjectMapper requestMapper = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ServicePayload payload = requestMapper.readValue(
+            "{"
+                + "\"service_name\":\"Trade SQL\","
+                + "\"service_type\":\"jdbc\","
+                + "\"jdbc_driver_class\":\"org.h2.Driver\","
+                + "\"jdbc_url\":\"jdbc:h2:mem:db-fields\","
+                + "\"database_query\":\"SELECT 0 AS code, 'OK' AS status\","
+                + "\"database_assertion_fields\":[\"code\",\"status\"],"
+                + "\"api_assertion_expression\":\"json(\\\"$.rows[0].code\\\") == 0\","
+                + "\"check_interval\":60,"
+                + "\"check_timeout_seconds\":3,"
+                + "\"enabled\":true"
+                + "}",
+            ServicePayload.class
+        );
+
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        AtomicReference<MonitorService> storedRow = new AtomicReference<MonitorService>();
+        when(serviceMapper.insert(any(MonitorService.class))).thenAnswer(invocation -> {
+            MonitorService inserted = invocation.getArgument(0);
+            inserted.id = 43L;
+            storedRow.set(databaseRow(inserted));
+            return 1;
+        });
+        when(serviceMapper.findById(43L)).thenAnswer(invocation -> storedRow.get());
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            mock(MonitorRunnerService.class),
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        MonitorService created = service.create(payload);
+        Map<String, Object> config = objectMapper.readValue(storedRow.get().configJson, MAP_TYPE);
+
+        assertEquals("json(\"$.rows[0].code\") == 0", config.get("api_assertion_expression"));
+        assertEquals(java.util.Arrays.asList("code", "status"), config.get("database_assertion_fields"));
+        assertEquals(java.util.Arrays.asList("code", "status"), created.databaseAssertionFields);
     }
 
     private MonitorService databaseRow(MonitorService source) {

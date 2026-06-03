@@ -45,6 +45,7 @@ public class MonitorRunnerService {
                 service.httpMethod,
                 service.expectedStatusCode,
                 service.responseKeyword,
+                service.apiAssertionExpression,
                 Boolean.TRUE.equals(service.ignoreSslVerification),
                 timeout
             );
@@ -90,6 +91,8 @@ public class MonitorRunnerService {
                 service.databaseQuery,
                 service.expectedResult,
                 service.databaseResultOperator,
+                service.apiAssertionExpression,
+                service.databaseAssertionFields,
                 service.jdbcDriverClass,
                 service.jdbcUrl,
                 timeout

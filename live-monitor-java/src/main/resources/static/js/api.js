@@ -60,6 +60,8 @@
     service: (id) => request(`/api/services/${id}`),
     createService: (data) => request("/api/services", { method: "POST", body: JSON.stringify(data) }),
     testService: (data) => request("/api/services/test", { method: "POST", body: JSON.stringify(data) }),
+    testRule: (data) => request("/api/rules/test", { method: "POST", body: JSON.stringify(data) }),
+    databasePreview: (data) => request("/api/database/preview", { method: "POST", body: JSON.stringify(data) }),
     updateService: (id, data) => request(`/api/services/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteService: (id) => request(`/api/services/${id}`, { method: "DELETE" }),
     alertPolicies: (includeDisabled = true) => request(`/api/alert-policies?include_disabled=${includeDisabled}`),

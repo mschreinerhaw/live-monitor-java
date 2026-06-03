@@ -1,6 +1,9 @@
 package com.live.monitor.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.live.monitor.config.LiveMonitorProperties;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.rule.ApiRuleEvaluator;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -13,8 +16,10 @@ import java.sql.Statement;
 import java.sql.SQLException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
@@ -22,7 +27,27 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class DatabaseMonitorService {
+    private static final int ABSOLUTE_MAX_RESULT_ROWS = 10;
+    private static final int MAX_QUERY_TIMEOUT_SECONDS = 60;
+    private static final String[] FORBIDDEN_SQL_KEYWORDS = {
+        "insert", "update", "delete", "drop", "alter", "truncate", "call",
+        "merge", "create", "replace", "grant", "revoke", "execute", "exec"
+    };
+
+    private final ApiRuleEvaluator apiRuleEvaluator;
+    private final ObjectMapper objectMapper;
+    private final LiveMonitorProperties properties;
     private volatile ClassLoader externalDriverClassLoader;
+
+    public DatabaseMonitorService(
+        ApiRuleEvaluator apiRuleEvaluator,
+        ObjectMapper objectMapper,
+        LiveMonitorProperties properties
+    ) {
+        this.apiRuleEvaluator = apiRuleEvaluator;
+        this.objectMapper = objectMapper;
+        this.properties = properties;
+    }
 
     public CheckResult check(
         String type,
@@ -34,6 +59,40 @@ public class DatabaseMonitorService {
         String query,
         String expectedResult,
         String resultOperator,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) {
+        return check(
+            type,
+            host,
+            port,
+            databaseName,
+            username,
+            password,
+            query,
+            expectedResult,
+            resultOperator,
+            null,
+            null,
+            jdbcDriverClass,
+            jdbcUrl,
+            timeoutSeconds
+        );
+    }
+
+    public CheckResult check(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String expectedResult,
+        String resultOperator,
+        String apiAssertionExpression,
+        List<String> assertionFields,
         String jdbcDriverClass,
         String jdbcUrl,
         double timeoutSeconds
@@ -51,12 +110,13 @@ public class DatabaseMonitorService {
         }
 
         long started = System.nanoTime();
-        int timeoutSecondsInt = Math.max(1, (int) Math.ceil(timeoutSeconds));
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
         String url = genericJdbc
             ? jdbcUrl.trim()
             : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
         String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
         try {
+            validateReadOnlySql(sql);
             DriverManager.setLoginTimeout(timeoutSecondsInt);
             Properties properties = new Properties();
             if (StringUtils.hasText(username)) {
@@ -68,19 +128,87 @@ public class DatabaseMonitorService {
             try (Connection connection = connect(url, properties, jdbcDriverClass);
                  Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(timeoutSecondsInt);
+                statement.setMaxRows(databaseResultMaxRows());
                 boolean hasResultSet = statement.execute(sql);
-                QueryResult queryResult = queryResult(statement, hasResultSet);
+                QueryResult queryResult = queryResult(statement, hasResultSet, assertionFields);
                 boolean ok = matchesExpectedResult(queryResult, expectedResult, resultOperator);
+                ApiRuleEvaluator.Evaluation apiRule = null;
+                if (StringUtils.hasText(apiAssertionExpression)) {
+                    apiRule = apiRuleEvaluator.evaluate(
+                        apiAssertionExpression,
+                        new ApiRuleEvaluator.ResponseContext(0, elapsedMs(started), queryResult.ruleValue())
+                    );
+                    ok = ok && apiRule.matched;
+                }
                 String product = connection.getMetaData().getDatabaseProductName();
                 String version = connection.getMetaData().getDatabaseProductVersion();
                 String message = product + " " + shortText(version, 32) + ", result: " + shortText(queryResult.displayValue, 120);
                 if (StringUtils.hasText(expectedResult)) {
                     message += ", rule: " + operatorLabel(resultOperator) + " " + expectedResult.trim();
                 }
+                if (apiRule != null) {
+                    message += ", " + apiRule.message + ruleDetail(apiRule);
+                }
                 return new CheckResult(ok ? "UP" : "DOWN", elapsedMs(started), message);
             }
         } catch (Exception ex) {
             return new CheckResult("DOWN", elapsedMs(started), ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        }
+    }
+
+    public PreviewResult preview(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) {
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        if (genericJdbc && (!StringUtils.hasText(jdbcDriverClass) || !StringUtils.hasText(jdbcUrl))) {
+            throw new IllegalArgumentException("JDBC driver class and URL are required");
+        }
+        if (!genericJdbc && (!StringUtils.hasText(host) || port == null)) {
+            throw new IllegalArgumentException("Host and port are required for database preview");
+        }
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
+        String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
+        validateReadOnlySql(sql);
+        try {
+            DriverManager.setLoginTimeout(timeoutSecondsInt);
+            Properties properties = new Properties();
+            if (StringUtils.hasText(username)) {
+                properties.put("user", username.trim());
+            }
+            if (StringUtils.hasText(password)) {
+                properties.put("password", password);
+            }
+            try (Connection connection = connect(url, properties, jdbcDriverClass);
+                 Statement statement = connection.createStatement()) {
+                int maxRows = databaseResultMaxRows();
+                statement.setQueryTimeout(timeoutSecondsInt);
+                statement.setMaxRows(maxRows);
+                boolean hasResultSet = statement.execute(sql);
+                if (!hasResultSet) {
+                    PreviewResult result = new PreviewResult();
+                    result.columns = new ArrayList<String>();
+                    result.rows = new ArrayList<Map<String, Object>>();
+                    result.message = "update count " + statement.getUpdateCount();
+                    result.maxRows = maxRows;
+                    return result;
+                }
+                return previewResult(statement.getResultSet(), maxRows);
+            }
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
     }
 
@@ -188,7 +316,7 @@ public class DatabaseMonitorService {
         return "oracle".equals(type) ? "SELECT 1 FROM dual" : "SELECT 1";
     }
 
-    private QueryResult queryResult(Statement statement, boolean hasResultSet) throws Exception {
+    private QueryResult queryResult(Statement statement, boolean hasResultSet, List<String> assertionFields) throws Exception {
         if (!hasResultSet) {
             int count = statement.getUpdateCount();
             return new QueryResult("update count " + count, String.valueOf(count));
@@ -199,10 +327,15 @@ public class DatabaseMonitorService {
             }
             ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
+            List<String> columns = columnLabels(metaData);
+            Map<String, String> selectedFields = selectedFieldMap(assertionFields);
+            List<Map<String, Object>> selectedRows = new ArrayList<Map<String, Object>>();
+            int maxRows = databaseResultMaxRows();
             StringBuilder builder = new StringBuilder();
             int row = 0;
             String firstValue = "";
             do {
+                Map<String, Object> selectedRow = new LinkedHashMap<String, Object>();
                 if (row > 0) {
                     builder.append(" | ");
                 }
@@ -220,11 +353,175 @@ public class DatabaseMonitorService {
                         firstValue = text;
                     }
                     builder.append(text);
+                    String selectedName = selectedFields.get(normalizeFieldName(label));
+                    if (row < maxRows && selectedName != null) {
+                        selectedRow.put(label, value == null ? null : String.valueOf(value));
+                        selectedRow.put(selectedName, value == null ? null : String.valueOf(value));
+                        selectedRow.put(normalizeFieldName(label), value == null ? null : String.valueOf(value));
+                    }
+                }
+                if (!selectedRow.isEmpty()) {
+                    selectedRows.add(selectedRow);
                 }
                 row++;
-            } while (row < 20 && builder.length() < 4000 && resultSet.next());
-            return new QueryResult(builder.toString(), firstValue);
+            } while (row < maxRows && builder.length() < 4000 && resultSet.next());
+            String ruleValue = selectedRows.isEmpty() ? firstValue : selectedRowsJson(selectedRows, columns, assertionFields);
+            return new QueryResult(builder.toString(), firstValue, ruleValue);
         }
+    }
+
+    private PreviewResult previewResult(ResultSet resultSet, int maxRows) throws Exception {
+        try (ResultSet closeable = resultSet) {
+            ResultSetMetaData metaData = closeable.getMetaData();
+            List<String> columns = columnLabels(metaData);
+            List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+            int row = 0;
+            while (row < maxRows && closeable.next()) {
+                Map<String, Object> item = new LinkedHashMap<String, Object>();
+                for (int column = 1; column <= columns.size(); column++) {
+                    Object value = closeable.getObject(column);
+                    item.put(columns.get(column - 1), value == null ? null : String.valueOf(value));
+                }
+                rows.add(item);
+                row++;
+            }
+            PreviewResult result = new PreviewResult();
+            result.columns = columns;
+            result.rows = rows;
+            result.maxRows = maxRows;
+            result.message = "preview limited to " + maxRows + " rows";
+            return result;
+        }
+    }
+
+    private int databaseResultMaxRows() {
+        if (properties == null) {
+            return 5;
+        }
+        return Math.max(1, Math.min(ABSOLUTE_MAX_RESULT_ROWS, properties.getDatabaseResultMaxRows()));
+    }
+
+    private int queryTimeoutSeconds(double timeoutSeconds) {
+        if (Double.isNaN(timeoutSeconds) || Double.isInfinite(timeoutSeconds)) {
+            return 1;
+        }
+        return Math.max(1, Math.min(MAX_QUERY_TIMEOUT_SECONDS, (int) Math.ceil(timeoutSeconds)));
+    }
+
+    private void validateReadOnlySql(String sql) {
+        String normalized = normalizeSqlForValidation(sql);
+        if (!StringUtils.hasText(normalized)) {
+            throw new IllegalArgumentException("SQL is required");
+        }
+        if (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        if (normalized.indexOf(';') >= 0) {
+            throw new IllegalArgumentException("Only a single read-only SELECT SQL statement is allowed");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (!lower.matches("(?s)^select\\b.*")) {
+            throw new IllegalArgumentException("Only read-only SELECT SQL is allowed");
+        }
+        lower = maskSqlStringLiterals(normalized).toLowerCase(Locale.ROOT);
+        if (lower.matches("(?s).*\\bfor\\s+update\\b.*")) {
+            throw new IllegalArgumentException("SELECT FOR UPDATE is not allowed");
+        }
+        for (String keyword : FORBIDDEN_SQL_KEYWORDS) {
+            if (lower.matches("(?s).*\\b" + keyword + "\\b.*")) {
+                throw new IllegalArgumentException("SQL keyword is not allowed: " + keyword);
+            }
+        }
+    }
+
+    private String normalizeSqlForValidation(String sql) {
+        if (sql == null) {
+            return "";
+        }
+        String value = sql.trim();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            if (value.startsWith("--")) {
+                int end = value.indexOf('\n');
+                value = end >= 0 ? value.substring(end + 1).trim() : "";
+                changed = true;
+            } else if (value.startsWith("/*")) {
+                int end = value.indexOf("*/");
+                value = end >= 0 ? value.substring(end + 2).trim() : "";
+                changed = true;
+            }
+        }
+        return value;
+    }
+
+    private String maskSqlStringLiterals(String sql) {
+        StringBuilder builder = new StringBuilder(sql.length());
+        boolean inSingleQuote = false;
+        for (int index = 0; index < sql.length(); index++) {
+            char current = sql.charAt(index);
+            if (current == '\'') {
+                builder.append(' ');
+                if (inSingleQuote && index + 1 < sql.length() && sql.charAt(index + 1) == '\'') {
+                    builder.append(' ');
+                    index++;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+            } else {
+                builder.append(inSingleQuote ? ' ' : current);
+            }
+        }
+        return builder.toString();
+    }
+
+    private String ruleDetail(ApiRuleEvaluator.Evaluation apiRule) {
+        String detail = "";
+        if (StringUtils.hasText(apiRule.hitContent)) {
+            detail += ", hit: " + shortText(apiRule.hitContent, 120);
+        }
+        if (StringUtils.hasText(apiRule.failureReason)) {
+            detail += ", reason: " + shortText(apiRule.failureReason, 120);
+        }
+        return detail;
+    }
+
+    private List<String> columnLabels(ResultSetMetaData metaData) throws Exception {
+        List<String> columns = new ArrayList<String>();
+        for (int column = 1; column <= metaData.getColumnCount(); column++) {
+            String label = metaData.getColumnLabel(column);
+            columns.add(StringUtils.hasText(label) ? label : "column_" + column);
+        }
+        return columns;
+    }
+
+    private Map<String, String> selectedFieldMap(List<String> assertionFields) {
+        Map<String, String> selected = new LinkedHashMap<String, String>();
+        if (assertionFields == null) {
+            return selected;
+        }
+        for (String field : assertionFields) {
+            if (StringUtils.hasText(field)) {
+                selected.put(normalizeFieldName(field), field.trim());
+            }
+        }
+        return selected;
+    }
+
+    private String selectedRowsJson(List<Map<String, Object>> rows, List<String> columns, List<String> fields) {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("rows", rows);
+        payload.put("columns", columns);
+        payload.put("fields", fields);
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (Exception ex) {
+            return rows.toString();
+        }
+    }
+
+    private String normalizeFieldName(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private boolean matchesExpectedResult(QueryResult result, String expectedResult, String operator) {
@@ -330,11 +627,28 @@ public class DatabaseMonitorService {
     private static final class QueryResult {
         private final String displayValue;
         private final String firstValue;
+        private final String ruleValue;
 
         private QueryResult(String displayValue, String firstValue) {
+            this(displayValue, firstValue, firstValue);
+        }
+
+        private QueryResult(String displayValue, String firstValue, String ruleValue) {
             this.displayValue = displayValue;
             this.firstValue = firstValue;
+            this.ruleValue = ruleValue;
         }
+
+        private String ruleValue() {
+            return StringUtils.hasText(ruleValue) ? ruleValue : displayValue;
+        }
+    }
+
+    public static final class PreviewResult {
+        public List<String> columns;
+        public List<Map<String, Object>> rows;
+        public Integer maxRows;
+        public String message;
     }
 
     private static final class ExternalDriverClassLoader extends URLClassLoader {
