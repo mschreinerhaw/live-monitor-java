@@ -1,28 +1,26 @@
-<h2 style="color:#2e7d32">✅ 主机资源恢复</h2>
+<div style="font-family:Arial,'Microsoft YaHei',sans-serif;color:#1f2937;line-height:1.65;font-size:14px;">
+  <div style="font-size:20px;font-weight:700;color:#047857;margin-bottom:14px;">主机资源恢复</div>
 
-<table>
-<tr><td>主机IP</td><td>{{ host }}</td></tr>
-<tr><td>恢复时间</td><td>{{ recoverTime }}</td></tr>
-<tr><td>告警持续</td><td>{{ duration }}</td></tr>
-<tr><td>告警ID</td><td>{{ alertId }}</td></tr>
-</table>
+  <div style="margin-bottom:14px;">
+    <div>主机IP：{{ host }}</div>
+    <div>恢复时间：{{ recoverTime }}</div>
+    <div>告警持续：{{ duration }}</div>
+    <div>告警ID：{{ alertId }}</div>
+  </div>
 
-<hr>
-<b>恢复指标</b>
-<pre>{{ recoverItems }}</pre>
+  <div style="font-weight:700;margin-top:12px;">恢复指标</div>
+  <pre style="font-family:Consolas,'Microsoft YaHei',monospace;white-space:pre-wrap;margin:6px 0 14px 0;color:#111827;background:transparent;">{{ recoverItems }}</pre>
 
-<hr>
-<b>当前资源</b>
-<table>
-<tr><td>CPU</td><td>{{ cpuText }}</td></tr>
-<tr><td>内存</td><td>{{ memoryText }}</td></tr>
-<tr><td>磁盘</td><td>{{ diskText }}</td></tr>
-</table>
+  <div style="font-weight:700;margin-top:12px;">当前资源</div>
+  <div style="margin:6px 0 14px 0;">
+    <div>CPU：{{ cpuText }}</div>
+    <div>内存：{{ memoryText }}</div>
+    <div>磁盘：{{ diskText }}</div>
+  </div>
 
-<hr>
-<b>恢复原因</b>
-<pre>{{ recoverReason }}</pre>
+  <div style="font-weight:700;margin-top:12px;">恢复原因</div>
+  <pre style="font-family:Consolas,'Microsoft YaHei',monospace;white-space:pre-wrap;margin:6px 0 14px 0;color:#111827;background:transparent;">{{ recoverReason }}</pre>
 
-<hr>
-<b>历史告警</b>
-<pre>{{ historyAlert }}</pre>
+  <div style="font-weight:700;margin-top:12px;">历史告警</div>
+  <pre style="font-family:Consolas,'Microsoft YaHei',monospace;white-space:pre-wrap;margin:6px 0 0 0;color:#111827;background:transparent;">{{ historyAlert }}</pre>
+</div>

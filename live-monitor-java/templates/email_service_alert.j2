@@ -1,17 +1,17 @@
-<h2 style="color:#e53935">🚨 服务异常告警</h2>
+<div style="font-family:Arial,'Microsoft YaHei',sans-serif;color:#1f2937;line-height:1.65;font-size:14px;">
+  <div style="font-size:20px;font-weight:700;color:#b91c1c;margin-bottom:14px;">服务异常告警</div>
 
-<table>
-<tr><td>服务名称</td><td>{{ serviceName }}</td></tr>
-<tr><td>实例名称</td><td>{{ instanceName }}</td></tr>
-<tr><td>服务地址</td><td>{{ host }}</td></tr>
-<tr><td>告警级别</td><td>{{ level }}</td></tr>
-<tr><td>告警时间</td><td>{{ alertTime }}</td></tr>
-<tr><td>响应时间</td><td>{{ responseTime }} ms</td></tr>
-</table>
+  <div style="margin-bottom:14px;">
+    <div>服务名称：{{ serviceName }}</div>
+    <div>实例名称：{{ instanceName }}</div>
+    <div>服务地址：{{ host }}</div>
+    <div>告警级别：{{ level }}</div>
+    <div>告警时间：{{ alertTime }}</div>
+    <div>响应时间：{{ responseTime }} ms</div>
+  </div>
 
-<hr>
-<b>异常信息</b>
-{{ errorMsg }}
+  <div style="font-weight:700;margin-top:12px;">异常信息</div>
+  <pre style="font-family:Consolas,'Microsoft YaHei',monospace;white-space:pre-wrap;margin:6px 0 14px 0;color:#111827;background:transparent;">{{ errorMsg }}</pre>
 
-<hr>
-请及时处理。
+  <div>请及时处理。</div>
+</div>
