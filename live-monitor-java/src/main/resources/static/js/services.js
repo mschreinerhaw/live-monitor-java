@@ -15,6 +15,7 @@ async function initAddService() {
   const databaseConnectionsPromise = loadDatabaseConnectionOptions(form, editId).then((connections) => {
     databaseConnectionOptions = connections;
     renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
+    renderCrossDatabaseSourceOptions(form, databaseConnectionOptions, editId);
   });
   const presetClusterName = params.get("cluster_name");
   if (!editId && presetClusterName && form.elements.cluster_name) {
@@ -26,11 +27,13 @@ async function initAddService() {
     const isRedis = typeSelect.value === "redis";
     const isZookeeper = typeSelect.value === "zookeeper";
     const isProcess = typeSelect.value === "process";
+    const isCrossDatabase = typeSelect.value === "cross_database";
     const isDatabase = isDatabaseServiceType(typeSelect.value);
     const isGenericJdbc = typeSelect.value === "jdbc";
     const databaseConnectionSelect = form.elements.database_connection_service_id;
     if (databaseConnectionSelect) {
       renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
+      renderCrossDatabaseSourceOptions(form, databaseConnectionOptions, editId);
     }
     const usesDatabaseConnectionRef = Boolean(isDatabase && databaseConnectionSelect?.value);
     toggleFieldSet(".web-only", isWeb && !isApi);
@@ -43,6 +46,7 @@ async function initAddService() {
     toggleFieldSet(".redis-only", isRedis);
     toggleFieldSet(".zookeeper-only", isZookeeper);
     toggleFieldSet(".database-only", isDatabase);
+    toggleFieldSet(".cross-db-only", isCrossDatabase);
     toggleFieldSet(".database-connection-manual-only", isDatabase && !usesDatabaseConnectionRef);
     toggleFieldSet(".jdbc-only", isGenericJdbc && !usesDatabaseConnectionRef);
     toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef);
@@ -59,8 +63,8 @@ async function initAddService() {
     const processCommandInput = form.elements.check_command;
     if (urlInput) urlInput.required = isWeb && !isApi;
     if (apiUrlInput) apiUrlInput.required = isApi;
-    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc && !usesDatabaseConnectionRef;
-    if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess;
+    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc && !isCrossDatabase && !usesDatabaseConnectionRef;
+    if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess && !isCrossDatabase;
     if (processNameInput) processNameInput.required = isProcess;
     if (processKeywordInput) processKeywordInput.required = false;
     if (processCommandInput) processCommandInput.required = isProcess;
@@ -120,6 +124,7 @@ async function initAddService() {
     syncFields();
     resetDatabasePreviewPanel();
   });
+  initCrossDatabaseBuilder(form);
   document.getElementById("addApiHeaderBtn")?.addEventListener("click", () => addApiHeaderRow());
   form.elements.enabled?.addEventListener("change", () => syncServiceEditingLock(form, editingExistingService));
   initAssertionModeControls(form);
@@ -274,13 +279,32 @@ async function initAddService() {
 
 function syncServiceEditingLock(form, editingExistingService = false) {
   if (!form) return;
-  const locked = Boolean(editingExistingService && form.elements.enabled && !form.elements.enabled.checked);
+  const serviceType = form.elements.service_type?.value || "";
+  const locked = Boolean(
+    editingExistingService
+    && form.elements.enabled
+    && !form.elements.enabled.checked
+    && !isDatabaseServiceType(serviceType)
+    && serviceType !== "cross_database"
+  );
   form.classList.toggle("form-edit-locked", locked);
   Array.from(form.elements).forEach((control) => {
     if (isServiceLockExemptControl(control)) return;
-    control.disabled = locked;
-    control.dataset.serviceEditLocked = locked ? "true" : "";
+    if (locked) {
+      control.disabled = true;
+      control.dataset.serviceEditLocked = "true";
+      return;
+    }
+    if (control.dataset.serviceEditLocked === "true") {
+      control.disabled = false;
+    }
+    delete control.dataset.serviceEditLocked;
   });
+  if (!locked) {
+    syncApiAssertionMode(form);
+    syncDatabaseRuleMode(form);
+    syncResultAssertionMode(form);
+  }
   const testButton = document.getElementById("testConnectionBtn");
   if (testButton) testButton.disabled = false;
   const testRuleButton = document.getElementById("testRuleBtn");
@@ -450,6 +474,168 @@ function defaultDatabaseTypeConfig(serviceType) {
   };
 }
 
+function initCrossDatabaseBuilder(form) {
+  const container = document.getElementById("crossDatabaseQueryRows");
+  if (!container || container.dataset.initialized === "true") return;
+  container.dataset.initialized = "true";
+  document.getElementById("addCrossDatabaseQueryBtn")?.addEventListener("click", () => {
+    addCrossDatabaseQueryRow(form, { alias: `db${container.querySelectorAll(".cross-db-query-row").length + 1}` });
+  });
+  if (!container.querySelector(".cross-db-query-row")) {
+    addCrossDatabaseQueryRow(form, { alias: "A" });
+    addCrossDatabaseQueryRow(form, { alias: "B" });
+  }
+}
+
+function renderCrossDatabaseQueryRows(form, rows = []) {
+  const container = document.getElementById("crossDatabaseQueryRows");
+  if (!container) return;
+  container.innerHTML = "";
+  const items = rows.length ? rows : [{ alias: "A" }, { alias: "B" }];
+  items.forEach((row) => addCrossDatabaseQueryRow(form, row));
+}
+
+function addCrossDatabaseQueryRow(form, query = {}) {
+  const container = document.getElementById("crossDatabaseQueryRows");
+  if (!container) return;
+  const row = document.createElement("div");
+  row.className = "cross-db-query-row";
+  row.innerHTML = `
+    <div class="cross-db-query-head">
+      <input data-cross-db-alias aria-label="数据源别名" placeholder="别名，如 A" value="${escapeHtml(query.alias || "")}">
+      <select data-cross-db-source aria-label="引用数据源"></select>
+      <button class="ghost-button compact-button" data-cross-db-preview-btn type="button">
+        <i data-lucide="table-2"></i>
+        <span>预览拾取</span>
+      </button>
+      <button class="icon-button" data-cross-db-delete-btn type="button" title="删除数据源">
+        <i data-lucide="trash-2"></i>
+      </button>
+    </div>
+    <textarea data-cross-db-sql rows="3" spellcheck="false" placeholder="SELECT FUND_CODE, FUND_NAME FROM ...">${escapeHtml(query.database_query || query.databaseQuery || "")}</textarea>
+    <input data-cross-db-fields placeholder="字段拾取，逗号分隔，如 FUND_CODE,FUND_NAME" value="${escapeHtml((query.assertion_fields || query.assertionFields || []).join(","))}">
+    <div class="cross-db-preview" data-cross-db-preview hidden></div>
+  `;
+  container.appendChild(row);
+  renderCrossDatabaseSourceOptionsForRow(row, container.__databaseConnectionOptions || [], query.source_service_id || query.sourceServiceId);
+  row.querySelector("[data-cross-db-delete-btn]")?.addEventListener("click", () => {
+    if (container.querySelectorAll(".cross-db-query-row").length <= 2) {
+      showToast("跨库检测至少保留两个数据源");
+      return;
+    }
+    row.remove();
+  });
+  row.querySelector("[data-cross-db-preview-btn]")?.addEventListener("click", async () => {
+    await previewCrossDatabaseQueryRow(form, row);
+  });
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function renderCrossDatabaseSourceOptions(form, connections = [], editId = "") {
+  const container = document.getElementById("crossDatabaseQueryRows");
+  if (!container) return;
+  container.__databaseConnectionOptions = connections || [];
+  container.querySelectorAll(".cross-db-query-row").forEach((row) => {
+    const current = row.querySelector("[data-cross-db-source]")?.value || "";
+    renderCrossDatabaseSourceOptionsForRow(row, connections, current, editId);
+  });
+}
+
+function renderCrossDatabaseSourceOptionsForRow(row, connections = [], selected = "", editId = "") {
+  const select = row.querySelector("[data-cross-db-source]");
+  if (!select) return;
+  const selectedText = String(selected || select.value || "");
+  const options = (connections || [])
+    .filter((service) => String(service.id || "") !== String(editId || ""))
+    .map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(databaseConnectionOptionLabel(service))}</option>`);
+  select.innerHTML = ['<option value="">选择已维护数据源</option>', ...options].join("");
+  select.value = selectedText;
+}
+
+async function previewCrossDatabaseQueryRow(form, row) {
+  const select = row.querySelector("[data-cross-db-source]");
+  const sourceId = select?.value || "";
+  const container = document.getElementById("crossDatabaseQueryRows");
+  const source = (container?.__databaseConnectionOptions || []).find((item) => String(item.id) === String(sourceId));
+  const preview = row.querySelector("[data-cross-db-preview]");
+  if (!sourceId || !source) {
+    showToast("请先选择数据源");
+    return;
+  }
+  const sql = row.querySelector("[data-cross-db-sql]")?.value?.trim() || "";
+  if (!sql) {
+    showToast("请先填写 SQL");
+    return;
+  }
+  if (preview) {
+    preview.hidden = false;
+    preview.className = "cross-db-preview testing";
+    preview.textContent = "正在查询预览...";
+  }
+  try {
+    const result = await LiveMonitorApi.databasePreview({
+      service_type: source.service_type,
+      database_connection_service_id: Number(sourceId),
+      database_query: sql,
+      check_timeout_seconds: Number(form.elements.check_timeout_seconds?.value || 3),
+    });
+    renderCrossDatabasePreview(row, result);
+  } catch (error) {
+    if (preview) {
+      preview.className = "cross-db-preview bad";
+      preview.textContent = error.message;
+    }
+  }
+}
+
+function renderCrossDatabasePreview(row, preview) {
+  const panel = row.querySelector("[data-cross-db-preview]");
+  const fieldsInput = row.querySelector("[data-cross-db-fields]");
+  if (!panel) return;
+  const columns = preview?.columns || [];
+  const selected = new Set(splitFieldList(fieldsInput?.value || ""));
+  panel.hidden = false;
+  panel.className = "cross-db-preview";
+  panel.innerHTML = `
+    <div class="database-field-picker">
+      ${columns.map((column) => `
+        <label>
+          <input type="checkbox" data-cross-db-field value="${escapeHtml(column)}" ${selected.has(column) ? "checked" : ""}>
+          <span>${escapeHtml(column)}</span>
+        </label>
+      `).join("")}
+    </div>
+    <small class="form-hint">${escapeHtml(preview?.message || `预览最多显示 ${preview?.max_rows || 5} 行`)}</small>
+  `;
+  panel.querySelectorAll("[data-cross-db-field]").forEach((input) => {
+    input.addEventListener("change", () => {
+      fieldsInput.value = Array.from(panel.querySelectorAll("[data-cross-db-field]:checked"))
+        .map((item) => item.value)
+        .join(",");
+    });
+  });
+}
+
+function collectCrossDatabaseQueries() {
+  return Array.from(document.querySelectorAll("#crossDatabaseQueryRows .cross-db-query-row"))
+    .map((row) => ({
+      source_service_id: row.querySelector("[data-cross-db-source]")?.value
+        ? Number(row.querySelector("[data-cross-db-source]").value)
+        : null,
+      alias: row.querySelector("[data-cross-db-alias]")?.value?.trim() || "",
+      database_query: row.querySelector("[data-cross-db-sql]")?.value?.trim() || "",
+      assertion_fields: splitFieldList(row.querySelector("[data-cross-db-fields]")?.value || ""),
+    }))
+    .filter((item) => item.source_service_id || item.alias || item.database_query || item.assertion_fields.length);
+}
+
+function splitFieldList(value) {
+  return String(value || "")
+    .split(/[,，\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function collectResultAssertionRuleRows() {
   return Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row")).map((row) => ({
     type: row.querySelector("[data-assertion-type]")?.value || "json_compare",
@@ -458,6 +644,21 @@ function collectResultAssertionRuleRows() {
     value: row.querySelector("[data-assertion-value]")?.value || "",
   }));
 }
+
+const ASSERTION_COMPARISON_OPERATORS = [
+  ["==", "等于"],
+  ["!=", "不等于"],
+  [">", "大于"],
+  [">=", "大于等于"],
+  ["<", "小于"],
+  ["<=", "小于等于"],
+];
+
+const ASSERTION_TEXT_OPERATORS = [
+  ["contains", "包含"],
+  ["notContains", "不包含"],
+  ["icontains", "包含（忽略大小写）"],
+];
 
 function renderResultAssertionRuleRows(rules = []) {
   const container = document.getElementById("resultAssertionRows");
@@ -562,6 +763,7 @@ function addResultAssertionRuleRow(rule = {}) {
   row.innerHTML = `
     <select data-assertion-type aria-label="断言类型">
       <option value="json_compare">JSON 字段</option>
+      <option value="field_compare">字段间比较</option>
       <option value="contains">文本包含</option>
       <option value="not_contains">文本不包含</option>
       <option value="icontains">文本包含（忽略大小写）</option>
@@ -571,12 +773,6 @@ function addResultAssertionRuleRow(rule = {}) {
     </select>
     <input data-assertion-path aria-label="字段路径" placeholder="$.code" required>
     <select data-assertion-operator aria-label="比较方式">
-      <option value="==">等于</option>
-      <option value="!=">不等于</option>
-      <option value=">">大于</option>
-      <option value=">=">大于等于</option>
-      <option value="<">小于</option>
-      <option value="<=">小于等于</option>
     </select>
     <input data-assertion-value aria-label="期望值" placeholder="0" required>
     <button class="icon-button" type="button" title="删除断言">
@@ -585,7 +781,7 @@ function addResultAssertionRuleRow(rule = {}) {
   `;
   row.querySelector("[data-assertion-type]").value = rule.type || "json_compare";
   row.querySelector("[data-assertion-path]").value = rule.path || "";
-  row.querySelector("[data-assertion-operator]").value = rule.operator || "==";
+  row.dataset.assertionOperator = rule.operator || "==";
   row.querySelector("[data-assertion-value]").value = rule.value || "";
   row.querySelector("button")?.addEventListener("click", () => {
     if (container.querySelectorAll(".assertion-rule-row").length <= 1) {
@@ -608,9 +804,15 @@ function updateAssertionRuleRowState(row) {
   const operatorSelect = row.querySelector("[data-assertion-operator]");
   const valueInput = row.querySelector("[data-assertion-value]");
   const typeChanged = row.dataset.assertionType !== type;
+  const pendingOperator = row.dataset.assertionOperator || "";
   row.dataset.assertionType = type;
   const textRule = ["contains", "not_contains", "icontains"].includes(type);
   const noPathRule = textRule || type === "response_time" || type === "status";
+  const textComparableRule = type === "json_compare" || type === "regex_compare" || type === "field_compare";
+  const allowedOperators = textComparableRule
+    ? [...ASSERTION_COMPARISON_OPERATORS, ...ASSERTION_TEXT_OPERATORS]
+    : ASSERTION_COMPARISON_OPERATORS;
+  syncAssertionOperatorOptions(operatorSelect, allowedOperators, pendingOperator);
   row.classList.toggle("assertion-rule-row-text", textRule);
   row.classList.toggle("assertion-rule-row-short", !textRule && noPathRule);
   pathInput.style.display = noPathRule ? "none" : "";
@@ -626,13 +828,19 @@ function updateAssertionRuleRowState(row) {
   valueInput.removeAttribute("max");
   valueInput.removeAttribute("inputmode");
   if (type === "json_compare") {
-    pathInput.placeholder = "$.code";
-    pathInput.pattern = "\\$([.][A-Za-z_][A-Za-z0-9_]*|\\[[0-9]+\\])*";
+    pathInput.placeholder = "FUND_CODE 或 $.FUND_CODE";
     pathInput.maxLength = 180;
-    pathInput.title = 'JSONPath 需以 $ 开头，例如 $.code 或 $.rows[0].code';
-    valueInput.placeholder = "0、true 或 OK";
+    pathInput.title = '可填写字段名或 JSONPath，例如 FUND_CODE、$.FUND_CODE 或 $.rows[0].code';
+    valueInput.placeholder = "0、011389 或 OK";
     valueInput.maxLength = 200;
-    valueInput.title = "期望值支持数字、true、false、null 或文本";
+    valueInput.title = "期望值支持数字、true、false、null 或文本；前导 0 会按文本匹配";
+  } else if (type === "field_compare") {
+    pathInput.placeholder = "左字段，例如 FUND_CODE";
+    pathInput.maxLength = 180;
+    pathInput.title = "按同一行比较两个字段，所有行都需要满足";
+    valueInput.placeholder = "右字段，例如 fund_code";
+    valueInput.maxLength = 180;
+    valueInput.title = "填写要比较的右侧字段名";
   } else if (type === "regex_compare") {
     pathInput.placeholder = "CPU:\\s*([0-9.]+)";
     pathInput.maxLength = 240;
@@ -646,7 +854,7 @@ function updateAssertionRuleRowState(row) {
     valueInput.min = "0";
     valueInput.inputMode = "numeric";
     valueInput.title = "填写非负毫秒数";
-    if (typeChanged) operatorSelect.value = "<";
+    if (typeChanged && !pendingOperator) operatorSelect.value = "<";
   } else if (type === "status") {
     valueInput.placeholder = "200";
     valueInput.type = "number";
@@ -654,7 +862,7 @@ function updateAssertionRuleRowState(row) {
     valueInput.max = "599";
     valueInput.inputMode = "numeric";
     valueInput.title = "填写 100 到 599 的 HTTP 状态码";
-    if (typeChanged) operatorSelect.value = "==";
+    if (typeChanged && !pendingOperator) operatorSelect.value = "==";
   } else {
     valueInput.placeholder = "success";
     valueInput.maxLength = 500;
@@ -663,7 +871,16 @@ function updateAssertionRuleRowState(row) {
   if (type !== "response_time" && type !== "status") {
     valueInput.type = "text";
   }
+  delete row.dataset.assertionOperator;
   updateAssertionDeleteButtons();
+}
+
+function syncAssertionOperatorOptions(select, options, preferred) {
+  if (!select) return;
+  const current = preferred || select.value || "==";
+  const allowed = new Set(options.map(([value]) => value));
+  select.innerHTML = options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join("");
+  select.value = allowed.has(current) ? current : options[0][0];
 }
 
 function resetAssertionRuleRow(row) {
@@ -716,19 +933,20 @@ function syncResultAssertionMode(form) {
 
 function syncDatabaseRuleMode(form) {
   const isDatabase = isDatabaseServiceType(form?.elements.service_type?.value);
+  const isCrossDatabase = form?.elements.service_type?.value === "cross_database";
   const useAdvanced = isDatabase && databaseRuleModeValue(form) === "advanced";
   document.querySelectorAll(".database-simple-rule-only").forEach((item) => {
     item.hidden = isDatabase && useAdvanced;
     setPanelControlsDisabled(item, isDatabase && useAdvanced);
   });
   document.querySelectorAll(".result-rule-only").forEach((item) => {
-    const hiddenForDatabase = isDatabase && !useAdvanced;
+    const hiddenForDatabase = (isDatabase && !useAdvanced) || (!isDatabase && !isCrossDatabase);
     item.hidden = hiddenForDatabase;
     setPanelControlsDisabled(item, hiddenForDatabase);
   });
   const testRuleButton = document.getElementById("testRuleBtn");
-  if (testRuleButton && isDatabase) {
-    testRuleButton.disabled = !useAdvanced;
+  if (testRuleButton && (isDatabase || isCrossDatabase)) {
+    testRuleButton.disabled = isDatabase && !useAdvanced;
   }
 }
 
@@ -759,6 +977,10 @@ function databaseRuleModeValue(form) {
 
 function isDatabaseAdvancedRuleMode(form) {
   return isDatabaseServiceType(form?.elements.service_type?.value) && databaseRuleModeValue(form) === "advanced";
+}
+
+function isResultAssertionRuleMode(form) {
+  return form?.elements.service_type?.value === "cross_database" || isDatabaseAdvancedRuleMode(form);
 }
 
 function hideAssertionDslPreviews() {
@@ -800,11 +1022,45 @@ function showResultAssertionDslPreview(form) {
 
 function validateServiceAssertionConfig(form) {
   if (!form) return true;
+  if (form.elements.service_type?.value === "cross_database" && !validateCrossDatabaseConfig(form)) {
+    return false;
+  }
   if (form.elements.service_type?.value === "api" && assertionModeValue(form, "api_assertion_mode") === "visual") {
     return validateApiVisualAssertionConfig(form);
   }
-  if (isDatabaseAdvancedRuleMode(form) && assertionModeValue(form, "result_assertion_mode") === "visual") {
+  if (isResultAssertionRuleMode(form) && assertionModeValue(form, "result_assertion_mode") === "visual") {
     return validateResultVisualAssertionConfig(form);
+  }
+  return true;
+}
+
+function validateCrossDatabaseConfig(form) {
+  const rows = Array.from(document.querySelectorAll("#crossDatabaseQueryRows .cross-db-query-row"));
+  const activeRows = rows.filter((row) => row.querySelector("[data-cross-db-source]")?.value);
+  if (activeRows.length < 2) {
+    showToast("跨库检测至少需要选择两个数据源");
+    rows[0]?.querySelector("[data-cross-db-source]")?.focus();
+    return false;
+  }
+  const aliases = new Set();
+  for (const row of activeRows) {
+    const aliasInput = row.querySelector("[data-cross-db-alias]");
+    const sqlInput = row.querySelector("[data-cross-db-sql]");
+    const alias = aliasInput?.value?.trim() || "";
+    if (!isValidFieldName(alias)) {
+      return failAssertionInput(aliasInput, "数据源别名只能包含字母、数字和下划线，并且不能以数字开头");
+    }
+    if (aliases.has(alias)) {
+      return failAssertionInput(aliasInput, "数据源别名不能重复");
+    }
+    aliases.add(alias);
+    if (!sqlInput?.value?.trim()) {
+      return failAssertionInput(sqlInput, "跨库检测 SQL 不能为空");
+    }
+  }
+  if (!buildResultAssertionExpression(form)) {
+    showToast("跨库检测需要填写结果比对断言规则");
+    return false;
   }
   return true;
 }
@@ -850,8 +1106,11 @@ function invalidAssertionRule(row) {
   const path = pathInput?.value?.trim() || "";
   const value = valueInput?.value?.trim() || "";
   if (type === "json_compare") {
-    if (!isValidJsonPath(path)) return { control: pathInput, message: "JSON 字段路径需以 $ 开头，例如 $.code 或 $.rows[0].code" };
+    if (!isValidAssertionFieldPath(path)) return { control: pathInput, message: "JSON 字段可填写字段名或 JSONPath，例如 FUND_CODE、$.FUND_CODE 或 $.rows[0].code" };
     if (!value) return { control: valueInput, message: "JSON 字段断言需要填写期望值" };
+  } else if (type === "field_compare") {
+    if (!isValidFieldName(path)) return { control: pathInput, message: "左字段名格式不正确" };
+    if (!isValidFieldName(value)) return { control: valueInput, message: "右字段名格式不正确" };
   } else if (type === "regex_compare") {
     if (!path) return { control: pathInput, message: "正则提取需要填写正则表达式" };
     try {
@@ -946,10 +1205,28 @@ function assertionRuleExpression(row) {
   }
   if (type === "regex_compare") {
     if (!path || !value) return "";
-    return `regex("${escapeRuleString(path)}") ${operator} ${formatRuleOperand(value)}`;
+    const left = `regex("${escapeRuleString(path)}")`;
+    return textOperatorExpression(left, operator, value) || `${left} ${operator} ${formatRuleOperand(value)}`;
+  }
+  if (type === "field_compare") {
+    if (!path || !value) return "";
+    return `allRowsCompare("${escapeRuleString(path)}", "${escapeRuleString(operator)}", "${escapeRuleString(value)}")`;
   }
   if (!path || !value) return "";
-  return `json("${escapeRuleString(path)}") ${operator} ${formatRuleOperand(value)}`;
+  const left = assertionFieldAccessor(path);
+  return textOperatorExpression(left, operator, value) || `${left} ${operator} ${formatRuleOperand(value)}`;
+}
+
+function assertionFieldAccessor(path) {
+  const text = String(path || "").trim();
+  if (text.startsWith("$")) return `json("${escapeRuleString(text)}")`;
+  return `field("${escapeRuleString(text)}")`;
+}
+
+function textOperatorExpression(left, operator, value) {
+  const fn = { contains: "contains", notContains: "notContains", icontains: "icontains" }[operator];
+  if (!fn) return "";
+  return `${fn}(${left}, "${escapeRuleString(value)}")`;
 }
 
 function normalizeJsonAssertionLine(line) {
@@ -972,6 +1249,15 @@ function isValidJsonPath(value) {
   return /^\$([.][A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*$/.test(String(value || "").trim());
 }
 
+function isValidAssertionFieldPath(value) {
+  const text = String(value || "").trim();
+  return isValidJsonPath(text) || isValidFieldName(text);
+}
+
+function isValidFieldName(value) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(value || "").trim());
+}
+
 function isNonNegativeNumber(value) {
   const number = Number(value);
   return value !== "" && Number.isFinite(number) && number >= 0;
@@ -989,6 +1275,7 @@ function escapeRuleString(value) {
 function formatRuleOperand(value) {
   const text = String(value || "").trim();
   if (!text) return '""';
+  if (/^-?0\d+(\.\d+)?$/.test(text)) return `"${escapeRuleString(text)}"`;
   if (/^-?\d+(\.\d+)?$/.test(text) || /^(true|false|null)$/i.test(text)) return text.toLowerCase();
   if (/^".*"$/.test(text)) return text;
   return `"${escapeRuleString(text)}"`;
@@ -1077,10 +1364,11 @@ function buildServicePayload(form) {
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
   if (!data.port && serviceType === "postgresql") data.port = 5432;
-  if (serviceType === "process" || serviceType === "jdbc") data.port = null;
+  if (serviceType === "process" || serviceType === "jdbc" || serviceType === "cross_database") data.port = null;
   data.expected_status_code = data.expected_status_code ? Number(data.expected_status_code) : null;
   data.zookeeper_expected_nodes = data.zookeeper_expected_nodes ? Number(data.zookeeper_expected_nodes) : null;
   const isDatabase = isDatabaseServiceType(serviceType);
+  const isCrossDatabase = serviceType === "cross_database";
   const isGenericJdbc = serviceType === "jdbc";
   const isProcess = serviceType === "process";
   const databaseConnectionServiceId = isDatabase && data.database_connection_service_id
@@ -1116,7 +1404,7 @@ function buildServicePayload(form) {
     data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
     data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
     data.response_keyword = isWebUrl ? data.response_keyword || null : null;
-    data.api_assertion_expression = isDatabase && isDatabaseAdvancedRule
+    data.api_assertion_expression = (isDatabase && isDatabaseAdvancedRule) || isCrossDatabase
       ? buildResultAssertionExpression(form) || null
       : null;
     data.expected_status_code = isWebUrl ? data.expected_status_code : null;
@@ -1136,7 +1424,7 @@ function buildServicePayload(form) {
     data.api_text_assertion_value = null;
   }
   if (usesDatabaseConnectionRef) data.port = null;
-  data.host = isWebUrl || isGenericJdbc || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
+  data.host = isWebUrl || isGenericJdbc || isCrossDatabase || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
   data.database_connection_service_id = databaseConnectionServiceId;
   data.database_name = isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef ? data.database_name || null : null;
   data.database_username = isDatabase && !usesDatabaseConnectionRef ? data.database_username || null : null;
@@ -1145,6 +1433,7 @@ function buildServicePayload(form) {
   data.expected_result = isDatabase && !isDatabaseAdvancedRule ? data.expected_result || null : null;
   data.database_result_operator = isDatabase && !isDatabaseAdvancedRule ? data.database_result_operator || "fuzzy" : "fuzzy";
   data.database_assertion_fields = isDatabase && isDatabaseAdvancedRule ? selectedDatabaseAssertionFields(form) : [];
+  data.cross_database_queries = isCrossDatabase ? collectCrossDatabaseQueries() : [];
   data.jdbc_driver_class = isDatabase && !usesDatabaseConnectionRef ? data.jdbc_driver_class || null : null;
   data.jdbc_url = isGenericJdbc && !usesDatabaseConnectionRef ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
@@ -1306,7 +1595,7 @@ function syncDatabaseAssertionFieldsFromPreview(form, rows = []) {
       });
       return item;
     });
-    form.elements.rule_test_body.value = JSON.stringify({ rows: projectedRows }, null, 2);
+    form.elements.rule_test_body.value = JSON.stringify({ ...(projectedRows[0] || {}), rows: projectedRows }, null, 2);
   }
 }
 
@@ -1569,6 +1858,7 @@ function fillServiceForm(form, service) {
   if (form.elements.ignore_ssl_verification) {
     form.elements.ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
   }
+  renderCrossDatabaseQueryRows(form, service.cross_database_queries || service.crossDatabaseQueries || []);
   syncApiMethodFields(form);
   syncApiAuthFields(form);
   syncApiAssertionMode(form);

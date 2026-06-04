@@ -100,6 +100,13 @@ public class MonitorRunnerService {
         if ("port".equals(type) || "tcp".equals(type)) {
             return portMonitorService.check(service.host, service.port, timeout);
         }
+        if ("cross_database".equals(type)) {
+            return databaseMonitorService.checkCrossDatabase(
+                service.crossDatabaseQueries,
+                service.apiAssertionExpression,
+                timeout
+            );
+        }
         if ("mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
             || "jdbc".equals(type)) {
             return databaseMonitorService.check(

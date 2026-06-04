@@ -20,6 +20,7 @@ function serviceTypeLabel(type) {
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
     jdbc: "通用 JDBC",
+    cross_database: "跨库检测",
   }[type] || type;
 }
 
@@ -41,6 +42,7 @@ function serviceTypeIcon(type) {
     postgresql: "database",
     postgres: "database",
     jdbc: "database",
+    cross_database: "git-compare-arrows",
   }[type] || "server";
 }
 
@@ -320,6 +322,7 @@ function serviceTypeLabel(type) {
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
     jdbc: "\u901a\u7528 JDBC",
+    cross_database: "\u8de8\u5e93\u68c0\u6d4b",
   }[type] || type || "\u81ea\u5b9a\u4e49\u670d\u52a1";
 }
 

@@ -34,6 +34,87 @@ class ApiRuleEvaluatorTest {
     }
 
     @Test
+    void supportsContainsAgainstJsonFieldValues() {
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "contains(json(\"$.FUND_CODE\"), \"011\") && icontains(json(\"$.status\"), \"ok\")",
+            new ApiRuleEvaluator.ResponseContext(200, 68, "{\"FUND_CODE\":\"011389\",\"status\":\"OK\"}")
+        );
+
+        assertTrue(result.matched);
+        assertEquals("$.status = OK icontains(\"ok\")", result.hitContent);
+    }
+
+    @Test
+    void comparesQuotedNumericStringsExactly() {
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "json(\"$.FUND_CODE\") == \"011389\"",
+            new ApiRuleEvaluator.ResponseContext(200, 68, "{\"FUND_CODE\":\"011389\"}")
+        );
+
+        assertTrue(result.matched);
+
+        ApiRuleEvaluator.Evaluation failed = evaluator.evaluate(
+            "json(\"$.FUND_CODE\") == \"11389\"",
+            new ApiRuleEvaluator.ResponseContext(200, 68, "{\"FUND_CODE\":\"011389\"}")
+        );
+
+        assertFalse(failed.matched);
+        assertEquals("$.FUND_CODE = 011389 == 11389 not matched", failed.failureReason);
+    }
+
+    @Test
+    void supportsFieldNameLookupAcrossTableRows() {
+        String body = "{\"rows\":["
+            + "{\"FUND_CODE\":\"011389\",\"FUND_NAME\":\"国都聚成\"},"
+            + "{\"FUND_CODE\":\"002020\",\"FUND_NAME\":\"国都创新驱动\"}"
+            + "]}";
+
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "contains(json(\"$.FUND_NAME\"), \"创新\") && field(\"FUND_CODE\") == \"011389\"",
+            new ApiRuleEvaluator.ResponseContext(200, 68, body)
+        );
+
+        assertTrue(result.matched);
+    }
+
+    @Test
+    void supportsSameRowFieldComparisonAcrossTableRows() {
+        String body = "{\"rows\":["
+            + "{\"FUND_CODE\":\"011389\",\"fund_code\":\"011389\"},"
+            + "{\"FUND_CODE\":\"002020\",\"fund_code\":\"002020\"}"
+            + "]}";
+
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "allRowsCompare(\"FUND_CODE\", \"==\", \"fund_code\")",
+            new ApiRuleEvaluator.ResponseContext(200, 68, body)
+        );
+
+        assertTrue(result.matched);
+
+        ApiRuleEvaluator.Evaluation failed = evaluator.evaluate(
+            "allRowsCompare(\"FUND_CODE\", \"==\", \"missing_code\")",
+            new ApiRuleEvaluator.ResponseContext(200, 68, body)
+        );
+
+        assertFalse(failed.matched);
+    }
+
+    @Test
+    void supportsSourceQualifiedFieldLookupForCrossDatabaseRules() {
+        String body = "{\"sources\":{"
+            + "\"A\":{\"rows\":[{\"FUND_CODE\":\"011389\"},{\"FUND_CODE\":\"002020\"}]},"
+            + "\"B\":{\"rows\":[{\"FUND_CODE\":\"002020\"},{\"FUND_CODE\":\"011389\"}]}"
+            + "}}";
+
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "sameValues(\"A.FUND_CODE\", \"B.FUND_CODE\") && field(\"A.FUND_CODE\") == \"011389\"",
+            new ApiRuleEvaluator.ResponseContext(200, 68, body)
+        );
+
+        assertTrue(result.matched);
+    }
+
+    @Test
     void reportsInvalidExpressionsAsFailedRules() {
         ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
             "json(\"$.code\") ==",

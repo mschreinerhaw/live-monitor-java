@@ -70,6 +70,7 @@ public class ServicePayload {
     public String databaseQuery;
     public String databaseResultOperator = "fuzzy";
     public List<String> databaseAssertionFields;
+    public List<CrossDatabaseQueryPayload> crossDatabaseQueries;
     public String jdbcDriverClass;
     public String jdbcUrl;
     @Min(1)
@@ -91,4 +92,11 @@ public class ServicePayload {
     public Long alertConfigId;
     public Long alertGroupId;
     public Boolean enabled = true;
+
+    public static class CrossDatabaseQueryPayload {
+        public Long sourceServiceId;
+        public String alias;
+        public String databaseQuery;
+        public List<String> assertionFields;
+    }
 }

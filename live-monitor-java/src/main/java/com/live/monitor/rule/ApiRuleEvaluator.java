@@ -3,6 +3,8 @@ package com.live.monitor.rule;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Callable;
@@ -229,19 +231,22 @@ public class ApiRuleEvaluator {
                 }
             }
             if ("contains".equals(name)) {
-                String expected = requireText(args, 0, name);
-                boolean matched = context.body.contains(expected);
-                return booleanMatch(matched, "contains(\"" + shortText(expected, 80) + "\")", "contains not matched");
+                Value target = containsTarget(args, name, context.body);
+                String expected = requireText(args, args.size() > 1 ? 1 : 0, name);
+                boolean matched = containsAny(target, expected, false);
+                return booleanMatch(matched, containsDetail(target, "contains", expected), "contains not matched");
             }
             if ("icontains".equals(name)) {
-                String expected = requireText(args, 0, name);
-                boolean matched = context.body.toLowerCase(Locale.ROOT).contains(expected.toLowerCase(Locale.ROOT));
-                return booleanMatch(matched, "icontains(\"" + shortText(expected, 80) + "\")", "icontains not matched");
+                Value target = containsTarget(args, name, context.body);
+                String expected = requireText(args, args.size() > 1 ? 1 : 0, name);
+                boolean matched = containsAny(target, expected, true);
+                return booleanMatch(matched, containsDetail(target, "icontains", expected), "icontains not matched");
             }
             if ("notcontains".equals(name)) {
-                String expected = requireText(args, 0, name);
-                boolean matched = !context.body.contains(expected);
-                return booleanMatch(matched, "notContains(\"" + shortText(expected, 80) + "\")", "notContains not matched");
+                Value target = containsTarget(args, name, context.body);
+                String expected = requireText(args, args.size() > 1 ? 1 : 0, name);
+                boolean matched = !containsAny(target, expected, false);
+                return booleanMatch(matched, containsDetail(target, "notContains", expected), "notContains not matched");
             }
             if ("matches".equals(name)) {
                 RegexResult result = regexFind(requireText(args, 0, name));
@@ -257,6 +262,24 @@ public class ApiRuleEvaluator {
             }
             if ("json".equals(name)) {
                 return jsonValue(requireText(args, 0, name));
+            }
+            if ("field".equals(name) || "column".equals(name)) {
+                return fieldValue(requireText(args, 0, name));
+            }
+            if ("anyrow".equals(name)) {
+                return rowConditions(args, true, name);
+            }
+            if ("allrows".equals(name)) {
+                return rowConditions(args, false, name);
+            }
+            if ("allrowscompare".equals(name) || "allrowcompare".equals(name)) {
+                return rowFieldCompare(args, false, name);
+            }
+            if ("anyrowscompare".equals(name) || "anyrowcompare".equals(name) || "rowcompare".equals(name)) {
+                return rowFieldCompare(args, true, name);
+            }
+            if ("samevalues".equals(name) || "samevalue".equals(name)) {
+                return sameValues(args, name);
             }
             if ("number".equals(name)) {
                 return Value.number(numberValue(arg(args, 0, name)));
@@ -328,6 +351,10 @@ public class ApiRuleEvaluator {
             }
             JsonNode selected = selectJsonPath(node, path);
             if (selected == null || selected.isMissingNode() || selected.isNull()) {
+                Value tableValue = tableFieldValue(path);
+                if (tableValue.value != null) {
+                    return tableValue;
+                }
                 failureReason = path + " not found";
                 return Value.nullValue();
             }
@@ -342,6 +369,217 @@ public class ApiRuleEvaluator {
                 return Value.string(selected.asText(), detail);
             }
             return Value.string(selected.toString(), detail);
+        }
+
+        private Value fieldValue(String fieldName) {
+            Value value = tableFieldValue(fieldName);
+            if (value.value != null) {
+                return value;
+            }
+            return jsonValue("$." + fieldName);
+        }
+
+        private Value tableFieldValue(String pathOrName) {
+            SourceField sourceField = sourceField(pathOrName);
+            if (sourceField != null) {
+                List<String> values = tableFieldValues(sourceField.fieldName, tableRows(sourceField.sourceName));
+                if (values.isEmpty()) {
+                    return Value.nullValue();
+                }
+                return Value.list(values, sourceField.sourceName + "." + sourceField.fieldName
+                    + " = [" + shortText(String.join(", ", values), 120) + "]");
+            }
+            String fieldName = fieldNameFromPath(pathOrName);
+            if (!StringUtils.hasText(fieldName)) {
+                return Value.nullValue();
+            }
+            List<String> values = tableFieldValues(fieldName);
+            if (values.isEmpty()) {
+                return Value.nullValue();
+            }
+            return Value.list(values, fieldName + " = [" + shortText(String.join(", ", values), 120) + "]");
+        }
+
+        private List<String> tableFieldValues(String fieldName) {
+            SourceField sourceField = sourceField(fieldName);
+            if (sourceField != null) {
+                return tableFieldValues(sourceField.fieldName, tableRows(sourceField.sourceName));
+            }
+            return tableFieldValues(fieldName, tableRows());
+        }
+
+        private List<String> tableFieldValues(String fieldName, List<JsonNode> rows) {
+            if (rows.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<String> values = new ArrayList<String>();
+            for (JsonNode row : rows) {
+                JsonNode value = rowField(row, fieldName);
+                if (value != null && !value.isMissingNode() && !value.isNull()) {
+                    values.add(value.isTextual() ? value.asText() : value.toString());
+                }
+            }
+            return values;
+        }
+
+        private Value rowConditions(List<Value> args, boolean any, String function) {
+            if (args.isEmpty() || args.size() % 3 != 0) {
+                throw new IllegalArgumentException(function + " requires field/operator/value triples");
+            }
+            List<JsonNode> rows = tableRows();
+            if (rows.isEmpty()) {
+                return booleanMatch(false, null, "rows not found");
+            }
+            for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+                boolean rowMatched = true;
+                for (int index = 0; index < args.size(); index += 3) {
+                    String fieldName = textValue(args.get(index));
+                    String operator = textValue(args.get(index + 1));
+                    Value left = rowValue(rows.get(rowIndex), fieldName);
+                    Value right = args.get(index + 2);
+                    if (!compare(left, right, operator)) {
+                        rowMatched = false;
+                        if (!any) {
+                            return booleanMatch(false, null, function + " row " + (rowIndex + 1) + " not matched: "
+                                + fieldName + " " + operator + " " + textValue(right));
+                        }
+                        break;
+                    }
+                }
+                if (rowMatched && any) {
+                    return booleanMatch(true, function + " row " + (rowIndex + 1), function + " not matched");
+                }
+            }
+            return booleanMatch(!any, function + " matched", function + " not matched");
+        }
+
+        private Value rowFieldCompare(List<Value> args, boolean any, String function) {
+            if (args.size() != 3) {
+                throw new IllegalArgumentException(function + " requires left field, operator and right field");
+            }
+            String leftField = textValue(args.get(0));
+            String operator = textValue(args.get(1));
+            String rightField = textValue(args.get(2));
+            List<JsonNode> rows = tableRows();
+            if (rows.isEmpty()) {
+                return booleanMatch(false, null, "rows not found");
+            }
+            boolean matchedAny = false;
+            for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+                Value left = rowValue(rows.get(rowIndex), leftField);
+                Value right = rowValue(rows.get(rowIndex), rightField);
+                boolean matched = compare(left, right, operator);
+                if (any && matched) {
+                    return booleanMatch(true, function + " row " + (rowIndex + 1) + ": "
+                        + leftField + " " + operator + " " + rightField, function + " not matched");
+                }
+                if (!any && !matched) {
+                    return booleanMatch(false, null, function + " row " + (rowIndex + 1) + " not matched: "
+                        + leftField + "=" + textValue(left) + " " + operator + " " + rightField + "=" + textValue(right));
+                }
+                matchedAny = matchedAny || matched;
+            }
+            return booleanMatch(!any || matchedAny, function + " matched", function + " not matched");
+        }
+
+        private Value sameValues(List<Value> args, String function) {
+            if (args.size() != 2) {
+                throw new IllegalArgumentException(function + " requires two field names");
+            }
+            List<String> leftValues = tableFieldValues(textValue(args.get(0)));
+            List<String> rightValues = tableFieldValues(textValue(args.get(1)));
+            if (leftValues.isEmpty() || rightValues.isEmpty()) {
+                return booleanMatch(false, null, function + " requires non-empty field values");
+            }
+            List<String> leftSorted = new ArrayList<String>(leftValues);
+            List<String> rightSorted = new ArrayList<String>(rightValues);
+            Collections.sort(leftSorted);
+            Collections.sort(rightSorted);
+            boolean matched = leftSorted.equals(rightSorted);
+            return booleanMatch(
+                matched,
+                function + "(" + textValue(args.get(0)) + ", " + textValue(args.get(1)) + ")",
+                function + " not matched"
+            );
+        }
+
+        private Value rowValue(JsonNode row, String fieldName) {
+            JsonNode value = rowField(row, fieldName);
+            if (value == null || value.isMissingNode() || value.isNull()) {
+                return Value.nullValue();
+            }
+            String detail = fieldName + " = " + shortText(value.isTextual() ? value.asText() : value.toString(), 120);
+            if (value.isNumber()) {
+                return Value.number(value.asDouble(), detail);
+            }
+            if (value.isBoolean()) {
+                return Value.bool(value.asBoolean(), detail);
+            }
+            return Value.string(value.isTextual() ? value.asText() : value.toString(), detail);
+        }
+
+        private JsonNode rowField(JsonNode row, String fieldName) {
+            if (row == null || !StringUtils.hasText(fieldName)) {
+                return null;
+            }
+            JsonNode value = row.get(fieldName);
+            if (value != null) {
+                return value;
+            }
+            String normalized = fieldName.trim().toLowerCase(Locale.ROOT);
+            java.util.Iterator<String> names = row.fieldNames();
+            while (names.hasNext()) {
+                String name = names.next();
+                if (normalized.equals(name.toLowerCase(Locale.ROOT))) {
+                    return row.get(name);
+                }
+            }
+            return null;
+        }
+
+        private List<JsonNode> tableRows() {
+            return tableRows(null);
+        }
+
+        private List<JsonNode> tableRows(String sourceName) {
+            JsonNode node = jsonBody();
+            if (node == null) {
+                return Collections.emptyList();
+            }
+            JsonNode source = null;
+            if (StringUtils.hasText(sourceName)) {
+                JsonNode sources = node.get("sources");
+                source = sources == null ? null : sources.get(sourceName);
+                if (source == null) {
+                    source = node.get(sourceName);
+                }
+            }
+            JsonNode rows = (source == null ? node : source).get("rows");
+            if (rows == null || !rows.isArray()) {
+                return Collections.emptyList();
+            }
+            List<JsonNode> result = new ArrayList<JsonNode>();
+            for (JsonNode row : rows) {
+                if (row != null && row.isObject()) {
+                    result.add(row);
+                }
+            }
+            return result;
+        }
+
+        private SourceField sourceField(String value) {
+            if (!StringUtils.hasText(value)) {
+                return null;
+            }
+            String text = value.trim();
+            if (text.startsWith("$")) {
+                return null;
+            }
+            int dot = text.indexOf('.');
+            if (dot <= 0 || dot >= text.length() - 1 || text.indexOf('.', dot + 1) >= 0) {
+                return null;
+            }
+            return new SourceField(text.substring(0, dot), text.substring(dot + 1));
         }
 
         private JsonNode jsonBody() {
@@ -360,6 +598,16 @@ public class ApiRuleEvaluator {
             if (System.nanoTime() > deadlineNanos) {
                 throw new IllegalArgumentException("rule execution timeout after 200ms");
             }
+        }
+    }
+
+    private static class SourceField {
+        private final String sourceName;
+        private final String fieldName;
+
+        private SourceField(String sourceName, String fieldName) {
+            this.sourceName = sourceName;
+            this.fieldName = fieldName;
         }
     }
 
@@ -433,6 +681,22 @@ public class ApiRuleEvaluator {
     }
 
     private static boolean compare(Value left, Value right, String operator) {
+        if ("contains".equals(operator)) {
+            return containsAny(left, textValue(right), false);
+        }
+        if ("icontains".equals(operator)) {
+            return containsAny(left, textValue(right), true);
+        }
+        if ("notContains".equals(operator) || "notcontains".equals(operator)) {
+            return !containsAny(left, textValue(right), false);
+        }
+        if (isCollectionValue(left) || isCollectionValue(right)) {
+            return compareAny(values(left), values(right), operator);
+        }
+        if (("==".equals(operator) || "!=".equals(operator)) && right != null && right.value instanceof String) {
+            boolean matched = textValue(left).equals(textValue(right));
+            return "==".equals(operator) ? matched : !matched;
+        }
         Double leftNumber = optionalNumber(left);
         Double rightNumber = optionalNumber(right);
         int compared;
@@ -462,6 +726,27 @@ public class ApiRuleEvaluator {
         return false;
     }
 
+    private static boolean compareAny(List<Value> leftValues, List<Value> rightValues, String operator) {
+        if ("!=".equals(operator)) {
+            for (Value left : leftValues) {
+                for (Value right : rightValues) {
+                    if (compare(left, right, "==")) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        for (Value left : leftValues) {
+            for (Value right : rightValues) {
+                if (compare(left, right, operator)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static boolean truthy(Value value) {
         if (value == null || value.value == null) {
             return false;
@@ -486,8 +771,71 @@ public class ApiRuleEvaluator {
         return textValue(arg(args, index, function));
     }
 
+    private static Value containsTarget(List<Value> args, String function, String body) {
+        if (args.size() > 1) {
+            return arg(args, 0, function);
+        }
+        arg(args, 0, function);
+        return Value.string(body);
+    }
+
+    private static String containsDetail(Value target, String function, String expected) {
+        String prefix = StringUtils.hasText(target.detail) ? target.detail + " " : "";
+        return prefix + function + "(\"" + shortText(expected, 80) + "\")";
+    }
+
     private static String textValue(Value value) {
+        if (isCollectionValue(value)) {
+            List<String> values = new ArrayList<String>();
+            for (Value item : values(value)) {
+                values.add(textValue(item));
+            }
+            return String.join(" | ", values);
+        }
         return value == null || value.value == null ? "" : String.valueOf(value.value);
+    }
+
+    private static boolean containsAny(Value target, String expected, boolean ignoreCase) {
+        String expectedText = ignoreCase ? expected.toLowerCase(Locale.ROOT) : expected;
+        for (Value item : values(target)) {
+            String actual = textValue(item);
+            if (ignoreCase) {
+                actual = actual.toLowerCase(Locale.ROOT);
+            }
+            if (actual.contains(expectedText)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isCollectionValue(Value value) {
+        return value != null && value.value instanceof Collection;
+    }
+
+    private static List<Value> values(Value value) {
+        if (!isCollectionValue(value)) {
+            return Collections.singletonList(value == null ? Value.nullValue() : value);
+        }
+        List<Value> result = new ArrayList<Value>();
+        for (Object item : (Collection<?>) value.value) {
+            result.add(Value.string(item == null ? "" : String.valueOf(item)));
+        }
+        return result;
+    }
+
+    private static String fieldNameFromPath(String pathOrName) {
+        if (!StringUtils.hasText(pathOrName)) {
+            return "";
+        }
+        String value = pathOrName.trim();
+        if (value.startsWith("$.")) {
+            value = value.substring(2);
+        }
+        if (value.indexOf('.') >= 0 || value.indexOf('[') >= 0 || value.indexOf(']') >= 0) {
+            return "";
+        }
+        return value;
     }
 
     private static double numberValue(Value value) {
@@ -570,6 +918,10 @@ public class ApiRuleEvaluator {
         }
 
         private static Value string(String value, String detail) {
+            return new Value(value, detail);
+        }
+
+        private static Value list(List<String> value, String detail) {
             return new Value(value, detail);
         }
 

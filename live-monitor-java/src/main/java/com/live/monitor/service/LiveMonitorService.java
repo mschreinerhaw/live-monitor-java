@@ -451,6 +451,10 @@ public class LiveMonitorService {
         if (("port".equals(type) || "tcp".equals(type)) && (!StringUtils.hasText(payload.host) || payload.port == null)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host and port are required for port checks");
         }
+        if ("cross_database".equals(type)) {
+            validateCrossDatabasePayload(currentServiceId, payload);
+            return;
+        }
         boolean usesDatabaseConnectionReference = isDatabaseType(type) && payload.databaseConnectionServiceId != null;
         if (usesDatabaseConnectionReference) {
             databaseConnectionSource(currentServiceId, type, payload.databaseConnectionServiceId);
@@ -469,12 +473,36 @@ public class LiveMonitorService {
         }
     }
 
+    private void validateCrossDatabasePayload(Long currentServiceId, ServicePayload payload) {
+        List<MonitorService.CrossDatabaseQuery> queries = cleanCrossDatabaseQueries(payload.crossDatabaseQueries);
+        if (queries.size() < 2) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database checks require at least two data sources");
+        }
+        if (!StringUtils.hasText(payload.apiAssertionExpression)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database assertion expression is required");
+        }
+        for (MonitorService.CrossDatabaseQuery query : queries) {
+            databaseConnectionSourceAny(currentServiceId, query.sourceServiceId);
+            if (!StringUtils.hasText(query.alias) || !query.alias.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database alias must be a valid field name");
+            }
+            if (!StringUtils.hasText(query.databaseQuery)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database SQL is required");
+            }
+        }
+    }
+
     private void maskSecrets(MonitorService service) {
         service.redisPassword = null;
         service.databasePassword = null;
         service.apiBasicPassword = null;
         service.apiBearerToken = null;
         service.apiAuthAppSecret = null;
+        if (service.crossDatabaseQueries != null) {
+            for (MonitorService.CrossDatabaseQuery query : service.crossDatabaseQueries) {
+                query.databasePassword = null;
+            }
+        }
         service.secretConfigJson = null;
     }
 
@@ -589,6 +617,17 @@ public class LiveMonitorService {
             return;
         }
 
+        if ("cross_database".equals(service.serviceType)) {
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.crossDatabaseQueries = cleanCrossDatabaseQueries(payload.crossDatabaseQueries);
+            service.checkMode = "cross_database";
+            service.checkCommand = null;
+            service.endpoint = "cross database";
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "cross_database_queries", crossDatabaseQueryConfig(service.crossDatabaseQueries));
+            return;
+        }
+
         if (isDatabaseType(service.serviceType)) {
             service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
             service.databaseName = emptyToNull(payload.databaseName);
@@ -692,6 +731,10 @@ public class LiveMonitorService {
             service.cpuAlertEnabled = booleanValue(config, "cpu_alert_enabled", true);
             service.memoryAlertEnabled = booleanValue(config, "memory_alert_enabled", true);
             service.diskAlertEnabled = booleanValue(config, "disk_alert_enabled", true);
+        } else if ("cross_database".equals(service.serviceType)) {
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.crossDatabaseQueries = crossDatabaseQueryListValue(config, "cross_database_queries", service.id);
+            service.endpoint = "cross database";
         } else if (isDatabaseType(service.serviceType)) {
             service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
             service.databaseName = stringValue(config, "database_name", null);
@@ -740,6 +783,36 @@ public class LiveMonitorService {
         }
         if (!sameType(serviceType, source.serviceType)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must use the same service_type");
+        }
+        Map<String, Object> config = parseJsonMap(source.configJson);
+        Long nestedReferenceId = longValue(config, "database_connection_service_id", null);
+        if (nestedReferenceId != null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source cannot be another referenced connection");
+        }
+        Map<String, Object> secretConfig = parseSecretJsonMap(source.secretConfigJson);
+        source.host = stringValue(config, "host", source.host);
+        source.port = intValue(config, "port", source.port);
+        source.databaseName = stringValue(config, "database_name", null);
+        source.databaseUsername = stringValue(config, "database_username", null);
+        source.databasePassword = stringValue(secretConfig, "database_password", null);
+        source.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+        source.jdbcUrl = stringValue(config, "jdbc_url", null);
+        return source;
+    }
+
+    private MonitorService databaseConnectionSourceAny(Long currentServiceId, Long connectionServiceId) {
+        if (connectionServiceId == null) {
+            return null;
+        }
+        if (currentServiceId != null && currentServiceId.equals(connectionServiceId)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database source cannot reference itself");
+        }
+        MonitorService source = serviceMapper.findById(connectionServiceId);
+        if (source == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source not found");
+        }
+        if (!isDatabaseType(source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must be a database service");
         }
         Map<String, Object> config = parseJsonMap(source.configJson);
         Long nestedReferenceId = longValue(config, "database_connection_service_id", null);
@@ -912,6 +985,97 @@ public class LiveMonitorService {
         return result;
     }
 
+    private List<MonitorService.CrossDatabaseQuery> cleanCrossDatabaseQueries(
+        List<ServicePayload.CrossDatabaseQueryPayload> source
+    ) {
+        List<MonitorService.CrossDatabaseQuery> result = new java.util.ArrayList<MonitorService.CrossDatabaseQuery>();
+        if (source == null) {
+            return result;
+        }
+        java.util.HashSet<String> aliases = new java.util.HashSet<String>();
+        int index = 1;
+        for (ServicePayload.CrossDatabaseQueryPayload item : source) {
+            if (item == null || item.sourceServiceId == null) {
+                continue;
+            }
+            MonitorService.CrossDatabaseQuery query = new MonitorService.CrossDatabaseQuery();
+            query.sourceServiceId = item.sourceServiceId;
+            query.alias = emptyToNull(item.alias);
+            if (query.alias == null) {
+                query.alias = "db" + index;
+            }
+            if (aliases.contains(query.alias)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database aliases must be unique");
+            }
+            aliases.add(query.alias);
+            query.databaseQuery = emptyToNull(item.databaseQuery);
+            query.assertionFields = cleanStringList(item.assertionFields);
+            result.add(query);
+            index++;
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> crossDatabaseQueryConfig(List<MonitorService.CrossDatabaseQuery> queries) {
+        List<Map<String, Object>> result = new java.util.ArrayList<Map<String, Object>>();
+        if (queries == null) {
+            return result;
+        }
+        for (MonitorService.CrossDatabaseQuery query : queries) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("source_service_id", query.sourceServiceId);
+            item.put("alias", query.alias);
+            item.put("database_query", query.databaseQuery);
+            item.put("assertion_fields", query.assertionFields);
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<MonitorService.CrossDatabaseQuery> crossDatabaseQueryListValue(
+        Map<String, Object> map,
+        String key,
+        Long currentServiceId
+    ) {
+        Object value = map.get(key);
+        List<MonitorService.CrossDatabaseQuery> result = new java.util.ArrayList<MonitorService.CrossDatabaseQuery>();
+        if (!(value instanceof Iterable<?>)) {
+            return result;
+        }
+        for (Object item : (Iterable<?>) value) {
+            if (!(item instanceof Map<?, ?>)) {
+                continue;
+            }
+            Map<?, ?> itemMap = (Map<?, ?>) item;
+            Long sourceServiceId = longObjectValue(itemMap.get("source_service_id"));
+            if (sourceServiceId == null) {
+                sourceServiceId = longObjectValue(itemMap.get("sourceServiceId"));
+            }
+            if (sourceServiceId == null) {
+                continue;
+            }
+            MonitorService source = databaseConnectionSourceAny(currentServiceId, sourceServiceId);
+            MonitorService.CrossDatabaseQuery query = new MonitorService.CrossDatabaseQuery();
+            query.sourceServiceId = sourceServiceId;
+            query.alias = stringObjectValue(itemMap.get("alias"), "db" + (result.size() + 1));
+            query.databaseQuery = stringObjectValue(itemMap.get("database_query"), stringObjectValue(itemMap.get("databaseQuery"), null));
+            query.assertionFields = stringListObjectValue(itemMap.get("assertion_fields"));
+            if (query.assertionFields.isEmpty()) {
+                query.assertionFields = stringListObjectValue(itemMap.get("assertionFields"));
+            }
+            query.serviceType = source.serviceType;
+            query.host = source.host;
+            query.port = source.port;
+            query.databaseName = source.databaseName;
+            query.databaseUsername = source.databaseUsername;
+            query.databasePassword = source.databasePassword;
+            query.jdbcDriverClass = source.jdbcDriverClass;
+            query.jdbcUrl = source.jdbcUrl;
+            result.add(query);
+        }
+        return result;
+    }
+
     private List<Map<String, String>> cleanHeaderList(List<Map<String, String>> source) {
         List<Map<String, String>> result = new java.util.ArrayList<Map<String, String>>();
         if (source == null) {
@@ -1037,6 +1201,11 @@ public class LiveMonitorService {
 
     private Long longValue(Map<String, Object> map, String key, Long fallback) {
         Object value = map.get(key);
+        Long parsed = longObjectValue(value);
+        return parsed == null ? fallback : parsed;
+    }
+
+    private Long longObjectValue(Object value) {
         if (value instanceof Number) {
             return ((Number) value).longValue();
         }
@@ -1044,10 +1213,10 @@ public class LiveMonitorService {
             try {
                 return Long.valueOf(String.valueOf(value));
             } catch (NumberFormatException ignored) {
-                return fallback;
+                return null;
             }
         }
-        return fallback;
+        return null;
     }
 
     private Double doubleValue(Map<String, Object> map, String key, Double fallback) {
@@ -1077,7 +1246,10 @@ public class LiveMonitorService {
     }
 
     private List<String> stringListValue(Map<String, Object> map, String key) {
-        Object value = map.get(key);
+        return stringListObjectValue(map.get(key));
+    }
+
+    private List<String> stringListObjectValue(Object value) {
         List<String> result = new java.util.ArrayList<String>();
         if (value instanceof Iterable<?>) {
             for (Object item : (Iterable<?>) value) {
@@ -1088,6 +1260,10 @@ public class LiveMonitorService {
             }
         }
         return result;
+    }
+
+    private String stringObjectValue(Object value, String fallback) {
+        return value == null ? fallback : String.valueOf(value);
     }
 
     private String emptyToNull(String value) {

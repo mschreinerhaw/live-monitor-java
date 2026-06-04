@@ -3,6 +3,7 @@ package com.live.monitor.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.config.LiveMonitorProperties;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.entity.MonitorService;
 import com.live.monitor.rule.ApiRuleEvaluator;
 import java.io.File;
 import java.net.URL;
@@ -211,6 +212,98 @@ public class DatabaseMonitorService {
         }
     }
 
+    public CheckResult checkCrossDatabase(
+        List<MonitorService.CrossDatabaseQuery> queries,
+        String apiAssertionExpression,
+        double timeoutSeconds
+    ) {
+        long started = System.nanoTime();
+        if (queries == null || queries.size() < 2) {
+            return new CheckResult("UNKNOWN", null, "At least two data sources are required for cross database checks");
+        }
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        Map<String, Object> sources = new LinkedHashMap<String, Object>();
+        List<String> messages = new ArrayList<String>();
+        try {
+            for (int index = 0; index < queries.size(); index++) {
+                MonitorService.CrossDatabaseQuery query = queries.get(index);
+                String alias = StringUtils.hasText(query.alias) ? query.alias.trim() : "db" + (index + 1);
+                QueryResult result = executeQuery(
+                    query.serviceType,
+                    query.host,
+                    query.port,
+                    query.databaseName,
+                    query.databaseUsername,
+                    query.databasePassword,
+                    query.databaseQuery,
+                    query.assertionFields,
+                    query.jdbcDriverClass,
+                    query.jdbcUrl,
+                    timeoutSeconds
+                );
+                Map<String, Object> source = new LinkedHashMap<String, Object>();
+                source.put("rows", result.rows);
+                source.put("columns", result.columns);
+                source.put("fields", result.fields);
+                source.put("display", result.displayValue);
+                sources.put(alias, source);
+                payload.put(alias, source);
+                messages.add(alias + ": " + shortText(result.displayValue, 80));
+            }
+            payload.put("sources", sources);
+            String body = objectMapper.writeValueAsString(payload);
+            if (!StringUtils.hasText(apiAssertionExpression)) {
+                return new CheckResult("DOWN", elapsedMs(started), "cross database assertion is required");
+            }
+            ApiRuleEvaluator.Evaluation apiRule = apiRuleEvaluator.evaluate(
+                apiAssertionExpression,
+                new ApiRuleEvaluator.ResponseContext(0, elapsedMs(started), body)
+            );
+            String message = "cross database result: " + String.join(" | ", messages) + ", " + apiRule.message + ruleDetail(apiRule);
+            return new CheckResult(apiRule.matched ? "UP" : "DOWN", elapsedMs(started), message);
+        } catch (Exception ex) {
+            return new CheckResult("DOWN", elapsedMs(started), ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        }
+    }
+
+    private QueryResult executeQuery(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        List<String> assertionFields,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) throws Exception {
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
+        String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
+        validateReadOnlySql(sql);
+        DriverManager.setLoginTimeout(timeoutSecondsInt);
+        Properties properties = new Properties();
+        if (StringUtils.hasText(username)) {
+            properties.put("user", username.trim());
+        }
+        if (StringUtils.hasText(password)) {
+            properties.put("password", password);
+        }
+        try (Connection connection = connect(url, properties, jdbcDriverClass);
+             Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(timeoutSecondsInt);
+            statement.setMaxRows(databaseResultMaxRows());
+            boolean hasResultSet = statement.execute(sql);
+            return queryResult(statement, hasResultSet, assertionFields);
+        }
+    }
+
     private Connection connect(String jdbcUrl, Properties properties, String driverClassName) throws Exception {
         if (!StringUtils.hasText(driverClassName)) {
             return DriverManager.getConnection(jdbcUrl, properties);
@@ -328,6 +421,7 @@ public class DatabaseMonitorService {
             int columnCount = metaData.getColumnCount();
             List<String> columns = columnLabels(metaData);
             Map<String, String> selectedFields = selectedFieldMap(assertionFields);
+            boolean includeAllFields = assertionFields != null && assertionFields.isEmpty();
             List<Map<String, Object>> selectedRows = new ArrayList<Map<String, Object>>();
             int maxRows = databaseResultMaxRows();
             StringBuilder builder = new StringBuilder();
@@ -352,7 +446,7 @@ public class DatabaseMonitorService {
                         firstValue = text;
                     }
                     builder.append(text);
-                    String selectedName = selectedFields.get(normalizeFieldName(label));
+                    String selectedName = includeAllFields ? label : selectedFields.get(normalizeFieldName(label));
                     if (row < maxRows && selectedName != null) {
                         selectedRow.put(label, value == null ? null : String.valueOf(value));
                         selectedRow.put(selectedName, value == null ? null : String.valueOf(value));
@@ -365,7 +459,7 @@ public class DatabaseMonitorService {
                 row++;
             } while (row < maxRows && builder.length() < 4000 && resultSet.next());
             String ruleValue = selectedRows.isEmpty() ? firstValue : selectedRowsJson(selectedRows, columns, assertionFields);
-            return new QueryResult(builder.toString(), firstValue, ruleValue);
+            return new QueryResult(builder.toString(), firstValue, ruleValue, columns, selectedRows, assertionFields);
         }
     }
 
@@ -512,6 +606,9 @@ public class DatabaseMonitorService {
 
     private String selectedRowsJson(List<Map<String, Object>> rows, List<String> columns, List<String> fields) {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        if (!rows.isEmpty()) {
+            payload.putAll(rows.get(0));
+        }
         payload.put("rows", rows);
         payload.put("columns", columns);
         payload.put("fields", fields);
@@ -630,15 +727,32 @@ public class DatabaseMonitorService {
         private final String displayValue;
         private final String firstValue;
         private final String ruleValue;
+        private final List<String> columns;
+        private final List<Map<String, Object>> rows;
+        private final List<String> fields;
 
         private QueryResult(String displayValue, String firstValue) {
             this(displayValue, firstValue, firstValue);
         }
 
         private QueryResult(String displayValue, String firstValue, String ruleValue) {
+            this(displayValue, firstValue, ruleValue, new ArrayList<String>(), new ArrayList<Map<String, Object>>(), new ArrayList<String>());
+        }
+
+        private QueryResult(
+            String displayValue,
+            String firstValue,
+            String ruleValue,
+            List<String> columns,
+            List<Map<String, Object>> rows,
+            List<String> fields
+        ) {
             this.displayValue = displayValue;
             this.firstValue = firstValue;
             this.ruleValue = ruleValue;
+            this.columns = columns == null ? new ArrayList<String>() : columns;
+            this.rows = rows == null ? new ArrayList<Map<String, Object>>() : rows;
+            this.fields = fields == null ? new ArrayList<String>() : fields;
         }
 
         private String ruleValue() {

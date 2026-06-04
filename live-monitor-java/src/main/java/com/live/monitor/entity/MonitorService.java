@@ -67,6 +67,7 @@ public class MonitorService {
     public String databaseQuery;
     public String databaseResultOperator;
     public List<String> databaseAssertionFields;
+    public List<CrossDatabaseQuery> crossDatabaseQueries;
     public String jdbcDriverClass;
     public String jdbcUrl;
     public Integer checkInterval;
@@ -82,4 +83,19 @@ public class MonitorService {
     public Integer lastResponseTimeMs;
     public String lastMessage;
     public String lastCheckedAt;
+
+    public static class CrossDatabaseQuery {
+        public Long sourceServiceId;
+        public String alias;
+        public String serviceType;
+        public String host;
+        public Integer port;
+        public String databaseName;
+        public String databaseUsername;
+        public String databasePassword;
+        public String jdbcDriverClass;
+        public String jdbcUrl;
+        public String databaseQuery;
+        public List<String> assertionFields;
+    }
 }

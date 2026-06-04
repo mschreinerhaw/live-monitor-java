@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.config.LiveMonitorProperties;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.entity.MonitorService;
 import com.live.monitor.rule.ApiRuleEvaluator;
 import org.junit.jupiter.api.Test;
 
@@ -98,6 +99,85 @@ class DatabaseMonitorServiceTest {
             fields,
             "org.h2.Driver",
             "jdbc:h2:mem:db-selected-fields;DB_CLOSE_DELAY=-1",
+            3D
+        );
+
+        assertEquals("UP", result.status);
+    }
+
+    @Test
+    void exposesFirstSelectedRowFieldsAtTopLevelForVisualAssertions() {
+        java.util.List<String> fields = new java.util.ArrayList<String>();
+        fields.add("FUND_CODE");
+        fields.add("FUND_NAME");
+
+        CheckResult result = service.check(
+            "jdbc",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "SELECT '011389' AS FUND_CODE, '国都聚成' AS FUND_NAME UNION ALL SELECT '002020' AS FUND_CODE, '国都创新驱动' AS FUND_NAME",
+            null,
+            "fuzzy",
+            "contains(field(\"FUND_NAME\"), \"国都聚成\") && field(\"FUND_CODE\") == \"011389\"",
+            fields,
+            "org.h2.Driver",
+            "jdbc:h2:mem:db-selected-fields-top-level;DB_CLOSE_DELAY=-1",
+            3D
+        );
+
+        assertEquals("UP", result.status);
+    }
+
+    @Test
+    void supportsSameRowFieldComparisonRules() {
+        java.util.List<String> fields = new java.util.ArrayList<String>();
+        fields.add("FUND_CODE");
+        fields.add("fund_code");
+
+        CheckResult result = service.check(
+            "jdbc",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "SELECT '011389' AS FUND_CODE, '011389' AS fund_code UNION ALL SELECT '002020' AS FUND_CODE, '002020' AS fund_code",
+            null,
+            "fuzzy",
+            "allRowsCompare(\"FUND_CODE\", \"==\", \"fund_code\")",
+            fields,
+            "org.h2.Driver",
+            "jdbc:h2:mem:db-selected-fields-compare;DB_CLOSE_DELAY=-1",
+            3D
+        );
+
+        assertEquals("UP", result.status);
+    }
+
+    @Test
+    void supportsCrossDatabaseResultComparison() {
+        MonitorService.CrossDatabaseQuery left = new MonitorService.CrossDatabaseQuery();
+        left.alias = "A";
+        left.serviceType = "jdbc";
+        left.jdbcDriverClass = "org.h2.Driver";
+        left.jdbcUrl = "jdbc:h2:mem:db-cross-left;DB_CLOSE_DELAY=-1";
+        left.databaseQuery = "SELECT '011389' AS FUND_CODE UNION ALL SELECT '002020' AS FUND_CODE";
+        left.assertionFields = java.util.Arrays.asList("FUND_CODE");
+
+        MonitorService.CrossDatabaseQuery right = new MonitorService.CrossDatabaseQuery();
+        right.alias = "B";
+        right.serviceType = "jdbc";
+        right.jdbcDriverClass = "org.h2.Driver";
+        right.jdbcUrl = "jdbc:h2:mem:db-cross-right;DB_CLOSE_DELAY=-1";
+        right.databaseQuery = "SELECT '002020' AS FUND_CODE UNION ALL SELECT '011389' AS FUND_CODE";
+        right.assertionFields = java.util.Arrays.asList("FUND_CODE");
+
+        CheckResult result = service.checkCrossDatabase(
+            java.util.Arrays.asList(left, right),
+            "sameValues(\"A.FUND_CODE\", \"B.FUND_CODE\")",
             3D
         );
 
