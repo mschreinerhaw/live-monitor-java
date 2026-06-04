@@ -55,7 +55,7 @@ async function initUserChrome() {
     const adminMenuLink = document.getElementById("adminMenuLink");
     if (adminMenuLink) adminMenuLink.hidden = !user?.admin;
     const dashboardEmbedBtn = document.getElementById("dashboardEmbedBtn");
-    if (dashboardEmbedBtn) dashboardEmbedBtn.hidden = !user?.admin || !!user?.embed;
+    if (dashboardEmbedBtn) dashboardEmbedBtn.hidden = embedMode || !user?.admin || !!user?.embed;
   } catch (error) {
     // 401 handling lives in api.js.
   }
@@ -95,13 +95,30 @@ function renderNotificationList() {
     list.innerHTML = '<p class="empty">\u6682\u65e0\u544a\u8b66</p>';
     return;
   }
-  list.innerHTML = notificationState.alerts.map((alert) => `
-    <article class="notification-item ${Number(alert.id || 0) > notificationState.seenAlertId ? "unread" : ""}">
-      <strong>${escapeHtml(alert.service_name || "\u544a\u8b66")}</strong>
-      <p>${escapeHtml(alert.alert_content || "-")}</p>
-      <small>${escapeHtml(alert.alert_type || "-")} · ${formatTime(alert.created_at)}</small>
+  list.innerHTML = notificationState.alerts.map(renderNotificationItem).join("");
+}
+
+function renderNotificationItem(alert) {
+  const summary = alertContentSummary(alert.alert_content || "");
+  const unread = Number(alert.id || 0) > notificationState.seenAlertId;
+  const title = alert.service_name || summary.title || "\u544a\u8b66";
+  const fields = [
+    summary.host ? `\u4e3b\u673a ${summary.host}` : "",
+    summary.level ? `\u7ea7\u522b ${summary.level}` : "",
+    summary.time ? `\u65f6\u95f4 ${summary.time}` : "",
+  ].filter(Boolean);
+  return `
+    <article class="notification-item ${unread ? "unread" : ""}" title="${escapeHtml(summary.text)}">
+      <div class="notification-item-head">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(alert.alert_type || "-")}</span>
+      </div>
+      <p class="notification-reason">${escapeHtml(summary.reason || "-")}</p>
+      ${summary.metrics.length ? `<div class="notification-metrics">${summary.metrics.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      ${fields.length ? `<div class="notification-fields">${fields.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      <small>${formatTime(alert.created_at)}</small>
     </article>
-  `).join("");
+  `;
 }
 
 function toggleNotificationPanel(event) {

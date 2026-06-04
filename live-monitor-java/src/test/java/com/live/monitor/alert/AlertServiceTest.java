@@ -14,6 +14,8 @@ import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertPolicy;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.AlertState;
+import com.live.monitor.entity.CheckEvent;
+import com.live.monitor.entity.EventType;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.AlertMapper;
@@ -86,7 +88,7 @@ class AlertServiceTest {
         MonitorService monitorService = monitorService();
         monitorService.serviceType = "host";
         MonitorResult result = monitorResult("UP", 120);
-        result.alertType = "host_resource_threshold";
+        markHostResourceAlert(result);
         result.message = "CPU 45.0% / 85.0%, Memory 90.0% / 80.0%, Disk 20.0% / 85.0%";
 
         when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.emptyList());
@@ -106,13 +108,67 @@ class AlertServiceTest {
         MonitorService monitorService = monitorService();
         monitorService.serviceType = "host";
         MonitorResult result = monitorResult("UP", 120);
-        result.alertType = "host_resource_threshold";
+        markHostResourceAlert(result);
         result.message = "CPU 0.7% / 85.0%, Memory 79.5% / 85.0%, Disk 60.0% / 85.0%";
 
         service.evaluate(monitorService, result, "UP");
 
         verify(historyRepository, never()).saveAlertRecord(any(AlertRecord.class));
         verify(alertMapper, never()).listChannelsByGroup(anyLong());
+    }
+
+    @Test
+    void serviceDownEventIsNormalizedBeforeQueueConsumption() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "redis";
+        monitorService.alertGroupId = null;
+        MonitorResult result = monitorResult("DOWN", 120);
+        result.message = "ConnectException: refused";
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<CheckEvent> eventCaptor = ArgumentCaptor.forClass(CheckEvent.class);
+        verify(alertMapper).insertCheckEvent(eventCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(EventType.SERVICE_DOWN.name(), eventCaptor.getValue().eventType);
+    }
+
+    @Test
+    void apiTimeoutEventIsNormalizedBeforeQueueConsumption() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "api";
+        monitorService.alertGroupId = null;
+        MonitorResult result = monitorResult("DOWN", 5000);
+        result.message = "SocketTimeoutException: timeout";
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<CheckEvent> eventCaptor = ArgumentCaptor.forClass(CheckEvent.class);
+        verify(alertMapper).insertCheckEvent(eventCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(EventType.API_TIMEOUT.name(), eventCaptor.getValue().eventType);
+    }
+
+    @Test
+    void databaseAssertionEventIsNormalizedBeforeQueueConsumption() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "mysql";
+        monitorService.alertGroupId = null;
+        MonitorResult result = monitorResult("DOWN", 120);
+        result.message = "MySQL 8.0, result: 0, rule: = 1";
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<CheckEvent> eventCaptor = ArgumentCaptor.forClass(CheckEvent.class);
+        verify(alertMapper).insertCheckEvent(eventCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(EventType.DB_ASSERT_FAIL.name(), eventCaptor.getValue().eventType);
     }
 
     @Test
@@ -125,7 +181,7 @@ class AlertServiceTest {
         monitorService.serviceType = "host";
         monitorService.host = "10.0.0.8";
         MonitorResult result = monitorResult("UP", 120);
-        result.alertType = "host_resource_threshold";
+        markHostResourceAlert(result);
         result.checkedAt = "2026-06-03 09:06:44";
         result.message = "CPU 45.0% / 85.0%, Memory 90.0% / 80.0%, Disk 20.0% / disabled";
 
@@ -183,17 +239,19 @@ class AlertServiceTest {
         when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MonitorResult alert = monitorResult("UP", 120);
-        alert.alertType = "host_resource_threshold";
+        markHostResourceAlert(alert);
         alert.checkedAt = "2026-06-03 09:06:44";
         alert.message = "CPU 92.4% / 85.0%, Memory 54.9% / 85.0%, Disk 44.0% / 85.0%";
         service.evaluate(monitorService, alert, "UP");
 
         MonitorResult firstNormal = monitorResult("UP", 110);
+        markHostResourceEvent(firstNormal);
         firstNormal.checkedAt = "2026-06-03 09:10:00";
         firstNormal.message = "CPU 78.2% / 85.0%, Memory 52.1% / 85.0%, Disk 44.0% / 85.0%";
         service.evaluate(monitorService, firstNormal, "UP");
 
         MonitorResult recovered = monitorResult("UP", 100);
+        markHostResourceEvent(recovered);
         recovered.checkedAt = "2026-06-03 09:16:22";
         recovered.message = "CPU 78.2% / 85.0%, Memory 52.1% / 85.0%, Disk 44.0% / 85.0%";
         service.evaluate(monitorService, recovered, "UP");
@@ -237,18 +295,19 @@ class AlertServiceTest {
         when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MonitorResult firstAlert = monitorResult("UP", 120);
-        firstAlert.alertType = "host_resource_threshold";
+        markHostResourceAlert(firstAlert);
         firstAlert.checkedAt = "2026-06-03 09:00:00";
         firstAlert.message = "CPU 90.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, firstAlert, "UP");
 
         MonitorResult recovered = monitorResult("UP", 100);
+        markHostResourceEvent(recovered);
         recovered.checkedAt = "2026-06-03 09:01:00";
         recovered.message = "CPU 70.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, recovered, "UP");
 
         MonitorResult secondAlert = monitorResult("UP", 120);
-        secondAlert.alertType = "host_resource_threshold";
+        markHostResourceAlert(secondAlert);
         secondAlert.checkedAt = "2026-06-03 09:05:00";
         secondAlert.message = "CPU 91.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, secondAlert, "UP");
@@ -283,12 +342,13 @@ class AlertServiceTest {
         when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MonitorResult alert = monitorResult("UP", 120);
-        alert.alertType = "host_resource_threshold";
+        markHostResourceAlert(alert);
         alert.checkedAt = "2026-06-03 09:00:00";
         alert.message = "CPU 90.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, alert, "UP");
 
         MonitorResult recovered = monitorResult("UP", 100);
+        markHostResourceEvent(recovered);
         recovered.checkedAt = "2026-06-03 09:01:00";
         recovered.message = "CPU 70.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, recovered, "UP");
@@ -296,6 +356,29 @@ class AlertServiceTest {
         verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
         AlertState state = states.get("1:host_resource_threshold");
         org.junit.jupiter.api.Assertions.assertEquals("RECOVERED", state.state);
+    }
+
+    @Test
+    void hostUpEventIsNormalizedBeforeQueueConsumption() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "host";
+        monitorService.alertGroupId = null;
+        monitorService.serviceAlertEnabled = false;
+
+        MonitorResult result = monitorResult("UP", 100);
+        result.checkedAt = "2026-06-04 14:02:11";
+        result.message = "CPU 0.4% / 85.0%, Memory 51.0% / 85.0%, Disk 45.0% / 85.0%";
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<CheckEvent> eventCaptor = ArgumentCaptor.forClass(CheckEvent.class);
+        verify(alertMapper).insertCheckEvent(eventCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(EventType.SERVICE_RECOVERED.name(), eventCaptor.getValue().eventType);
+        verify(alertMapper, never()).upsertAlertState(any(AlertState.class));
+        verify(historyRepository, never()).saveAlertRecord(any(AlertRecord.class));
     }
 
     @Test
@@ -322,18 +405,19 @@ class AlertServiceTest {
         when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MonitorResult firstAlert = monitorResult("UP", 120);
-        firstAlert.alertType = "host_resource_threshold";
+        markHostResourceAlert(firstAlert);
         firstAlert.checkedAt = "2026-06-03 09:00:00";
         firstAlert.message = "CPU 90.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, firstAlert, "UP");
 
         MonitorResult recovered = monitorResult("UP", 100);
+        markHostResourceEvent(recovered);
         recovered.checkedAt = "2026-06-03 09:01:00";
         recovered.message = "CPU 70.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, recovered, "UP");
 
         MonitorResult secondAlert = monitorResult("UP", 120);
-        secondAlert.alertType = "host_resource_threshold";
+        markHostResourceAlert(secondAlert);
         secondAlert.checkedAt = "2026-06-03 09:05:00";
         secondAlert.message = "CPU 91.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, secondAlert, "UP");
@@ -498,6 +582,15 @@ class AlertServiceTest {
         MonitorResult result = monitorResult(status, 100);
         result.checkedAt = checkedAt;
         return result;
+    }
+
+    private void markHostResourceAlert(MonitorResult result) {
+        result.eventType = EventType.HOST_CPU_HIGH.name();
+        result.alertType = "host_resource_threshold";
+    }
+
+    private void markHostResourceEvent(MonitorResult result) {
+        result.eventType = EventType.SERVICE_RECOVERED.name();
     }
 
     private AlertPolicy latencyPolicy() {

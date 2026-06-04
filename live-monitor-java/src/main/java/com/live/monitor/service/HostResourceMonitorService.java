@@ -2,6 +2,7 @@ package com.live.monitor.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.entity.EventType;
 import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
@@ -49,7 +50,7 @@ public class HostResourceMonitorService {
     public CheckResult check(MonitorService service, double timeoutSeconds) {
         HostConfig host = service.hostId == null ? null : hostMapper.findHost(service.hostId);
         if (host == null || !Boolean.TRUE.equals(host.enabled)) {
-            return new CheckResult("UNKNOWN", null, "Host is not found or disabled");
+            return hostResourceResult("UNKNOWN", null, "Host is not found or disabled", EventType.SERVICE_DOWN.name(), null);
         }
 
         long start = System.nanoTime();
@@ -85,14 +86,58 @@ public class HostResourceMonitorService {
             missingMetrics.add("disk");
         }
         if (!missingMetrics.isEmpty()) {
-            return new CheckResult("UNKNOWN", elapsedMillis(start), "Unable to parse host " + String.join("/", missingMetrics) + " usage. " + message);
+            return hostResourceResult(
+                "UNKNOWN",
+                elapsedMillis(start),
+                "Unable to parse host " + String.join("/", missingMetrics) + " usage. " + message,
+                EventType.METRIC_FLUCTUATION.name(),
+                null
+            );
         }
+        String eventType = hostResourceEventType(
+            cpu,
+            memory,
+            disk,
+            cpuAlertEnabled,
+            memoryAlertEnabled,
+            diskAlertEnabled,
+            cpuThreshold,
+            memoryThreshold,
+            diskThreshold
+        );
         if (sustainedThresholdExceeded(host, metrics, new ResourceThreshold("cpu_usage_percent", cpuAlertEnabled, cpuThreshold),
             new ResourceThreshold("memory_used_percent", memoryAlertEnabled, memoryThreshold),
             new ResourceThreshold("disk_used_percent", diskAlertEnabled, diskThreshold))) {
-            return new CheckResult("UP", elapsedMillis(start), message, HOST_RESOURCE_THRESHOLD_ALERT);
+            return hostResourceResult("UP", elapsedMillis(start), message, eventType, HOST_RESOURCE_THRESHOLD_ALERT);
         }
-        return new CheckResult("UP", elapsedMillis(start), message);
+        return hostResourceResult("UP", elapsedMillis(start), message, eventType, null);
+    }
+
+    private String hostResourceEventType(
+        Double cpu,
+        Double memory,
+        Double disk,
+        boolean cpuAlertEnabled,
+        boolean memoryAlertEnabled,
+        boolean diskAlertEnabled,
+        double cpuThreshold,
+        double memoryThreshold,
+        double diskThreshold
+    ) {
+        if (cpuAlertEnabled && cpu != null && cpu > cpuThreshold) {
+            return EventType.HOST_CPU_HIGH.name();
+        }
+        if (memoryAlertEnabled && memory != null && memory > memoryThreshold) {
+            return EventType.HOST_MEMORY_HIGH.name();
+        }
+        if (diskAlertEnabled && disk != null && disk > diskThreshold) {
+            return EventType.HOST_DISK_HIGH.name();
+        }
+        return EventType.SERVICE_RECOVERED.name();
+    }
+
+    private CheckResult hostResourceResult(String status, Integer responseTimeMs, String message, String eventType, String alertType) {
+        return new CheckResult(status, responseTimeMs, message, eventType, alertType);
     }
 
     public Map<String, Object> collectAndStore(HostConfig host, int timeoutMillis) {
@@ -157,6 +202,9 @@ public class HostResourceMonitorService {
         int requiredSamples = alertEnabled(host.resourceAlertDurationEnabled)
             ? requiredSamples(host.resourceAlertDurationSeconds, host.checkInterval)
             : 1;
+        if (!currentThresholdExceeded(currentMetrics, thresholds)) {
+            return false;
+        }
         List<Map<String, Object>> rows = recentHostMetrics(host.id, requiredSamples);
         if (rows.isEmpty()) {
             rows.add(currentMetrics);
@@ -177,6 +225,19 @@ public class HostResourceMonitorService {
                 }
             }
             if (exceeded) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean currentThresholdExceeded(Map<String, Object> currentMetrics, ResourceThreshold... thresholds) {
+        for (ResourceThreshold threshold : thresholds) {
+            if (!threshold.enabled) {
+                continue;
+            }
+            Double value = metricValue(currentMetrics, threshold.metricKey);
+            if (value != null && value > threshold.thresholdPercent) {
                 return true;
             }
         }

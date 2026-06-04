@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.live.monitor.alert.AlertService;
+import com.live.monitor.dto.CheckResult;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
@@ -127,6 +128,123 @@ class LiveMonitorServiceTest {
         assertEquals("json(\"$.rows[0].code\") == 0", config.get("api_assertion_expression"));
         assertEquals(java.util.Arrays.asList("code", "status"), config.get("database_assertion_fields"));
         assertEquals(java.util.Arrays.asList("code", "status"), created.databaseAssertionFields);
+    }
+
+    @Test
+    void testingExistingDatabaseServiceReusesSavedPasswordWhenPasswordOmitted() throws Exception {
+        ObjectMapper requestMapper = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ServicePayload payload = requestMapper.readValue(
+            "{"
+                + "\"service_name\":\"Trade SQL\","
+                + "\"service_type\":\"jdbc\","
+                + "\"jdbc_driver_class\":\"org.h2.Driver\","
+                + "\"jdbc_url\":\"jdbc:h2:mem:db-fields\","
+                + "\"database_username\":\"monitor\","
+                + "\"database_query\":\"SELECT 1\","
+                + "\"check_interval\":60,"
+                + "\"check_timeout_seconds\":3,"
+                + "\"enabled\":true"
+                + "}",
+            ServicePayload.class
+        );
+
+        MonitorService existing = new MonitorService();
+        existing.id = 45L;
+        existing.serviceName = "Trade SQL";
+        existing.serviceType = "jdbc";
+        existing.checkInterval = 60;
+        existing.checkTimeoutSeconds = 3D;
+        existing.configJson = "{"
+            + "\"database_username\":\"monitor\","
+            + "\"jdbc_driver_class\":\"org.h2.Driver\","
+            + "\"jdbc_url\":\"jdbc:h2:mem:db-fields\""
+            + "}";
+        existing.secretConfigJson = "{\"database_password\":\"saved-secret\"}";
+        existing.enabled = true;
+
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        when(serviceMapper.findById(45L)).thenReturn(existing);
+        MonitorRunnerService runnerService = mock(MonitorRunnerService.class);
+        AtomicReference<MonitorService> checkedService = new AtomicReference<MonitorService>();
+        when(runnerService.run(any(MonitorService.class))).thenAnswer(invocation -> {
+            checkedService.set(invocation.getArgument(0));
+            return new CheckResult("UP", 1, "ok");
+        });
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            runnerService,
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        service.test(45L, payload);
+
+        assertEquals("saved-secret", checkedService.get().databasePassword);
+    }
+
+    @Test
+    void testingDatabaseServiceCanReuseReferencedConnectionInfo() throws Exception {
+        ObjectMapper requestMapper = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ServicePayload payload = requestMapper.readValue(
+            "{"
+                + "\"service_name\":\"Trade Orders SQL\","
+                + "\"service_type\":\"jdbc\","
+                + "\"database_connection_service_id\":46,"
+                + "\"database_query\":\"SELECT count(*) FROM orders\","
+                + "\"check_interval\":60,"
+                + "\"check_timeout_seconds\":3,"
+                + "\"enabled\":true"
+                + "}",
+            ServicePayload.class
+        );
+
+        MonitorService source = new MonitorService();
+        source.id = 46L;
+        source.serviceName = "Trade DB Connection";
+        source.serviceType = "jdbc";
+        source.checkInterval = 60;
+        source.checkTimeoutSeconds = 3D;
+        source.configJson = "{"
+            + "\"database_username\":\"monitor\","
+            + "\"jdbc_driver_class\":\"org.h2.Driver\","
+            + "\"jdbc_url\":\"jdbc:h2:mem:trade\""
+            + "}";
+        source.secretConfigJson = "{\"database_password\":\"source-secret\"}";
+        source.enabled = true;
+
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        when(serviceMapper.findById(46L)).thenReturn(source);
+        MonitorRunnerService runnerService = mock(MonitorRunnerService.class);
+        AtomicReference<MonitorService> checkedService = new AtomicReference<MonitorService>();
+        when(runnerService.run(any(MonitorService.class))).thenAnswer(invocation -> {
+            checkedService.set(invocation.getArgument(0));
+            return new CheckResult("UP", 1, "ok");
+        });
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            runnerService,
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        service.test(payload);
+
+        assertEquals(Long.valueOf(46L), checkedService.get().databaseConnectionServiceId);
+        assertEquals("org.h2.Driver", checkedService.get().jdbcDriverClass);
+        assertEquals("jdbc:h2:mem:trade", checkedService.get().jdbcUrl);
+        assertEquals("monitor", checkedService.get().databaseUsername);
+        assertEquals("source-secret", checkedService.get().databasePassword);
+        assertEquals("SELECT count(*) FROM orders", checkedService.get().databaseQuery);
     }
 
     @Test

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.entity.EventType;
 import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
@@ -154,6 +155,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.HOST_MEMORY_HIGH.name(), result.eventType);
         assertEquals(HostResourceMonitorService.HOST_RESOURCE_THRESHOLD_ALERT, result.alertType);
         assertEquals("CPU 45.0% / 85.0%, Memory 90.0% / 80.0%, Disk 20.0% / 85.0%", result.message);
     }
@@ -169,6 +171,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.SERVICE_RECOVERED.name(), result.eventType);
         assertNull(result.alertType);
         assertEquals("CPU 45.0% / 85.0%, Memory 40.0% / 85.0%, Disk 95.0% / disabled", result.message);
     }
@@ -184,6 +187,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.HOST_CPU_HIGH.name(), result.eventType);
         assertNull(result.alertType);
     }
 
@@ -198,7 +202,24 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.HOST_CPU_HIGH.name(), result.eventType);
         assertEquals(HostResourceMonitorService.HOST_RESOURCE_THRESHOLD_ALERT, result.alertType);
+    }
+
+    @Test
+    void checkDoesNotAlertWhenCurrentSampleRecoveredEvenIfHistoryExceeded() {
+        HostConfig host = hostWithThresholds();
+        host.checkInterval = 30;
+        host.resourceAlertDurationSeconds = 180;
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "0.4", "50.1", "50%", metricRows(6, 90D, 90D, 90D));
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertEquals(EventType.SERVICE_RECOVERED.name(), result.eventType);
+        assertNull(result.alertType);
+        assertEquals("CPU 0.4% / 85.0%, Memory 50.1% / 85.0%, Disk 50.0% / 85.0%", result.message);
     }
 
     @Test
@@ -213,6 +234,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.HOST_CPU_HIGH.name(), result.eventType);
         assertEquals(HostResourceMonitorService.HOST_RESOURCE_THRESHOLD_ALERT, result.alertType);
     }
 
@@ -226,6 +248,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.SERVICE_RECOVERED.name(), result.eventType);
         assertNull(result.alertType);
     }
 
@@ -238,6 +261,7 @@ class HostResourceMonitorServiceTest {
         CheckResult result = monitor.check(monitorService, 10D);
 
         assertEquals("UP", result.status);
+        assertEquals(EventType.SERVICE_RECOVERED.name(), result.eventType);
         assertNull(result.alertType);
         assertEquals("CPU 0.7% / 85.0%, Memory 79.5% / 85.0%, Disk 60.0% / 85.0%", result.message);
     }

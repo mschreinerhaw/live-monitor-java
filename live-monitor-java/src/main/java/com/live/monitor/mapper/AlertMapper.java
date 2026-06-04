@@ -99,9 +99,9 @@ public interface AlertMapper {
     int countServicesByGroup(@Param("groupId") Long groupId);
 
     @Insert("INSERT INTO monitor_check_event (" +
-        "service_id, status, response_time_ms, message, alert_type, checked_at, consumed" +
+        "service_id, status, response_time_ms, message, event_type, alert_type, checked_at, consumed" +
         ") VALUES (" +
-        "#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{alertType}, #{checkedAt}, 0)")
+        "#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{eventType}, #{alertType}, #{checkedAt}, 0)")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertCheckEvent(CheckEvent event);
 

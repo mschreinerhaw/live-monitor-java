@@ -234,6 +234,74 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function alertContentText(content) {
+  const raw = String(content || "").trim();
+  if (!raw) return "-";
+  const htmlLike = /<\/?[a-z][\s\S]*>/i.test(raw) || raw.includes("&lt;");
+  if (!htmlLike || typeof document === "undefined") {
+    return raw.replace(/\s+/g, " ").trim();
+  }
+  const decoded = decodeHtmlEntities(raw);
+  const blockAware = decoded
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(div|p|li|tr|section|article|h[1-6])\s*>/gi, "\n");
+  const template = document.createElement("template");
+  template.innerHTML = blockAware;
+  return (template.content.textContent || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim() || raw.replace(/\s+/g, " ").trim();
+}
+
+function decodeHtmlEntities(value) {
+  if (typeof document === "undefined") return String(value || "");
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = String(value || "");
+  return textarea.value;
+}
+
+function alertContentSummary(content) {
+  const lines = alertContentText(content).split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const reason = alertSectionValue(lines, "\u544a\u8b66\u539f\u56e0");
+  const host = alertFieldValue(lines, "\u4e3b\u673aIP");
+  const level = alertFieldValue(lines, "\u544a\u8b66\u7ea7\u522b");
+  const time = alertFieldValue(lines, "\u544a\u8b66\u65f6\u95f4");
+  const metrics = lines.filter((line) => /^(CPU|\u5185\u5b58|\u78c1\u76d8)[\uff1a:]/.test(line)).slice(0, 3);
+  const fallback = lines.find((line) => !line.includes("style=") && !line.startsWith("<")) || "-";
+  return {
+    title: lines[0] || "\u544a\u8b66",
+    reason: reason || fallback,
+    host,
+    level,
+    time,
+    metrics,
+    text: lines.join("\n"),
+  };
+}
+
+function alertFieldValue(lines, label) {
+  const prefix = `${label}\uff1a`;
+  const asciiPrefix = `${label}:`;
+  for (const line of lines) {
+    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();
+    if (line.startsWith(asciiPrefix)) return line.slice(asciiPrefix.length).trim();
+  }
+  return "";
+}
+
+function alertSectionValue(lines, label) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const direct = alertFieldValue([line], label);
+    if (direct) return direct;
+    if (line === label && lines[index + 1]) return lines[index + 1];
+  }
+  return "";
+}
+
 function serviceTypeLabel(type) {
   return {
     web: "\u0057\u0065\u0062 \u5e94\u7528 (HTTP/HTTPS)",

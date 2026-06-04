@@ -6,6 +6,7 @@ public class CheckEvent {
     public String status;
     public Integer responseTimeMs;
     public String message;
+    public String eventType;
     public String alertType;
     public String checkedAt;
     public Boolean consumed;

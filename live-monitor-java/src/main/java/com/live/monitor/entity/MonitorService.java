@@ -63,6 +63,7 @@ public class MonitorService {
     public String databaseName;
     public String databaseUsername;
     public String databasePassword;
+    public Long databaseConnectionServiceId;
     public String databaseQuery;
     public String databaseResultOperator;
     public List<String> databaseAssertionFields;

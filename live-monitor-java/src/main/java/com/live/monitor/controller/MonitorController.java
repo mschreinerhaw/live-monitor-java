@@ -71,6 +71,11 @@ public class MonitorController {
         return liveMonitorService.listServices(includeDisabled);
     }
 
+    @GetMapping("/api/database/connections")
+    public List<MonitorService> databaseConnections(@RequestParam(name = "include_disabled", defaultValue = "true") boolean includeDisabled) {
+        return liveMonitorService.databaseConnections(includeDisabled);
+    }
+
     @PostMapping("/api/services")
     @ResponseStatus(HttpStatus.CREATED)
     public MonitorService createService(@Valid @RequestBody ServicePayload payload) {
@@ -80,6 +85,11 @@ public class MonitorController {
     @PostMapping("/api/services/test")
     public CheckResult testService(@Valid @RequestBody ServicePayload payload) {
         return liveMonitorService.test(payload);
+    }
+
+    @PostMapping("/api/services/{serviceId}/test")
+    public CheckResult testExistingService(@PathVariable Long serviceId, @Valid @RequestBody ServicePayload payload) {
+        return liveMonitorService.test(serviceId, payload);
     }
 
     @PostMapping("/api/rules/test")
@@ -96,17 +106,45 @@ public class MonitorController {
 
     @PostMapping("/api/database/preview")
     public DatabaseMonitorService.PreviewResult databasePreview(@Valid @RequestBody DatabasePreviewPayload payload) {
+        return databasePreview(payload, payload.databasePassword);
+    }
+
+    @PostMapping("/api/services/{serviceId}/database/preview")
+    public DatabaseMonitorService.PreviewResult existingServiceDatabasePreview(
+        @PathVariable Long serviceId,
+        @Valid @RequestBody DatabasePreviewPayload payload
+    ) {
+        String password = liveMonitorService.databasePasswordForPreview(
+            serviceId,
+            payload.serviceType,
+            payload.databaseConnectionServiceId,
+            payload.databasePassword
+        );
+        return databasePreview(payload, password);
+    }
+
+    private DatabaseMonitorService.PreviewResult databasePreview(DatabasePreviewPayload payload, String databasePassword) {
+        MonitorService connection = payload.databaseConnectionServiceId == null
+            ? null
+            : liveMonitorService.databaseConnectionForUse(payload.serviceType, payload.databaseConnectionServiceId);
+        String host = connection == null ? payload.host : connection.host;
+        Integer port = connection == null ? payload.port : connection.port;
+        String databaseName = connection == null ? payload.databaseName : connection.databaseName;
+        String databaseUsername = connection == null ? payload.databaseUsername : connection.databaseUsername;
+        String password = connection == null ? databasePassword : connection.databasePassword;
+        String jdbcDriverClass = connection == null ? payload.jdbcDriverClass : connection.jdbcDriverClass;
+        String jdbcUrl = connection == null ? payload.jdbcUrl : connection.jdbcUrl;
         try {
             return databaseMonitorService.preview(
                 payload.serviceType,
-                payload.host,
-                payload.port,
-                payload.databaseName,
-                payload.databaseUsername,
-                payload.databasePassword,
+                host,
+                port,
+                databaseName,
+                databaseUsername,
+                password,
                 payload.databaseQuery,
-                payload.jdbcDriverClass,
-                payload.jdbcUrl,
+                jdbcDriverClass,
+                jdbcUrl,
                 payload.checkTimeoutSeconds == null ? 3D : payload.checkTimeoutSeconds
             );
         } catch (IllegalArgumentException ex) {

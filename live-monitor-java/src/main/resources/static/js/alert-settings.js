@@ -1540,7 +1540,8 @@ function renderAlerts(container, alerts, options = {}) {
     return;
   }
   container.innerHTML = rows.map((alert) => {
-    const content = alert.alert_content || "-";
+    const summary = alertContentSummary(alert.alert_content || "");
+    const content = summary.reason || "-";
     return `
     <article class="alert-item">
       <strong>${escapeHtml(alert.service_name || alert.alert_type || "告警")}</strong>

@@ -66,6 +66,7 @@ public class ServicePayload {
     public String databaseName;
     public String databaseUsername;
     public String databasePassword;
+    public Long databaseConnectionServiceId;
     public String databaseQuery;
     public String databaseResultOperator = "fuzzy";
     public List<String> databaseAssertionFields;

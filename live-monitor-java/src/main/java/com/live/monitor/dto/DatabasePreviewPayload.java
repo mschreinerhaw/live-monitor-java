@@ -15,6 +15,7 @@ public class DatabasePreviewPayload {
     public String databaseName;
     public String databaseUsername;
     public String databasePassword;
+    public Long databaseConnectionServiceId;
     public String databaseQuery;
     public String jdbcDriverClass;
     public String jdbcUrl;

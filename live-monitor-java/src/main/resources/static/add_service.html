@@ -357,12 +357,20 @@
           <input name="zookeeper_expected_nodes" type="number" min="1" max="1000" placeholder="例如：3">
         </label>
 
-        <label class="database-only standard-database-only">
+        <label class="database-only span-2">
+          <span>连接信息来源</span>
+          <select name="database_connection_service_id" id="databaseConnectionSelect">
+            <option value="">手动填写连接信息</option>
+          </select>
+          <small class="form-hint">引用已保存的同类型数据库连接，仅复用地址、端口、库名、用户名、密码和驱动；当前服务仍单独配置 SQL、规则和告警。</small>
+        </label>
+
+        <label class="database-only standard-database-only database-connection-manual-only">
           <span>数据库名 / 服务名</span>
           <input name="database_name" placeholder="MySQL库名、PostgreSQL库名、Oracle服务名">
         </label>
 
-        <label class="database-only span-2">
+        <label class="database-only database-connection-manual-only span-2">
           <span>JDBC 驱动类</span>
           <input name="jdbc_driver_class" list="jdbcDriverClassOptions" placeholder="可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver">
           <datalist id="jdbcDriverClassOptions">
@@ -374,17 +382,17 @@
           </datalist>
         </label>
 
-        <label class="database-only jdbc-only span-2">
+        <label class="database-only jdbc-only database-connection-manual-only span-2">
           <span>JDBC 连接串</span>
           <input name="jdbc_url" placeholder="例如：jdbc:sqlserver://127.0.0.1:1433;databaseName=master;encrypt=false">
         </label>
 
-        <label class="database-only">
+        <label class="database-only database-connection-manual-only">
           <span>数据库用户</span>
           <input name="database_username" placeholder="例如：monitor">
         </label>
 
-        <label class="database-only">
+        <label class="database-only database-connection-manual-only">
           <span>数据库密码</span>
           <input name="database_password" type="password" placeholder="数据库连接密码">
         </label>

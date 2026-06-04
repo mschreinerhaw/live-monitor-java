@@ -6,11 +6,16 @@ async function initAddService() {
   let hydratingServiceForm = false;
   let activeDatabaseType = isDatabaseServiceType(typeSelect.value) ? typeSelect.value : "";
   const databaseTypeDrafts = {};
+  let databaseConnectionOptions = [];
   initServiceTypePicker(typeSelect);
   const hostOptionsPromise = loadProcessHostOptions(form);
   const pathMatch = window.location.pathname.match(/\/services\/(\d+)\/edit$/);
   const params = new URLSearchParams(window.location.search);
   const editId = pathMatch?.[1] || params.get("id");
+  const databaseConnectionsPromise = loadDatabaseConnectionOptions(form, editId).then((connections) => {
+    databaseConnectionOptions = connections;
+    renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
+  });
   const presetClusterName = params.get("cluster_name");
   if (!editId && presetClusterName && form.elements.cluster_name) {
     form.elements.cluster_name.value = presetClusterName;
@@ -23,18 +28,24 @@ async function initAddService() {
     const isProcess = typeSelect.value === "process";
     const isDatabase = isDatabaseServiceType(typeSelect.value);
     const isGenericJdbc = typeSelect.value === "jdbc";
+    const databaseConnectionSelect = form.elements.database_connection_service_id;
+    if (databaseConnectionSelect) {
+      renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
+    }
+    const usesDatabaseConnectionRef = Boolean(isDatabase && databaseConnectionSelect?.value);
     toggleFieldSet(".web-only", isWeb && !isApi);
     toggleFieldSet(".web-monitor-only", isWeb && !isApi);
     toggleFieldSet(".api-only", isApi);
     toggleFieldSet(".result-rule-only", !isApi && isDatabase);
-    toggleFieldSet(".host-field", !isWeb && !isGenericJdbc);
-    toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc);
+    toggleFieldSet(".host-field", !isWeb && !isGenericJdbc && !usesDatabaseConnectionRef);
+    toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc && !usesDatabaseConnectionRef);
     toggleFieldSet(".process-only", isProcess);
     toggleFieldSet(".redis-only", isRedis);
     toggleFieldSet(".zookeeper-only", isZookeeper);
     toggleFieldSet(".database-only", isDatabase);
-    toggleFieldSet(".jdbc-only", isGenericJdbc);
-    toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc);
+    toggleFieldSet(".database-connection-manual-only", isDatabase && !usesDatabaseConnectionRef);
+    toggleFieldSet(".jdbc-only", isGenericJdbc && !usesDatabaseConnectionRef);
+    toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef);
     syncApiFieldCopy(form, isApi);
     const urlInput = form.elements.url;
     const apiUrlInput = form.elements.api_url;
@@ -48,14 +59,14 @@ async function initAddService() {
     const processCommandInput = form.elements.check_command;
     if (urlInput) urlInput.required = isWeb && !isApi;
     if (apiUrlInput) apiUrlInput.required = isApi;
-    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc;
+    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc && !usesDatabaseConnectionRef;
     if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess;
     if (processNameInput) processNameInput.required = isProcess;
     if (processKeywordInput) processKeywordInput.required = false;
     if (processCommandInput) processCommandInput.required = isProcess;
-    if (databaseNameInput) databaseNameInput.required = typeSelect.value === "oracle";
-    if (jdbcDriverClassInput) jdbcDriverClassInput.required = isGenericJdbc;
-    if (jdbcUrlInput) jdbcUrlInput.required = isGenericJdbc;
+    if (databaseNameInput) databaseNameInput.required = typeSelect.value === "oracle" && !usesDatabaseConnectionRef;
+    if (jdbcDriverClassInput) jdbcDriverClassInput.required = isGenericJdbc && !usesDatabaseConnectionRef;
+    if (jdbcUrlInput) jdbcUrlInput.required = isGenericJdbc && !usesDatabaseConnectionRef;
     syncApiMethodFields(form);
     syncApiAuthFields(form);
     syncApiTestVisibility(isApi);
@@ -105,19 +116,31 @@ async function initAddService() {
   webSchemeSelect?.addEventListener("change", () => normalizeWebUrlInput(form));
   form.elements.api_http_method?.addEventListener("change", () => syncApiMethodFields(form));
   form.elements.api_auth_type?.addEventListener("change", () => syncApiAuthFields(form));
+  form.elements.database_connection_service_id?.addEventListener("change", () => {
+    syncFields();
+    resetDatabasePreviewPanel();
+  });
   document.getElementById("addApiHeaderBtn")?.addEventListener("click", () => addApiHeaderRow());
   form.elements.enabled?.addEventListener("change", () => syncServiceEditingLock(form, editingExistingService));
   initAssertionModeControls(form);
   renderApiHeaderRows([]);
   syncFields();
   await loadServiceAlertConfigOptions(form);
+  await databaseConnectionsPromise;
   await hostOptionsPromise;
 
   const runConnectionTest = async (targetBox) => {
     const resultBox = document.getElementById("connectionTestResult");
     const apiResultBox = targetBox || null;
-    if (!form.reportValidity()) return;
-    if (!validateServiceAssertionConfig(form)) return;
+    const restoreLockedControls = unlockServiceFormForSubmit(form);
+    let payload;
+    try {
+      if (!form.reportValidity()) return;
+      if (!validateServiceAssertionConfig(form)) return;
+      payload = buildServicePayload(form);
+    } finally {
+      restoreLockedControls();
+    }
     const activeResultBox = apiResultBox || resultBox;
     if (activeResultBox) {
       activeResultBox.hidden = false;
@@ -125,7 +148,9 @@ async function initAddService() {
       activeResultBox.textContent = typeSelect.value === "api" ? "正在测试请求..." : "正在测试连接...";
     }
     try {
-      const result = await LiveMonitorApi.testService(buildServicePayload(form));
+      const result = editId
+        ? await LiveMonitorApi.testExistingService(editId, payload)
+        : await LiveMonitorApi.testService(payload);
       if (activeResultBox) {
         if (apiResultBox) {
           renderApiRequestTestResult(activeResultBox, result);
@@ -220,7 +245,13 @@ async function initAddService() {
 
   document.getElementById("databasePreviewBtn")?.addEventListener("click", async () => {
     const panel = document.getElementById("databasePreviewPanel");
-    const payload = buildDatabasePreviewPayload(form);
+    const restoreLockedControls = unlockServiceFormForSubmit(form);
+    let payload;
+    try {
+      payload = buildDatabasePreviewPayload(form);
+    } finally {
+      restoreLockedControls();
+    }
     if (!payload.service_type) return;
     if (panel) {
       panel.hidden = false;
@@ -228,7 +259,9 @@ async function initAddService() {
       panel.textContent = "正在查询预览...";
     }
     try {
-      const preview = await LiveMonitorApi.databasePreview(payload);
+      const preview = editId
+        ? await LiveMonitorApi.existingServiceDatabasePreview(editId, payload)
+        : await LiveMonitorApi.databasePreview(payload);
       renderDatabasePreview(form, preview);
     } catch (error) {
       if (panel) {
@@ -249,13 +282,13 @@ function syncServiceEditingLock(form, editingExistingService = false) {
     control.dataset.serviceEditLocked = locked ? "true" : "";
   });
   const testButton = document.getElementById("testConnectionBtn");
-  if (testButton) testButton.disabled = locked;
+  if (testButton) testButton.disabled = false;
   const testRuleButton = document.getElementById("testRuleBtn");
-  if (testRuleButton) testRuleButton.disabled = locked;
+  if (testRuleButton) testRuleButton.disabled = false;
   const previewButton = document.getElementById("databasePreviewBtn");
-  if (previewButton) previewButton.disabled = locked;
+  if (previewButton) previewButton.disabled = false;
   const apiTestButton = document.getElementById("apiTestRequestBtn");
-  if (apiTestButton) apiTestButton.disabled = locked;
+  if (apiTestButton) apiTestButton.disabled = false;
 }
 
 function isServiceLockExemptControl(control) {
@@ -350,6 +383,7 @@ function collectApiHeaders() {
 }
 
 const DATABASE_TYPE_CONFIG_FIELDS = [
+  "database_connection_service_id",
   "host",
   "port",
   "database_name",
@@ -397,6 +431,7 @@ function restoreDatabaseTypeConfig(form, draft, serviceType) {
 
 function defaultDatabaseTypeConfig(serviceType) {
   return {
+    database_connection_service_id: "",
     host: "",
     port: "",
     database_name: "",
@@ -1048,6 +1083,10 @@ function buildServicePayload(form) {
   const isDatabase = isDatabaseServiceType(serviceType);
   const isGenericJdbc = serviceType === "jdbc";
   const isProcess = serviceType === "process";
+  const databaseConnectionServiceId = isDatabase && data.database_connection_service_id
+    ? Number(data.database_connection_service_id)
+    : null;
+  const usesDatabaseConnectionRef = Boolean(databaseConnectionServiceId);
   data.service_type = serviceType;
   const isWebUrl = isWebUrlServiceType(serviceType);
   const isApi = serviceType === "api";
@@ -1096,16 +1135,18 @@ function buildServicePayload(form) {
     data.api_text_assertion_mode = "contains";
     data.api_text_assertion_value = null;
   }
-  data.host = isWebUrl || isGenericJdbc ? null : data.host.trim();
-  data.database_name = isDatabase && !isGenericJdbc ? data.database_name || null : null;
-  data.database_username = isDatabase ? data.database_username || null : null;
-  data.database_password = isDatabase ? data.database_password || null : null;
+  if (usesDatabaseConnectionRef) data.port = null;
+  data.host = isWebUrl || isGenericJdbc || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
+  data.database_connection_service_id = databaseConnectionServiceId;
+  data.database_name = isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef ? data.database_name || null : null;
+  data.database_username = isDatabase && !usesDatabaseConnectionRef ? data.database_username || null : null;
+  data.database_password = isDatabase && !usesDatabaseConnectionRef ? data.database_password || null : null;
   data.database_query = isDatabase ? data.database_query || null : null;
   data.expected_result = isDatabase && !isDatabaseAdvancedRule ? data.expected_result || null : null;
   data.database_result_operator = isDatabase && !isDatabaseAdvancedRule ? data.database_result_operator || "fuzzy" : "fuzzy";
   data.database_assertion_fields = isDatabase && isDatabaseAdvancedRule ? selectedDatabaseAssertionFields(form) : [];
-  data.jdbc_driver_class = isDatabase ? data.jdbc_driver_class || null : null;
-  data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
+  data.jdbc_driver_class = isDatabase && !usesDatabaseConnectionRef ? data.jdbc_driver_class || null : null;
+  data.jdbc_url = isGenericJdbc && !usesDatabaseConnectionRef ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
   data.redis_password = serviceType === "redis" ? data.redis_password || null : null;
   data.redis_cluster_mode = serviceType === "redis" ? data.redis_cluster_mode : false;
@@ -1144,18 +1185,22 @@ function buildDatabasePreviewPayload(form) {
   const data = Object.fromEntries(new FormData(form).entries());
   const serviceType = ["http", "https"].includes(data.service_type) ? "web" : data.service_type;
   const isGenericJdbc = serviceType === "jdbc";
+  const databaseConnectionServiceId = data.database_connection_service_id ? Number(data.database_connection_service_id) : null;
+  const usesDatabaseConnectionRef = Boolean(databaseConnectionServiceId);
   data.service_type = serviceType;
-  data.host = isGenericJdbc ? null : data.host?.trim() || null;
+  data.database_connection_service_id = databaseConnectionServiceId;
+  data.host = isGenericJdbc || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
   data.port = data.port ? Number(data.port) : null;
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
   if (!data.port && serviceType === "postgresql") data.port = 5432;
-  data.database_name = !isGenericJdbc ? data.database_name || null : null;
-  data.database_username = data.database_username || null;
-  data.database_password = data.database_password || null;
+  if (usesDatabaseConnectionRef) data.port = null;
+  data.database_name = !isGenericJdbc && !usesDatabaseConnectionRef ? data.database_name || null : null;
+  data.database_username = !usesDatabaseConnectionRef ? data.database_username || null : null;
+  data.database_password = !usesDatabaseConnectionRef ? data.database_password || null : null;
   data.database_query = data.database_query || null;
-  data.jdbc_driver_class = data.jdbc_driver_class || null;
-  data.jdbc_url = isGenericJdbc ? data.jdbc_url || null : null;
+  data.jdbc_driver_class = !usesDatabaseConnectionRef ? data.jdbc_driver_class || null : null;
+  data.jdbc_url = isGenericJdbc && !usesDatabaseConnectionRef ? data.jdbc_url || null : null;
   data.check_timeout_seconds = Number(data.check_timeout_seconds || 3);
   data.database_assertion_fields = isDatabaseAdvancedRuleMode(form) ? selectedDatabaseAssertionFields(form) : [];
   return data;
@@ -1323,6 +1368,46 @@ async function loadServiceAlertConfigOptions(form) {
   }
 }
 
+async function loadDatabaseConnectionOptions(form, editId = "") {
+  const select = form.elements.database_connection_service_id;
+  if (!select || !window.LiveMonitorApi?.databaseConnections) return [];
+  try {
+    const connections = await LiveMonitorApi.databaseConnections(true);
+    renderDatabaseConnectionOptions(form, connections, form.elements.service_type?.value, editId);
+    return connections;
+  } catch (error) {
+    select.innerHTML = '<option value="">连接列表加载失败，请手动填写</option>';
+    showToast(error.message);
+    return [];
+  }
+}
+
+function renderDatabaseConnectionOptions(form, connections = [], serviceType = "", editId = "") {
+  const select = form.elements.database_connection_service_id;
+  if (!select) return;
+  const current = select.value || "";
+  const normalizedType = ["http", "https"].includes(serviceType) ? "web" : serviceType;
+  const options = (connections || [])
+    .filter((service) => String(service.id || "") !== String(editId || ""))
+    .filter((service) => service.service_type === normalizedType);
+  select.innerHTML = [
+    '<option value="">手动填写连接信息</option>',
+    ...options.map((service) => `
+      <option value="${escapeHtml(service.id)}">${escapeHtml(databaseConnectionOptionLabel(service))}</option>
+    `),
+  ].join("");
+  if (current && options.some((service) => String(service.id) === String(current))) {
+    select.value = current;
+  } else {
+    select.value = "";
+  }
+}
+
+function databaseConnectionOptionLabel(service) {
+  const cluster = service.cluster_name ? `${service.cluster_name} / ` : "";
+  return `${cluster}${service.service_name || "数据库连接"} · ${endpointText(service)}`;
+}
+
 function fillServiceForm(form, service) {
   [
     "service_type",
@@ -1357,6 +1442,7 @@ function fillServiceForm(form, service) {
     "zookeeper_check_mode",
     "zookeeper_check_command",
     "zookeeper_expected_nodes",
+    "database_connection_service_id",
     "database_name",
     "database_username",
     "database_query",

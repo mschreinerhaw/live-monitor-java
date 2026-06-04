@@ -74,7 +74,7 @@ public class LiveMonitorService {
 
     @Transactional
     public MonitorService create(ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(null, payload);
         MonitorService service = fromPayload(payload);
         serviceMapper.insert(service);
         syncAlertGroup(service.id, payload.alertGroupId);
@@ -83,7 +83,7 @@ public class LiveMonitorService {
 
     @Transactional
     public MonitorService update(Long id, ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(id, payload);
         MonitorService existing = requireService(id);
         MonitorService service = fromPayload(payload);
         service.id = id;
@@ -102,8 +102,59 @@ public class LiveMonitorService {
     }
 
     public CheckResult test(ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(null, payload);
         return runnerService.run(fromPayload(payload));
+    }
+
+    public CheckResult test(Long id, ServicePayload payload) {
+        validatePayload(id, payload);
+        MonitorService existing = requireService(id);
+        MonitorService service = fromPayload(payload);
+        if (!hasSecretPayload(payload) && sameType(existing.serviceType, service.serviceType)) {
+            service.secretConfigJson = existing.secretConfigJson;
+            hydrateTypedFields(service);
+        }
+        return runnerService.run(service);
+    }
+
+    public String databasePasswordForPreview(Long id, String serviceType, String password) {
+        return databasePasswordForPreview(id, serviceType, null, password);
+    }
+
+    public String databasePasswordForPreview(Long id, String serviceType, Long connectionServiceId, String password) {
+        if (connectionServiceId != null) {
+            return databaseConnectionSource(null, serviceType, connectionServiceId).databasePassword;
+        }
+        if (StringUtils.hasText(password) || id == null) {
+            return password;
+        }
+        MonitorService existing = requireService(id);
+        if (sameType(existing.serviceType, serviceType) && isDatabaseType(existing.serviceType)) {
+            return existing.databasePassword;
+        }
+        return password;
+    }
+
+    public List<MonitorService> databaseConnections(boolean includeDisabled) {
+        List<MonitorService> rows = serviceMapper.list(includeDisabled ? 1 : 0);
+        List<MonitorService> result = new java.util.ArrayList<MonitorService>();
+        for (MonitorService row : rows) {
+            if (!isDatabaseType(row.serviceType)) {
+                continue;
+            }
+            Map<String, Object> config = parseJsonMap(row.configJson);
+            if (longValue(config, "database_connection_service_id", null) != null) {
+                continue;
+            }
+            hydrateTypedFields(row);
+            maskSecrets(row);
+            result.add(row);
+        }
+        return result;
+    }
+
+    public MonitorService databaseConnectionForUse(String serviceType, Long connectionServiceId) {
+        return databaseConnectionSource(null, serviceType, connectionServiceId);
     }
 
     public MonitorResult checkAndStore(Long id) {
@@ -118,6 +169,7 @@ public class LiveMonitorService {
             result.status = check.status == null ? "UNKNOWN" : check.status;
             result.responseTimeMs = check.responseTimeMs;
             result.message = check.message;
+            result.eventType = check.eventType;
             result.alertType = check.alertType;
             MonitorResult stored = historyRepository.saveMonitorResult(result);
             serviceMapper.upsertLatestStatus(
@@ -367,6 +419,10 @@ public class LiveMonitorService {
     }
 
     private void validatePayload(ServicePayload payload) {
+        validatePayload(null, payload);
+    }
+
+    private void validatePayload(Long currentServiceId, ServicePayload payload) {
         String type = normalizeType(payload.serviceType);
         if (!StringUtils.hasText(type) || !type.matches("[a-z0-9_.-]+")) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service_type must contain only letters, numbers, dot, dash, or underscore");
@@ -395,16 +451,20 @@ public class LiveMonitorService {
         if (("port".equals(type) || "tcp".equals(type)) && (!StringUtils.hasText(payload.host) || payload.port == null)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host and port are required for port checks");
         }
-        if (isDatabaseType(type) && !"jdbc".equals(type) && !StringUtils.hasText(payload.host)) {
+        boolean usesDatabaseConnectionReference = isDatabaseType(type) && payload.databaseConnectionServiceId != null;
+        if (usesDatabaseConnectionReference) {
+            databaseConnectionSource(currentServiceId, type, payload.databaseConnectionServiceId);
+        }
+        if (isDatabaseType(type) && !usesDatabaseConnectionReference && !"jdbc".equals(type) && !StringUtils.hasText(payload.host)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host is required for database services");
         }
-        if ("oracle".equals(type) && !StringUtils.hasText(payload.databaseName)) {
+        if ("oracle".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.databaseName)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database_name is required for Oracle services");
         }
-        if ("jdbc".equals(type) && !StringUtils.hasText(payload.jdbcDriverClass)) {
+        if ("jdbc".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.jdbcDriverClass)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_driver_class is required for generic JDBC services");
         }
-        if ("jdbc".equals(type) && !StringUtils.hasText(payload.jdbcUrl)) {
+        if ("jdbc".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.jdbcUrl)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_url is required for generic JDBC services");
         }
     }
@@ -530,6 +590,7 @@ public class LiveMonitorService {
         }
 
         if (isDatabaseType(service.serviceType)) {
+            service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
             service.databaseName = emptyToNull(payload.databaseName);
             service.databaseUsername = emptyToNull(payload.databaseUsername);
             service.databasePassword = emptyToNull(payload.databasePassword);
@@ -541,6 +602,7 @@ public class LiveMonitorService {
             service.jdbcUrl = emptyToNull(payload.jdbcUrl);
             service.checkMode = "jdbc_query";
             service.checkCommand = service.databaseQuery;
+            putIfNotNull(config, "database_connection_service_id", service.databaseConnectionServiceId);
             putIfNotNull(config, "database_name", service.databaseName);
             putIfNotNull(config, "database_username", service.databaseUsername);
             putIfNotNull(config, "database_query", service.databaseQuery);
@@ -631,6 +693,7 @@ public class LiveMonitorService {
             service.memoryAlertEnabled = booleanValue(config, "memory_alert_enabled", true);
             service.diskAlertEnabled = booleanValue(config, "disk_alert_enabled", true);
         } else if (isDatabaseType(service.serviceType)) {
+            service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
             service.databaseName = stringValue(config, "database_name", null);
             service.databaseUsername = stringValue(config, "database_username", null);
             service.databasePassword = stringValue(secretConfig, "database_password", null);
@@ -640,7 +703,58 @@ public class LiveMonitorService {
             service.databaseAssertionFields = stringListValue(config, "database_assertion_fields");
             service.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
             service.jdbcUrl = stringValue(config, "jdbc_url", null);
+            applyDatabaseConnectionReference(service);
         }
+    }
+
+    private void applyDatabaseConnectionReference(MonitorService service) {
+        if (service.databaseConnectionServiceId == null) {
+            return;
+        }
+        MonitorService source = databaseConnectionSource(service.id, service.serviceType, service.databaseConnectionServiceId);
+        service.host = source.host;
+        service.port = source.port;
+        service.databaseName = source.databaseName;
+        service.databaseUsername = source.databaseUsername;
+        service.databasePassword = source.databasePassword;
+        service.jdbcDriverClass = source.jdbcDriverClass;
+        service.jdbcUrl = source.jdbcUrl;
+        service.endpoint = "jdbc".equals(service.serviceType)
+            ? source.jdbcUrl
+            : endpointFromHostPort(source.host, source.port);
+    }
+
+    private MonitorService databaseConnectionSource(Long currentServiceId, String serviceType, Long connectionServiceId) {
+        if (connectionServiceId == null) {
+            return null;
+        }
+        if (currentServiceId != null && currentServiceId.equals(connectionServiceId)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database_connection_service_id cannot reference itself");
+        }
+        MonitorService source = serviceMapper.findById(connectionServiceId);
+        if (source == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source not found");
+        }
+        if (!isDatabaseType(source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must be a database service");
+        }
+        if (!sameType(serviceType, source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must use the same service_type");
+        }
+        Map<String, Object> config = parseJsonMap(source.configJson);
+        Long nestedReferenceId = longValue(config, "database_connection_service_id", null);
+        if (nestedReferenceId != null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source cannot be another referenced connection");
+        }
+        Map<String, Object> secretConfig = parseSecretJsonMap(source.secretConfigJson);
+        source.host = stringValue(config, "host", source.host);
+        source.port = intValue(config, "port", source.port);
+        source.databaseName = stringValue(config, "database_name", null);
+        source.databaseUsername = stringValue(config, "database_username", null);
+        source.databasePassword = stringValue(secretConfig, "database_password", null);
+        source.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+        source.jdbcUrl = stringValue(config, "jdbc_url", null);
+        return source;
     }
 
     private String preferredEndpoint(ServicePayload payload, Integer port) {

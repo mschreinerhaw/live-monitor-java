@@ -287,12 +287,14 @@ textarea {
   display: grid;
   gap: 8px;
   max-height: 360px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 12px;
 }
 
 .notification-item {
   padding: 10px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -303,18 +305,71 @@ textarea {
   background: var(--red-soft);
 }
 
+.notification-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .notification-item strong {
   display: block;
-  margin-bottom: 5px;
+  min-width: 0;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.notification-item-head span {
+  flex: 0 0 auto;
+  max-width: 124px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef4f8;
+  color: #49677a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notification-item p {
   margin: 0 0 6px;
   color: var(--muted);
   line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.notification-reason {
+  color: var(--text) !important;
+}
+
+.notification-metrics,
+.notification-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.notification-metrics span,
+.notification-fields span {
+  min-width: 0;
+  border: 1px solid #d8e3ea;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #536b7d;
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 4px 6px;
+  overflow-wrap: anywhere;
 }
 
 .notification-item small {
+  display: block;
+  margin-top: 6px;
   color: var(--muted);
 }
 
@@ -7521,5 +7576,379 @@ body[data-page="dashboard"] .instance-mini-list {
 
   .embed-url-row .primary-button {
     width: 100%;
+  }
+}
+
+/* Responsive embed resilience */
+html {
+  font-size: clamp(13px, 0.58vw + 10.4px, 16px);
+}
+
+body,
+.dashboard-shell,
+.dashboard-workspace,
+.page,
+.dashboard-page,
+.service-list-page,
+.service-config-page,
+.admin-page,
+.alert-settings-page,
+.panel,
+.service-list-panel,
+.host-workbench,
+.service-workbench {
+  min-width: 0;
+}
+
+.page,
+.dashboard-page,
+.service-list-page,
+.service-config-page,
+.admin-page,
+body[data-page="alert-settings"] .alert-settings-page {
+  container-type: inline-size;
+  width: min(100%, 1440px);
+  padding-inline: clamp(10px, 2.4cqi, 28px);
+}
+
+body[data-page="dashboard"] .dashboard-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body[data-page="dashboard"] .dashboard-page {
+  width: 100%;
+  padding: clamp(10px, 1.9cqi, 24px);
+}
+
+.topbar {
+  min-width: 0;
+  padding-inline: clamp(10px, 2.2vw, 28px);
+}
+
+.nav,
+.topbar-user,
+.toolbar,
+.panel-head,
+.service-page-head,
+.host-workbench-toolbar,
+.host-table-footer,
+body[data-page="dashboard"] .instance-toolbar,
+body[data-page="dashboard"] .service-list-title {
+  flex-wrap: wrap;
+}
+
+.brand,
+.nav a,
+.current-user,
+.panel-head h1,
+.panel-head h2,
+.service-page-head h1,
+.service-list-title h1,
+.host-hero-title h1,
+.detail-title h1 {
+  overflow-wrap: anywhere;
+}
+
+.panel-head h1,
+.panel-head h2,
+.service-page-head h1,
+body[data-page="dashboard"] .service-list-title h1 {
+  font-size: clamp(1rem, 1.2cqi + 0.72rem, 1.18rem);
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.summary-grid,
+body[data-page="dashboard"] .summary-grid,
+.host-stat-grid,
+.resource-chart-grid,
+body[data-page="dashboard"] .resource-chart-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: clamp(8px, 1.2cqi, 16px);
+}
+
+.metric,
+body[data-page="dashboard"] .metric,
+.host-stat-card,
+.resource-chart-card,
+body[data-page="dashboard"] .resource-chart-card {
+  min-width: 0;
+  min-height: auto;
+  padding: clamp(10px, 1.55cqi, 18px);
+}
+
+.metric strong,
+body[data-page="dashboard"] .metric strong,
+.host-stat-card strong {
+  font-size: clamp(1.3rem, 4.6cqi, 2.125rem);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.metric-label,
+.metric small,
+.refresh-state,
+.data-table,
+.status-pill,
+.host-stat-card span,
+.host-stat-card em,
+body[data-page="dashboard"] .service-row-main p,
+body[data-page="dashboard"] .service-row-meta p,
+body[data-page="dashboard"] .service-row-stats p,
+body[data-page="dashboard"] .service-row-time small,
+body[data-page="dashboard"] .instance-table,
+body[data-page="dashboard"] .instance-action {
+  font-size: clamp(0.75rem, 0.8cqi + 0.55rem, 0.875rem);
+}
+
+.table-wrap,
+body[data-page="dashboard"] .instance-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.data-table th,
+.data-table td,
+body[data-page="dashboard"] .instance-table th,
+body[data-page="dashboard"] .instance-table td {
+  padding: clamp(8px, 1.1cqi, 13px) clamp(10px, 1.35cqi, 16px);
+}
+
+.wrap-cell,
+body[data-page="dashboard"] .instance-address-cell {
+  max-width: min(360px, 42cqi);
+  overflow-wrap: anywhere;
+}
+
+body[data-page="dashboard"] .dashboard-content-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: clamp(12px, 1.6cqi, 20px);
+}
+
+body[data-page="dashboard"] .right-rail {
+  width: 100%;
+  min-width: 0;
+}
+
+body[data-page="dashboard"] .service-list-table-head,
+body[data-page="dashboard"] .service-row {
+  grid-template-columns: 32px minmax(62px, 0.35fr) 42px minmax(160px, 1.25fr) minmax(180px, 1fr) minmax(128px, 0.55fr) minmax(86px, 0.4fr);
+}
+
+body[data-page="dashboard"] .service-row {
+  gap: clamp(8px, 1cqi, 14px);
+  min-height: auto;
+  padding: clamp(10px, 1.25cqi, 14px);
+}
+
+body[data-page="dashboard"] .service-row-card {
+  margin-inline: clamp(8px, 1.2cqi, 16px);
+}
+
+body[data-page="dashboard"] .service-row-main,
+body[data-page="dashboard"] .service-row-stats,
+body[data-page="dashboard"] .service-row-time,
+body[data-page="dashboard"] .service-row-actions {
+  min-width: 0;
+}
+
+body[data-page="dashboard"] .service-row-main h2 {
+  font-size: clamp(0.95rem, 1cqi + 0.7rem, 1.08rem);
+  overflow-wrap: anywhere;
+}
+
+body[data-page="dashboard"] .service-row-main p,
+body[data-page="dashboard"] .service-row-meta p,
+body[data-page="dashboard"] .service-row-stats p {
+  white-space: normal;
+}
+
+body[data-page="dashboard"] .service-stat-row,
+body[data-page="dashboard"] .service-row-actions,
+body[data-page="dashboard"] .instance-row-actions,
+.row-actions,
+.host-panel-actions,
+.host-filter-tools {
+  flex-wrap: wrap;
+}
+
+body[data-page="dashboard"] .service-list-search,
+body[data-page="dashboard"] .instance-search,
+.search,
+.host-search {
+  width: min(100%, 360px);
+  min-width: 0;
+}
+
+@container (max-width: 1180px) {
+  body[data-page="dashboard"] .dashboard-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 760px) {
+  .page,
+  .dashboard-page,
+  .service-list-page,
+  .service-config-page,
+  .admin-page,
+  body[data-page="alert-settings"] .alert-settings-page {
+    padding-inline: 10px;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding-block: 10px;
+  }
+
+  .nav,
+  .topbar-user {
+    width: 100%;
+  }
+
+  .nav a {
+    flex: 1 1 120px;
+    text-align: center;
+  }
+
+  .toolbar,
+  .panel-head,
+  .service-page-head,
+  .host-workbench-toolbar,
+  .host-table-footer,
+  body[data-page="dashboard"] .instance-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-actions,
+  .panel-title-actions,
+  .service-page-actions,
+  .host-panel-tools,
+  body[data-page="dashboard"] .instance-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .search,
+  .host-search,
+  body[data-page="dashboard"] .service-list-search,
+  body[data-page="dashboard"] .instance-search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .resource-chart-grid,
+  body[data-page="dashboard"] .resource-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    min-width: 100%;
+  }
+
+  .data-table th,
+  .data-table td,
+  body[data-page="dashboard"] .instance-table th,
+  body[data-page="dashboard"] .instance-table td {
+    white-space: normal;
+  }
+
+  .status-pill,
+  .row-actions,
+  body[data-page="dashboard"] .instance-row-actions {
+    white-space: nowrap;
+  }
+
+  body[data-page="dashboard"] .service-list-table-head {
+    display: none;
+  }
+
+  body[data-page="dashboard"] .service-row {
+    grid-template-columns: 30px minmax(64px, max-content) 38px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  body[data-page="dashboard"] .service-row-stats,
+  body[data-page="dashboard"] .service-row-time,
+  body[data-page="dashboard"] .service-row-actions {
+    grid-column: 4;
+  }
+
+  body[data-page="dashboard"] .service-row-actions {
+    justify-content: flex-start;
+  }
+}
+
+@container (max-width: 520px) {
+  .summary-grid,
+  body[data-page="dashboard"] .summary-grid,
+  .host-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-top,
+  .resource-chart-head,
+  .host-stat-card {
+    align-items: start;
+  }
+
+  body[data-page="dashboard"] .service-row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  body[data-page="dashboard"] .service-row .status-pill,
+  body[data-page="dashboard"] .service-row .service-type-icon,
+  body[data-page="dashboard"] .service-row-main,
+  body[data-page="dashboard"] .service-row-stats,
+  body[data-page="dashboard"] .service-row-time,
+  body[data-page="dashboard"] .service-row-actions {
+    grid-column: 2;
+  }
+
+  body[data-page="dashboard"] .service-row .status-pill {
+    justify-self: start;
+  }
+
+  body[data-page="dashboard"] .service-row .service-type-icon {
+    display: none;
+  }
+
+  body[data-page="dashboard"] .instance-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body[data-page="dashboard"] .instance-page-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .page,
+  .dashboard-page,
+  .service-list-page,
+  .service-config-page,
+  .admin-page,
+  body[data-page="alert-settings"] .alert-settings-page {
+    padding-inline: 10px;
+  }
+
+  .data-table th,
+  .data-table td,
+  body[data-page="dashboard"] .instance-table th,
+  body[data-page="dashboard"] .instance-table td {
+    white-space: normal;
   }
 }

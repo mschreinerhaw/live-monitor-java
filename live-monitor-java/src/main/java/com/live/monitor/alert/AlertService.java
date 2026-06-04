@@ -7,6 +7,7 @@ import com.live.monitor.entity.AlertPolicy;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.AlertState;
 import com.live.monitor.entity.CheckEvent;
+import com.live.monitor.entity.EventType;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.AlertMapper;
@@ -74,7 +75,7 @@ public class AlertService {
     }
 
     public void publishCheckEvent(MonitorService service, MonitorResult result) {
-        CheckEvent event = checkEvent(result);
+        CheckEvent event = checkEvent(service, result);
         alertMapper.insertCheckEvent(event);
         consumeCheckEvent(service, event);
     }
@@ -95,12 +96,14 @@ public class AlertService {
             : records.get(0);
     }
 
-    private CheckEvent checkEvent(MonitorResult result) {
+    private CheckEvent checkEvent(MonitorService service, MonitorResult result) {
         CheckEvent event = new CheckEvent();
         event.serviceId = result.serviceId;
         event.status = result.status;
         event.responseTimeMs = result.responseTimeMs;
         event.message = result.message;
+        event.eventType = normalizeEventType(service, result);
+        result.eventType = event.eventType;
         event.alertType = result.alertType;
         event.checkedAt = result.checkedAt;
         return event;
@@ -112,6 +115,7 @@ public class AlertService {
         result.status = event.status;
         result.responseTimeMs = event.responseTimeMs;
         result.message = event.message;
+        result.eventType = event.eventType;
         result.alertType = event.alertType;
         result.checkedAt = event.checkedAt;
         return result;
@@ -200,10 +204,96 @@ public class AlertService {
             ? new ArrayList<AlertPolicy>()
             : alertMapper.listPoliciesByGroup(service.alertGroupId);
 
+        if (isHostResourceEvent(service, event)) {
+            confirmHostResource(service, result, event, policies);
+            alertMapper.markCheckEventConsumed(event.id);
+            return;
+        }
+
         confirmAvailability(service, result, event, policies);
         confirmLatency(service, result, event, policies);
-        confirmHostResource(service, result, event, policies);
         alertMapper.markCheckEventConsumed(event.id);
+    }
+
+    private boolean isHostResourceEvent(MonitorService service, CheckEvent event) {
+        return service != null
+            && event != null
+            && "host".equals(normalize(service.serviceType))
+            && (isHostResourceEventType(event.eventType) || HOST_RESOURCE_THRESHOLD_ALERT.equals(event.alertType));
+    }
+
+    private boolean isHostResourceEventType(String eventType) {
+        return EventType.HOST_CPU_HIGH.name().equals(eventType)
+            || EventType.HOST_MEMORY_HIGH.name().equals(eventType)
+            || EventType.HOST_DISK_HIGH.name().equals(eventType)
+            || EventType.SERVICE_RECOVERED.name().equals(eventType)
+            || EventType.METRIC_FLUCTUATION.name().equals(eventType)
+            || HOST_RESOURCE_THRESHOLD_ALERT.equals(eventType);
+    }
+
+    private String normalizeEventType(MonitorService service, MonitorResult result) {
+        if (result == null) {
+            return EventType.METRIC_FLUCTUATION.name();
+        }
+        String serviceType = service == null ? "" : normalize(service.serviceType);
+        if (StringUtils.hasText(result.eventType) && !HOST_RESOURCE_THRESHOLD_ALERT.equals(result.eventType)) {
+            return result.eventType;
+        }
+        if ("host".equals(serviceType)) {
+            return hostResourceEventType(result);
+        }
+        if ("UP".equals(result.status)) {
+            return EventType.SERVICE_RECOVERED.name();
+        }
+        if (isApiType(serviceType)) {
+            return isTimeoutMessage(result.message) ? EventType.API_TIMEOUT.name() : EventType.API_STATUS_ERROR.name();
+        }
+        if (isDatabaseType(serviceType)) {
+            return isDatabaseAssertionFailure(result.message) ? EventType.DB_ASSERT_FAIL.name() : EventType.DB_CONNECT_FAIL.name();
+        }
+        return EventType.SERVICE_DOWN.name();
+    }
+
+    private String hostResourceEventType(MonitorResult result) {
+        if (metricExceeded(CPU_THRESHOLD_PATTERN, result.message)) {
+            return EventType.HOST_CPU_HIGH.name();
+        }
+        if (metricExceeded(MEMORY_THRESHOLD_PATTERN, result.message)) {
+            return EventType.HOST_MEMORY_HIGH.name();
+        }
+        if (metricExceeded(DISK_THRESHOLD_PATTERN, result.message)) {
+            return EventType.HOST_DISK_HIGH.name();
+        }
+        if ("UP".equals(result.status)) {
+            return EventType.SERVICE_RECOVERED.name();
+        }
+        return EventType.METRIC_FLUCTUATION.name();
+    }
+
+    private boolean metricExceeded(Pattern pattern, String message) {
+        HostThreshold metric = hostThreshold(pattern, message, "");
+        return metric != null && metric.value > metric.threshold;
+    }
+
+    private boolean isApiType(String serviceType) {
+        return "api".equals(serviceType) || "web".equals(serviceType) || "nginx".equals(serviceType);
+    }
+
+    private boolean isDatabaseType(String serviceType) {
+        return "mysql".equals(serviceType)
+            || "oracle".equals(serviceType)
+            || "postgresql".equals(serviceType)
+            || "postgres".equals(serviceType)
+            || "jdbc".equals(serviceType);
+    }
+
+    private boolean isTimeoutMessage(String message) {
+        return normalize(message).contains("timeout") || normalize(message).contains("timed out");
+    }
+
+    private boolean isDatabaseAssertionFailure(String message) {
+        String normalized = normalize(message);
+        return normalized.contains(", result:") || normalized.contains(", rule:") || normalized.contains("assert");
     }
 
     private void confirmAvailability(
@@ -556,8 +646,16 @@ public class AlertService {
         return service != null
             && result != null
             && "host".equals(normalize(service.serviceType))
-            && HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType)
+            && isHostResourceAlertEvent(result)
             && !exceededMetrics(result.message).isEmpty();
+    }
+
+    private boolean isHostResourceAlertEvent(MonitorResult result) {
+        return EventType.HOST_CPU_HIGH.name().equals(result.eventType)
+            || EventType.HOST_MEMORY_HIGH.name().equals(result.eventType)
+            || EventType.HOST_DISK_HIGH.name().equals(result.eventType)
+            || HOST_RESOURCE_THRESHOLD_ALERT.equals(result.eventType)
+            || HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType);
     }
 
     private AlertPolicy hostResourceThresholdPolicy() {

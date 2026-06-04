@@ -13,5 +13,7 @@ public class MonitorResult {
     public String message;
     public String checkedAt;
     @JsonIgnore
+    public String eventType;
+    @JsonIgnore
     public String alertType;
 }

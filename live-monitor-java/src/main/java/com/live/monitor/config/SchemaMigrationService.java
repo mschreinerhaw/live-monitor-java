@@ -55,6 +55,7 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_latest_metric", "disk_mount_count", "INT");
         addColumnIfMissing("host_latest_metric", "disk_metrics_json", "VARCHAR(100000)", "LONGTEXT");
         addColumnIfMissing("host_latest_metric", "physical_disk_metrics_json", "VARCHAR(100000)", "LONGTEXT");
+        addColumnIfMissing("monitor_check_event", "event_type", "VARCHAR(64)");
         createCommonIndexes();
     }
 
@@ -77,6 +78,7 @@ public class SchemaMigrationService {
             "status VARCHAR(32) NOT NULL, " +
             "response_time_ms INT, " +
             "message " + largeTextType() + ", " +
+            "event_type VARCHAR(64), " +
             "alert_type VARCHAR(64), " +
             "checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
             "consumed INT DEFAULT 0, " +
