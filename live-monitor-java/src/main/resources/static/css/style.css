@@ -2611,6 +2611,13 @@ textarea {
   background: #f8fafc;
 }
 
+.host-form-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .host-form-section-head h3 {
   margin: 0;
   color: var(--text);
@@ -2635,6 +2642,57 @@ textarea {
 
 .assertion-config-section {
   background: #fbfdff;
+}
+
+.database-query-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.database-assertion-field-list,
+.database-preview-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.database-assertion-field-list > span,
+.database-preview-fields-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.database-preview-field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.database-field-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid rgba(23, 107, 135, 0.18);
+  border-radius: 6px;
+  background: #eef8fb;
+  color: var(--brand-strong);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.database-field-chip strong {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.database-field-chip em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 600;
 }
 
 .assertion-mode-tabs {

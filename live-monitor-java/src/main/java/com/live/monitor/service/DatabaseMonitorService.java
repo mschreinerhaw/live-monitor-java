@@ -200,6 +200,7 @@ public class DatabaseMonitorService {
                 if (!hasResultSet) {
                     PreviewResult result = new PreviewResult();
                     result.columns = new ArrayList<String>();
+                    result.columnTypes = new LinkedHashMap<String, String>();
                     result.rows = new ArrayList<Map<String, Object>>();
                     result.message = "update count " + statement.getUpdateCount();
                     result.maxRows = maxRows;
@@ -487,6 +488,7 @@ public class DatabaseMonitorService {
         try (ResultSet closeable = resultSet) {
             ResultSetMetaData metaData = closeable.getMetaData();
             List<String> columns = columnLabels(metaData);
+            Map<String, String> columnTypes = columnTypes(metaData, columns);
             List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
             int row = 0;
             while (row < maxRows && closeable.next()) {
@@ -500,6 +502,7 @@ public class DatabaseMonitorService {
             }
             PreviewResult result = new PreviewResult();
             result.columns = columns;
+            result.columnTypes = columnTypes;
             result.rows = rows;
             result.maxRows = maxRows;
             result.message = "preview limited to " + maxRows + " rows";
@@ -609,6 +612,17 @@ public class DatabaseMonitorService {
             columns.add(StringUtils.hasText(label) ? label : "column_" + column);
         }
         return columns;
+    }
+
+    private Map<String, String> columnTypes(ResultSetMetaData metaData, List<String> columns) throws Exception {
+        Map<String, String> types = new LinkedHashMap<String, String>();
+        for (int column = 1; column <= metaData.getColumnCount(); column++) {
+            String typeName = metaData.getColumnTypeName(column);
+            if (StringUtils.hasText(typeName)) {
+                types.put(columns.get(column - 1), typeName);
+            }
+        }
+        return types;
     }
 
     private Map<String, String> selectedFieldMap(List<String> assertionFields) {
@@ -795,6 +809,7 @@ public class DatabaseMonitorService {
 
     public static final class PreviewResult {
         public List<String> columns;
+        public Map<String, String> columnTypes;
         public List<Map<String, Object>> rows;
         public Integer maxRows;
         public String message;
