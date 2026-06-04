@@ -55,14 +55,35 @@ public interface MonitorServiceMapper {
     @Select("SELECT status FROM service_latest_status WHERE service_id = #{serviceId}")
     String latestStatus(@Param("serviceId") Long serviceId);
 
-    @Insert("MERGE INTO service_alert_group KEY(service_id) VALUES (#{serviceId}, #{groupId})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO service_alert_group (service_id, group_id) VALUES (#{serviceId}, #{groupId}) " +
+        "ON DUPLICATE KEY UPDATE group_id = VALUES(group_id)" +
+        "</when>" +
+        "<otherwise>MERGE INTO service_alert_group KEY(service_id) VALUES (#{serviceId}, #{groupId})</otherwise>" +
+        "</choose>" +
+        "</script>")
     int bindAlertGroup(@Param("serviceId") Long serviceId, @Param("groupId") Long groupId);
 
     @Delete("DELETE FROM service_alert_group WHERE service_id = #{serviceId}")
     int unbindAlertGroup(@Param("serviceId") Long serviceId);
 
-    @Insert("MERGE INTO service_latest_status KEY(service_id) " +
-        "VALUES (#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{checkedAt})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO service_latest_status (service_id, status, response_time_ms, message, checked_at) " +
+        "VALUES (#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{checkedAt}) " +
+        "ON DUPLICATE KEY UPDATE " +
+        "status = VALUES(status), response_time_ms = VALUES(response_time_ms), " +
+        "message = VALUES(message), checked_at = VALUES(checked_at)" +
+        "</when>" +
+        "<otherwise>" +
+        "MERGE INTO service_latest_status KEY(service_id) " +
+        "VALUES (#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{checkedAt})" +
+        "</otherwise>" +
+        "</choose>" +
+        "</script>")
     int upsertLatestStatus(
         @Param("serviceId") Long serviceId,
         @Param("status") String status,

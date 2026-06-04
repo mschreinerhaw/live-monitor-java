@@ -48,21 +48,28 @@ public class SqliteToH2RocksMigrationService {
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
     private final RocksDbHistoryRepository historyRepository;
+    private final DatabaseDialect databaseDialect;
 
     public SqliteToH2RocksMigrationService(
         LiveMonitorProperties properties,
         JdbcTemplate jdbcTemplate,
         TransactionTemplate transactionTemplate,
-        RocksDbHistoryRepository historyRepository
+        RocksDbHistoryRepository historyRepository,
+        DatabaseDialect databaseDialect
     ) {
         this.properties = properties;
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = transactionTemplate;
         this.historyRepository = historyRepository;
+        this.databaseDialect = databaseDialect;
     }
 
     @PostConstruct
     public void migrateIfNeeded() {
+        if (!databaseDialect.isH2()) {
+            log.info("Current config database is {}, skip SQLite to H2 migration", databaseDialect.productName());
+            return;
+        }
         if (migrationCompleted()) {
             log.info("SQLite migration marker exists, skip SQLite");
             return;

@@ -73,10 +73,26 @@ public interface AlertMapper {
     @Delete("DELETE FROM group_channel_rel WHERE group_id = #{groupId}")
     int deleteGroupChannels(@Param("groupId") Long groupId);
 
-    @Insert("MERGE INTO group_policy_rel KEY(group_id, policy_id) VALUES (#{groupId}, #{policyId})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO group_policy_rel (group_id, policy_id) VALUES (#{groupId}, #{policyId}) " +
+        "ON DUPLICATE KEY UPDATE policy_id = policy_id" +
+        "</when>" +
+        "<otherwise>MERGE INTO group_policy_rel KEY(group_id, policy_id) VALUES (#{groupId}, #{policyId})</otherwise>" +
+        "</choose>" +
+        "</script>")
     int insertGroupPolicy(@Param("groupId") Long groupId, @Param("policyId") Long policyId);
 
-    @Insert("MERGE INTO group_channel_rel KEY(group_id, channel_id) VALUES (#{groupId}, #{channelId})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO group_channel_rel (group_id, channel_id) VALUES (#{groupId}, #{channelId}) " +
+        "ON DUPLICATE KEY UPDATE channel_id = channel_id" +
+        "</when>" +
+        "<otherwise>MERGE INTO group_channel_rel KEY(group_id, channel_id) VALUES (#{groupId}, #{channelId})</otherwise>" +
+        "</choose>" +
+        "</script>")
     int insertGroupChannel(@Param("groupId") Long groupId, @Param("channelId") Long channelId);
 
     @Select("SELECT COUNT(*) FROM service_alert_group WHERE group_id = #{groupId}")
@@ -95,12 +111,31 @@ public interface AlertMapper {
     @Select("SELECT * FROM alert_state WHERE service_id = #{serviceId} AND alert_key = #{alertKey}")
     AlertState findAlertState(@Param("serviceId") Long serviceId, @Param("alertKey") String alertKey);
 
-    @Insert("MERGE INTO alert_state (" +
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO alert_state (" +
+        "service_id, alert_key, state, fail_count, recover_count, active_policy_id, active_trigger_type, " +
+        "last_status, last_message, last_event_at, last_alert_at, updated_at" +
+        ") VALUES (" +
+        "#{serviceId}, #{alertKey}, #{state}, #{failCount}, #{recoverCount}, #{activePolicyId}, #{activeTriggerType}, " +
+        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP) " +
+        "ON DUPLICATE KEY UPDATE " +
+        "state = VALUES(state), fail_count = VALUES(fail_count), recover_count = VALUES(recover_count), " +
+        "active_policy_id = VALUES(active_policy_id), active_trigger_type = VALUES(active_trigger_type), " +
+        "last_status = VALUES(last_status), last_message = VALUES(last_message), " +
+        "last_event_at = VALUES(last_event_at), last_alert_at = VALUES(last_alert_at), updated_at = CURRENT_TIMESTAMP" +
+        "</when>" +
+        "<otherwise>" +
+        "MERGE INTO alert_state (" +
         "service_id, alert_key, state, fail_count, recover_count, active_policy_id, active_trigger_type, " +
         "last_status, last_message, last_event_at, last_alert_at, updated_at" +
         ") KEY(service_id, alert_key) VALUES (" +
         "#{serviceId}, #{alertKey}, #{state}, #{failCount}, #{recoverCount}, #{activePolicyId}, #{activeTriggerType}, " +
-        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP)")
+        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP)" +
+        "</otherwise>" +
+        "</choose>" +
+        "</script>")
     int upsertAlertState(AlertState state);
 
     @Insert("INSERT INTO alert_notify_record (" +

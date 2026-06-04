@@ -229,6 +229,19 @@ class HostResourceMonitorServiceTest {
         assertNull(result.alertType);
     }
 
+    @Test
+    void checkDoesNotAlertWhenAllMetricsAreBelowThresholds() {
+        HostConfig host = hostWithThresholds();
+        HostResourceMonitorService monitor = monitorWithMetrics(host, "0.7", "79.5", "60%");
+        MonitorService monitorService = hostMonitorService();
+
+        CheckResult result = monitor.check(monitorService, 10D);
+
+        assertEquals("UP", result.status);
+        assertNull(result.alertType);
+        assertEquals("CPU 0.7% / 85.0%, Memory 79.5% / 85.0%, Disk 60.0% / 85.0%", result.message);
+    }
+
     private HostConfig hostWithThresholds() {
         HostConfig host = new HostConfig();
         host.id = 1L;

@@ -102,7 +102,7 @@ public class SecretEncryptionMigrationService {
 
     private boolean tableExists(String tableName) {
         Integer count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = SCHEMA() AND table_name = ?",
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = SCHEMA() AND LOWER(table_name) = ?",
             Integer.class,
             tableName.toLowerCase()
         );
@@ -112,7 +112,7 @@ public class SecretEncryptionMigrationService {
     private boolean columnExists(String tableName, String columnName) {
         Integer count = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM information_schema.columns " +
-                "WHERE table_schema = SCHEMA() AND table_name = ? AND column_name = ?",
+                "WHERE table_schema = SCHEMA() AND LOWER(table_name) = ? AND LOWER(column_name) = ?",
             Integer.class,
             tableName.toLowerCase(),
             columnName.toLowerCase()

@@ -556,7 +556,8 @@ public class AlertService {
         return service != null
             && result != null
             && "host".equals(normalize(service.serviceType))
-            && HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType);
+            && HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType)
+            && !exceededMetrics(result.message).isEmpty();
     }
 
     private AlertPolicy hostResourceThresholdPolicy() {
@@ -762,7 +763,7 @@ public class AlertService {
     private String hostAlertItems(String message) {
         List<String> items = new ArrayList<String>();
         for (HostThreshold metric : exceededMetrics(message)) {
-            items.add("❌ " + metric.label + "\n当前值：" + metric.valueText + "%\n阈值：" + metric.thresholdText
+            items.add(metric.label + "\n当前值：" + metric.valueText + "%\n阈值：" + metric.thresholdText
                 + "\n超限幅度：" + signedPercent(metric.value - metric.threshold));
         }
         return items.isEmpty() ? "-" : String.join("\n\n", items);
@@ -774,12 +775,12 @@ public class AlertService {
         for (HostThreshold previous : exceededMetrics(previousMessage)) {
             HostThreshold metric = current.get(previous.label);
             if (metric != null) {
-                items.add("✅ " + metric.label + "\n恢复值：" + metric.valueText + "%\n恢复阈值：" + metric.thresholdText);
+                items.add(metric.label + "\n恢复值：" + metric.valueText + "%\n恢复阈值：" + metric.thresholdText);
             }
         }
         if (items.isEmpty()) {
             for (HostThreshold metric : hostThresholds(message)) {
-                items.add("✅ " + metric.label + "\n恢复值：" + metric.valueText + "%\n恢复阈值：" + metric.thresholdText);
+                items.add(metric.label + "\n恢复值：" + metric.valueText + "%\n恢复阈值：" + metric.thresholdText);
             }
         }
         return items.isEmpty() ? "-" : String.join("\n\n", items);

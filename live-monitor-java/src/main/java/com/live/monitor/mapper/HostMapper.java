@@ -79,11 +79,30 @@ public interface HostMapper {
         "check_command = #{checkCommand}, enabled = #{enabled} WHERE id = #{id}")
     int updateProcess(HostProcessConfig process);
 
-    @Insert("MERGE INTO host_latest_metric " +
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO host_latest_metric " +
+        "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
+        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, CURRENT_TIMESTAMP) " +
+        "ON DUPLICATE KEY UPDATE " +
+        "cpu_usage_percent = VALUES(cpu_usage_percent), load_average = VALUES(load_average), " +
+        "memory_used_percent = VALUES(memory_used_percent), disk_used_percent = VALUES(disk_used_percent), " +
+        "cpu_core_count = VALUES(cpu_core_count), memory_total_mb = VALUES(memory_total_mb), " +
+        "disk_mount_count = VALUES(disk_mount_count), disk_metrics_json = VALUES(disk_metrics_json), " +
+        "physical_disk_metrics_json = VALUES(physical_disk_metrics_json), checked_at = CURRENT_TIMESTAMP" +
+        "</when>" +
+        "<otherwise>" +
+        "MERGE INTO host_latest_metric " +
         "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
         "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
         "KEY(host_id) VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
-        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, CURRENT_TIMESTAMP)")
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, CURRENT_TIMESTAMP)" +
+        "</otherwise>" +
+        "</choose>" +
+        "</script>")
     int upsertLatestMetric(
         @Param("hostId") Long hostId,
         @Param("cpuUsagePercent") Double cpuUsagePercent,

@@ -4,11 +4,31 @@ server:
 debug: false
 
 spring:
+  # Config database:
+  # 1. Default H2 file database. H2 keeps legacy mode and uses ./data/h2/live_monitor.
+  # 2. To switch to MySQL as the config database, either set the LIVE_MONITOR_DB_* env vars,
+  #    or replace the datasource and sql.init.platform values with the commented MySQL sample below.
+  #
+  # MySQL sample:
+  # datasource:
+  #   driver-class-name: com.mysql.cj.jdbc.Driver
+  #   url: jdbc:mysql://127.0.0.1:3306/live_monitor?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+  #   username: live_monitor
+  #   password: live_monitor_password
+  #   hikari:
+  #     maximum-pool-size: 10
+  #     minimum-idle: 1
+  #     connection-timeout: 30000
+  # sql:
+  #   init:
+  #     mode: always
+  #     platform: mysql
+  #     schema-locations: classpath:schema-${spring.sql.init.platform}.sql
   datasource:
-    driver-class-name: org.h2.Driver
-    url: "jdbc:h2:file:./data/h2/live_monitor;MODE=LEGACY;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=FALSE"
-    username: sa
-    password:
+    driver-class-name: ${LIVE_MONITOR_DB_DRIVER:org.h2.Driver}
+    url: ${LIVE_MONITOR_DB_URL:jdbc:h2:file:./data/h2/live_monitor;MODE=LEGACY;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=FALSE}
+    username: ${LIVE_MONITOR_DB_USERNAME:sa}
+    password: ${LIVE_MONITOR_DB_PASSWORD:live_monitor}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 1
@@ -16,7 +36,8 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:schema.sql
+      platform: ${LIVE_MONITOR_DB_PLATFORM:h2}
+      schema-locations: classpath:schema-${spring.sql.init.platform}.sql
   jackson:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null

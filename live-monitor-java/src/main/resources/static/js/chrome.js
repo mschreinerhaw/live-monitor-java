@@ -1,6 +1,7 @@
 async function initUserChrome() {
   const topbar = document.querySelector(".topbar");
   if (!topbar || document.getElementById("notificationBell")) return;
+  const embedMode = Boolean(window.LiveMonitorApi?.hasEmbedToken?.());
   const userArea = document.createElement("div");
   userArea.className = "topbar-user";
   userArea.innerHTML = `
@@ -17,7 +18,7 @@ async function initUserChrome() {
         <div id="notificationList" class="notification-list"><p class="empty">\u6682\u65e0\u544a\u8b66</p></div>
       </div>
     </div>
-    <div class="user-menu-wrap">
+    ${embedMode ? "" : `<div class="user-menu-wrap">
       <button class="current-user" type="button" id="userMenuButton" aria-haspopup="menu" aria-expanded="false">
         <span id="currentUserName">admin</span>
         <i data-lucide="chevron-down"></i>
@@ -32,7 +33,7 @@ async function initUserChrome() {
           <span>\u9000\u51fa\u767b\u5f55</span>
         </button>
       </div>
-    </div>
+    </div>`}
   `;
   const dashboardRefresh = document.querySelector(".dashboard-refresh");
   if (document.body?.dataset?.page === "dashboard" && dashboardRefresh) {
@@ -47,8 +48,9 @@ async function initUserChrome() {
   if (window.lucide) window.lucide.createIcons();
   try {
     const user = await LiveMonitorApi.currentUser();
-    if (user?.user_id || user?.display_name || user?.name) {
-      document.getElementById("currentUserName").textContent = user.user_id || user.display_name || user.name;
+    const currentUserName = document.getElementById("currentUserName");
+    if (currentUserName && (user?.user_id || user?.display_name || user?.name)) {
+      currentUserName.textContent = user.user_id || user.display_name || user.name;
     }
     const adminMenuLink = document.getElementById("adminMenuLink");
     if (adminMenuLink) adminMenuLink.hidden = !user?.admin;

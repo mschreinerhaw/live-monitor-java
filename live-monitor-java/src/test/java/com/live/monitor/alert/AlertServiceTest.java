@@ -99,6 +99,23 @@ class AlertServiceTest {
     }
 
     @Test
+    void hostResourceThresholdAlertTypeIsIgnoredWhenNoMetricExceedsThreshold() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "host";
+        MonitorResult result = monitorResult("UP", 120);
+        result.alertType = "host_resource_threshold";
+        result.message = "CPU 0.7% / 85.0%, Memory 79.5% / 85.0%, Disk 60.0% / 85.0%";
+
+        service.evaluate(monitorService, result, "UP");
+
+        verify(historyRepository, never()).saveAlertRecord(any(AlertRecord.class));
+        verify(alertMapper, never()).listChannelsByGroup(anyLong());
+    }
+
+    @Test
     void hostResourceTemplateVariablesIdentifyTriggeredMetrics() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
@@ -132,7 +149,7 @@ class AlertServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals("90.0%", variables.get("memoryText"));
         org.junit.jupiter.api.Assertions.assertEquals("20.0%", variables.get("diskText"));
         org.junit.jupiter.api.Assertions.assertEquals("HOST-20260603090644", variables.get("alertId"));
-        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("alertItems")).contains("❌ 内存使用率"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("alertItems")).contains("内存使用率"));
         org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("alertItems")).contains("超限幅度：+10.0%"));
     }
 
@@ -191,7 +208,7 @@ class AlertServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals("CPU使用率已恢复正常（78.2% < 85.0%）", variables.get("recoverReason"));
         org.junit.jupiter.api.Assertions.assertEquals("9分钟38秒", variables.get("duration"));
         org.junit.jupiter.api.Assertions.assertEquals("HOST-20260603090644", variables.get("alertId"));
-        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("recoverItems")).contains("✅ CPU使用率"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("recoverItems")).contains("CPU使用率"));
         org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("historyAlert")).contains("CPU使用率：92.4%"));
         org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("historyAlert")).contains("告警时间：2026-06-03 09:06:44"));
     }
