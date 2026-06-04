@@ -115,6 +115,22 @@ class ApiRuleEvaluatorTest {
     }
 
     @Test
+    void supportsNumericDifferenceFunctionsForCrossDatabaseRules() {
+        String body = "{\"sources\":{"
+            + "\"A\":{\"rows\":[{\"AMOUNT\":\"100.00\"}]},"
+            + "\"B\":{\"rows\":[{\"AMOUNT\":\"100.03\"}]}"
+            + "}}";
+
+        ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
+            "absDiff(field(\"A.AMOUNT\"), field(\"B.AMOUNT\")) <= 0.05"
+                + " && pctDiff(field(\"A.AMOUNT\"), field(\"B.AMOUNT\")) <= 0.001",
+            new ApiRuleEvaluator.ResponseContext(200, 68, body)
+        );
+
+        assertTrue(result.matched);
+    }
+
+    @Test
     void reportsInvalidExpressionsAsFailedRules() {
         ApiRuleEvaluator.Evaluation result = evaluator.evaluate(
             "json(\"$.code\") ==",

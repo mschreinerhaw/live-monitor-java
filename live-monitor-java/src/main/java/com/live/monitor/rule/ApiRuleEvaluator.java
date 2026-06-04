@@ -2,6 +2,7 @@ package com.live.monitor.rule;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -281,6 +282,12 @@ public class ApiRuleEvaluator {
             if ("samevalues".equals(name) || "samevalue".equals(name)) {
                 return sameValues(args, name);
             }
+            if ("absdiff".equals(name) || "diff".equals(name)) {
+                return numericDiff(args, false, name);
+            }
+            if ("pctdiff".equals(name) || "percentdiff".equals(name) || "percentagediff".equals(name)) {
+                return numericDiff(args, true, name);
+            }
             if ("number".equals(name)) {
                 return Value.number(numberValue(arg(args, 0, name)));
             }
@@ -501,6 +508,21 @@ public class ApiRuleEvaluator {
                 function + "(" + textValue(args.get(0)) + ", " + textValue(args.get(1)) + ")",
                 function + " not matched"
             );
+        }
+
+        private Value numericDiff(List<Value> args, boolean percentage, String function) {
+            if (args.size() != 2) {
+                throw new IllegalArgumentException(function + " requires two numeric values");
+            }
+            double left = firstNumberValue(args.get(0));
+            double right = firstNumberValue(args.get(1));
+            double diff = Math.abs(left - right);
+            if (percentage) {
+                double denominator = Math.max(Math.abs(left), Math.abs(right));
+                diff = denominator == 0D ? 0D : diff / denominator;
+            }
+            String detail = function + "(" + shortNumber(left) + ", " + shortNumber(right) + ") = " + shortNumber(diff);
+            return Value.number(diff, detail);
         }
 
         private Value rowValue(JsonNode row, String fieldName) {
@@ -846,6 +868,16 @@ public class ApiRuleEvaluator {
         return number;
     }
 
+    private static double firstNumberValue(Value value) {
+        for (Value item : values(value)) {
+            Double number = optionalNumber(item);
+            if (number != null) {
+                return number;
+            }
+        }
+        throw new IllegalArgumentException("numeric value expected: " + textValue(value));
+    }
+
     private static Double optionalNumber(Value value) {
         if (value == null || value.value == null) {
             return null;
@@ -858,6 +890,13 @@ public class ApiRuleEvaluator {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private static String shortNumber(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return String.valueOf(value);
+        }
+        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 
     private static String unquote(String text) {

@@ -97,5 +97,6 @@ public class MonitorService {
         public String jdbcUrl;
         public String databaseQuery;
         public List<String> assertionFields;
+        public Map<String, String> fieldMapping;
     }
 }

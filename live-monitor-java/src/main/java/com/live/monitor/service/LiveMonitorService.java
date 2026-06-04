@@ -985,6 +985,21 @@ public class LiveMonitorService {
         return result;
     }
 
+    private Map<String, String> cleanStringMap(Map<String, String> source) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (source == null) {
+            return result;
+        }
+        for (Map.Entry<String, String> entry : source.entrySet()) {
+            String key = emptyToNull(entry.getKey());
+            String value = emptyToNull(entry.getValue());
+            if (key != null && value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
     private List<MonitorService.CrossDatabaseQuery> cleanCrossDatabaseQueries(
         List<ServicePayload.CrossDatabaseQueryPayload> source
     ) {
@@ -1010,6 +1025,7 @@ public class LiveMonitorService {
             aliases.add(query.alias);
             query.databaseQuery = emptyToNull(item.databaseQuery);
             query.assertionFields = cleanStringList(item.assertionFields);
+            query.fieldMapping = cleanStringMap(item.fieldMapping);
             result.add(query);
             index++;
         }
@@ -1027,6 +1043,7 @@ public class LiveMonitorService {
             item.put("alias", query.alias);
             item.put("database_query", query.databaseQuery);
             item.put("assertion_fields", query.assertionFields);
+            item.put("field_mapping", query.fieldMapping);
             result.add(item);
         }
         return result;
@@ -1062,6 +1079,10 @@ public class LiveMonitorService {
             query.assertionFields = stringListObjectValue(itemMap.get("assertion_fields"));
             if (query.assertionFields.isEmpty()) {
                 query.assertionFields = stringListObjectValue(itemMap.get("assertionFields"));
+            }
+            query.fieldMapping = stringMapObjectValue(itemMap.get("field_mapping"));
+            if (query.fieldMapping.isEmpty()) {
+                query.fieldMapping = stringMapObjectValue(itemMap.get("fieldMapping"));
             }
             query.serviceType = source.serviceType;
             query.host = source.host;
@@ -1257,6 +1278,21 @@ public class LiveMonitorService {
                 if (StringUtils.hasText(text) && !result.contains(text)) {
                     result.add(text);
                 }
+            }
+        }
+        return result;
+    }
+
+    private Map<String, String> stringMapObjectValue(Object value) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!(value instanceof Map<?, ?>)) {
+            return result;
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            String key = entry.getKey() == null ? null : String.valueOf(entry.getKey()).trim();
+            String itemValue = entry.getValue() == null ? null : String.valueOf(entry.getValue()).trim();
+            if (StringUtils.hasText(key) && StringUtils.hasText(itemValue)) {
+                result.put(key, itemValue);
             }
         }
         return result;

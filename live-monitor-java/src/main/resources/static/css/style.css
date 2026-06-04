@@ -3114,6 +3114,23 @@ body[data-page="add-service"] .host-alert-duration-field select {
   background: #fff;
 }
 
+.compare-rule-template {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(110px, 0.7fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.compare-rule-template .compact-button {
+  min-height: 42px;
+}
+
+.cross-db-field-config {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr);
+  gap: 8px;
+}
+
 .cross-db-query-head {
   display: grid;
   grid-template-columns: minmax(100px, 0.8fr) minmax(180px, 1.4fr) auto auto;
@@ -4476,11 +4493,15 @@ body[data-page="add-service"] .host-alert-duration-field select {
   }
 
   .assertion-rule-row,
+  .compare-rule-template,
+  .cross-db-field-config,
+  .cross-db-query-head,
   .api-header-row {
     grid-template-columns: 1fr;
   }
 
   .assertion-rule-row .icon-button,
+  .cross-db-query-head .icon-button,
   .api-header-row .icon-button {
     justify-self: end;
   }

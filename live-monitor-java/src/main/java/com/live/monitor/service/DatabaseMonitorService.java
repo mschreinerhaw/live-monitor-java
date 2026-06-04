@@ -237,6 +237,7 @@ public class DatabaseMonitorService {
                     query.databasePassword,
                     query.databaseQuery,
                     query.assertionFields,
+                    query.fieldMapping,
                     query.jdbcDriverClass,
                     query.jdbcUrl,
                     timeoutSeconds
@@ -275,6 +276,7 @@ public class DatabaseMonitorService {
         String password,
         String query,
         List<String> assertionFields,
+        Map<String, String> fieldMapping,
         String jdbcDriverClass,
         String jdbcUrl,
         double timeoutSeconds
@@ -300,7 +302,7 @@ public class DatabaseMonitorService {
             statement.setQueryTimeout(timeoutSecondsInt);
             statement.setMaxRows(databaseResultMaxRows());
             boolean hasResultSet = statement.execute(sql);
-            return queryResult(statement, hasResultSet, assertionFields);
+            return queryResult(statement, hasResultSet, assertionFields, fieldMapping);
         }
     }
 
@@ -409,6 +411,15 @@ public class DatabaseMonitorService {
     }
 
     private QueryResult queryResult(Statement statement, boolean hasResultSet, List<String> assertionFields) throws Exception {
+        return queryResult(statement, hasResultSet, assertionFields, new LinkedHashMap<String, String>());
+    }
+
+    private QueryResult queryResult(
+        Statement statement,
+        boolean hasResultSet,
+        List<String> assertionFields,
+        Map<String, String> fieldMapping
+    ) throws Exception {
         if (!hasResultSet) {
             int count = statement.getUpdateCount();
             return new QueryResult("update count " + count, String.valueOf(count));
@@ -421,6 +432,7 @@ public class DatabaseMonitorService {
             int columnCount = metaData.getColumnCount();
             List<String> columns = columnLabels(metaData);
             Map<String, String> selectedFields = selectedFieldMap(assertionFields);
+            Map<String, String> mappedFields = selectedFieldMapFromMapping(fieldMapping);
             boolean includeAllFields = assertionFields != null && assertionFields.isEmpty();
             List<Map<String, Object>> selectedRows = new ArrayList<Map<String, Object>>();
             int maxRows = databaseResultMaxRows();
@@ -447,10 +459,18 @@ public class DatabaseMonitorService {
                     }
                     builder.append(text);
                     String selectedName = includeAllFields ? label : selectedFields.get(normalizeFieldName(label));
-                    if (row < maxRows && selectedName != null) {
-                        selectedRow.put(label, value == null ? null : String.valueOf(value));
-                        selectedRow.put(selectedName, value == null ? null : String.valueOf(value));
-                        selectedRow.put(normalizeFieldName(label), value == null ? null : String.valueOf(value));
+                    String mappedName = mappedFields.get(normalizeFieldName(label));
+                    if (row < maxRows && (selectedName != null || mappedName != null)) {
+                        String valueText = value == null ? null : String.valueOf(value);
+                        selectedRow.put(label, valueText);
+                        selectedRow.put(normalizeFieldName(label), valueText);
+                        if (selectedName != null) {
+                            selectedRow.put(selectedName, valueText);
+                        }
+                        if (mappedName != null) {
+                            selectedRow.put(mappedName, valueText);
+                            selectedRow.put(normalizeFieldName(mappedName), valueText);
+                        }
                     }
                 }
                 if (!selectedRow.isEmpty()) {
@@ -599,6 +619,19 @@ public class DatabaseMonitorService {
         for (String field : assertionFields) {
             if (StringUtils.hasText(field)) {
                 selected.put(normalizeFieldName(field), field.trim());
+            }
+        }
+        return selected;
+    }
+
+    private Map<String, String> selectedFieldMapFromMapping(Map<String, String> fieldMapping) {
+        Map<String, String> selected = new LinkedHashMap<String, String>();
+        if (fieldMapping == null) {
+            return selected;
+        }
+        for (Map.Entry<String, String> entry : fieldMapping.entrySet()) {
+            if (StringUtils.hasText(entry.getKey()) && StringUtils.hasText(entry.getValue())) {
+                selected.put(normalizeFieldName(entry.getKey()), entry.getValue().trim());
             }
         }
         return selected;

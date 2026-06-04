@@ -98,5 +98,6 @@ public class ServicePayload {
         public String alias;
         public String databaseQuery;
         public List<String> assertionFields;
+        public Map<String, String> fieldMapping;
     }
 }

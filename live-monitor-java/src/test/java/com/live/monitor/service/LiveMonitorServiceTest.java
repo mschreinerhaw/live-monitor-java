@@ -15,6 +15,8 @@ import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -128,6 +130,61 @@ class LiveMonitorServiceTest {
         assertEquals("json(\"$.rows[0].code\") == 0", config.get("api_assertion_expression"));
         assertEquals(java.util.Arrays.asList("code", "status"), config.get("database_assertion_fields"));
         assertEquals(java.util.Arrays.asList("code", "status"), created.databaseAssertionFields);
+    }
+
+    @Test
+    void createsCrossDatabaseServiceWithFieldMappingPersistedAndHydrated() throws Exception {
+        ObjectMapper requestMapper = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ServicePayload payload = requestMapper.readValue(
+            "{"
+                + "\"service_name\":\"Fund Compare\","
+                + "\"service_type\":\"cross_database\","
+                + "\"api_assertion_expression\":\"sameValues(\\\"A.FUND_CODE\\\",\\\"B.FUND_CODE\\\")\","
+                + "\"cross_database_queries\":["
+                + "{\"source_service_id\":51,\"alias\":\"A\",\"database_query\":\"SELECT fund_code FROM t_a\",\"assertion_fields\":[\"fund_code\"],\"field_mapping\":{\"fund_code\":\"FUND_CODE\"}},"
+                + "{\"source_service_id\":52,\"alias\":\"B\",\"database_query\":\"SELECT code FROM t_b\",\"assertion_fields\":[\"code\"],\"field_mapping\":{\"code\":\"FUND_CODE\"}}"
+                + "],"
+                + "\"check_interval\":60,"
+                + "\"check_timeout_seconds\":3,"
+                + "\"enabled\":true"
+                + "}",
+            ServicePayload.class
+        );
+
+        MonitorService sourceA = databaseConnectionSource(51L);
+        MonitorService sourceB = databaseConnectionSource(52L);
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        AtomicReference<MonitorService> storedRow = new AtomicReference<MonitorService>();
+        when(serviceMapper.findById(51L)).thenReturn(sourceA);
+        when(serviceMapper.findById(52L)).thenReturn(sourceB);
+        when(serviceMapper.insert(any(MonitorService.class))).thenAnswer(invocation -> {
+            MonitorService inserted = invocation.getArgument(0);
+            inserted.id = 45L;
+            storedRow.set(databaseRow(inserted));
+            return 1;
+        });
+        when(serviceMapper.findById(45L)).thenAnswer(invocation -> storedRow.get());
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            mock(MonitorRunnerService.class),
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        MonitorService created = service.create(payload);
+        Map<String, Object> config = objectMapper.readValue(storedRow.get().configJson, MAP_TYPE);
+        List<Map<String, Object>> queries = (List<Map<String, Object>>) config.get("cross_database_queries");
+
+        assertEquals("cross_database", storedRow.get().serviceType);
+        assertEquals(Collections.singletonMap("fund_code", "FUND_CODE"), queries.get(0).get("field_mapping"));
+        assertEquals(Collections.singletonMap("code", "FUND_CODE"), queries.get(1).get("field_mapping"));
+        assertEquals(Collections.singletonMap("fund_code", "FUND_CODE"), created.crossDatabaseQueries.get(0).fieldMapping);
+        assertEquals(Collections.singletonMap("code", "FUND_CODE"), created.crossDatabaseQueries.get(1).fieldMapping);
     }
 
     @Test
@@ -335,5 +392,22 @@ class LiveMonitorServiceTest {
         row.secretConfigJson = source.secretConfigJson;
         row.enabled = source.enabled;
         return row;
+    }
+
+    private MonitorService databaseConnectionSource(Long id) {
+        MonitorService source = new MonitorService();
+        source.id = id;
+        source.serviceName = "DB " + id;
+        source.serviceType = "jdbc";
+        source.checkInterval = 60;
+        source.checkTimeoutSeconds = 3D;
+        source.configJson = "{"
+            + "\"database_username\":\"monitor\","
+            + "\"jdbc_driver_class\":\"org.h2.Driver\","
+            + "\"jdbc_url\":\"jdbc:h2:mem:source-" + id + "\""
+            + "}";
+        source.secretConfigJson = "{\"database_password\":\"secret\"}";
+        source.enabled = true;
+        return source;
     }
 }

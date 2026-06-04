@@ -29,7 +29,7 @@
       <div class="panel-head">
         <div>
           <h1 id="serviceFormTitle">添加监控服务</h1>
-          <p class="panel-subtitle">配置检测目标、探测条件和告警配置</p>
+          <p id="serviceFormSubtitle" class="panel-subtitle">配置检测目标、探测条件和告警配置</p>
         </div>
       </div>
 
@@ -47,7 +47,7 @@
             <option value="oracle">Oracle</option>
             <option value="postgresql">PostgreSQL</option>
             <option value="jdbc">通用 JDBC</option>
-            <option value="cross_database">跨库检测</option>
+            <option value="cross_database">跨库比对任务</option>
           </select>
         </div>
 
@@ -428,6 +428,33 @@
           <div class="host-form-section-head">
             <h3>高级响应断言规则</h3>
           </div>
+          <div class="compare-rule-template cross-db-only">
+            <label>
+              <span>规则模板</span>
+              <select id="compareRuleTemplate">
+                <option value="same_values">字段集合一致</option>
+                <option value="exact">字段值精确相等</option>
+                <option value="abs_diff">数值差值阈值</option>
+                <option value="pct_diff">百分比误差阈值</option>
+              </select>
+            </label>
+            <label>
+              <span>左字段</span>
+              <input id="compareRuleLeftField" placeholder="A.FUND_CODE">
+            </label>
+            <label>
+              <span>右字段</span>
+              <input id="compareRuleRightField" placeholder="B.FUND_CODE">
+            </label>
+            <label class="compare-threshold-field">
+              <span>阈值</span>
+              <input id="compareRuleThreshold" type="number" min="0" step="0.0001" placeholder="0.01">
+            </label>
+            <button id="applyCompareRuleTemplateBtn" class="ghost-button compact-button" type="button">
+              <i data-lucide="wand-sparkles"></i>
+              <span>生成规则</span>
+            </button>
+          </div>
           <div class="assertion-mode-tabs" role="radiogroup" aria-label="响应断言配置方式">
             <label class="assertion-mode-card">
               <input type="radio" name="result_assertion_mode" value="visual" checked>
@@ -493,14 +520,14 @@
 
         <section class="api-form-section cross-db-only span-2">
           <div class="host-form-section-head">
-            <h3>跨库检测数据源</h3>
+            <h3>跨库比对数据源</h3>
             <button id="addCrossDatabaseQueryBtn" class="ghost-button compact-button" type="button">
               <i data-lucide="plus"></i>
               <span>增加数据源</span>
             </button>
           </div>
           <div id="crossDatabaseQueryRows" class="cross-db-query-rows"></div>
-          <small class="form-hint">引用已维护的数据源，每个数据源配置独立 SQL 和字段拾取；高级响应断言可使用 field("A.FUND_CODE")、sameValues("A.FUND_CODE","B.FUND_CODE") 等规则进行跨库结果比对。</small>
+          <small class="form-hint">引用已维护的数据源，每个数据源配置独立 SQL、字段拾取和字段映射；规则可使用 field("A.FUND_CODE")、sameValues("A.FUND_CODE","B.FUND_CODE")、absDiff(field("A.AMT"),field("B.AMT")) 等 DSL。</small>
         </section>
 
         <section class="host-form-section host-alert-policy-section span-2">
