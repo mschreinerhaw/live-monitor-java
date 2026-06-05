@@ -1,0 +1,536 @@
+/* Vendor/open-source style overrides generated from monitor-prototype.css for login. */
+/* Shared local Bootstrap-flavored refresh for the rest of the monitor pages. */
+
+body[data-page="login"] {
+  --lm-primary: #1f6feb;
+  --lm-primary-strong: #1a56c6;
+  --lm-surface: #ffffff;
+  --lm-soft: #f6f8fb;
+  --lm-soft-blue: #eef5ff;
+  --lm-border: #d8e2ee;
+  --lm-border-strong: #b7c8dc;
+  --lm-text: #172033;
+  --lm-muted: #667085;
+  --lm-success: #198754;
+  --lm-danger: #dc3545;
+  --lm-warning: #b7791f;
+  background:
+    linear-gradient(180deg, #edf4ff 0, rgba(237, 244, 255, 0) 280px),
+    #f5f7fb;
+  color: var(--lm-text);
+}
+
+body[data-page="login"] {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(31, 111, 235, 0.1), transparent 30%),
+    linear-gradient(135deg, #eef4ff 0%, #f6f8fb 48%, #edf3fa 100%);
+}
+
+body[data-page="login"] .login-shell,
+body[data-page="login"] .login-card,
+body[data-page="login"] .auth-card,
+body[data-page="login"] main,
+body[data-page="login"] form {
+  border-radius: 8px;
+}
+
+body[data-page="login"] .login-shell {
+  color: var(--lm-text);
+}
+
+body[data-page="login"] .login-card,
+body[data-page="login"] .auth-card,
+body[data-page="login"] main > form,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .login-form,
+body[data-page="login"] .login-box,
+body[data-page="login"] .auth-panel,
+body[data-page="login"] .auth-form {
+  border: 1px solid #cfdceb;
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--lm-text);
+  box-shadow: 0 26px 72px rgba(15, 34, 58, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+body[data-page="login"] h1,
+body[data-page="login"] h2,
+body[data-page="login"] .login-title,
+body[data-page="login"] .brand {
+  color: #101828;
+}
+
+body[data-page="login"] p,
+body[data-page="login"] small,
+body[data-page="login"] label,
+body[data-page="login"] .login-subtitle {
+  color: #475467;
+}
+
+body[data-page="login"] input {
+  min-height: 42px;
+  border-color: #b8c7d9;
+  border-radius: 7px;
+  background: #fff;
+  color: #101828;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+body[data-page="login"] input::placeholder {
+  color: #98a2b3;
+}
+
+body[data-page="login"] input:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+}
+
+body[data-page="login"] button,
+body[data-page="login"] .primary-button {
+  border-radius: 7px;
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(31, 111, 235, 0.2);
+}
+
+body[data-page="login"] button:hover,
+body[data-page="login"] .primary-button:hover {
+  background: var(--lm-primary-strong);
+}
+
+/* Usability guardrail: keep form controls and buttons legible across all pages. */
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+  min-height: 40px;
+  border: 1px solid #b8c7d9 !important;
+  border-radius: 7px;
+  background-color: #fff !important;
+  color: #101828 !important;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select) {
+  padding: 0 12px;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) textarea {
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea)::placeholder {
+  color: #98a2b3;
+  opacity: 1;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14) !important;
+  outline: 0;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea):disabled {
+  border-color: #d0d7e2 !important;
+  background-color: #eef2f6 !important;
+  color: #667085 !important;
+  cursor: not-allowed;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--lm-primary);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .ghost-button,
+  .light-button,
+  .danger-button,
+  .tab-button,
+  .admin-tab,
+  .service-add-button,
+  .alert-row-button,
+  .host-page-buttons button,
+  .form-actions button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button,
+  .modal-head button,
+  .setting-section button,
+  .admin-panel-actions button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+) {
+  min-height: 34px;
+  border: 1px solid var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+) {
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(31, 111, 235, 0.18);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .ghost-button,
+  .light-button,
+  .tab-button,
+  .admin-tab,
+  .alert-row-button,
+  .host-page-buttons button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button:not([type="submit"]),
+  .setting-section button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+):hover {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+):hover {
+  border-color: var(--lm-primary-strong);
+  background: var(--lm-primary-strong);
+  color: #fff;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(.danger-button, .instance-action.danger, .row-actions .danger-button) {
+  border-color: #f1b8c0;
+  background: #fff5f6;
+  color: #b42318;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(button, .primary-button, .ghost-button, .light-button, .icon-button, .tab-button, .admin-tab):disabled {
+  border-color: #d0d7e2 !important;
+  background: #eef2f6 !important;
+  color: #98a2b3 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* Login page form repair after the global button guardrail. */
+
+body[data-page="login"] {
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+body[data-page="login"] main,
+body[data-page="login"] .login-shell,
+body[data-page="login"] .login-card,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .auth-card,
+body[data-page="login"] .auth-panel {
+  width: min(566px, 100%);
+}
+
+body[data-page="login"] .login-card,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .auth-card,
+body[data-page="login"] .auth-panel,
+body[data-page="login"] main > form,
+body[data-page="login"] .login-form,
+body[data-page="login"] .auth-form {
+  padding: 44px 42px;
+  border: 1px solid #cfdceb;
+  background: #fff;
+  box-shadow: 0 22px 58px rgba(15, 34, 58, 0.16);
+}
+
+body[data-page="login"] form {
+  display: grid;
+  gap: 18px;
+}
+
+body[data-page="login"] label,
+body[data-page="login"] .form-field {
+  display: grid;
+  gap: 8px;
+  color: #24344d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body[data-page="login"] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  height: 58px;
+  min-height: 58px;
+  padding-inline: 52px 14px;
+  border: 1px solid #b8c7d9 !important;
+  border-radius: 8px;
+  background: #fff !important;
+  color: #101828 !important;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+body[data-page="login"] input:not([type="checkbox"]):not([type="radio"]):focus {
+  border-color: #2f80ed !important;
+  box-shadow: 0 0 0 4px rgba(47, 128, 237, 0.14) !important;
+}
+
+body[data-page="login"] input::placeholder {
+  color: #8a99ad;
+  font-weight: 700;
+}
+
+body[data-page="login"] input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border: 1px solid #98a2b3;
+  border-radius: 4px;
+  background: #fff;
+}
+
+body[data-page="login"] button:not([type="submit"]):not(.primary-button) {
+  min-width: auto;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lm-primary);
+  box-shadow: none;
+}
+
+body[data-page="login"] button:not([type="submit"]):not(.primary-button):hover,
+body[data-page="login"] button:not([type="submit"]):not(.primary-button):focus-visible {
+  background: #eef5ff;
+  color: var(--lm-primary-strong);
+  box-shadow: none;
+}
+
+body[data-page="login"] input[type="password"] + button,
+body[data-page="login"] .password-toggle,
+body[data-page="login"] .toggle-password,
+body[data-page="login"] .eye-button {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid #d7e3ef;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #52667f;
+}
+
+body[data-page="login"] input[type="password"] + button:hover,
+body[data-page="login"] .password-toggle:hover,
+body[data-page="login"] .toggle-password:hover,
+body[data-page="login"] .eye-button:hover {
+  border-color: #b8c7d9;
+  background: #eef5ff;
+  color: var(--lm-primary);
+}
+
+body[data-page="login"] .captcha-row,
+body[data-page="login"] .verify-row,
+body[data-page="login"] .captcha-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 12px;
+}
+
+body[data-page="login"] .captcha-row input,
+body[data-page="login"] .verify-row input,
+body[data-page="login"] .captcha-field input {
+  padding-inline: 52px 12px;
+}
+
+body[data-page="login"] .captcha-image,
+body[data-page="login"] .captcha-code,
+body[data-page="login"] #captchaImage,
+body[data-page="login"] #captchaText {
+  display: grid;
+  place-items: center;
+  height: 58px;
+  border: 1px solid var(--lm-primary);
+  border-radius: 8px;
+  background: var(--lm-primary);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 8px;
+}
+
+body[data-page="login"] .captcha-refresh,
+body[data-page="login"] .refresh-captcha,
+body[data-page="login"] #refreshCaptcha,
+body[data-page="login"] [data-refresh-captcha] {
+  justify-self: end;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: var(--lm-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+body[data-page="login"] button[type="submit"],
+body[data-page="login"] .login-submit,
+body[data-page="login"] .login-button,
+body[data-page="login"] .primary-button {
+  width: 100%;
+  height: 58px;
+  min-height: 58px;
+  border: 1px solid var(--lm-primary);
+  border-radius: 8px;
+  background: var(--lm-primary);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 12px 28px rgba(31, 111, 235, 0.22);
+}
+
+body[data-page="login"] button[type="submit"]:hover,
+body[data-page="login"] .login-submit:hover,
+body[data-page="login"] .login-button:hover,
+body[data-page="login"] .primary-button:hover {
+  background: var(--lm-primary-strong);
+}
+
+@media (max-width: 560px) {
+body[data-page="login"] .login-card,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .auth-card,
+body[data-page="login"] .auth-panel,
+body[data-page="login"] main > form,
+body[data-page="login"] .login-form,
+body[data-page="login"] .auth-form {
+    padding: 28px 20px;
+  }
+
+body[data-page="login"] .captcha-row,
+body[data-page="login"] .verify-row,
+body[data-page="login"] .captcha-field {
+    grid-template-columns: 1fr;
+  }
+}

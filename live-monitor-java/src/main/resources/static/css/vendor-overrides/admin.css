@@ -1,0 +1,519 @@
+/* Vendor/open-source style overrides generated from monitor-prototype.css for admin. */
+/* Shared local Bootstrap-flavored refresh for the rest of the monitor pages. */
+
+body[data-page="admin"] {
+  --lm-primary: #1f6feb;
+  --lm-primary-strong: #1a56c6;
+  --lm-surface: #ffffff;
+  --lm-soft: #f6f8fb;
+  --lm-soft-blue: #eef5ff;
+  --lm-border: #d8e2ee;
+  --lm-border-strong: #b7c8dc;
+  --lm-text: #172033;
+  --lm-muted: #667085;
+  --lm-success: #198754;
+  --lm-danger: #dc3545;
+  --lm-warning: #b7791f;
+  background:
+    linear-gradient(180deg, #edf4ff 0, rgba(237, 244, 255, 0) 280px),
+    #f5f7fb;
+  color: var(--lm-text);
+}
+
+body[data-page="admin"] .topbar {
+  border-bottom-color: #dce6f2;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 24px rgba(15, 34, 58, 0.05);
+}
+
+body[data-page="admin"] .brand-mark {
+  background: var(--lm-primary);
+}
+
+body[data-page="admin"] .nav a {
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+body[data-page="admin"] .nav a.active,
+body[data-page="admin"] .nav a:hover {
+  background: var(--lm-soft-blue);
+  color: var(--lm-primary-strong);
+}
+
+body[data-page="admin"] .panel,
+body[data-page="admin"] .admin-user-dialog {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: var(--lm-surface);
+  box-shadow: 0 14px 36px rgba(24, 39, 75, 0.07);
+}
+
+body[data-page="admin"] .panel:hover {
+  box-shadow: 0 18px 44px rgba(24, 39, 75, 0.1);
+}
+
+body[data-page="admin"] .panel-head {
+  border-bottom-color: var(--lm-border);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+body[data-page="admin"] .panel-head h1,
+body[data-page="admin"] .panel-head h2 {
+  color: var(--lm-text);
+  font-weight: 800;
+}
+
+body[data-page="admin"] .primary-button {
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 9px 20px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="admin"] .primary-button:hover {
+  border-color: var(--lm-primary-strong);
+  background: var(--lm-primary-strong);
+}
+
+body[data-page="admin"] .ghost-button,
+body[data-page="admin"] .icon-button {
+  border-color: var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+body[data-page="admin"] .ghost-button:hover,
+body[data-page="admin"] .icon-button:hover {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+}
+
+body[data-page="admin"] input,
+body[data-page="admin"] select,
+body[data-page="admin"] textarea {
+  border-color: var(--lm-border);
+  border-radius: 7px;
+}
+
+body[data-page="admin"] input:focus,
+body[data-page="admin"] select:focus,
+body[data-page="admin"] textarea:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+  outline: 0;
+}
+
+body[data-page="admin"] .admin-search {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.035);
+}
+
+body[data-page="admin"] .data-table th,
+body[data-page="admin"] .admin-user-table th,
+body[data-page="admin"] .admin-audit-table th {
+  background: #f8fbff;
+  color: #475467;
+  font-weight: 900;
+}
+
+body[data-page="admin"] .data-table td,
+body[data-page="admin"] .admin-user-table td,
+body[data-page="admin"] .admin-audit-table td {
+  border-bottom-color: #edf2f7;
+}
+
+body[data-page="admin"] .admin-tab {
+  border-color: #e1eaf5;
+  border-radius: 8px;
+}
+
+body[data-page="admin"] .admin-page > .panel:first-child {
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+  box-shadow: 0 14px 36px rgba(24, 39, 75, 0.07);
+}
+
+body[data-page="admin"] .admin-tabs {
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="admin"] .admin-tab {
+  border: 0;
+  background: transparent;
+  color: var(--lm-muted);
+  font-weight: 800;
+}
+
+body[data-page="admin"] .admin-tab.active {
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="admin"] .modal,
+body[data-page="admin"] .admin-user-dialog {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+body[data-page="admin"] .modal-head {
+  border-bottom-color: var(--lm-border);
+  background: #f8fbff;
+}
+
+/* Usability guardrail: keep form controls and buttons legible across all pages. */
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+  min-height: 40px;
+  border: 1px solid #b8c7d9 !important;
+  border-radius: 7px;
+  background-color: #fff !important;
+  color: #101828 !important;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select) {
+  padding: 0 12px;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) textarea {
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea)::placeholder {
+  color: #98a2b3;
+  opacity: 1;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14) !important;
+  outline: 0;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea):disabled {
+  border-color: #d0d7e2 !important;
+  background-color: #eef2f6 !important;
+  color: #667085 !important;
+  cursor: not-allowed;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--lm-primary);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"] {
+  position: relative;
+  width: 46px !important;
+  height: 24px !important;
+  min-height: 24px;
+  flex: 0 0 46px;
+  padding: 0 !important;
+  appearance: none;
+  border: 0 !important;
+  border-radius: 999px;
+  background: #98a2b3 !important;
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(16, 24, 40, 0.28);
+  transition: transform 0.16s ease;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]:checked {
+  background: var(--lm-primary) !important;
+  box-shadow: inset 0 0 0 1px rgba(26, 86, 198, 0.2), 0 0 0 3px rgba(31, 111, 235, 0.12);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]:checked::after {
+  transform: translateX(22px);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .ghost-button,
+  .light-button,
+  .danger-button,
+  .tab-button,
+  .admin-tab,
+  .service-add-button,
+  .alert-row-button,
+  .host-page-buttons button,
+  .form-actions button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button,
+  .modal-head button,
+  .setting-section button,
+  .admin-panel-actions button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+) {
+  min-height: 34px;
+  border: 1px solid var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+) {
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(31, 111, 235, 0.18);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .ghost-button,
+  .light-button,
+  .tab-button,
+  .admin-tab,
+  .alert-row-button,
+  .host-page-buttons button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button:not([type="submit"]),
+  .setting-section button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+):hover {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+):hover {
+  border-color: var(--lm-primary-strong);
+  background: var(--lm-primary-strong);
+  color: #fff;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(.danger-button, .instance-action.danger, .row-actions .danger-button) {
+  border-color: #f1b8c0;
+  background: #fff5f6;
+  color: #b42318;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(button, .primary-button, .ghost-button, .light-button, .icon-button, .tab-button, .admin-tab):disabled {
+  border-color: #d0d7e2 !important;
+  background: #eef2f6 !important;
+  color: #98a2b3 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) :where(.form-grid, .admin-form, .alert-simple-form, .setting-section, .modal, .admin-user-dialog) label > span {
+  color: #344054;
+  font-weight: 800;
+}
+
+/* Bootstrap compatibility: our app uses .modal-dialog without Bootstrap's .modal-content wrapper. */
+
+:where(
+  body[data-page="hosts"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="service-detail"],
+  body[data-page="dashboard"]
+) .modal-backdrop > .modal-dialog {
+  pointer-events: auto;
+}
+
+:where(
+  body[data-page="hosts"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="service-detail"],
+  body[data-page="dashboard"]
+) .modal-backdrop {
+  pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+body[data-page="admin"] .panel {
+    box-shadow: 0 10px 24px rgba(24, 39, 75, 0.06);
+  }
+
+body[data-page="admin"] .admin-tabs {
+    align-items: stretch;
+  }
+}

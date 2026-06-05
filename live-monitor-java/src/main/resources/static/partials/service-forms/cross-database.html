@@ -1,0 +1,11 @@
+        <section class="api-form-section cross-db-only span-2">
+          <div class="host-form-section-head">
+            <h3>跨库比对数据源与 SQL</h3>
+            <button id="addCrossDatabaseQueryBtn" class="ghost-button compact-button" type="button">
+              <i data-lucide="plus"></i>
+              <span>增加数据源</span>
+            </button>
+          </div>
+          <div id="crossDatabaseQueryRows" class="cross-db-query-rows"></div>
+          <small class="form-hint">先引用已维护的数据源，并为每个数据源配置独立 SQL、字段拾取和字段映射；下方断言规则可使用 field("A.FUND_CODE")、sameValues("A.FUND_CODE","B.FUND_CODE")、absDiff(field("A.AMT"),field("B.AMT")) 等 DSL。</small>
+        </section>
