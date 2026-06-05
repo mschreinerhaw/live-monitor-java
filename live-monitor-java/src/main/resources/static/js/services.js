@@ -43,16 +43,16 @@ async function initAddService() {
     toggleFieldSet(".web-monitor-only", isWeb && !isApi);
     toggleFieldSet(".api-only", isApi);
     toggleFieldSet(".result-rule-only", !isApi && (isDatabase || isCrossDatabase));
-    toggleFieldSet(".host-field", !isWeb && !isGenericJdbc && !usesDatabaseConnectionRef);
-    toggleFieldSet(".port-field", !isWeb && !isProcess && !isGenericJdbc && !usesDatabaseConnectionRef);
+    toggleFieldSet(".host-field", !isWeb && !isCrossDatabase && !isGenericJdbc);
+    toggleFieldSet(".port-field", !isWeb && !isProcess && !isCrossDatabase && !isGenericJdbc);
     toggleFieldSet(".process-only", isProcess);
     toggleFieldSet(".redis-only", isRedis);
     toggleFieldSet(".zookeeper-only", isZookeeper);
     toggleFieldSet(".database-only", isDatabase);
     toggleFieldSet(".cross-db-only", isCrossDatabase);
     toggleFieldSet(".database-connection-manual-only", isDatabase && !usesDatabaseConnectionRef);
-    toggleFieldSet(".jdbc-only", isGenericJdbc && !usesDatabaseConnectionRef);
-    toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef);
+    toggleFieldSet(".jdbc-only", isGenericJdbc);
+    toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc);
     syncApiFieldCopy(form, isApi);
     const urlInput = form.elements.url;
     const apiUrlInput = form.elements.api_url;
@@ -473,10 +473,9 @@ function buildServicePayload(form) {
   const isApi = serviceType === "api";
   const isDatabaseAdvancedRule = isDatabaseAdvancedRuleMode(form);
   if (isApi) {
-    const apiVisualMode = assertionModeValue(form, "api_assertion_mode") !== "dsl";
     data.url = normalizeWebUrl(data.api_url, "https");
     data.http_method = data.api_http_method || "GET";
-    data.expected_status_code = apiVisualMode && data.api_expected_status_code ? Number(data.api_expected_status_code) : null;
+    data.expected_status_code = null;
     data.response_keyword = null;
     data.api_assertion_expression = buildApiAssertionExpression(form) || null;
     data.ignore_ssl_verification = Boolean(form.elements.api_ignore_ssl_verification?.checked);
@@ -489,10 +488,10 @@ function buildServicePayload(form) {
     data.api_bearer_token = data.api_auth_type === "bearer" ? data.api_bearer_token || null : null;
     data.api_auth_app_id = data.api_auth_type === "custom_header" ? data.api_auth_app_id || null : null;
     data.api_auth_app_secret = data.api_auth_type === "custom_header" ? data.api_auth_app_secret || null : null;
-    data.api_response_time_ms = apiVisualMode && data.api_response_time_ms ? Number(data.api_response_time_ms) : null;
-    data.api_json_assertions = apiVisualMode ? data.api_json_assertions?.trim() || null : null;
-    data.api_text_assertion_mode = apiVisualMode ? data.api_text_assertion_mode || "contains" : "contains";
-    data.api_text_assertion_value = apiVisualMode ? data.api_text_assertion_value?.trim() || null : null;
+    data.api_response_time_ms = null;
+    data.api_json_assertions = null;
+    data.api_text_assertion_mode = "contains";
+    data.api_text_assertion_value = null;
   } else {
     data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
     data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
@@ -699,22 +698,15 @@ function fillServiceForm(form, service) {
     form.elements.api_auth_app_secret.value = "";
     form.elements.api_auth_app_secret.placeholder = service.api_auth_type === "custom_header" ? "留空则保持原 AppSecret" : "";
   }
-  if (form.elements.api_advanced_assertion_expression
-    && service.service_type === "api"
-    && service.api_assertion_expression
-    && !service.api_response_time_ms
-    && !service.api_json_assertions
-    && !service.api_text_assertion_value) {
-    form.elements.api_advanced_assertion_expression.value = service.api_assertion_expression;
-  }
   if (service.service_type === "api" && form.elements.api_advanced_assertion_expression) {
-    const visualExpression = buildApiVisualAssertionExpression(form);
     const savedExpression = service.api_assertion_expression || "";
-    if (savedExpression && savedExpression !== visualExpression) {
+    renderApiAssertionRuleRows(apiVisualAssertionRulesFromService(service));
+    if (savedExpression) {
       setAssertionModeValue(form, "api_assertion_mode", "dsl");
       form.elements.api_advanced_assertion_expression.value = savedExpression;
     } else {
       setAssertionModeValue(form, "api_assertion_mode", "visual");
+      form.elements.api_advanced_assertion_expression.value = "";
     }
   } else if (form.elements.result_advanced_assertion_expression) {
     const savedExpression = service.api_assertion_expression || "";
@@ -752,6 +744,34 @@ function fillServiceForm(form, service) {
   syncResultAssertionMode(form);
   hideAssertionDslPreviews();
   renderDatabaseSelectedFields(form, service.database_assertion_fields || []);
+}
+
+function apiVisualAssertionRulesFromService(service) {
+  const rules = [];
+  if (service.expected_status_code) {
+    rules.push({ type: "status", operator: "==", value: String(service.expected_status_code) });
+  }
+  if (service.api_response_time_ms) {
+    rules.push({ type: "response_time", operator: "<", value: String(service.api_response_time_ms) });
+  }
+  String(service.api_json_assertions || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const normalized = normalizeJsonAssertionLine(line);
+      const match = normalized.match(/^json\s*\(\s*"([^"]+)"\s*\)\s*(==|!=|>=|<=|>|<)\s*(.+)$/i);
+      if (match) {
+        rules.push({ type: "json_compare", path: match[1], operator: match[2], value: match[3] });
+      }
+    });
+  if (service.api_text_assertion_value) {
+    rules.push({
+      type: service.api_text_assertion_mode === "not_contains" ? "not_contains" : "contains",
+      value: service.api_text_assertion_value,
+    });
+  }
+  return rules;
 }
 
 

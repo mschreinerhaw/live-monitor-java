@@ -221,6 +221,83 @@ function showToast(message) {
   }, 2600);
 }
 
+function showConfirmDialog(options = {}) {
+  const {
+    title = "确认操作",
+    message = "确定继续吗？",
+    detail = "",
+    confirmText = "确定",
+    cancelText = "取消",
+    danger = false,
+  } = typeof options === "string" ? { message: options } : options;
+
+  if (typeof document === "undefined") return Promise.resolve(window.confirm(message));
+
+  let dialog = document.getElementById("confirmDialog");
+  if (!dialog) {
+    dialog = document.createElement("div");
+    dialog.id = "confirmDialog";
+    dialog.className = "confirm-backdrop";
+    dialog.hidden = true;
+    dialog.innerHTML = `
+      <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+        <div class="confirm-dialog-icon"><i data-lucide="triangle-alert"></i></div>
+        <div class="confirm-dialog-body">
+          <h2 id="confirmDialogTitle"></h2>
+          <p class="confirm-dialog-message"></p>
+          <p class="confirm-dialog-detail"></p>
+          <div class="confirm-dialog-actions">
+            <button class="ghost-button confirm-cancel" type="button"></button>
+            <button class="primary-button confirm-submit" type="button"></button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+  }
+
+  return new Promise((resolve) => {
+    const submit = dialog.querySelector(".confirm-submit");
+    const cancel = dialog.querySelector(".confirm-cancel");
+    const titleNode = dialog.querySelector("#confirmDialogTitle");
+    const messageNode = dialog.querySelector(".confirm-dialog-message");
+    const detailNode = dialog.querySelector(".confirm-dialog-detail");
+
+    titleNode.textContent = title;
+    messageNode.textContent = message;
+    detailNode.textContent = detail;
+    detailNode.hidden = !detail;
+    submit.textContent = confirmText;
+    cancel.textContent = cancelText;
+    dialog.classList.toggle("is-danger", danger);
+    dialog.hidden = false;
+
+    const close = (value) => {
+      dialog.hidden = true;
+      submit.removeEventListener("click", confirm);
+      cancel.removeEventListener("click", dismiss);
+      dialog.removeEventListener("click", backdropDismiss);
+      document.removeEventListener("keydown", escapeDismiss);
+      resolve(value);
+    };
+    const confirm = () => close(true);
+    const dismiss = () => close(false);
+    const backdropDismiss = (event) => {
+      if (event.target === dialog) dismiss();
+    };
+    const escapeDismiss = (event) => {
+      if (event.key === "Escape") dismiss();
+    };
+
+    submit.addEventListener("click", confirm);
+    cancel.addEventListener("click", dismiss);
+    dialog.addEventListener("click", backdropDismiss);
+    document.addEventListener("keydown", escapeDismiss);
+    submit.focus();
+    if (window.lucide) window.lucide.createIcons();
+  });
+}
+
 function renderStatus(status) {
   const value = statusLabel(status);
   return `<span class="status-pill status-${value}"><span class="status-dot"></span>${value}</span>`;

@@ -197,6 +197,35 @@ class AlertDeliveryServiceTest {
     }
 
     @Test
+    void rendersDatabaseAssertionTemplateBusinessFields(@TempDir Path templateDir) {
+        Map<String, Object> variables = new LinkedHashMap<String, Object>();
+        variables.put("serviceName", "Order DB");
+        variables.put("instanceName", "10.0.0.9:3306");
+        variables.put("databaseProduct", "MySQL 8.0");
+        variables.put("level", "CRITICAL");
+        variables.put("alertTime", "2026-06-05 10:11:12");
+        variables.put("responseTime", "68");
+        variables.put("databaseSummary", "数据库查询结果不符合业务规则：> 0");
+        variables.put("databaseResult", "order_count=0");
+        variables.put("databaseRule", "> 0");
+        variables.put("databaseHit", "-");
+        variables.put("databaseReason", "order_count = [0] > 0 not matched");
+        variables.put("businessImpact", "影响订单业务判断");
+        variables.put("actionSuggestion", "核对监控 SQL 和断言表达式");
+
+        AlertDeliveryService service = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"));
+        String rendered = service.renderTemplate("sms_database_assertion_alert.j2", variables, "fallback");
+        String emailRendered = service.renderTemplate("email_database_assertion_alert.j2", variables, "fallback");
+
+        assertTrue(rendered.contains("数据库业务断言告警"));
+        assertTrue(rendered.contains("Order DB"));
+        assertTrue(rendered.contains("order_count=0"));
+        assertTrue(rendered.contains("核对监控 SQL 和断言表达式"));
+        assertTrue(emailRendered.contains("数据库查询结果不符合业务规则"));
+        assertTrue(emailRendered.contains("order_count = [0] > 0 not matched"));
+    }
+
+    @Test
     void rendersExternalTemplateBeforeBundledResource(@TempDir Path templateDir) throws Exception {
         Files.write(
             templateDir.resolve("sms_service_alert.j2"),

@@ -172,6 +172,49 @@ class AlertServiceTest {
     }
 
     @Test
+    void databaseAssertionAlertUsesBusinessLanguageTemplate() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, deliveryService);
+        MonitorService monitorService = monitorService();
+        monitorService.serviceType = "mysql";
+        monitorService.serviceConsecutiveFailures = 1;
+        monitorService.host = "10.0.0.9";
+        monitorService.port = 3306;
+
+        MonitorResult result = monitorResult("DOWN", 68);
+        result.checkedAt = "2026-06-05 10:11:12";
+        result.message = "MySQL 8.0.36, result: order_count=0, rule: > 0, "
+            + "api assertion failed: field(\"order_count\") > 0, reason: order_count = [0] > 0 not matched";
+
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "sms";
+        channel.enabled = true;
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.emptyList());
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(channel));
+        when(deliveryService.renderTemplate(eq("sms_database_assertion_alert.j2"), any(Map.class), anyString())).thenReturn("rendered");
+        when(deliveryService.send(eq(channel), eq("rendered"))).thenReturn(AlertDeliveryService.DeliveryResult.success());
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<Map<String, Object>> variablesCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(deliveryService).renderTemplate(eq("sms_database_assertion_alert.j2"), variablesCaptor.capture(), anyString());
+        Map<String, Object> variables = variablesCaptor.getValue();
+        org.junit.jupiter.api.Assertions.assertEquals("MySQL 8.0.36", variables.get("databaseProduct"));
+        org.junit.jupiter.api.Assertions.assertEquals("order_count=0", variables.get("databaseResult"));
+        org.junit.jupiter.api.Assertions.assertEquals("> 0", variables.get("databaseRule"));
+        org.junit.jupiter.api.Assertions.assertEquals(
+            "数据库查询结果不符合业务规则：> 0",
+            variables.get("databaseSummary")
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("order_count = [0] > 0 not matched", variables.get("databaseReason"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("businessImpact")).contains("业务判断"));
+        org.junit.jupiter.api.Assertions.assertTrue(String.valueOf(variables.get("actionSuggestion")).contains("监控 SQL"));
+    }
+
+    @Test
     void hostResourceTemplateVariablesIdentifyTriggeredMetrics() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);

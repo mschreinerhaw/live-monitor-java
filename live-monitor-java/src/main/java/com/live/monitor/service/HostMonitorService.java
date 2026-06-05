@@ -305,6 +305,7 @@ public class HostMonitorService {
         host.sshPasswordCipher = cryptoService.encrypt(payload.sshPassword);
         host.privateKeyCipher = cryptoService.encrypt(payload.privateKey);
         host.clusterName = StringUtils.hasText(payload.clusterName) ? payload.clusterName.trim() : "服务器主机";
+        host.remark = StringUtils.hasText(payload.remark) ? payload.remark.trim() : null;
         host.cpuThresholdPercent = payload.cpuThresholdPercent == null ? 85D : payload.cpuThresholdPercent;
         host.memoryThresholdPercent = payload.memoryThresholdPercent == null ? 85D : payload.memoryThresholdPercent;
         host.diskThresholdPercent = payload.diskThresholdPercent == null ? 85D : payload.diskThresholdPercent;
@@ -330,6 +331,7 @@ public class HostMonitorService {
         service.serviceCategory = "host";
         service.serviceType = "host";
         service.clusterName = StringUtils.hasText(host.clusterName) ? host.clusterName : "服务器主机";
+        service.monitorReason = host.remark;
         service.endpoint = host.ip;
         service.host = host.ip;
         service.port = host.sshPort;

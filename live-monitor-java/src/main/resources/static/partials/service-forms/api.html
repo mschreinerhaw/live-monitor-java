@@ -98,44 +98,32 @@
               <span>高级 DSL</span>
             </label>
           </div>
-          <div class="api-form-grid">
-            <label data-api-assertion-visual>
-              <span>状态码</span>
-              <input name="api_expected_status_code" type="number" min="100" max="599" value="200">
-            </label>
-            <label data-api-assertion-visual>
-              <span>响应时间小于（ms）</span>
-              <input name="api_response_time_ms" type="number" min="1" placeholder="3000">
-            </label>
-            <label class="span-2" data-api-assertion-visual>
-              <span>JSON断言</span>
-              <textarea name="api_json_assertions" rows="4" spellcheck="false" placeholder='$.code == 0&#10;$.success == true&#10;$.data.status == "UP"'></textarea>
-            </label>
-            <label data-api-assertion-visual>
-              <span>文本断言</span>
-              <select name="api_text_assertion_mode">
-                <option value="contains">包含</option>
-                <option value="not_contains">不包含</option>
-              </select>
-            </label>
-            <label data-api-assertion-visual>
-              <span>文本内容</span>
-              <input name="api_text_assertion_value" placeholder="success">
-            </label>
-            <label class="span-2 assertion-preview-field" data-api-assertion-visual>
+          <div class="assertion-mode-panel" data-api-assertion-visual>
+            <div class="api-inline-head">
+              <span>断言条件</span>
+              <button id="addApiAssertionRuleBtn" class="ghost-button compact-button" type="button">
+                <i data-lucide="plus"></i>
+                <span>增加</span>
+              </button>
+            </div>
+            <div id="apiAssertionRows" class="assertion-rule-rows"></div>
+            <div class="api-inline-head assertion-preview-head">
               <span>DSL 预览</span>
               <button id="generateApiAssertionDslBtn" class="ghost-button compact-button" type="button">
                 <i data-lucide="code-2"></i>
                 <span>生成</span>
               </button>
-              <textarea id="apiAssertionDslPreview" rows="3" spellcheck="false" readonly hidden placeholder="点击生成后查看 DSL"></textarea>
-            </label>
-            <label class="span-2" data-api-assertion-dsl hidden>
-              <span>高级 DSL 断言</span>
-              <textarea name="api_advanced_assertion_expression" rows="4" spellcheck="false" placeholder='json("$.code") == 0 && json("$.status") == "OK" && responseMs() < 3000'></textarea>
-              <small class="form-hint">选择高级 DSL 后，上面的可视化断言不会参与保存。</small>
+            </div>
+            <label class="assertion-preview-field" hidden>
+              <span>生成的 DSL</span>
+              <textarea id="apiAssertionDslPreview" rows="3" spellcheck="false" readonly placeholder="点击生成后查看 DSL"></textarea>
             </label>
           </div>
+          <label class="assertion-mode-panel" data-api-assertion-dsl hidden>
+            <span>高级 DSL 断言</span>
+            <textarea name="api_advanced_assertion_expression" rows="4" spellcheck="false" placeholder='status() == 200 && json("$.code") == 0 && responseMs() < 3000'></textarea>
+            <small class="form-hint">选择高级 DSL 后，可视化配置不会参与保存。</small>
+          </label>
         </section>
 
         <section class="api-form-section api-test-section api-only span-2">

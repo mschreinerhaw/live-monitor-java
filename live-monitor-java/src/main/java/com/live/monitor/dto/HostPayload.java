@@ -16,6 +16,7 @@ public class HostPayload {
     public String sshPassword;
     public String privateKey;
     public String clusterName;
+    public String remark;
     @Min(1)
     @Max(100)
     public Double cpuThresholdPercent = 85D;

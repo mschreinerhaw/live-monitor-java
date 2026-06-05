@@ -28,12 +28,12 @@ public interface HostMapper {
     HostConfig findEnabledByAddress(@Param("address") String address);
 
     @Insert("INSERT INTO host_config (host_name, ip, ssh_port, ssh_user, ssh_password_cipher, private_key_cipher, " +
-        "monitor_service_id, cluster_name, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
+        "monitor_service_id, cluster_name, remark, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
         "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, resource_alert_duration_seconds, " +
         "resource_alert_duration_enabled, resource_recover_duration_enabled, resource_alert_cooldown_enabled, " +
         "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
-        "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
+        "#{monitorServiceId}, #{clusterName}, #{remark}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
         "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{resourceAlertDurationSeconds}, " +
         "#{resourceAlertDurationEnabled}, #{resourceRecoverDurationEnabled}, #{resourceAlertCooldownEnabled}, " +
         "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{enabled})")
@@ -43,7 +43,7 @@ public interface HostMapper {
     @Update("UPDATE host_config SET host_name = #{hostName}, ip = #{ip}, ssh_port = #{sshPort}, ssh_user = #{sshUser}, " +
         "ssh_password_cipher = COALESCE(#{sshPasswordCipher}, ssh_password_cipher), " +
         "private_key_cipher = COALESCE(#{privateKeyCipher}, private_key_cipher), monitor_service_id = #{monitorServiceId}, " +
-        "cluster_name = #{clusterName}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
+        "cluster_name = #{clusterName}, remark = #{remark}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
         "memory_threshold_percent = #{memoryThresholdPercent}, disk_threshold_percent = #{diskThresholdPercent}, " +
         "cpu_alert_enabled = #{cpuAlertEnabled}, memory_alert_enabled = #{memoryAlertEnabled}, " +
         "disk_alert_enabled = #{diskAlertEnabled}, resource_alert_duration_seconds = #{resourceAlertDurationSeconds}, " +

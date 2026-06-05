@@ -123,28 +123,28 @@
                                     <span><i data-lucide="cpu"></i>CPU</span>
                                     <strong id="cpuMetric">0%</strong>
                                 </div>
-                                <canvas id="cpuChart" width="220" height="56"></canvas>
+                                <div id="cpuChart" class="resource-echart" role="img" aria-label="CPU 使用率趋势"></div>
                             </article>
                             <article class="resource-chart-card" data-metric="memory">
                                 <div class="resource-chart-head">
                                     <span><i data-lucide="memory-stick"></i>内存</span>
                                     <strong id="memoryMetric">0%</strong>
                                 </div>
-                                <canvas id="memoryChart" width="220" height="56"></canvas>
+                                <div id="memoryChart" class="resource-echart" role="img" aria-label="内存使用率趋势"></div>
                             </article>
                             <article class="resource-chart-card" data-metric="disk">
                                 <div class="resource-chart-head">
                                     <span><i data-lucide="hard-drive"></i>磁盘</span>
                                     <strong id="diskMetric">0%</strong>
                                 </div>
-                                <canvas id="diskChart" width="220" height="56"></canvas>
+                                <div id="diskChart" class="resource-echart" role="img" aria-label="磁盘使用率趋势"></div>
                             </article>
                             <article class="resource-chart-card" data-metric="network">
                                 <div class="resource-chart-head">
                                     <span><i data-lucide="radio-tower"></i>网络</span>
                                     <strong id="networkMetric">0 KB/s</strong>
                                 </div>
-                                <canvas id="networkChart" width="220" height="56"></canvas>
+                                <div id="networkChart" class="resource-echart" role="img" aria-label="网络吞吐趋势"></div>
                             </article>
                         </div>
                     </section>
@@ -201,6 +201,7 @@
 <script src="/js/services.js"></script>
 <script src="/js/alert-settings.js"></script>
 <script src="/js/hosts.js"></script>
+<script src="/vendor/echarts/echarts.min.js"></script>
 <script src="/js/dashboard.js"></script>
 <script src="/js/main.js"></script>
 </body>

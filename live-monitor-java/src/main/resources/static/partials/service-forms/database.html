@@ -1,17 +1,9 @@
-        <label class="database-only span-2">
-          <span>连接信息来源</span>
-          <select name="database_connection_service_id" id="databaseConnectionSelect">
-            <option value="">手动填写连接信息</option>
-          </select>
-          <small class="form-hint">引用已保存的同类型数据库连接，仅复用地址、端口、库名、用户名、密码和驱动；当前服务仍单独配置 SQL、规则和告警。</small>
-        </label>
-
-        <label class="database-only standard-database-only database-connection-manual-only">
+        <label class="database-only standard-database-only">
           <span>数据库名 / 服务名</span>
           <input name="database_name" placeholder="MySQL库名、PostgreSQL库名、Oracle服务名">
         </label>
 
-        <label class="database-only database-connection-manual-only span-2">
+        <label class="database-only span-2">
           <span>JDBC 驱动类</span>
           <input name="jdbc_driver_class" list="jdbcDriverClassOptions" placeholder="可选，MySQL 5.x：com.mysql.jdbc.Driver；MySQL 8.x：com.mysql.cj.jdbc.Driver">
           <datalist id="jdbcDriverClassOptions">
@@ -23,12 +15,12 @@
           </datalist>
         </label>
 
-        <label class="database-only jdbc-only database-connection-manual-only span-2">
+        <label class="database-only jdbc-only span-2">
           <span>JDBC 连接串</span>
           <input name="jdbc_url" placeholder="例如：jdbc:sqlserver://127.0.0.1:1433;databaseName=master;encrypt=false">
         </label>
 
-        <label class="database-only database-connection-manual-only">
+        <label class="database-only">
           <span>数据库用户</span>
           <input name="database_username" placeholder="例如：monitor">
         </label>
@@ -67,7 +59,7 @@
         <section class="api-form-section assertion-config-section result-rule-only span-2">
           <div class="host-form-section-head">
             <h3>高级响应断言规则</h3>
-            <button id="testRuleBtn" class="ghost-button compact-button result-rule-only" type="button">
+            <button id="testRuleBtn" class="ghost-button compact-button lightweight-action-button result-rule-only" type="button">
               <i data-lucide="flask-conical"></i>
               <span>测试规则</span>
             </button>
@@ -161,7 +153,7 @@
           <small class="form-hint">仅允许只读 SELECT；查询预览和检测都会使用超时限制，预览行数受系统配置控制且最多 10 行。</small>
           <small class="form-hint">执行查询预览后会自动拾取返回字段，并可在高级断言可视化配置中直接引用。</small>
           <span class="database-query-actions">
-            <button id="databasePreviewBtn" class="ghost-button database-only" type="button">
+            <button id="databasePreviewBtn" class="ghost-button compact-button lightweight-action-button database-only" type="button">
               <i data-lucide="table-2"></i>
               <span>查询预览</span>
             </button>

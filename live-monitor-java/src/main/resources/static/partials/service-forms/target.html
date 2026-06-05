@@ -1,3 +1,11 @@
+        <label class="database-only span-2">
+          <span>连接信息来源</span>
+          <select name="database_connection_service_id" id="databaseConnectionSelect">
+            <option value="">手动填写连接信息</option>
+          </select>
+          <small class="form-hint">引用已保存的同类型数据库连接，会自动带出地址、端口、库名、用户名和驱动；当前服务仍单独配置 SQL、规则和告警。</small>
+        </label>
+
         <label class="host-port host-field">
           <span>地址</span>
           <input name="host" placeholder="127.0.0.1">

@@ -47,6 +47,11 @@ public class AlertService {
     private static final Pattern CPU_THRESHOLD_PATTERN = Pattern.compile("CPU\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
     private static final Pattern MEMORY_THRESHOLD_PATTERN = Pattern.compile("Memory\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
     private static final Pattern DISK_THRESHOLD_PATTERN = Pattern.compile("Disk\\s+([0-9.]+)%\\s*/\\s*([0-9.]+%|disabled)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DB_PRODUCT_PATTERN = Pattern.compile("^([^,]+)");
+    private static final Pattern DB_RESULT_PATTERN = Pattern.compile("(?:^|,\\s)(?:cross database result|result):\\s(.*?)(?=,\\s(?:rule|api assertion|hit|reason)\\b|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DB_RULE_PATTERN = Pattern.compile("(?:^|,\\s)rule:\\s(.*?)(?=,\\s(?:api assertion|hit|reason)\\b|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DB_HIT_PATTERN = Pattern.compile("(?:^|,\\s)hit:\\s(.*?)(?=,\\sreason:|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DB_REASON_PATTERN = Pattern.compile("(?:^|,\\s)reason:\\s(.*)$", Pattern.CASE_INSENSITIVE);
 
     private final AlertMapper alertMapper;
     private final RocksDbHistoryRepository historyRepository;
@@ -734,11 +739,20 @@ public class AlertService {
         String fallbackContent,
         AlertState activeState
     ) {
-        String templateName = templateName(service, policy, channel);
+        String templateName = templateName(service, result, policy, channel);
         return deliveryService.renderTemplate(templateName, templateVariables(service, result, policy, activeState), fallbackContent);
     }
 
     private String defaultContent(MonitorService service, MonitorResult result, AlertPolicy policy) {
+        if (isDatabaseType(normalize(service.serviceType)) && EventType.DB_ASSERT_FAIL.name().equals(result.eventType)) {
+            DatabaseAssertionSummary assertion = databaseAssertionSummary(service, result);
+            return "数据库业务断言告警：服务 " + safe(service.serviceName)
+                + "，实例 " + instanceName(service)
+                + "，业务结论：" + assertion.summary
+                + "，检测结果：" + assertion.result
+                + "，失败原因：" + assertion.reason
+                + "，处理建议：" + assertion.actionSuggestion;
+        }
         return "Service " + service.serviceName + " triggered " + policy.policyName +
             ". Status: " + result.status +
             ". Type: " + service.serviceType +
@@ -746,7 +760,7 @@ public class AlertService {
             ". Message: " + safe(result.message);
     }
 
-    private String templateName(MonitorService service, AlertPolicy policy, AlertChannel channel) {
+    private String templateName(MonitorService service, MonitorResult result, AlertPolicy policy, AlertChannel channel) {
         if ("host".equals(normalize(service.serviceType))) {
             if ("recovered".equals(policy.triggerType)) {
                 return "email".equals(normalize(channel.channelType))
@@ -757,6 +771,11 @@ public class AlertService {
                 return "email_host_resource_alert.j2";
             }
             return "alert_host_resource.j2";
+        }
+        if (isDatabaseType(normalize(service.serviceType)) && EventType.DB_ASSERT_FAIL.name().equals(result.eventType)) {
+            return "email".equals(normalize(channel.channelType))
+                ? "email_database_assertion_alert.j2"
+                : "sms_database_assertion_alert.j2";
         }
         if ("recovered".equals(policy.triggerType)) {
             return "sms_service_recover.j2";
@@ -776,6 +795,7 @@ public class AlertService {
         Map<String, String> hostMetrics = hostMetrics(result.message);
         String alertAt = firstNonBlank(activeState == null ? null : activeState.lastAlertAt, eventTime(result));
         String previousMessage = activeState == null ? null : activeState.lastMessage;
+        DatabaseAssertionSummary databaseAssertion = databaseAssertionSummary(service, result);
         variables.put("serviceName", safe(service.serviceName));
         variables.put("instanceName", instanceName(service));
         variables.put("host", firstNonBlank(service.host, service.endpoint, service.url, service.clusterName, "-"));
@@ -798,6 +818,14 @@ public class AlertService {
         variables.put("recoverItems", hostRecoverItems(result.message, previousMessage));
         variables.put("historyAlert", hostHistoryAlert(previousMessage, alertAt));
         variables.put("alertSummary", hostAlertSummary(result.message));
+        variables.put("databaseProduct", databaseAssertion.product);
+        variables.put("databaseResult", databaseAssertion.result);
+        variables.put("databaseRule", databaseAssertion.rule);
+        variables.put("databaseHit", databaseAssertion.hit);
+        variables.put("databaseReason", databaseAssertion.reason);
+        variables.put("databaseSummary", databaseAssertion.summary);
+        variables.put("businessImpact", databaseAssertion.businessImpact);
+        variables.put("actionSuggestion", databaseAssertion.actionSuggestion);
         return variables;
     }
 
@@ -817,6 +845,9 @@ public class AlertService {
     private String alertReason(MonitorService service, MonitorResult result) {
         if ("host".equals(normalize(service.serviceType))) {
             return hostAlertReason(result.message);
+        }
+        if (isDatabaseType(normalize(service.serviceType)) && EventType.DB_ASSERT_FAIL.name().equals(result.eventType)) {
+            return databaseAssertionSummary(service, result).summary;
         }
         return safe(result.message);
     }
@@ -898,6 +929,63 @@ public class AlertService {
     private String hostAlertSummary(String message) {
         int count = exceededMetrics(message).size();
         return count <= 0 ? "-" : count + "项指标超过阈值";
+    }
+
+    private DatabaseAssertionSummary databaseAssertionSummary(MonitorService service, MonitorResult result) {
+        String message = result == null ? null : result.message;
+        if (!isDatabaseType(normalize(service == null ? null : service.serviceType))
+            || result == null
+            || !EventType.DB_ASSERT_FAIL.name().equals(result.eventType)) {
+            return DatabaseAssertionSummary.empty();
+        }
+        String product = message != null && normalize(message).startsWith("cross database result:")
+            ? "跨数据库断言"
+            : firstNonBlank(match(DB_PRODUCT_PATTERN, message), databaseDisplayName(service), "-");
+        String queryResult = cleanDatabaseText(match(DB_RESULT_PATTERN, message));
+        String rule = cleanDatabaseText(match(DB_RULE_PATTERN, message));
+        String hit = cleanDatabaseText(match(DB_HIT_PATTERN, message));
+        String reason = cleanDatabaseText(match(DB_REASON_PATTERN, message));
+        String resultText = safe(queryResult);
+        String ruleText = safe(rule);
+        String reasonText = firstNonBlank(reason, hit, "检测结果未满足配置的业务规则");
+        String summary;
+        if (StringUtils.hasText(rule)) {
+            summary = "数据库查询结果不符合业务规则：" + rule;
+        } else {
+            summary = "数据库高级断言未通过：" + reasonText;
+        }
+        String businessImpact = "该数据库监控项返回的数据与预期不一致，可能影响依赖该数据的业务判断或数据同步结果。";
+        String actionSuggestion = "请核对监控 SQL、断言表达式和当前数据变化，确认是业务数据异常还是规则阈值需要调整。";
+        return new DatabaseAssertionSummary(product, resultText, ruleText, safe(hit), reasonText, summary, businessImpact, actionSuggestion);
+    }
+
+    private String databaseDisplayName(MonitorService service) {
+        String type = normalize(service == null ? null : service.serviceType);
+        if ("mysql".equals(type)) {
+            return "MySQL";
+        }
+        if ("postgresql".equals(type) || "postgres".equals(type)) {
+            return "PostgreSQL";
+        }
+        if ("oracle".equals(type)) {
+            return "Oracle";
+        }
+        if ("jdbc".equals(type)) {
+            return "JDBC";
+        }
+        return safe(service == null ? null : service.serviceType);
+    }
+
+    private String match(Pattern pattern, String value) {
+        Matcher matcher = pattern.matcher(value == null ? "" : value);
+        return matcher.find() ? matcher.group(1) : "";
+    }
+
+    private String cleanDatabaseText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.replaceAll("\\s+", " ").trim();
     }
 
     private List<HostThreshold> hostThresholds(String message) {
@@ -1100,6 +1188,41 @@ public class AlertService {
             this.value = value;
             this.thresholdText = thresholdText;
             this.threshold = threshold;
+        }
+    }
+
+    private static class DatabaseAssertionSummary {
+        final String product;
+        final String result;
+        final String rule;
+        final String hit;
+        final String reason;
+        final String summary;
+        final String businessImpact;
+        final String actionSuggestion;
+
+        DatabaseAssertionSummary(
+            String product,
+            String result,
+            String rule,
+            String hit,
+            String reason,
+            String summary,
+            String businessImpact,
+            String actionSuggestion
+        ) {
+            this.product = product;
+            this.result = result;
+            this.rule = rule;
+            this.hit = hit;
+            this.reason = reason;
+            this.summary = summary;
+            this.businessImpact = businessImpact;
+            this.actionSuggestion = actionSuggestion;
+        }
+
+        static DatabaseAssertionSummary empty() {
+            return new DatabaseAssertionSummary("-", "-", "-", "-", "-", "-", "-", "-");
         }
     }
 }

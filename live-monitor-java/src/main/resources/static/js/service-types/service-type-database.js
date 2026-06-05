@@ -282,6 +282,28 @@ function renderDatabaseConnectionOptions(form, connections = [], serviceType = "
   } else {
     select.value = "";
   }
+  syncDatabaseConnectionReferenceFields(form, options);
+}
+
+function syncDatabaseConnectionReferenceFields(form, connections = []) {
+  const select = form?.elements.database_connection_service_id;
+  if (!select) return;
+  const selected = (connections || []).find((service) => String(service.id || "") === String(select.value || ""));
+  const values = selected ? {
+    host: selected.host || selected.endpoint || "",
+    port: selected.port || "",
+    database_name: selected.database_name ?? selected.databaseName ?? "",
+    database_username: selected.database_username ?? selected.databaseUsername ?? selected.username ?? "",
+    jdbc_driver_class: selected.jdbc_driver_class ?? selected.jdbcDriverClass ?? "",
+    jdbc_url: selected.jdbc_url ?? selected.jdbcUrl ?? selected.endpoint ?? "",
+  } : null;
+  ["host", "port", "database_name", "database_username", "jdbc_driver_class", "jdbc_url"].forEach((name) => {
+    const control = form.elements[name];
+    if (!control) return;
+    control.readOnly = Boolean(values);
+    control.classList.toggle("database-reference-filled", Boolean(values));
+    if (values) control.value = values[name] ?? "";
+  });
 }
 
 function databaseConnectionOptionLabel(service) {

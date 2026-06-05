@@ -1,10 +1,14 @@
-function collectResultAssertionRuleRows() {
-  return Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row")).map((row) => ({
+function collectAssertionRuleRows(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .assertion-rule-row`)).map((row) => ({
     type: row.querySelector("[data-assertion-type]")?.value || "json_compare",
     path: row.querySelector("[data-assertion-path]")?.value || "",
     operator: row.querySelector("[data-assertion-operator]")?.value || "==",
     value: row.querySelector("[data-assertion-value]")?.value || "",
   }));
+}
+
+function collectResultAssertionRuleRows() {
+  return collectAssertionRuleRows("resultAssertionRows");
 }
 
 const ASSERTION_COMPARISON_OPERATORS = [
@@ -23,12 +27,20 @@ const ASSERTION_TEXT_OPERATORS = [
 ];
 
 function renderResultAssertionRuleRows(rules = []) {
-  const container = document.getElementById("resultAssertionRows");
+  renderAssertionRuleRows("resultAssertionRows", rules, [{ type: "json_compare" }]);
+}
+
+function renderApiAssertionRuleRows(rules = []) {
+  renderAssertionRuleRows("apiAssertionRows", rules, [{ type: "status", operator: "==", value: "200" }]);
+}
+
+function renderAssertionRuleRows(containerId, rules = [], defaults = [{ type: "json_compare" }]) {
+  const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = "";
-  const rows = rules.length ? rules : [{ type: "json_compare" }];
-  rows.forEach((rule) => addResultAssertionRuleRow(rule));
-  updateAssertionDeleteButtons();
+  const rows = rules.length ? rules : defaults;
+  rows.forEach((rule) => addAssertionRuleRow(container, rule));
+  updateAssertionDeleteButtons(container);
 }
 
 function resetDatabasePreviewPanel() {
@@ -72,6 +84,7 @@ function applyDatabaseTypePlaceholders(form, serviceType) {
 }
 
 function initAssertionModeControls(form) {
+  initApiAssertionBuilder();
   initResultAssertionBuilder();
   document.getElementById("generateApiAssertionDslBtn")?.addEventListener("click", () => {
     showApiAssertionDslPreview(form);
@@ -106,19 +119,34 @@ function initAssertionModeControls(form) {
 }
 
 function initResultAssertionBuilder() {
-  const container = document.getElementById("resultAssertionRows");
+  initAssertionBuilder("resultAssertionRows", "addResultAssertionRuleBtn", { type: "json_compare" });
+}
+
+function initApiAssertionBuilder() {
+  initAssertionBuilder("apiAssertionRows", "addApiAssertionRuleBtn", { type: "status", operator: "==", value: "200" });
+}
+
+function initAssertionBuilder(containerId, addButtonId, defaultRule) {
+  const container = document.getElementById(containerId);
   if (!container) return;
-  document.getElementById("addResultAssertionRuleBtn")?.addEventListener("click", () => {
-    addResultAssertionRuleRow({ type: "json_compare" });
+  document.getElementById(addButtonId)?.addEventListener("click", () => {
+    addAssertionRuleRow(container, { type: "json_compare" });
     hideAssertionDslPreviews();
   });
   if (!container.querySelector(".assertion-rule-row")) {
-    addResultAssertionRuleRow({ type: "json_compare" });
+    addAssertionRuleRow(container, defaultRule);
   }
 }
 
 function addResultAssertionRuleRow(rule = {}) {
-  const container = document.getElementById("resultAssertionRows");
+  addAssertionRuleRow(document.getElementById("resultAssertionRows"), rule);
+}
+
+function addApiAssertionRuleRow(rule = {}) {
+  addAssertionRuleRow(document.getElementById("apiAssertionRows"), rule);
+}
+
+function addAssertionRuleRow(container, rule = {}) {
   if (!container) return;
   const row = document.createElement("div");
   row.className = "assertion-rule-row";
@@ -152,7 +180,7 @@ function addResultAssertionRuleRow(rule = {}) {
       return;
     }
     row.remove();
-    updateAssertionDeleteButtons();
+    updateAssertionDeleteButtons(container);
     hideAssertionDslPreviews();
   });
   container.appendChild(row);
@@ -160,6 +188,7 @@ function addResultAssertionRuleRow(rule = {}) {
   if (typeof applyResultAssertionFieldOptionsToRow === "function") {
     applyResultAssertionFieldOptionsToRow(row);
   }
+  updateAssertionDeleteButtons(container);
   if (window.lucide) window.lucide.createIcons();
 }
 
@@ -252,19 +281,31 @@ function syncAssertionOperatorOptions(select, options, preferred) {
 }
 
 function resetAssertionRuleRow(row) {
-  row.querySelector("[data-assertion-type]").value = "json_compare";
+  const defaultRule = row.closest("#apiAssertionRows")
+    ? { type: "status", operator: "==", value: "200" }
+    : { type: "json_compare", operator: "==", value: "" };
+  row.querySelector("[data-assertion-type]").value = defaultRule.type;
   row.querySelector("[data-assertion-path]").value = "";
-  row.querySelector("[data-assertion-operator]").value = "==";
+  row.querySelector("[data-assertion-operator]").value = defaultRule.operator;
   const valueInput = row.querySelector("[data-assertion-value]");
   valueInput.type = "text";
-  valueInput.value = "";
+  valueInput.value = defaultRule.value;
   row.dataset.assertionType = "";
+  row.dataset.assertionOperator = defaultRule.operator;
   updateAssertionRuleRowState(row);
   hideAssertionDslPreviews();
 }
 
-function updateAssertionDeleteButtons() {
-  const rows = Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"));
+function updateAssertionDeleteButtons(container = null) {
+  const containers = container
+    ? [container]
+    : Array.from(document.querySelectorAll("#apiAssertionRows, #resultAssertionRows"));
+  containers.forEach((target) => updateAssertionDeleteButtonsForContainer(target));
+}
+
+function updateAssertionDeleteButtonsForContainer(container) {
+  if (!container) return;
+  const rows = Array.from(container.querySelectorAll(".assertion-rule-row"));
   rows.forEach((row) => {
     const button = row.querySelector("button");
     if (!button) return;
@@ -354,8 +395,9 @@ function isResultAssertionRuleMode(form) {
 function hideAssertionDslPreviews() {
   const apiPreview = document.getElementById("apiAssertionDslPreview");
   if (apiPreview) {
-    apiPreview.hidden = true;
     apiPreview.value = "";
+    const apiPreviewField = apiPreview.closest(".assertion-preview-field");
+    if (apiPreviewField) apiPreviewField.hidden = true;
   }
   const resultPreview = document.getElementById("resultAssertionDslPreview");
   if (resultPreview) {
@@ -371,7 +413,8 @@ function showApiAssertionDslPreview(form) {
   const apiPreview = document.getElementById("apiAssertionDslPreview");
   if (!apiPreview) return;
   apiPreview.value = buildApiVisualAssertionExpression(form);
-  apiPreview.hidden = false;
+  const apiPreviewField = apiPreview.closest(".assertion-preview-field");
+  if (apiPreviewField) apiPreviewField.hidden = false;
 }
 
 function showResultAssertionDslPreview(form) {
@@ -439,27 +482,19 @@ function validateCrossDatabaseConfig(form) {
 }
 
 function validateApiVisualAssertionConfig(form) {
-  const responseTime = form.elements.api_response_time_ms?.value?.trim();
-  if (responseTime && !isPositiveNumber(responseTime)) {
-    return failAssertionInput(form.elements.api_response_time_ms, "响应时间必须填写大于 0 的毫秒数");
-  }
-  const jsonAssertions = form.elements.api_json_assertions?.value || "";
-  const invalidLine = jsonAssertions
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .find((line) => !isValidJsonAssertionLine(line));
-  if (invalidLine) {
-    return failAssertionInput(form.elements.api_json_assertions, `JSON断言格式不正确：${invalidLine}`);
-  }
-  return true;
+  if (assertionModeValue(form, "api_assertion_mode") === "dsl") return true;
+  return validateAssertionRuleRows("apiAssertionRows", () => addApiAssertionRuleRow({ type: "status", operator: "==", value: "200" }));
 }
 
 function validateResultVisualAssertionConfig(form) {
   if (assertionModeValue(form, "result_assertion_mode") === "dsl") return true;
-  const rows = Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"));
+  return validateAssertionRuleRows("resultAssertionRows", () => addResultAssertionRuleRow({ type: "json_compare" }));
+}
+
+function validateAssertionRuleRows(containerId, addDefaultRow) {
+  const rows = Array.from(document.querySelectorAll(`#${containerId} .assertion-rule-row`));
   if (!rows.length) {
-    addResultAssertionRuleRow({ type: "json_compare" });
+    addDefaultRow();
     showToast("至少保留一条可视化断言");
     return false;
   }
@@ -523,21 +558,7 @@ function buildApiAssertionExpression(form) {
 }
 
 function buildApiVisualAssertionExpression(form) {
-  const expressions = [];
-  const responseTime = form.elements.api_response_time_ms?.value;
-  if (responseTime) {
-    expressions.push(`responseMs() < ${Number(responseTime)}`);
-  }
-  const jsonAssertions = form.elements.api_json_assertions?.value || "";
-  jsonAssertions.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line) => {
-    expressions.push(normalizeJsonAssertionLine(line));
-  });
-  const textValue = form.elements.api_text_assertion_value?.value?.trim();
-  if (textValue) {
-    const fn = form.elements.api_text_assertion_mode?.value === "not_contains" ? "notContains" : "contains";
-    expressions.push(`${fn}("${escapeRuleString(textValue)}")`);
-  }
-  return expressions.join(" && ");
+  return buildAssertionVisualExpression("apiAssertionRows");
 }
 
 function buildResultAssertionExpression(form) {
@@ -548,7 +569,11 @@ function buildResultAssertionExpression(form) {
 }
 
 function buildResultVisualAssertionExpression() {
-  return Array.from(document.querySelectorAll("#resultAssertionRows .assertion-rule-row"))
+  return buildAssertionVisualExpression("resultAssertionRows");
+}
+
+function buildAssertionVisualExpression(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .assertion-rule-row`))
     .map((row) => assertionRuleExpression(row))
     .filter(Boolean)
     .join(" && ");

@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS host_config (
     private_key_cipher LONGTEXT,
     monitor_service_id BIGINT,
     cluster_name VARCHAR(255) DEFAULT 'Server Host',
+    remark VARCHAR(1000),
     cpu_threshold_percent DOUBLE DEFAULT 85,
     memory_threshold_percent DOUBLE DEFAULT 85,
     disk_threshold_percent DOUBLE DEFAULT 85,

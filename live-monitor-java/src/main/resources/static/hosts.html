@@ -34,10 +34,6 @@
         <h1>服务器主机维护</h1>
         <p>维护 SSH/SFTP 主机，配置 CPU、挂载点阈值和自动检测间隔。</p>
       </div>
-      <button id="newHostBtn" class="primary-button host-primary-add" type="button">
-        <i data-lucide="plus"></i>
-        <span>添加主机</span>
-      </button>
     </section>
 
     <section class="host-stat-grid" aria-label="主机统计">
@@ -115,16 +111,13 @@
           </label>
         </div>
         <div class="host-table-actions">
-          <button id="batchHostCheckBtn" class="light-button" type="button">
-            <i data-lucide="radio"></i>
-            <span>批量检测</span>
-          </button>
           <button id="exportHostsBtn" class="light-button" type="button">
             <i data-lucide="download"></i>
             <span>导出</span>
           </button>
-          <button class="icon-button" type="button" title="表格设置" aria-label="表格设置">
-            <i data-lucide="settings"></i>
+          <button id="newHostBtn" class="light-button host-table-add-button" type="button">
+            <i data-lucide="plus"></i>
+            <span>添加主机</span>
           </button>
         </div>
       </div>
@@ -181,33 +174,82 @@
       </div>
       <form id="hostForm" class="form-grid modal-body host-form">
         <input type="hidden" name="id">
-        <label>
-          <span>主机名称</span>
-          <input name="host_name" required maxlength="120" placeholder="app-prod-01">
-        </label>
-        <label>
-          <span>IP / Host</span>
-          <input name="ip" required placeholder="192.168.1.10">
-        </label>
-        <label>
-          <span>分组</span>
-          <input name="cluster_name" placeholder="服务器主机">
-        </label>
-        <label>
-          <span>SSH 端口</span>
-          <input name="ssh_port" type="number" min="1" max="65535" value="22" required>
-        </label>
-        <label>
-          <span>SSH 用户</span>
-          <input name="ssh_user" placeholder="monitor">
-        </label>
-        <label>
-          <span>SSH 密码</span>
-          <input name="ssh_password" type="password" placeholder="留空保持原密码">
-        </label>
+        <section class="host-form-section host-basic-section span-2">
+          <div class="host-form-section-head">
+            <h3>基础信息</h3>
+          </div>
+          <div class="host-basic-group">
+            <div class="host-basic-group-title">主机信息</div>
+            <div class="host-basic-grid host-basic-identity-grid">
+              <label>
+                <span>主机名称</span>
+                <input name="host_name" required maxlength="120" placeholder="app-prod-01">
+              </label>
+              <label>
+                <span>分组</span>
+                <input name="cluster_name" placeholder="服务器主机">
+              </label>
+            </div>
+            <label class="host-basic-remark-field">
+              <span>监控说明</span>
+              <textarea name="remark" rows="3" maxlength="1000" placeholder="例如：生产环境交易应用服务器，关注 CPU、内存和核心挂载点使用率"></textarea>
+            </label>
+          </div>
+          <div class="host-basic-group">
+            <div class="host-basic-group-title">主机登录</div>
+            <div class="host-basic-grid host-basic-login-grid">
+              <label>
+                <span>IP / Host</span>
+                <input name="ip" required placeholder="192.168.1.10">
+              </label>
+              <label>
+                <span>SSH 端口</span>
+                <input name="ssh_port" type="number" min="1" max="65535" value="22" required>
+              </label>
+              <label>
+                <span>SSH 用户</span>
+                <input name="ssh_user" placeholder="monitor">
+              </label>
+              <label>
+                <span>SSH 密码</span>
+                <input name="ssh_password" type="password" placeholder="留空保持原密码">
+              </label>
+            </div>
+          </div>
+        </section>
+        <section class="host-form-section host-runtime-section span-2">
+          <div class="host-form-section-head">
+            <h3>运行设置</h3>
+          </div>
+          <div class="host-runtime-grid">
+            <label class="interval-field">
+              <span>检测间隔</span>
+              <span class="interval-control">
+                <input name="check_interval_value" type="number" min="1" max="31536000" value="1">
+                <select name="check_interval_unit" aria-label="检测间隔单位">
+                  <option value="seconds">秒</option>
+                  <option value="minutes" selected>分钟</option>
+                  <option value="hours">小时</option>
+                  <option value="days">天</option>
+                </select>
+              </span>
+            </label>
+            <label class="switch-row">
+              <input name="enabled" type="checkbox" checked>
+              <span>启用此主机</span>
+            </label>
+          </div>
+        </section>
         <section class="host-form-section host-alert-policy-section span-2">
           <div class="host-form-section-head">
             <h3>告警策略</h3>
+          </div>
+          <div class="host-alert-policy-group">
+            <div class="host-alert-policy-group-title">资源阈值</div>
+          <div class="host-alert-policy-header" aria-hidden="true">
+            <span>指标名称</span>
+            <span>启用状态</span>
+            <span>触发条件</span>
           </div>
           <div class="host-alert-policy-list">
             <div class="host-alert-policy-row">
@@ -246,6 +288,16 @@
                 <em>%</em>
               </label>
             </div>
+          </div>
+          </div>
+          <div class="host-alert-policy-group">
+            <div class="host-alert-policy-group-title">持续与冷却</div>
+            <div class="host-alert-policy-header" aria-hidden="true">
+              <span>规则名称</span>
+              <span>启用状态</span>
+              <span>触发条件</span>
+            </div>
+            <div class="host-alert-policy-list">
             <div class="host-alert-policy-row">
               <span class="host-alert-policy-name">连续异常</span>
               <label class="host-alert-policy-toggle switch-row">
@@ -291,42 +343,22 @@
                 </select>
               </label>
             </div>
-            <label class="host-alert-group-row">
-              <span>告警组</span>
-              <select name="alert_group_id" id="hostAlertGroupSelect">
-                <option value="">不绑定告警组</option>
-              </select>
-            </label>
           </div>
-        </section>
-        <section class="host-form-section host-collect-section span-2">
-          <div class="host-form-section-head">
-            <h3>采集设置</h3>
           </div>
-          <label class="interval-field">
-            <span>检测间隔</span>
-            <span class="interval-control">
-              <input name="check_interval_value" type="number" min="1" max="31536000" value="1">
-              <select name="check_interval_unit" aria-label="检测间隔单位">
-                <option value="seconds">秒</option>
-                <option value="minutes" selected>分钟</option>
-                <option value="hours">小时</option>
-                <option value="days">天</option>
-              </select>
-            </span>
+          <label class="host-alert-group-row">
+            <span>告警组绑定</span>
+            <select name="alert_group_id" id="hostAlertGroupSelect">
+              <option value="">不绑定告警组</option>
+            </select>
           </label>
         </section>
-        <label class="span-2">
-          <span>私钥</span>
-          <textarea name="private_key" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
-        </label>
-        <section class="host-form-section host-state-section span-2">
+        <section class="host-form-section host-key-section span-2">
           <div class="host-form-section-head">
-            <h3>主机状态</h3>
+            <h3>私钥认证</h3>
           </div>
-          <label class="switch-row">
-            <input name="enabled" type="checkbox" checked>
-            <span>启用此主机</span>
+          <label>
+            <span>私钥</span>
+            <textarea name="private_key" rows="5" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
           </label>
         </section>
         <div class="form-actions span-2">

@@ -192,41 +192,57 @@
       </div>
 
       <div class="form-grid alert-simple-form modal-body">
-        <label>
-          <span>配置名称</span>
-          <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
-        </label>
-
-        <label>
-          <span>告警类型</span>
-          <select id="alertChannelTypeSelect" required>
-            <option value="sms">短信告警</option>
-            <option value="email">邮箱告警</option>
-            <option value="wecom">企业微信告警</option>
-            <option value="dingtalk">钉钉告警</option>
-          </select>
-        </label>
-
-        <label class="span-2">
-          <span>备注</span>
-          <textarea id="alertGroupDescriptionInput" name="description" rows="3" placeholder="例如：核心服务异常时通知值班人员"></textarea>
-        </label>
-
-        <label class="switch-row span-2">
-          <input id="alertGroupEnabledInput" name="enabled" type="checkbox" checked>
-          <span>启用该告警</span>
-        </label>
-
-        <section class="setting-section span-2">
+        <section class="setting-section span-2 alert-basic-section">
           <div class="section-head">
-            <h2>触发策略</h2>
+            <div>
+              <h2>基础信息</h2>
+              <p>定义配置名称、通知类型和启用状态。</p>
+            </div>
+          </div>
+          <div class="alert-basic-grid">
+            <label>
+              <span>配置名称</span>
+              <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
+            </label>
+
+            <label>
+              <span>告警类型</span>
+              <select id="alertChannelTypeSelect" required>
+                <option value="sms">短信告警</option>
+                <option value="email">邮箱告警</option>
+                <option value="wecom">企业微信告警</option>
+                <option value="dingtalk">钉钉告警</option>
+              </select>
+            </label>
+
+            <label class="span-2">
+              <span>备注</span>
+              <textarea id="alertGroupDescriptionInput" name="description" rows="3" placeholder="例如：核心服务异常时通知值班人员"></textarea>
+            </label>
+
+            <label class="switch-row span-2">
+              <input id="alertGroupEnabledInput" name="enabled" type="checkbox" checked>
+              <span>启用该告警</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="setting-section span-2 alert-policy-section">
+          <div class="section-head">
+            <div>
+              <h2>触发策略</h2>
+              <p>选择哪些服务状态变化会触发该配置。</p>
+            </div>
           </div>
           <div id="policyChecklist" class="choice-list"></div>
         </section>
 
-        <section class="setting-section span-2 channel-field sms-channel-field">
+        <section class="setting-section span-2 channel-field sms-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>短信接收配置</h2>
+            <div>
+              <h2>短信接收配置</h2>
+              <p>维护接收手机号和短信网关参数。</p>
+            </div>
           </div>
           <div class="recipient-list-field">
             <span>手机号接收人</span>
@@ -277,9 +293,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field email-channel-field">
+        <section class="setting-section span-2 channel-field email-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>邮箱接收配置</h2>
+            <div>
+              <h2>邮箱接收配置</h2>
+              <p>配置收件人、发件人和 SMTP 连接信息。</p>
+            </div>
           </div>
           <div class="recipient-list-field">
             <span>收件人</span>
@@ -345,9 +364,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field wecom-channel-field">
+        <section class="setting-section span-2 channel-field wecom-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>企业微信接收配置</h2>
+            <div>
+              <h2>企业微信接收配置</h2>
+              <p>填写机器人地址，并设置需要提醒的成员。</p>
+            </div>
           </div>
           <label>
             <span>机器人 Webhook 地址</span>
@@ -381,9 +403,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field dingtalk-channel-field">
+        <section class="setting-section span-2 channel-field dingtalk-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>钉钉接收配置</h2>
+            <div>
+              <h2>钉钉接收配置</h2>
+              <p>填写机器人地址、加签密钥和提醒对象。</p>
+            </div>
           </div>
           <label>
             <span>机器人 Webhook 地址</span>

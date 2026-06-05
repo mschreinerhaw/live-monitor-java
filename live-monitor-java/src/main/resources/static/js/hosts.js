@@ -479,6 +479,7 @@ function fillHostForm(host) {
   form.elements.host_name.value = host?.host_name || "";
   form.elements.ip.value = host?.ip || "";
   form.elements.cluster_name.value = host?.cluster_name || "服务器主机";
+  form.elements.remark.value = host?.remark || "";
   form.elements.ssh_port.value = host?.ssh_port || 22;
   form.elements.ssh_user.value = host?.ssh_user || "";
   form.elements.ssh_password.value = "";
@@ -533,6 +534,7 @@ function buildHostPayload(form) {
     host_name: form.elements.host_name.value.trim(),
     ip: form.elements.ip.value.trim(),
     cluster_name: form.elements.cluster_name.value.trim() || "服务器主机",
+    remark: form.elements.remark.value.trim() || null,
     ssh_port: Number(form.elements.ssh_port.value || 22),
     ssh_user: form.elements.ssh_user.value.trim() || null,
     ssh_password: form.elements.ssh_password.value || null,

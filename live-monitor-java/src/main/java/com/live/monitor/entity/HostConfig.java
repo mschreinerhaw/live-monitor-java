@@ -14,6 +14,7 @@ public class HostConfig {
     public String privateKeyCipher;
     public Long monitorServiceId;
     public String clusterName;
+    public String remark;
     public Double cpuThresholdPercent;
     public Double memoryThresholdPercent;
     public Double diskThresholdPercent;

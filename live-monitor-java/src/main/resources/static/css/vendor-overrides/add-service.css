@@ -236,6 +236,13 @@ body[data-page="add-service"] .database-query-actions {
   margin-top: 8px;
 }
 
+body[data-page="add-service"] .database-reference-filled {
+  border-color: rgba(31, 111, 235, 0.2);
+  background: #f8fbff;
+  color: var(--lm-text);
+  cursor: default;
+}
+
 body[data-page="add-service"] [name="database_query"],
 body[data-page="add-service"] [data-cross-db-sql],
 body[data-page="add-service"] [name="rule_test_body"],
@@ -251,31 +258,46 @@ body[data-page="add-service"] [name="database_query"] {
 }
 
 body[data-page="add-service"] .assertion-mode-tabs {
-  gap: 8px;
-  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: 3px;
+  padding: 3px;
   border: 1px solid var(--lm-border);
   border-radius: 8px;
-  background: #fff;
+  background: #f6f8fb;
 }
 
 body[data-page="add-service"] .assertion-mode-card {
   justify-content: center;
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 0;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--lm-muted) !important;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 body[data-page="add-service"] .assertion-mode-card:has(input:checked) {
-  background: var(--lm-primary);
-  color: #fff !important;
-  box-shadow: 0 6px 14px rgba(31, 111, 235, 0.18);
+  border-color: rgba(31, 111, 235, 0.22);
+  background: #fff;
+  color: var(--lm-primary-strong) !important;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+body[data-page="add-service"] .assertion-mode-card:focus-within {
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
 }
 
 body[data-page="add-service"] .assertion-mode-card input {
   position: absolute;
+  width: 1px;
+  height: 1px;
   opacity: 0;
   pointer-events: none;
 }
@@ -749,6 +771,22 @@ body[data-page="add-service"] .assertion-rule-row.assertion-rule-row-short {
   border-color: var(--lm-primary-strong);
   background: var(--lm-primary-strong);
   color: #fff;
+}
+
+body[data-page="add-service"] .lightweight-action-button {
+  min-width: auto;
+  border-color: rgba(31, 111, 235, 0.22);
+  background: transparent;
+  color: var(--lm-primary);
+  box-shadow: none;
+}
+
+body[data-page="add-service"] .lightweight-action-button:hover,
+body[data-page="add-service"] .lightweight-action-button:focus-visible {
+  border-color: rgba(31, 111, 235, 0.34);
+  background: var(--lm-soft-blue);
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
 }
 
 :where(

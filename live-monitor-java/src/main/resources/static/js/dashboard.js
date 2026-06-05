@@ -41,6 +41,7 @@ function setDashboardQuery(value) {
 
 function initResourceMonitoring() {
   if (!document.getElementById("cpuChart")) return;
+  window.addEventListener("resize", resizeMetricCharts);
   loadSystemMetrics();
   resourceMetricState.poller = window.setInterval(loadSystemMetrics, 5000);
 }
@@ -80,44 +81,79 @@ function nextSyntheticMetric(key, fallback) {
 }
 
 function drawMetricCharts() {
-  drawLineChart("cpuChart", resourceMetricState.history.cpu, "#2563eb", 100);
-  drawLineChart("memoryChart", resourceMetricState.history.memory, "#16a34a", 100);
-  drawLineChart("diskChart", resourceMetricState.history.disk, "#b7791f", 100);
+  drawLineChart("cpuChart", resourceMetricState.history.cpu, "#2563eb", 100, "%");
+  drawLineChart("memoryChart", resourceMetricState.history.memory, "#16a34a", 100, "%");
+  drawLineChart("diskChart", resourceMetricState.history.disk, "#b7791f", 100, "%");
   const networkMax = Math.max(20, ...resourceMetricState.history.network) * 1.2;
-  drawLineChart("networkChart", resourceMetricState.history.network, "#0e7490", networkMax);
+  drawLineChart("networkChart", resourceMetricState.history.network, "#0e7490", networkMax, " KB/s");
 }
 
-function drawLineChart(canvasId, values, color, maxValue) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const padding = 8;
-  ctx.clearRect(0, 0, width, height);
-  ctx.strokeStyle = "#e5edf4";
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 3; i++) {
-    const y = padding + ((height - padding * 2) / 2) * i;
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(width - padding, y);
-    ctx.stroke();
-  }
+function drawLineChart(chartId, values, color, maxValue, unit) {
+  const node = document.getElementById(chartId);
+  if (!node || !window.echarts) return;
+  resourceMetricState.charts = resourceMetricState.charts || {};
+  const chart = resourceMetricState.charts[chartId] || window.echarts.init(node);
+  resourceMetricState.charts[chartId] = chart;
   const rows = values.length ? values : [0];
-  const step = (width - padding * 2) / Math.max(1, rows.length - 1);
-  ctx.beginPath();
-  rows.forEach((value, index) => {
-    const x = padding + step * index;
-    const y = height - padding - (Math.max(0, Math.min(value, maxValue)) / maxValue) * (height - padding * 2);
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  chart.setOption({
+    animationDuration: 320,
+    grid: { left: 2, right: 2, top: 8, bottom: 2, containLabel: false },
+    tooltip: {
+      trigger: "axis",
+      appendToBody: true,
+      backgroundColor: "rgba(15, 23, 42, 0.9)",
+      borderWidth: 0,
+      textStyle: { color: "#fff", fontSize: 12 },
+      formatter: (items) => {
+        const value = Number(items?.[0]?.value ?? 0);
+        return `${value.toFixed(value >= 10 ? 0 : 1)}${unit}`;
+      },
+    },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: rows.map((_, index) => index + 1),
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+    },
+    yAxis: {
+      type: "value",
+      min: 0,
+      max: Math.max(1, maxValue),
+      splitNumber: 2,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { lineStyle: { color: "#e5edf4", type: "dashed" } },
+    },
+    series: [{
+      type: "line",
+      data: rows,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2.5, color },
+      areaStyle: {
+        color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: hexToRgba(color, 0.22) },
+          { offset: 1, color: hexToRgba(color, 0.02) },
+        ]),
+      },
+    }],
   });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
+}
+
+function resizeMetricCharts() {
+  Object.values(resourceMetricState.charts || {}).forEach((chart) => chart.resize());
+}
+
+function hexToRgba(hex, alpha) {
+  const value = hex.replace("#", "");
+  const number = parseInt(value.length === 3 ? value.replace(/(.)/g, "$1$1") : value, 16);
+  const red = (number >> 16) & 255;
+  const green = (number >> 8) & 255;
+  const blue = number & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function formatMetric(value) {
@@ -243,7 +279,13 @@ async function loadDashboard() {
 }
 
 async function clearRecentAlerts() {
-  const confirmed = window.confirm("\u786e\u5b9a\u6e05\u7406\u6700\u8fd1\u544a\u8b66\uff1f\u6b64\u64cd\u4f5c\u4f1a\u540c\u6b65\u5220\u9664\u6570\u636e\u5e93\u4e2d\u7684\u544a\u8b66\u8bb0\u5f55\uff0c\u4e14\u4e0d\u53ef\u6062\u590d\u3002");
+  const confirmed = await showConfirmDialog({
+    title: "\u6e05\u7406\u6700\u8fd1\u544a\u8b66",
+    message: "\u6b64\u64cd\u4f5c\u4f1a\u540c\u6b65\u5220\u9664\u6570\u636e\u5e93\u4e2d\u7684\u544a\u8b66\u8bb0\u5f55\u3002",
+    detail: "\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\u3002",
+    confirmText: "\u6e05\u7406",
+    danger: true,
+  });
   if (!confirmed) return;
   try {
     const result = await LiveMonitorApi.clearAlerts();
@@ -1036,7 +1078,14 @@ function focusServiceGroupAlert(index) {
 async function deleteServiceInstance(id) {
   const service = dashboardState.services.find((item) => Number(item.id) === Number(id));
   const name = service?.service_name || "该实例";
-  if (!window.confirm(`确定删除实例「${name}」？该实例的检测记录和告警记录也会被删除。`)) return;
+  const confirmed = await showConfirmDialog({
+    title: "\u5220\u9664\u5b9e\u4f8b",
+    message: `\u786e\u5b9a\u5220\u9664\u5b9e\u4f8b\u300c${name}\u300d\uff1f`,
+    detail: "\u8be5\u5b9e\u4f8b\u7684\u68c0\u6d4b\u8bb0\u5f55\u548c\u544a\u8b66\u8bb0\u5f55\u4e5f\u4f1a\u88ab\u5220\u9664\u3002",
+    confirmText: "\u5220\u9664",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await LiveMonitorApi.deleteService(id);
     await loadDashboard();
@@ -1050,7 +1099,14 @@ async function deleteServiceGroup(index) {
   const group = dashboardState.serviceGroups[index];
   if (!group) return;
   const count = group.instances.length;
-  if (!window.confirm(`确定删除服务「${group.name}」？这会删除该服务下 ${count} 个实例。`)) return;
+  const confirmed = await showConfirmDialog({
+    title: "\u5220\u9664\u670d\u52a1",
+    message: `\u786e\u5b9a\u5220\u9664\u670d\u52a1\u300c${group.name}\u300d\uff1f`,
+    detail: `\u8fd9\u4f1a\u5220\u9664\u8be5\u670d\u52a1\u4e0b ${count} \u4e2a\u5b9e\u4f8b\u3002`,
+    confirmText: "\u5220\u9664",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await Promise.all(group.instances.map((service) => LiveMonitorApi.deleteService(service.id)));
     dashboardState.expandedServiceGroupKeys.delete(group.key);

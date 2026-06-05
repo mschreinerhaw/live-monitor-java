@@ -37,6 +37,7 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_process_config", "check_command", "VARCHAR(100000)", "LONGTEXT");
         addColumnIfMissing("host_config", "monitor_service_id", "BIGINT");
         addColumnIfMissing("host_config", "cluster_name", "VARCHAR(255) DEFAULT 'Server Host'");
+        addColumnIfMissing("host_config", "remark", "VARCHAR(1000)");
         addColumnIfMissing("host_config", "cpu_threshold_percent", "DOUBLE DEFAULT 85");
         addColumnIfMissing("host_config", "memory_threshold_percent", "DOUBLE DEFAULT 85");
         addColumnIfMissing("host_config", "disk_threshold_percent", "DOUBLE DEFAULT 85");
