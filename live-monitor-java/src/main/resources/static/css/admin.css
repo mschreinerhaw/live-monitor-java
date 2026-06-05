@@ -81,6 +81,55 @@ textarea {
   font-size: 13px;
 }
 
+body[data-page] .app-brand {
+  flex: 0 1 230px;
+  min-width: 0;
+  color: #1d2b42;
+  text-decoration: none;
+}
+
+body[data-page] .app-brand:hover,
+body[data-page] .app-brand:focus-visible {
+  color: #12324a;
+}
+
+body[data-page] .brand-mark.app-brand-mark {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #147da3, #2f72ff);
+  box-shadow: 0 8px 18px rgba(47, 114, 255, 0.18);
+}
+
+body[data-page] .app-brand-mark svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+
+body[data-page] .app-brand-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.08;
+}
+
+body[data-page] .app-brand-copy strong {
+  color: #17263a;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+body[data-page] .app-brand-copy small {
+  overflow: hidden;
+  color: #70839c;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav {
   display: flex;
   align-items: center;
@@ -1280,6 +1329,14 @@ textarea {
   width: min(1160px, 100%);
 }
 
+.admin-helper-text {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
 .admin-form {
   padding: 18px;
 }
@@ -1368,7 +1425,28 @@ textarea {
 }
 
 .admin-action-text {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-action-text:hover,
+.admin-action-text:focus-visible {
+  color: var(--brand-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: 0;
 }
 
 .user-status {

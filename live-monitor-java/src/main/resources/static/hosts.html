@@ -15,9 +15,12 @@
 </head>
 <body data-page="hosts">
   <header class="topbar">
-    <a class="brand" href="/dashboard">
-      <span class="brand-mark">LM</span>
-      <span>Live Monitor</span>
+    <a class="brand app-brand" href="/dashboard" aria-label="Live Monitor 首页">
+      <span class="brand-mark app-brand-mark"><i data-lucide="activity"></i></span>
+      <span class="app-brand-copy">
+        <strong>Live Monitor</strong>
+        <small>轻量事件驱动监控平台</small>
+      </span>
     </a>
     <nav class="nav">
       <a href="/dashboard">监控首页</a>
@@ -179,7 +182,6 @@
             <h3>基础信息</h3>
           </div>
           <div class="host-basic-group">
-            <div class="host-basic-group-title">主机信息</div>
             <div class="host-basic-grid host-basic-identity-grid">
               <label>
                 <span>主机名称</span>

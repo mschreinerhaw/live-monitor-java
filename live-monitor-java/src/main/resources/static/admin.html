@@ -14,9 +14,12 @@
 </head>
 <body data-page="admin">
   <header class="topbar">
-    <a class="brand" href="/dashboard">
-      <span class="brand-mark">LM</span>
-      <span>Live Monitor</span>
+    <a class="brand app-brand" href="/dashboard" aria-label="Live Monitor 首页">
+      <span class="brand-mark app-brand-mark"><i data-lucide="activity"></i></span>
+      <span class="app-brand-copy">
+        <strong>Live Monitor</strong>
+        <small>轻量事件驱动监控平台</small>
+      </span>
     </a>
     <nav class="nav">
       <a href="/dashboard">监控首页</a>
@@ -32,7 +35,7 @@
       <div>
         <a class="back-link" href="/dashboard">返回监控首页</a>
         <h1>用户维护</h1>
-        <p>仅 admin 用户可新增用户和修改用户密码。</p>
+        <p class="admin-helper-text">仅 admin 用户可新增用户和修改用户密码。</p>
       </div>
     </section>
 
@@ -56,7 +59,7 @@
         <div class="panel-head">
           <div>
             <h2>用户列表</h2>
-            <p class="panel-subtitle" id="adminCurrentUser">展示系统账号状态和最近登录情况。</p>
+            <p class="panel-subtitle admin-helper-text" id="adminCurrentUser">展示系统账号状态和最近登录情况。</p>
           </div>
           <div class="admin-panel-actions">
             <button id="addUserBtn" class="light-button" type="button">
@@ -91,7 +94,7 @@
         <div class="panel-head">
           <div>
             <h2>登录/登出审计日志</h2>
-            <p class="panel-subtitle">记录当前系统用户的登录、登出 IP 和发生时间。</p>
+            <p class="panel-subtitle admin-helper-text">记录当前系统用户的登录、登出 IP 和发生时间。</p>
           </div>
           <div class="admin-panel-actions">
             <button id="reloadAuditLogsBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">

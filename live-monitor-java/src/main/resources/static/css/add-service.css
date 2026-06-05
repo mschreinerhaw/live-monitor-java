@@ -81,6 +81,55 @@ textarea {
   font-size: 13px;
 }
 
+body[data-page] .app-brand {
+  flex: 0 1 230px;
+  min-width: 0;
+  color: #1d2b42;
+  text-decoration: none;
+}
+
+body[data-page] .app-brand:hover,
+body[data-page] .app-brand:focus-visible {
+  color: #12324a;
+}
+
+body[data-page] .brand-mark.app-brand-mark {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #147da3, #2f72ff);
+  box-shadow: 0 8px 18px rgba(47, 114, 255, 0.18);
+}
+
+body[data-page] .app-brand-mark svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+
+body[data-page] .app-brand-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.08;
+}
+
+body[data-page] .app-brand-copy strong {
+  color: #17263a;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+body[data-page] .app-brand-copy small {
+  overflow: hidden;
+  color: #70839c;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav {
   display: flex;
   align-items: center;
