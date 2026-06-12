@@ -266,12 +266,12 @@ textarea {
   top: calc(100% + 10px);
   right: 0;
   z-index: 35;
-  width: min(360px, calc(100vw - 28px));
+  width: min(390px, calc(100vw - 28px));
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid #dbe7f3;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 18px 44px rgba(31, 41, 51, 0.18);
+  box-shadow: 0 18px 44px rgba(31, 41, 51, 0.16);
 }
 
 .notification-panel-head {
@@ -281,7 +281,38 @@ textarea {
   gap: 12px;
   min-height: 48px;
   padding: 0 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #e4edf6;
+  background: #f8fbff;
+}
+
+.notification-panel-head strong {
+  color: #1d2b42;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.notification-read-all-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #147da3;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.notification-read-all-button:hover,
+.notification-read-all-button:focus-visible {
+  color: #0f617f;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: 0;
 }
 
 .notification-list {
@@ -296,14 +327,15 @@ textarea {
 .notification-item {
   padding: 10px;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid #e2eaf3;
   border-radius: 8px;
-  background: #fff;
+  background: #fbfdff;
 }
 
 .notification-item.unread {
-  border-color: rgba(192, 57, 43, 0.26);
-  background: var(--red-soft);
+  border-color: rgba(192, 57, 43, 0.22);
+  background: #fff7f7;
+  box-shadow: inset 3px 0 0 var(--red);
 }
 
 .notification-item-head {
@@ -372,6 +404,31 @@ textarea {
   display: block;
   margin-top: 6px;
   color: var(--muted);
+}
+
+body[data-page="dashboard"] .recent-alerts-panel .danger-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(192, 57, 43, 0.18);
+  border-radius: 7px;
+  background: #fff7f7;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body[data-page="dashboard"] .recent-alerts-panel .danger-text-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+body[data-page="dashboard"] .recent-alerts-panel .danger-text-button:hover,
+body[data-page="dashboard"] .recent-alerts-panel .danger-text-button:focus-visible {
+  border-color: rgba(192, 57, 43, 0.28);
+  background: #ffecec;
 }
 
 .page {

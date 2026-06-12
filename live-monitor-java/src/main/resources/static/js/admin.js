@@ -8,8 +8,20 @@ async function initAdmin() {
     tab.addEventListener("click", () => setAdminTab(tab.dataset.adminTab));
   });
   document.getElementById("userTable")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-reset-user]");
-    if (button) openResetPasswordModal(button.dataset.resetUser);
+    const resetButton = event.target.closest("[data-reset-user]");
+    if (resetButton) {
+      openResetPasswordModal(resetButton.dataset.resetUser);
+      return;
+    }
+    const statusButton = event.target.closest("[data-toggle-user]");
+    if (statusButton) {
+      handleToggleUserStatus(statusButton.dataset.toggleUser, statusButton.dataset.enabled === "true");
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-user]");
+    if (deleteButton) {
+      handleDeleteUser(deleteButton.dataset.deleteUser);
+    }
   });
   document.getElementById("createUserModal")?.addEventListener("click", (event) => {
     if (event.target.id === "createUserModal") closeCreateUserModal();
@@ -84,15 +96,24 @@ function renderAdminUsers() {
   table.innerHTML = adminState.users.map((user) => {
     const userId = user.user_id || user.userId || "-";
     const enabled = Number(user.status ?? 1) === 1;
+    const adminUser = userId.toLowerCase() === "admin";
+    const safeUserId = escapeHtml(userId);
+    const statusAction = adminUser
+      ? ""
+      : `<button class="text-button admin-action-text" type="button" data-toggle-user="${safeUserId}" data-enabled="${enabled}">${enabled ? "禁用" : "启用"}</button>`;
     return `
       <tr>
-        <td><strong>${escapeHtml(userId)}</strong></td>
+        <td><strong>${safeUserId}</strong></td>
         <td>${escapeHtml(user.name || "-")}</td>
         <td><span class="user-status ${enabled ? "enabled" : "disabled"}">${enabled ? "启用" : "停用"}</span></td>
         <td>${Number(user.logins || 0)}</td>
         <td>${escapeHtml(formatTime(user.last_login || user.lastLogin) || "-")}</td>
         <td class="actions-column">
-          <button class="text-button admin-action-text" type="button" data-reset-user="${escapeHtml(userId)}">修改密码</button>
+          <div class="admin-row-actions">
+            <button class="text-button admin-action-text" type="button" data-reset-user="${safeUserId}">修改密码</button>
+            ${statusAction}
+            ${adminUser ? "" : `<button class="text-button admin-action-text danger" type="button" data-delete-user="${safeUserId}">删除</button>`}
+          </div>
         </td>
       </tr>
     `;
@@ -234,5 +255,44 @@ async function handleResetPasswordSubmit(event) {
     showToast(error.message || "密码更新失败");
   } finally {
     submit.disabled = false;
+  }
+}
+
+async function handleToggleUserStatus(userId, enabled) {
+  if (!userId) return;
+  const nextEnabled = !enabled;
+  const confirmed = await showConfirmDialog({
+    title: nextEnabled ? "启用用户" : "禁用用户",
+    message: `确定${nextEnabled ? "启用" : "禁用"}用户 ${userId} 吗？`,
+    detail: nextEnabled ? "" : "禁用后该用户将无法登录系统。",
+    confirmText: nextEnabled ? "启用" : "禁用",
+    danger: !nextEnabled,
+  });
+  if (!confirmed) return;
+  try {
+    await LiveMonitorApi.updateUserStatus(userId, { enabled: nextEnabled });
+    showToast(`用户已${nextEnabled ? "启用" : "禁用"}`);
+    await loadAdminUsers();
+  } catch (error) {
+    showToast(error.message || "用户状态更新失败");
+  }
+}
+
+async function handleDeleteUser(userId) {
+  if (!userId) return;
+  const confirmed = await showConfirmDialog({
+    title: "删除用户",
+    message: `确定删除用户 ${userId} 吗？`,
+    detail: "删除后该账号将无法登录，且用户记录不可恢复。",
+    confirmText: "删除",
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await LiveMonitorApi.deleteUser(userId);
+    showToast("用户已删除");
+    await loadAdminUsers();
+  } catch (error) {
+    showToast(error.message || "删除用户失败");
   }
 }

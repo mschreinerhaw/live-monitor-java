@@ -1121,6 +1121,86 @@ body[data-page] .app-brand-copy small {
   box-shadow: var(--shadow);
 }
 
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.confirm-dialog {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  width: min(460px, 100%);
+  padding: 18px;
+  border: 1px solid #d8e4ef;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.confirm-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.confirm-backdrop.is-danger .confirm-dialog-icon {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.confirm-dialog-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.confirm-dialog-message,
+.confirm-dialog-detail {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog-detail {
+  margin-top: 6px;
+  color: var(--red);
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.confirm-backdrop.is-danger .confirm-submit {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff;
+}
+
+.confirm-backdrop.is-danger .confirm-submit:hover {
+  border-color: #a93226;
+  background: #a93226;
+}
+
 .type-pill,
 .state-pill {
   display: inline-flex;
@@ -1402,7 +1482,7 @@ body[data-page] .app-brand-copy small {
 }
 
 .admin-user-table {
-  min-width: 860px;
+  min-width: 940px;
 }
 
 .admin-audit-table {
@@ -1447,6 +1527,24 @@ body[data-page] .app-brand-copy small {
   text-decoration: underline;
   text-underline-offset: 3px;
   outline: 0;
+}
+
+.admin-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 160px;
+  white-space: nowrap;
+}
+
+.admin-action-text.danger {
+  color: var(--red);
+}
+
+.admin-action-text.danger:hover,
+.admin-action-text.danger:focus-visible {
+  color: #9f2c23;
 }
 
 .user-status {

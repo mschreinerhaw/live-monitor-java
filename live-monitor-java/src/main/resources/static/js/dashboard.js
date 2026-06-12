@@ -1402,16 +1402,23 @@ function renderAlerts(container, alerts, options = {}) {
     container.innerHTML = '<p class="empty">\u6682\u65e0\u544a\u8b66</p>';
     return;
   }
-  container.innerHTML = rows.slice(0, 4).map((alert, index) => `
-    <article class="alert-item">
-      <span class="alert-icon ${index > 1 ? "warning" : ""}"><i data-lucide="${index > 1 ? "octagon-alert" : "triangle-alert"}"></i></span>
-      <span>
-        <strong>${escapeHtml(alert.service_name || alert.alert_type || "\u544a\u8b66")}</strong>
-        <p>${escapeHtml(alert.alert_content || alert.alert_type || "-")}</p>
-      </span>
-      <time class="alert-time">${relativeTime(alert.created_at)}</time>
-    </article>
-  `).join("");
+  container.innerHTML = rows.slice(0, 4).map((alert, index) => {
+    const summary = alertContentSummary(alert.alert_content || "");
+    const content = [
+      summary.reason,
+      ...summary.metrics,
+    ].filter(Boolean).join(" / ") || summary.text || alert.alert_type || "-";
+    return `
+      <article class="alert-item" title="${escapeHtml(summary.text || content)}">
+        <span class="alert-icon ${index > 1 ? "warning" : ""}"><i data-lucide="${index > 1 ? "octagon-alert" : "triangle-alert"}"></i></span>
+        <span>
+          <strong>${escapeHtml(alert.service_name || summary.title || alert.alert_type || "\u544a\u8b66")}</strong>
+          <p>${escapeHtml(content)}</p>
+        </span>
+        <time class="alert-time">${relativeTime(alert.created_at)}</time>
+      </article>
+    `;
+  }).join("");
   if (window.lucide) window.lucide.createIcons();
 }
 

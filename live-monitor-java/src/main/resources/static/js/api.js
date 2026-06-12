@@ -139,6 +139,8 @@
     createUser: (data) => request("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
     changePassword: (data) => request("/api/admin/password", { method: "PUT", body: JSON.stringify(data) }),
     resetUserPassword: (userId, data) => request(`/api/admin/users/${encodeURIComponent(userId)}/password`, { method: "PUT", body: JSON.stringify(data) }),
+    updateUserStatus: (userId, data) => request(`/api/admin/users/${encodeURIComponent(userId)}/status`, { method: "PUT", body: JSON.stringify(data) }),
+    deleteUser: (userId) => request(`/api/admin/users/${encodeURIComponent(userId)}`, { method: "DELETE" }),
     systemMetrics: () => request("/api/system-metrics"),
     hosts: (includeDisabled = false) => request(`/api/hosts?include_disabled=${includeDisabled}`),
     hostSummary: () => request("/api/hosts/summary"),

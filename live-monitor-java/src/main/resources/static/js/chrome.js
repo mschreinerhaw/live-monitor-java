@@ -13,7 +13,7 @@ async function initUserChrome() {
       <div id="notificationPanel" class="notification-panel" hidden>
         <div class="notification-panel-head">
           <strong>\u544a\u8b66\u901a\u77e5</strong>
-          <button class="text-button" type="button" onclick="markNotificationsSeen()">\u5168\u90e8\u5df2\u8bfb</button>
+          <button class="notification-read-all-button" type="button" onclick="markNotificationsSeen()">\u5168\u90e8\u5df2\u8bfb</button>
         </div>
         <div id="notificationList" class="notification-list"><p class="empty">\u6682\u65e0\u544a\u8b66</p></div>
       </div>

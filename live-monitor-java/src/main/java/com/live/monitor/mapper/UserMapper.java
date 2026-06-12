@@ -2,6 +2,7 @@ package com.live.monitor.mapper;
 
 import com.live.monitor.entity.TUser;
 import java.util.List;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -27,6 +28,12 @@ public interface UserMapper {
 
     @Update("UPDATE tuser SET Password = #{password}, ChgPwdTime = CURRENT_TIMESTAMP WHERE ID = #{id}")
     int updatePassword(@Param("id") Long id, @Param("password") String password);
+
+    @Update("UPDATE tuser SET Status = #{status} WHERE ID = #{id}")
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    @Delete("DELETE FROM tuser WHERE ID = #{id}")
+    int deleteById(@Param("id") Long id);
 
     @Update("UPDATE tuser SET LastLogin = CURRENT_TIMESTAMP, Logins = COALESCE(Logins, 0) + 1 WHERE ID = #{id}")
     int markLogin(@Param("id") Long id);

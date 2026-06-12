@@ -3,6 +3,7 @@ package com.live.monitor.service;
 import com.live.monitor.dto.ChangePasswordPayload;
 import com.live.monitor.dto.CreateUserPayload;
 import com.live.monitor.dto.ResetUserPasswordPayload;
+import com.live.monitor.dto.UpdateUserStatusPayload;
 import com.live.monitor.entity.TUser;
 import com.live.monitor.mapper.UserMapper;
 import java.util.List;
@@ -65,6 +66,33 @@ public class UserAdminService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found");
         }
         userMapper.updatePassword(target.id, authService.encryptPassword(payload.newPassword));
+    }
+
+    public void updateUserStatus(TUser currentUser, String userId, UpdateUserStatusPayload payload) {
+        requireAdmin(currentUser);
+        String normalized = normalizeUserId(userId);
+        TUser target = userMapper.findByUserId(normalized);
+        if (target == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found");
+        }
+        if (isAdmin(target) && Boolean.FALSE.equals(payload.enabled)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "admin user cannot be disabled");
+        }
+        Integer status = Boolean.FALSE.equals(payload.enabled) ? 0 : 1;
+        userMapper.updateStatus(target.id, status);
+    }
+
+    public void deleteUser(TUser currentUser, String userId) {
+        requireAdmin(currentUser);
+        String normalized = normalizeUserId(userId);
+        TUser target = userMapper.findByUserId(normalized);
+        if (target == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "user not found");
+        }
+        if (isAdmin(target)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "admin user cannot be deleted");
+        }
+        userMapper.deleteById(target.id);
     }
 
     public boolean isAdmin(TUser user) {

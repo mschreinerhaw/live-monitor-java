@@ -3,6 +3,7 @@ package com.live.monitor.controller;
 import com.live.monitor.dto.ChangePasswordPayload;
 import com.live.monitor.dto.CreateUserPayload;
 import com.live.monitor.dto.ResetUserPasswordPayload;
+import com.live.monitor.dto.UpdateUserStatusPayload;
 import com.live.monitor.entity.LoginAuditLog;
 import com.live.monitor.entity.TUser;
 import com.live.monitor.service.LoginAuditLogService;
@@ -10,6 +11,7 @@ import com.live.monitor.service.UserAdminService;
 import java.util.List;
 import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,6 +61,20 @@ public class AdminUserController {
                                   @PathVariable String userId,
                                   @Valid @RequestBody ResetUserPasswordPayload payload) {
         userAdminService.resetUserPassword(currentUser(session), userId, payload);
+    }
+
+    @PutMapping("/api/admin/users/{userId}/status")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateUserStatus(HttpSession session,
+                                 @PathVariable String userId,
+                                 @Valid @RequestBody UpdateUserStatusPayload payload) {
+        userAdminService.updateUserStatus(currentUser(session), userId, payload);
+    }
+
+    @DeleteMapping("/api/admin/users/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(HttpSession session, @PathVariable String userId) {
+        userAdminService.deleteUser(currentUser(session), userId);
     }
 
     private TUser currentUser(HttpSession session) {

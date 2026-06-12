@@ -161,10 +161,10 @@ function addAssertionRuleRow(container, rule = {}) {
       <option value="status">HTTP 状态码</option>
       <option value="regex_compare">正则提取</option>
     </select>
-    <input data-assertion-path aria-label="字段路径" placeholder="$.code" required>
+    <input data-assertion-path aria-label="字段路径" placeholder="$.code">
     <select data-assertion-operator aria-label="比较方式">
     </select>
-    <input data-assertion-value aria-label="期望值" placeholder="0" required>
+    <input data-assertion-value aria-label="期望值" placeholder="0">
     <button class="icon-button" type="button" title="删除断言">
       <i data-lucide="trash-2"></i>
     </button>
@@ -213,8 +213,8 @@ function updateAssertionRuleRowState(row) {
   operatorSelect.style.display = textRule ? "none" : "";
   pathInput.disabled = noPathRule;
   operatorSelect.disabled = textRule;
-  pathInput.required = !noPathRule;
-  valueInput.required = true;
+  pathInput.toggleAttribute("aria-required", !noPathRule);
+  valueInput.setAttribute("aria-required", "true");
   pathInput.removeAttribute("pattern");
   pathInput.removeAttribute("maxlength");
   valueInput.removeAttribute("pattern");
@@ -474,37 +474,42 @@ function validateCrossDatabaseConfig(form) {
       return failAssertionInput(mappingInput, invalidMapping);
     }
   }
-  if (!buildResultAssertionExpression(form)) {
-    showToast("跨库检测需要填写结果比对断言规则");
-    return false;
-  }
   return true;
 }
 
 function validateApiVisualAssertionConfig(form) {
   if (assertionModeValue(form, "api_assertion_mode") === "dsl") return true;
-  return validateAssertionRuleRows("apiAssertionRows", () => addApiAssertionRuleRow({ type: "status", operator: "==", value: "200" }));
+  return validateAssertionRuleRows("apiAssertionRows", () => addApiAssertionRuleRow({ type: "status", operator: "==", value: "200" }), { optional: true });
 }
 
 function validateResultVisualAssertionConfig(form) {
   if (assertionModeValue(form, "result_assertion_mode") === "dsl") return true;
-  return validateAssertionRuleRows("resultAssertionRows", () => addResultAssertionRuleRow({ type: "json_compare" }));
+  return validateAssertionRuleRows("resultAssertionRows", () => addResultAssertionRuleRow({ type: "json_compare" }), { optional: true });
 }
 
-function validateAssertionRuleRows(containerId, addDefaultRow) {
+function validateAssertionRuleRows(containerId, addDefaultRow, options = {}) {
   const rows = Array.from(document.querySelectorAll(`#${containerId} .assertion-rule-row`));
   if (!rows.length) {
+    if (options.optional) return true;
     addDefaultRow();
     showToast("至少保留一条可视化断言");
     return false;
   }
-  for (const row of rows) {
+  const rowsToValidate = options.optional ? rows.filter(isAssertionRuleRowConfigured) : rows;
+  if (!rowsToValidate.length) return true;
+  for (const row of rowsToValidate) {
     const invalid = invalidAssertionRule(row);
     if (invalid) {
       return failAssertionInput(invalid.control, invalid.message);
     }
   }
   return true;
+}
+
+function isAssertionRuleRowConfigured(row) {
+  const path = row.querySelector("[data-assertion-path]")?.value?.trim() || "";
+  const value = row.querySelector("[data-assertion-value]")?.value?.trim() || "";
+  return Boolean(path || value);
 }
 
 function invalidAssertionRule(row) {
