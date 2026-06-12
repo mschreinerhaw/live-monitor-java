@@ -333,6 +333,36 @@ body[data-page] .app-brand-copy small {
   border-bottom: 1px solid var(--line);
 }
 
+.notification-panel-head strong {
+  color: #1d2b42;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.notification-read-all-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #147da3;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.notification-read-all-button:hover,
+.notification-read-all-button:focus-visible {
+  color: #0f617f;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: 0;
+}
+
 .notification-list {
   display: grid;
   gap: 8px;
@@ -1479,6 +1509,25 @@ body[data-page] .app-brand-copy small {
 
 .admin-user-dialog {
   width: min(560px, 100%);
+}
+
+.admin-modal-actions {
+  align-items: center;
+}
+
+.admin-modal-action-button,
+.admin-modal-save-button {
+  height: 34px;
+  min-width: auto;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.admin-modal-action-button svg,
+.admin-modal-save-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .admin-user-table {

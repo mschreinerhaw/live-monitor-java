@@ -257,6 +257,32 @@ body[data-page="admin"] .embedded-table-search input[type="search"]:focus {
   outline: 0 !important;
 }
 
+body[data-page="admin"] .notification-read-all-button,
+body[data-page="admin"] .notification-read-all-button:hover,
+body[data-page="admin"] .notification-read-all-button:focus-visible {
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body[data-page="admin"] .admin-modal-action-button,
+body[data-page="admin"] .admin-modal-save-button,
+body[data-page="admin"] .admin-modal-action-button:hover,
+body[data-page="admin"] .admin-modal-action-button:focus-visible,
+body[data-page="admin"] .admin-modal-save-button:hover,
+body[data-page="admin"] .admin-modal-save-button:focus-visible {
+  min-height: 34px !important;
+  height: 34px !important;
+  min-width: auto !important;
+  padding: 0 12px !important;
+  border-color: #d7e1ec !important;
+  background: #fff !important;
+  color: var(--lm-primary-strong) !important;
+  box-shadow: none !important;
+}
+
 :where(
   body[data-page="dashboard"],
   body[data-page="hosts"],
