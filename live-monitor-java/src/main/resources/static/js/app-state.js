@@ -74,6 +74,14 @@ let notificationState = {
 let adminState = {
   users: [],
   auditLogs: [],
+  auditLogsLoaded: false,
+  auditLogPage: {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 1,
+    query: "",
+  },
   currentUser: null,
 };
 let resourceMetricState = {

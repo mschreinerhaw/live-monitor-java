@@ -245,6 +245,18 @@ body[data-page="admin"] .modal-head {
   outline: 0;
 }
 
+body[data-page="admin"] .embedded-table-search input[type="search"],
+body[data-page="admin"] .embedded-table-search input[type="search"]:focus {
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
 :where(
   body[data-page="dashboard"],
   body[data-page="hosts"],

@@ -96,7 +96,14 @@
             <h2>登录/登出审计日志</h2>
             <p class="panel-subtitle admin-helper-text">记录当前系统用户的登录、登出 IP 和发生时间。</p>
           </div>
-          <div class="admin-panel-actions">
+          <div class="admin-panel-actions audit-panel-actions">
+            <form id="auditLogSearchForm" class="embedded-table-search-form">
+              <label class="embedded-table-search audit-log-search">
+                <i data-lucide="search"></i>
+                <input id="auditLogSearchInput" type="search" placeholder="搜索用户、姓名、IP、动作" autocomplete="off">
+              </label>
+              <button id="clearAuditLogSearchBtn" class="text-button embedded-search-clear" type="button">清除</button>
+            </form>
             <button id="reloadAuditLogsBtn" class="icon-button" type="button" title="刷新" aria-label="刷新">
               <i data-lucide="refresh-cw"></i>
             </button>
@@ -116,6 +123,28 @@
               <tr><td colspan="4" class="empty">加载中...</td></tr>
             </tbody>
           </table>
+        </div>
+        <div id="auditLogPagination" class="audit-log-pagination">
+          <div class="audit-page-meta">
+            <span id="auditLogPageInfo" class="audit-page-info">共 0 条</span>
+            <label class="data-table-page-size audit-page-size-field">
+              <span>每页</span>
+              <select id="auditLogPageSize" aria-label="审计日志每页条数">
+                <option value="20">20 条</option>
+                <option value="50">50 条</option>
+                <option value="100">100 条</option>
+              </select>
+            </label>
+          </div>
+          <div class="audit-page-actions">
+            <button id="auditLogPrevPage" class="icon-button" type="button" title="上一页" aria-label="上一页" data-audit-page-action="prev">
+              <i data-lucide="chevron-left"></i>
+            </button>
+            <div id="auditLogPageNumbers" class="audit-page-numbers" aria-label="审计日志页码"></div>
+            <button id="auditLogNextPage" class="icon-button" type="button" title="下一页" aria-label="下一页" data-audit-page-action="next">
+              <i data-lucide="chevron-right"></i>
+            </button>
+          </div>
         </div>
       </section>
     </section>

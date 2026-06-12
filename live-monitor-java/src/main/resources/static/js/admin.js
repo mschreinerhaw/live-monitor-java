@@ -1,9 +1,16 @@
+let auditLogSearchTimer = null;
+
 async function initAdmin() {
   document.getElementById("createUserForm")?.addEventListener("submit", handleCreateUserSubmit);
   document.getElementById("resetPasswordForm")?.addEventListener("submit", handleResetPasswordSubmit);
   document.getElementById("addUserBtn")?.addEventListener("click", openCreateUserModal);
   document.getElementById("reloadUsersBtn")?.addEventListener("click", loadAdminUsers);
-  document.getElementById("reloadAuditLogsBtn")?.addEventListener("click", loadAuditLogs);
+  document.getElementById("reloadAuditLogsBtn")?.addEventListener("click", () => loadAuditLogs());
+  document.getElementById("auditLogSearchForm")?.addEventListener("submit", handleAuditLogSearchSubmit);
+  document.getElementById("auditLogSearchInput")?.addEventListener("input", handleAuditLogSearchInput);
+  document.getElementById("clearAuditLogSearchBtn")?.addEventListener("click", handleClearAuditLogSearch);
+  document.getElementById("auditLogPageSize")?.addEventListener("change", handleAuditLogPageSizeChange);
+  document.getElementById("auditLogPagination")?.addEventListener("click", handleAuditLogPaginationClick);
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.dataset.adminTab));
   });
@@ -66,7 +73,7 @@ function setAdminTab(tabName) {
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", active ? "true" : "false");
   });
-  if (normalized === "audit" && !adminState.auditLogs.length) {
+  if (normalized === "audit" && !adminState.auditLogsLoaded) {
     loadAuditLogs();
   }
 }
@@ -121,18 +128,50 @@ function renderAdminUsers() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-async function loadAuditLogs() {
+async function loadAuditLogs(options = {}) {
+  const pageState = adminState.auditLogPage;
+  if (Object.prototype.hasOwnProperty.call(options, "page")) {
+    pageState.page = Math.max(1, Number(options.page) || 1);
+  }
+  if (Object.prototype.hasOwnProperty.call(options, "pageSize")) {
+    pageState.pageSize = Math.max(1, Number(options.pageSize) || 20);
+  }
+  if (Object.prototype.hasOwnProperty.call(options, "query")) {
+    pageState.query = (options.query || "").trim();
+  }
+  syncAuditLogControls();
+
   const table = document.getElementById("auditLogTable");
   if (table) {
     table.innerHTML = '<tr><td colspan="4" class="empty">加载中...</td></tr>';
   }
   try {
-    adminState.auditLogs = await LiveMonitorApi.auditLogs() || [];
+    const payload = await LiveMonitorApi.auditLogs({
+      page: pageState.page,
+      pageSize: pageState.pageSize,
+      query: pageState.query,
+    });
+    if (Array.isArray(payload)) {
+      adminState.auditLogs = payload;
+      pageState.total = payload.length;
+      pageState.totalPages = 1;
+      pageState.page = 1;
+    } else {
+      adminState.auditLogs = payload?.items || [];
+      pageState.page = Number(payload?.page || pageState.page);
+      pageState.pageSize = Number(payload?.page_size || payload?.pageSize || pageState.pageSize);
+      pageState.total = Number(payload?.total || 0);
+      pageState.totalPages = Number(payload?.total_pages || payload?.totalPages || 1);
+    }
+    adminState.auditLogsLoaded = true;
+    syncAuditLogControls();
     renderAuditLogs();
+    renderAuditLogPagination();
   } catch (error) {
     if (table) {
       table.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(error.message || "审计日志加载失败")}</td></tr>`;
     }
+    renderAuditLogPagination(error.message || "审计日志加载失败");
   }
 }
 
@@ -140,7 +179,8 @@ function renderAuditLogs() {
   const table = document.getElementById("auditLogTable");
   if (!table) return;
   if (!adminState.auditLogs.length) {
-    table.innerHTML = '<tr><td colspan="4" class="empty">暂无审计日志</td></tr>';
+    const message = adminState.auditLogPage.query ? "未找到匹配的审计日志" : "暂无审计日志";
+    table.innerHTML = `<tr><td colspan="4" class="empty">${message}</td></tr>`;
     return;
   }
   table.innerHTML = adminState.auditLogs.map((log) => {
@@ -162,6 +202,112 @@ function renderAuditLogs() {
     `;
   }).join("");
   if (window.lucide) window.lucide.createIcons();
+}
+
+function syncAuditLogControls() {
+  const searchInput = document.getElementById("auditLogSearchInput");
+  if (searchInput && searchInput.value !== adminState.auditLogPage.query) {
+    searchInput.value = adminState.auditLogPage.query;
+  }
+  const pageSize = document.getElementById("auditLogPageSize");
+  if (pageSize && pageSize.value !== String(adminState.auditLogPage.pageSize)) {
+    pageSize.value = String(adminState.auditLogPage.pageSize);
+  }
+}
+
+function renderAuditLogPagination(errorMessage) {
+  const info = document.getElementById("auditLogPageInfo");
+  const prev = document.getElementById("auditLogPrevPage");
+  const next = document.getElementById("auditLogNextPage");
+  const numbers = document.getElementById("auditLogPageNumbers");
+  if (!info || !prev || !next || !numbers) return;
+
+  const state = adminState.auditLogPage;
+  const total = Number(state.total || 0);
+  const page = Math.max(1, Number(state.page || 1));
+  const pageSize = Math.max(1, Number(state.pageSize || 20));
+  const totalPages = Math.max(1, Number(state.totalPages || 1));
+
+  if (errorMessage) {
+    info.textContent = errorMessage;
+    numbers.innerHTML = "";
+    prev.disabled = true;
+    next.disabled = true;
+    return;
+  }
+
+  if (!total) {
+    info.textContent = state.query ? "未找到匹配日志" : "共 0 条";
+  } else {
+    const start = (page - 1) * pageSize + 1;
+    const end = Math.min(total, page * pageSize);
+    info.textContent = `第 ${start}-${end} 条 / 共 ${total} 条`;
+  }
+
+  prev.disabled = page <= 1 || !total;
+  next.disabled = page >= totalPages || !total;
+  numbers.innerHTML = auditLogPageRange(page, totalPages).map((item) => {
+    if (item === "...") {
+      return '<span class="audit-page-ellipsis">...</span>';
+    }
+    const active = item === page ? " active" : "";
+    return `<button class="page-number${active}" type="button" data-audit-page="${item}" aria-label="第 ${item} 页">${item}</button>`;
+  }).join("");
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function auditLogPageRange(page, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+  if (page <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (page >= totalPages - 3) {
+    return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, "...", page - 1, page, page + 1, "...", totalPages];
+}
+
+function handleAuditLogSearchSubmit(event) {
+  event.preventDefault();
+  clearTimeout(auditLogSearchTimer);
+  const input = document.getElementById("auditLogSearchInput");
+  loadAuditLogs({ page: 1, query: input?.value || "" });
+}
+
+function handleAuditLogSearchInput(event) {
+  clearTimeout(auditLogSearchTimer);
+  auditLogSearchTimer = setTimeout(() => {
+    loadAuditLogs({ page: 1, query: event.target.value || "" });
+  }, 350);
+}
+
+function handleClearAuditLogSearch() {
+  clearTimeout(auditLogSearchTimer);
+  const input = document.getElementById("auditLogSearchInput");
+  if (input) input.value = "";
+  loadAuditLogs({ page: 1, query: "" });
+}
+
+function handleAuditLogPageSizeChange(event) {
+  loadAuditLogs({ page: 1, pageSize: event.target.value });
+}
+
+function handleAuditLogPaginationClick(event) {
+  const pageButton = event.target.closest("[data-audit-page]");
+  const actionButton = event.target.closest("[data-audit-page-action]");
+  const state = adminState.auditLogPage;
+  if (pageButton) {
+    loadAuditLogs({ page: Number(pageButton.dataset.auditPage) });
+    return;
+  }
+  if (!actionButton) return;
+  if (actionButton.dataset.auditPageAction === "prev") {
+    loadAuditLogs({ page: Math.max(1, Number(state.page || 1) - 1) });
+  } else if (actionButton.dataset.auditPageAction === "next") {
+    loadAuditLogs({ page: Math.min(Number(state.totalPages || 1), Number(state.page || 1) + 1) });
+  }
 }
 
 function openCreateUserModal() {

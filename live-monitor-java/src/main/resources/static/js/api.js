@@ -135,7 +135,14 @@
     logout: () => request("/api/auth/logout", { method: "POST", redirectOnUnauthorized: false }),
     createEmbedToken: (data = {}) => request("/api/embed-token", { method: "POST", body: JSON.stringify(data) }),
     users: () => request("/api/admin/users"),
-    auditLogs: () => request("/api/admin/audit-logs"),
+    auditLogs: (params = {}) => {
+      const search = new URLSearchParams();
+      if (params.page) search.set("page", params.page);
+      if (params.pageSize) search.set("page_size", params.pageSize);
+      if (params.query) search.set("query", params.query);
+      const suffix = search.toString();
+      return request(`/api/admin/audit-logs${suffix ? `?${suffix}` : ""}`);
+    },
     createUser: (data) => request("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
     changePassword: (data) => request("/api/admin/password", { method: "PUT", body: JSON.stringify(data) }),
     resetUserPassword: (userId, data) => request(`/api/admin/users/${encodeURIComponent(userId)}/password`, { method: "PUT", body: JSON.stringify(data) }),

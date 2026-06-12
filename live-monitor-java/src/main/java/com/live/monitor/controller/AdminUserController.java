@@ -1,10 +1,10 @@
 package com.live.monitor.controller;
 
+import com.live.monitor.dto.AuditLogPageResponse;
 import com.live.monitor.dto.ChangePasswordPayload;
 import com.live.monitor.dto.CreateUserPayload;
 import com.live.monitor.dto.ResetUserPasswordPayload;
 import com.live.monitor.dto.UpdateUserStatusPayload;
-import com.live.monitor.entity.LoginAuditLog;
 import com.live.monitor.entity.TUser;
 import com.live.monitor.service.LoginAuditLogService;
 import com.live.monitor.service.UserAdminService;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,8 +40,11 @@ public class AdminUserController {
     }
 
     @GetMapping("/api/admin/audit-logs")
-    public List<LoginAuditLog> auditLogs(HttpSession session) {
-        return loginAuditLogService.listRecent(currentUser(session));
+    public AuditLogPageResponse auditLogs(HttpSession session,
+                                          @RequestParam(defaultValue = "1") Integer page,
+                                          @RequestParam(name = "page_size", defaultValue = "20") Integer pageSize,
+                                          @RequestParam(required = false) String query) {
+        return loginAuditLogService.listPage(currentUser(session), page, pageSize, query);
     }
 
     @PostMapping("/api/admin/users")
