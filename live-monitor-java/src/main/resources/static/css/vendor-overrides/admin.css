@@ -275,12 +275,35 @@ body[data-page="admin"] .admin-modal-save-button:hover,
 body[data-page="admin"] .admin-modal-save-button:focus-visible {
   min-height: 34px !important;
   height: 34px !important;
-  min-width: auto !important;
+  flex: 0 0 152px !important;
+  width: 152px !important;
+  min-width: 152px !important;
   padding: 0 12px !important;
   border-color: #d7e1ec !important;
   background: #fff !important;
   color: var(--lm-primary-strong) !important;
   box-shadow: none !important;
+  white-space: nowrap !important;
+}
+
+body[data-page="admin"] .admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+body[data-page="admin"] .admin-modal-save-button,
+body[data-page="admin"] .admin-modal-save-button:hover,
+body[data-page="admin"] .admin-modal-save-button:focus-visible {
+  border-color: #2563eb !important;
+  background: #2563eb !important;
+  color: #fff !important;
+}
+
+body[data-page="admin"] .admin-modal-save-button:hover,
+body[data-page="admin"] .admin-modal-save-button:focus-visible {
+  border-color: #1d4ed8 !important;
+  background: #1d4ed8 !important;
 }
 
 :where(

@@ -1512,16 +1512,35 @@ body[data-page] .app-brand-copy small {
 }
 
 .admin-modal-actions {
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .admin-modal-action-button,
 .admin-modal-save-button {
+  flex: 0 0 152px;
   height: 34px;
-  min-width: auto;
+  width: 152px;
+  min-width: 152px;
   padding: 0 12px;
   font-size: 13px;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-modal-save-button {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.admin-modal-save-button:hover,
+.admin-modal-save-button:focus-visible {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .admin-modal-action-button svg,
