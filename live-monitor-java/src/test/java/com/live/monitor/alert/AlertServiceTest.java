@@ -61,6 +61,58 @@ class AlertServiceTest {
     }
 
     @Test
+    void httpChannelReceivesRenderedBackendTemplateContent() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, deliveryService);
+        MonitorService monitorService = monitorService();
+        MonitorResult result = monitorResult("UP", 5000);
+        AlertChannel channel = new AlertChannel();
+        channel.id = 10L;
+        channel.channelType = "http";
+        channel.enabled = true;
+
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.singletonList(latencyPolicy()));
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(channel));
+        when(deliveryService.renderTemplate(anyString(), any(Map.class), anyString())).thenReturn("rendered template: demo HTTP timeout");
+        when(deliveryService.send(eq(channel), anyString())).thenReturn(AlertDeliveryService.DeliveryResult.success());
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.evaluate(monitorService, result, "UP");
+
+        ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deliveryService).renderTemplate(eq("http_service_alert.j2"), any(Map.class), anyString());
+        verify(deliveryService).send(eq(channel), contentCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("rendered template: demo HTTP timeout", contentCaptor.getValue());
+    }
+
+    @Test
+    void robotWebhookChannelsUseHttpTemplateContent() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, deliveryService);
+        MonitorService monitorService = monitorService();
+        MonitorResult result = monitorResult("UP", 5000);
+        AlertChannel dingtalk = alertChannel("dingtalk");
+        AlertChannel wecom = alertChannel("wecom");
+
+        when(alertMapper.listPoliciesByGroup(2L)).thenReturn(Collections.singletonList(latencyPolicy()));
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Arrays.asList(dingtalk, wecom));
+        when(deliveryService.renderTemplate(eq("http_service_alert.j2"), any(Map.class), anyString()))
+            .thenReturn("rendered robot template");
+        when(deliveryService.send(any(AlertChannel.class), anyString())).thenReturn(AlertDeliveryService.DeliveryResult.success());
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.evaluate(monitorService, result, "UP");
+
+        verify(deliveryService, times(2)).renderTemplate(eq("http_service_alert.j2"), any(Map.class), anyString());
+        verify(deliveryService).send(eq(dingtalk), eq("rendered robot template"));
+        verify(deliveryService).send(eq(wecom), eq("rendered robot template"));
+    }
+
+    @Test
     void consecutiveDownPolicyDoesNotTriggerForCurrentUpResult() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
@@ -664,5 +716,12 @@ class AlertServiceTest {
         policy.triggerValue = "UP";
         policy.enabled = true;
         return policy;
+    }
+
+    private AlertChannel alertChannel(String type) {
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = type;
+        channel.enabled = true;
+        return channel;
     }
 }

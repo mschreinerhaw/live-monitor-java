@@ -10,7 +10,7 @@ import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
-import java.time.LocalDate;
+import com.live.monitor.util.MonitorTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -29,7 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class LiveMonitorService {
     private static final TypeReference<Map<String, Object>> STRING_OBJECT_MAP =
         new TypeReference<Map<String, Object>>() {};
-    private static final DateTimeFormatter TEXT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter TEXT_TIME = MonitorTime.TEXT_TIME;
 
     private final MonitorServiceMapper serviceMapper;
     private final RocksDbHistoryRepository historyRepository;
@@ -186,7 +186,7 @@ public class LiveMonitorService {
 
     public Map<String, Object> dashboard() {
         List<MonitorService> services = listServices(false);
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayStart = MonitorTime.today().atStartOfDay();
         LocalDateTime yesterdayStart = todayStart.minusDays(1);
         int serviceTotal = serviceGroupCount(services, null);
         int yesterdayServiceTotal = serviceGroupCount(services, todayStart);
@@ -229,7 +229,7 @@ public class LiveMonitorService {
         dashboard.put("services", services);
         dashboard.put("recent_alerts", enrichAlerts(historyRepository.listAlerts(null, 10), services));
         dashboard.put("recent_results", enrichResults(historyRepository.listRecentMonitorResults(10), services));
-        dashboard.put("server_time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        dashboard.put("server_time", MonitorTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return dashboard;
     }
 
@@ -288,7 +288,7 @@ public class LiveMonitorService {
 
     private LocalDateTime parseTime(String value) {
         if (!StringUtils.hasText(value)) {
-            return LocalDateTime.now();
+            return MonitorTime.now();
         }
         String text = value.trim().replace('T', ' ');
         if (text.length() == 19) {
@@ -303,13 +303,13 @@ public class LiveMonitorService {
             try {
                 return LocalDateTime.parse(value);
             } catch (Exception ignoredAgain) {
-                return LocalDateTime.now();
+                return MonitorTime.now();
             }
         }
     }
 
     private String formatTime(LocalDateTime value) {
-        return TEXT_TIME.format(value);
+        return MonitorTime.formatText(value);
     }
 
     public List<MonitorResult> results(Long serviceId, int limit) {

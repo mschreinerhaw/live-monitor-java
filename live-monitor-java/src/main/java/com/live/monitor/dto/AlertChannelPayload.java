@@ -28,6 +28,9 @@ public class AlertChannelPayload {
     public String smsRstype = "text";
     public String smsExtCode;
     public String webhookUrl;
+    public String httpMethod = "POST";
+    public String httpHeaders;
+    public String httpBody;
     public String dingtalkSecret;
     public String dingtalkAtMobiles;
     public Boolean dingtalkAtAll = false;

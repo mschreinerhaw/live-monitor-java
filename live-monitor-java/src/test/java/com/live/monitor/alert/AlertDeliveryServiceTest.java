@@ -28,6 +28,8 @@ class AlertDeliveryServiceTest {
     private static HttpServer server;
     private static URI requestUri;
     private static String requestBody;
+    private static String requestMethod;
+    private static String requestContentType;
     private static String baseUrl;
     private static String robotUrl;
 
@@ -43,6 +45,8 @@ class AlertDeliveryServiceTest {
         });
         server.createContext("/robot", exchange -> {
             requestUri = exchange.getRequestURI();
+            requestMethod = exchange.getRequestMethod();
+            requestContentType = exchange.getRequestHeaders().getFirst("Content-Type");
             requestBody = readRequestBody(exchange.getRequestBody());
             byte[] body = "{\"errcode\":0,\"errmsg\":\"ok\"}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -150,6 +154,38 @@ class AlertDeliveryServiceTest {
         assertTrue(((java.util.List<?>) text.get("mentioned_list")).contains("zhangsan"));
         assertTrue(((java.util.List<?>) text.get("mentioned_list")).contains("@all"));
         assertTrue(((java.util.List<?>) text.get("mentioned_mobile_list")).contains("13800000000"));
+    }
+
+    @Test
+    void httpAlertUsesConfiguredMethodHeadersAndBodyTemplate() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        requestUri = null;
+        requestBody = null;
+        requestMethod = null;
+        requestContentType = null;
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "http";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", robotUrl);
+        config.put("http_method", "POST");
+        config.put("http_headers", "{\"Content-Type\":\"application/json\",\"X-Alert\":\"live-monitor\"}");
+        config.put("http_body", "{"
+            + "\"msgtype\":\"text\","
+            + "\"text\":{\"content\":\"${message}\"}"
+            + "}");
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "service \"down\"");
+
+        Map<String, Object> payload = mapper.readValue(requestBody, Map.class);
+        Map<String, Object> text = (Map<String, Object>) payload.get("text");
+        assertTrue(result.success, result.message);
+        assertEquals("POST", requestMethod);
+        assertTrue(requestContentType.startsWith("application/json"));
+        assertEquals("/robot", requestUri.getPath());
+        assertEquals("text", payload.get("msgtype"));
+        assertEquals("service \"down\"", text.get("content"));
     }
 
     @Test

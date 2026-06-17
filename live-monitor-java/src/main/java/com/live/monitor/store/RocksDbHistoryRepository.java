@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.config.LiveMonitorProperties;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.MonitorResult;
+import com.live.monitor.util.MonitorTime;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,7 +33,7 @@ import org.springframework.util.StringUtils;
 public class RocksDbHistoryRepository implements Closeable {
     private static final TypeReference<Map<String, Object>> MAP_TYPE =
         new TypeReference<Map<String, Object>>() {};
-    private static final DateTimeFormatter TEXT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter TEXT_TIME = MonitorTime.TEXT_TIME;
     private static final DateTimeFormatter KEY_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
     private final LiveMonitorProperties properties;
@@ -286,7 +287,7 @@ public class RocksDbHistoryRepository implements Closeable {
     public synchronized List<Map<String, Object>> listHostMetrics(Long hostId, int days, int limit) {
         ensureOpen();
         String prefix = "metric:" + hostId + ":system:";
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(Math.max(1, days));
+        LocalDateTime cutoff = MonitorTime.now().minusDays(Math.max(1, days));
         int maxRows = Math.max(1, Math.min(limit, 10000));
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
         try (RocksIterator iterator = db.newIterator()) {
@@ -466,7 +467,7 @@ public class RocksDbHistoryRepository implements Closeable {
 
     private LocalDateTime parseTime(String value) {
         if (!StringUtils.hasText(value)) {
-            return LocalDateTime.now();
+            return MonitorTime.now();
         }
         String text = value.trim().replace('T', ' ');
         if (text.length() == 19) {
@@ -481,13 +482,13 @@ public class RocksDbHistoryRepository implements Closeable {
             try {
                 return LocalDateTime.parse(value);
             } catch (Exception ignoredAgain) {
-                return LocalDateTime.now();
+                return MonitorTime.now();
             }
         }
     }
 
     private String nowText() {
-        return TEXT_TIME.format(LocalDateTime.now());
+        return MonitorTime.nowText();
     }
 
     private void putMigrationId(Map<String, Object> value, String migrationId) {

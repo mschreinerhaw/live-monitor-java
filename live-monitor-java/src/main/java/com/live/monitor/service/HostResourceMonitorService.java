@@ -7,6 +7,7 @@ import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
+import com.live.monitor.util.MonitorTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -161,8 +162,21 @@ public class HostResourceMonitorService {
         Integer mountPointCount = mountDisks.size();
         String diskMetricsJson = toJson(mountDisks);
         String physicalDiskMetricsJson = toJson(physicalDisks);
-        historyRepository.saveHostMetric(host.id, cpu, load, memory, disk, diskMetricsJson);
-        hostMapper.upsertLatestMetric(host.id, cpu, load, memory, disk, cpuCoreCount, memoryTotalMb, diskDeviceCount, diskMetricsJson, physicalDiskMetricsJson);
+        String checkedAt = MonitorTime.nowText();
+        historyRepository.saveHostMetric(null, host.id, cpu, load, memory, disk, diskMetricsJson, checkedAt, null);
+        hostMapper.upsertLatestMetric(
+            host.id,
+            cpu,
+            load,
+            memory,
+            disk,
+            cpuCoreCount,
+            memoryTotalMb,
+            diskDeviceCount,
+            diskMetricsJson,
+            physicalDiskMetricsJson,
+            checkedAt
+        );
 
         Map<String, Object> metrics = new LinkedHashMap<String, Object>();
         metrics.put("cpu_usage_percent", cpu);

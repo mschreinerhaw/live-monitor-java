@@ -2343,6 +2343,35 @@ body[data-page="alert-settings"] .alert-config-modal .recipient-list-field > spa
   line-height: 1.35;
 }
 
+body[data-page="alert-settings"] .alert-config-modal .field-label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .field-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  color: #64748b;
+  cursor: help;
+  line-height: 1;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .field-help-icon:hover,
+body[data-page="alert-settings"] .alert-config-modal .field-help-icon:focus-visible {
+  color: var(--brand);
+  outline: 0;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .field-help-icon svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+}
+
 body[data-page="alert-settings"] .alert-config-modal .form-grid input,
 body[data-page="alert-settings"] .alert-config-modal .form-grid select {
   height: 36px;

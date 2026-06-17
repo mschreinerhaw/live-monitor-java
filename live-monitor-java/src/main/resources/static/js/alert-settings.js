@@ -199,8 +199,8 @@ async function initAlertSettings() {
       showToast("请输入手机号接收");
       return;
     }
-    if (["wecom", "dingtalk"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
-      showToast("请输入机器人 Webhook 地址");
+    if (["wecom", "dingtalk", "http"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
+      showToast(channelPayload.channel_type === "http" ? "请输入 HTTP 告警 URL" : "请输入机器人 Webhook 地址");
       return;
     }
 
@@ -673,11 +673,11 @@ function policyDisplayName(policy) {
 }
 
 function channelTypeLabel(type) {
-  return { email: "邮件", sms: "短信", webhook: "Webhook", wecom: "企业微信", dingtalk: "钉钉" }[type] || type || "渠道";
+  return { email: "邮件", sms: "短信", webhook: "Webhook", wecom: "企业微信", dingtalk: "钉钉", http: "HTTP 告警" }[type] || type || "渠道";
 }
 
 function channelIcon(type) {
-  return { email: "mail", sms: "message-square", webhook: "webhook", wecom: "messages-square", dingtalk: "bot" }[type] || "send";
+  return { email: "mail", sms: "message-square", webhook: "webhook", wecom: "messages-square", dingtalk: "bot", http: "cloud-cog" }[type] || "send";
 }
 
 function channelRecipientText(channel) {
@@ -879,6 +879,10 @@ function fillAlertChannelForm(channel) {
   setValueIfExists("dingtalkSecretInput", "");
   setRecipientListValue("dingtalkAtMobileInput", "dingtalkAtMobileList", "dingtalkAtMobileRecipientInput", channel?.dingtalk_at_mobiles || "");
   setCheckedIfExists("dingtalkAtAllInput", Boolean(channel?.dingtalk_at_all));
+  setValueIfExists("httpWebhookUrlInput", channel?.webhook_url || "");
+  setValueIfExists("httpMethodInput", channel?.http_method || "POST");
+  setValueIfExists("httpHeadersInput", channel?.http_headers || '{"Content-Type":"application/json"}');
+  setValueIfExists("httpBodyInput", channel?.http_body || '{\n  "msgtype": "text",\n  "text": {\n    "content": "${message}"\n  }\n}');
   syncChannelInputs();
 }
 
@@ -934,7 +938,10 @@ function buildAlertChannelPayload() {
     sms_password_md5: channelType === "sms" ? getValueIfExists("smsPasswordMd5Input") || null : null,
     sms_rstype: channelType === "sms" ? getValueIfExists("smsRstypeInput") || "text" : "text",
     sms_ext_code: channelType === "sms" ? getValueIfExists("smsExtCodeInput") || null : null,
-    webhook_url: ["webhook", "wecom", "dingtalk"].includes(channelType) ? apiUrl || null : null,
+    webhook_url: ["webhook", "wecom", "dingtalk", "http"].includes(channelType) ? apiUrl || null : null,
+    http_method: channelType === "http" ? getValueIfExists("httpMethodInput") || "POST" : "POST",
+    http_headers: channelType === "http" ? getValueIfExists("httpHeadersInput") || null : null,
+    http_body: channelType === "http" ? getValueIfExists("httpBodyInput") || null : null,
     dingtalk_secret: channelType === "dingtalk" ? getValueIfExists("dingtalkSecretInput") || null : null,
     dingtalk_at_mobiles: channelType === "dingtalk" ? getValueIfExists("dingtalkAtMobileInput") || null : null,
     dingtalk_at_all: channelType === "dingtalk" ? getCheckedIfExists("dingtalkAtAllInput") : false,
@@ -948,6 +955,7 @@ function buildAlertChannelPayload() {
 function getWebhookUrlForType(channelType, getValue) {
   if (channelType === "wecom") return getValue("wecomWebhookUrlInput");
   if (channelType === "dingtalk") return getValue("dingtalkWebhookUrlInput");
+  if (channelType === "http") return getValue("httpWebhookUrlInput");
   return getValue("smsApiUrlInput");
 }
 

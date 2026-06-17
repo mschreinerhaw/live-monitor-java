@@ -135,6 +135,10 @@ public class AlertDeliveryService {
                 sendWebhook(type, config, content);
                 return DeliveryResult.success();
             }
+            if ("http".equals(type)) {
+                sendHttpAlert(config, content);
+                return DeliveryResult.success();
+            }
             return DeliveryResult.failed("Unsupported alert channel type: " + channel.channelType);
         } catch (Exception ex) {
             return DeliveryResult.failed(ex.getClass().getSimpleName() + ": " + ex.getMessage());
@@ -268,6 +272,91 @@ public class AlertDeliveryService {
             }
             validateWebhookResponse(type, body);
         }
+    }
+
+    private void sendHttpAlert(Map<String, Object> config, String content) throws IOException {
+        String url = firstText(config, "webhook_url", "http_url", "sms_api_url");
+        if (!StringUtils.hasText(url)) {
+            throw new IOException("HTTP alert URL is empty");
+        }
+        String method = defaultString(stringValue(config, "http_method"), "POST").toUpperCase(Locale.ROOT);
+        if (!"GET".equals(method) && !"POST".equals(method)) {
+            throw new IOException("Unsupported HTTP alert method: " + method);
+        }
+
+        Request.Builder builder = new Request.Builder().url(url);
+        Map<String, String> headers = httpHeaders(config);
+        for (Map.Entry<String, String> header : headers.entrySet()) {
+            builder.header(header.getKey(), header.getValue());
+        }
+        if ("GET".equals(method)) {
+            builder.get();
+        } else {
+            String body = renderHttpBody(defaultString(stringValue(config, "http_body"), "{\"message\":\"${message}\"}"), content);
+            MediaType mediaType = MediaType.parse(defaultString(headerValue(headers, "Content-Type"), "application/json; charset=utf-8"));
+            builder.post(RequestBody.create(body, mediaType));
+        }
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("HTTP alert returned " + response.code());
+            }
+        }
+    }
+
+    private Map<String, String> httpHeaders(Map<String, Object> config) throws IOException {
+        String raw = stringValue(config, "http_headers");
+        Map<String, String> headers = new LinkedHashMap<String, String>();
+        if (!StringUtils.hasText(raw)) {
+            headers.put("Content-Type", "application/json");
+            return headers;
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(raw, STRING_OBJECT_MAP);
+            for (Map.Entry<String, Object> entry : parsed.entrySet()) {
+                if (StringUtils.hasText(entry.getKey()) && entry.getValue() != null) {
+                    headers.put(entry.getKey().trim(), String.valueOf(entry.getValue()));
+                }
+            }
+            return headers;
+        } catch (Exception ex) {
+            for (String line : raw.split("\\r?\\n")) {
+                int index = line.indexOf(':');
+                if (index <= 0) {
+                    continue;
+                }
+                String name = line.substring(0, index).trim();
+                String value = line.substring(index + 1).trim();
+                if (StringUtils.hasText(name)) {
+                    headers.put(name, value);
+                }
+            }
+            if (headers.isEmpty()) {
+                throw new IOException("HTTP alert headers must be a JSON object or Name: Value lines");
+            }
+            return headers;
+        }
+    }
+
+    private String renderHttpBody(String template, String content) throws IOException {
+        String jsonString = objectMapper.writeValueAsString(content == null ? "" : content);
+        return template
+            .replace("\"${message}\"", jsonString)
+            .replace("\"${content}\"", jsonString)
+            .replace("\"{{message}}\"", jsonString)
+            .replace("\"{{content}}\"", jsonString)
+            .replace("${message}", content == null ? "" : content)
+            .replace("${content}", content == null ? "" : content)
+            .replace("{{message}}", content == null ? "" : content)
+            .replace("{{content}}", content == null ? "" : content);
+    }
+
+    private String headerValue(Map<String, String> headers, String name) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) {
+                return entry.getValue();
+            }
+        }
+        return "";
     }
 
     private String signedDingtalkWebhookUrl(String webhookUrl, String secret) throws IOException {

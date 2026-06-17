@@ -147,10 +147,17 @@ function initServiceTypePicker(select) {
 
 function formatTime(value) {
   if (!value) return "-";
-  const normalized = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
+  const text = String(value).trim();
+  const localMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  if (localMatch && !hasExplicitZone) {
+    const [, year, month, day, hour, minute, second = "00"] = localMatch;
+    return `${Number(year)}/${Number(month)}/${Number(day)} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+  }
+  const normalized = text.includes("T") ? text : text.replace(" ", "T");
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
 }
 
 function endpointText(service) {

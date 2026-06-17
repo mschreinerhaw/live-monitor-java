@@ -215,6 +215,7 @@
                 <option value="email">邮箱告警</option>
                 <option value="wecom">企业微信告警</option>
                 <option value="dingtalk">钉钉告警</option>
+                <option value="http">HTTP 告警</option>
               </select>
             </label>
 
@@ -435,6 +436,39 @@
           <label class="switch-row">
             <input id="dingtalkAtAllInput" type="checkbox">
             <span>@所有人</span>
+          </label>
+        </section>
+
+        <section class="setting-section span-2 channel-field http-channel-field alert-channel-section">
+          <div class="section-head">
+            <div>
+              <h2>HTTP 告警配置</h2>
+              <p>配置 HTTP 接口地址、请求方式、请求头和请求体模板。</p>
+            </div>
+          </div>
+          <label>
+            <span>URL</span>
+            <input id="httpWebhookUrlInput" type="url" placeholder="http://173.101.13.102:9980/alerthub/api/v1/send/9">
+          </label>
+          <label>
+            <span>请求类型</span>
+            <select id="httpMethodInput">
+              <option value="POST">POST</option>
+              <option value="GET">GET</option>
+            </select>
+          </label>
+          <label>
+            <span>请求头</span>
+            <textarea id="httpHeadersInput" rows="3" placeholder='{"Content-Type":"application/json"}'></textarea>
+          </label>
+          <label>
+            <span class="field-label-with-help">
+              <span>请求体</span>
+              <span class="field-help-icon" tabindex="0" title="可用变量：${message}、${content}、{{message}}、{{content}}。其中 ${message}/${content} 会替换为后端 http_*.j2 模板渲染后的告警正文。">
+                <i data-lucide="circle-help"></i>
+              </span>
+            </span>
+            <textarea id="httpBodyInput" rows="8" placeholder='{"msgtype":"text","text":{"content":"${message}"}}'></textarea>
           </label>
         </section>
 

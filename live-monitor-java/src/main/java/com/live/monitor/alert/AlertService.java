@@ -761,29 +761,51 @@ public class AlertService {
     }
 
     private String templateName(MonitorService service, MonitorResult result, AlertPolicy policy, AlertChannel channel) {
+        String channelType = normalize(channel.channelType);
         if ("host".equals(normalize(service.serviceType))) {
             if ("recovered".equals(policy.triggerType)) {
-                return "email".equals(normalize(channel.channelType))
-                    ? "email_host_resource_recover.j2"
-                    : "alert_host_resource_recover.j2";
+                if ("email".equals(channelType)) {
+                    return "email_host_resource_recover.j2";
+                }
+                if (isHttpTemplateChannel(channelType)) {
+                    return "http_host_resource_recover.j2";
+                }
+                return "alert_host_resource_recover.j2";
             }
-            if ("email".equals(normalize(channel.channelType))) {
+            if ("email".equals(channelType)) {
                 return "email_host_resource_alert.j2";
+            }
+            if (isHttpTemplateChannel(channelType)) {
+                return "http_host_resource_alert.j2";
             }
             return "alert_host_resource.j2";
         }
         if (isDatabaseType(normalize(service.serviceType)) && EventType.DB_ASSERT_FAIL.name().equals(result.eventType)) {
-            return "email".equals(normalize(channel.channelType))
-                ? "email_database_assertion_alert.j2"
-                : "sms_database_assertion_alert.j2";
+            if ("email".equals(channelType)) {
+                return "email_database_assertion_alert.j2";
+            }
+            if (isHttpTemplateChannel(channelType)) {
+                return "http_database_assertion_alert.j2";
+            }
+            return "sms_database_assertion_alert.j2";
         }
         if ("recovered".equals(policy.triggerType)) {
+            if (isHttpTemplateChannel(channelType)) {
+                return "http_service_recover.j2";
+            }
             return "sms_service_recover.j2";
         }
-        if ("email".equals(normalize(channel.channelType))) {
+        if ("email".equals(channelType)) {
             return "email_service_alert.j2";
         }
+        if (isHttpTemplateChannel(channelType)) {
+            return "http_service_alert.j2";
+        }
         return "sms_service_alert.j2";
+    }
+
+    private boolean isHttpTemplateChannel(String channelType) {
+        return "http".equals(channelType) || "dingtalk".equals(channelType) || "wecom".equals(channelType);
     }
 
     private Map<String, Object> templateVariables(MonitorService service, MonitorResult result, AlertPolicy policy) {

@@ -256,6 +256,9 @@ public class AlertAdminService {
         config.put("sms_rstype", payload.smsRstype);
         config.put("sms_ext_code", payload.smsExtCode);
         config.put("webhook_url", payload.webhookUrl);
+        config.put("http_method", payload.httpMethod);
+        config.put("http_headers", payload.httpHeaders);
+        config.put("http_body", payload.httpBody);
         config.put("dingtalk_secret", payload.dingtalkSecret);
         config.put("dingtalk_at_mobiles", payload.dingtalkAtMobiles);
         config.put("dingtalk_at_all", payload.dingtalkAtAll == null ? false : payload.dingtalkAtAll);
