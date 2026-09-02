@@ -42,6 +42,7 @@ live-monitor-java/
 ## 启动
 
 ```bash
+mvn clean -DskipTests package
 cd live-monitor-java
 mvn spring-boot:run
 ```
