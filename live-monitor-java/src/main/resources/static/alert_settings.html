@@ -473,6 +473,49 @@
           </label>
         </section>
 
+        <details id="alertProxySection" class="setting-section span-2 alert-proxy-section">
+          <summary class="alert-proxy-summary">
+            <div>
+              <h2>发送代理</h2>
+              <p id="alertProxySummaryText">不使用代理</p>
+            </div>
+            <i data-lucide="chevron-down"></i>
+          </summary>
+          <div class="alert-proxy-body">
+            <label>
+              <span>代理类型</span>
+              <select id="alertProxyTypeInput">
+                <option value="none">不使用代理</option>
+                <option value="http">HTTP 代理</option>
+                <option value="socks5">SOCKS5 代理</option>
+              </select>
+            </label>
+            <div id="alertProxyFields" class="proxy-config-fields" hidden>
+              <div class="inline-grid">
+                <label>
+                  <span>代理 IP / 域名</span>
+                  <input id="alertProxyHostInput" type="text" placeholder="例如：192.168.10.20">
+                </label>
+                <label>
+                  <span>代理端口</span>
+                  <input id="alertProxyPortInput" type="number" min="1" max="65535" placeholder="例如：8080">
+                </label>
+              </div>
+              <div id="alertHttpProxyAuthFields" class="inline-grid">
+                <label>
+                  <span>代理账号（可选）</span>
+                  <input id="alertProxyUsernameInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>代理密码（可选）</span>
+                  <input id="alertProxyPasswordInput" type="password" autocomplete="new-password" placeholder="留空则不修改">
+                </label>
+              </div>
+              <p id="alertProxyHint" class="proxy-config-hint"></p>
+            </div>
+          </div>
+        </details>
+
         <div class="form-actions span-2">
           <button class="ghost-button" id="deleteAlertGroupBtn" type="button">
             <i data-lucide="trash-2"></i>

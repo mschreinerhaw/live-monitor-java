@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +43,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import okhttp3.MediaType;
+import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -164,7 +167,7 @@ public class AlertDeliveryService {
         }
         String token = stringValue(config, "sms_api_token");
         for (String mobile : mobiles) {
-            sendSmsJsonApi(apiUrl, token, mobile, content);
+            sendSmsJsonApi(config, apiUrl, token, mobile, content);
         }
     }
 
@@ -200,7 +203,7 @@ public class AlertDeliveryService {
             .url(apiUrl + separator + String.join("&", query))
             .get()
             .build();
-        try (Response response = httpClient.newCall(request).execute()) {
+        try (Response response = httpClient(config).newCall(request).execute()) {
             String body = response.body() == null ? "" : new String(response.body().bytes(), GBK);
             if (!response.isSuccessful()) {
                 throw new IOException("SMS gateway HTTP " + response.code());
@@ -212,7 +215,13 @@ public class AlertDeliveryService {
         }
     }
 
-    private void sendSmsJsonApi(String apiUrl, String token, String mobile, String content) throws IOException {
+    private void sendSmsJsonApi(
+        Map<String, Object> config,
+        String apiUrl,
+        String token,
+        String mobile,
+        String content
+    ) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("mobile", mobile);
         payload.put("content", content);
@@ -222,7 +231,7 @@ public class AlertDeliveryService {
         if (StringUtils.hasText(token)) {
             builder.header("Authorization", "Bearer " + token.trim());
         }
-        try (Response response = httpClient.newCall(builder.build()).execute()) {
+        try (Response response = httpClient(config).newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("SMS API HTTP " + response.code());
             }
@@ -265,7 +274,7 @@ public class AlertDeliveryService {
             .url(webhookUrl)
             .post(RequestBody.create(objectMapper.writeValueAsString(payload), JSON))
             .build();
-        try (Response response = httpClient.newCall(request).execute()) {
+        try (Response response = httpClient(config).newCall(request).execute()) {
             String body = response.body() == null ? "" : response.body().string();
             if (!response.isSuccessful()) {
                 throw new IOException("Webhook HTTP " + response.code());
@@ -296,7 +305,7 @@ public class AlertDeliveryService {
             MediaType mediaType = MediaType.parse(defaultString(headerValue(headers, "Content-Type"), "application/json; charset=utf-8"));
             builder.post(RequestBody.create(body, mediaType));
         }
-        try (Response response = httpClient.newCall(builder.build()).execute()) {
+        try (Response response = httpClient(config).newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("HTTP alert returned " + response.code());
             }
@@ -436,9 +445,7 @@ public class AlertDeliveryService {
         }
 
         SSLSocketFactory sslSocketFactory = smtpSslSocketFactory(config, host);
-        Socket socket = sslOnConnect
-            ? sslSocketFactory.createSocket(host, port)
-            : new Socket(host, port);
+        Socket socket = createSmtpSocket(config, sslSocketFactory, host, port, sslOnConnect);
         socket.setSoTimeout(10000);
         BufferedReader reader = null;
         BufferedWriter writer = null;
@@ -472,6 +479,67 @@ public class AlertDeliveryService {
         } finally {
             socket.close();
         }
+    }
+
+    private OkHttpClient httpClient(Map<String, Object> config) throws IOException {
+        Proxy proxy = configuredProxy(config, false);
+        if (proxy == Proxy.NO_PROXY) {
+            return httpClient;
+        }
+        OkHttpClient.Builder builder = httpClient.newBuilder().proxy(proxy);
+        String username = stringValue(config, "proxy_username");
+        if (proxy.type() == Proxy.Type.HTTP && StringUtils.hasText(username)) {
+            String password = defaultString(stringValue(config, "proxy_password"), "");
+            builder.proxyAuthenticator((route, response) -> {
+                if (response.request().header("Proxy-Authorization") != null) {
+                    return null;
+                }
+                return response.request().newBuilder()
+                    .header("Proxy-Authorization", Credentials.basic(username.trim(), password))
+                    .build();
+            });
+        }
+        return builder.build();
+    }
+
+    private Socket createSmtpSocket(
+        Map<String, Object> config,
+        SSLSocketFactory sslSocketFactory,
+        String host,
+        int port,
+        boolean sslOnConnect
+    ) throws IOException {
+        Proxy proxy = configuredProxy(config, true);
+        Socket socket = new Socket(proxy);
+        socket.connect(new InetSocketAddress(host, port), 10000);
+        return sslOnConnect ? sslSocketFactory.createSocket(socket, host, port, true) : socket;
+    }
+
+    private Proxy configuredProxy(Map<String, Object> config, boolean smtp) throws IOException {
+        String type = normalize(stringValue(config, "proxy_type"));
+        String host = stringValue(config, "proxy_host");
+        if (!StringUtils.hasText(type) || "none".equals(type)) {
+            return Proxy.NO_PROXY;
+        }
+        if (!StringUtils.hasText(host)) {
+            throw new IOException("Alert proxy host is empty");
+        }
+        int port = intValue(config.get("proxy_port"), 0);
+        if (port < 1 || port > 65535) {
+            throw new IOException("Alert proxy port must be between 1 and 65535");
+        }
+        if (smtp && !"socks5".equals(type) && !"socks".equals(type)) {
+            throw new IOException("Email delivery requires a SOCKS5 proxy");
+        }
+        Proxy.Type proxyType;
+        if ("http".equals(type)) {
+            proxyType = Proxy.Type.HTTP;
+        } else if ("socks5".equals(type) || "socks".equals(type)) {
+            proxyType = Proxy.Type.SOCKS;
+        } else {
+            throw new IOException("Unsupported alert proxy type: " + type);
+        }
+        return new Proxy(proxyType, new InetSocketAddress(host.trim(), port));
     }
 
     private String buildEmailMessage(

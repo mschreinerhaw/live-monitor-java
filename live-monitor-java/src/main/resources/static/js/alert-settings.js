@@ -77,6 +77,7 @@ async function initAlertSettings() {
   document.getElementById("alertBindingIntervalUnit")?.addEventListener("change", renderServiceBindingPreview);
   document.getElementById("alertBindingForm")?.addEventListener("submit", submitServiceBindingForm);
   document.getElementById("alertChannelTypeSelect")?.addEventListener("change", syncChannelInputs);
+  document.getElementById("alertProxyTypeInput")?.addEventListener("change", syncAlertProxyInputs);
   setupRecipientList({
     hiddenId: "alertMobileInput",
     inputId: "alertMobileRecipientInput",
@@ -194,6 +195,14 @@ async function initAlertSettings() {
     }
     if (["wecom", "dingtalk", "http"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
       showToast(channelPayload.channel_type === "http" ? "请输入 HTTP 告警 URL" : "请输入机器人 Webhook 地址");
+      return;
+    }
+    if (channelPayload.proxy_type !== "none" && (!channelPayload.proxy_host || !channelPayload.proxy_port)) {
+      showToast("请输入代理 IP 和端口");
+      return;
+    }
+    if (channelPayload.channel_type === "email" && channelPayload.proxy_type === "http") {
+      showToast("邮件发送仅支持 SOCKS5 代理");
       return;
     }
 
@@ -905,7 +914,37 @@ function fillAlertChannelForm(channel) {
   setValueIfExists("httpMethodInput", channel?.http_method || "POST");
   setValueIfExists("httpHeadersInput", channel?.http_headers || '{"Content-Type":"application/json"}');
   setValueIfExists("httpBodyInput", channel?.http_body || '{\n  "msgtype": "text",\n  "text": {\n    "content": "${message}"\n  }\n}');
+  setValueIfExists("alertProxyTypeInput", channel?.proxy_type || "none");
+  setValueIfExists("alertProxyHostInput", channel?.proxy_host || "");
+  setValueIfExists("alertProxyPortInput", channel?.proxy_port || "");
+  setValueIfExists("alertProxyUsernameInput", channel?.proxy_username || "");
+  setValueIfExists("alertProxyPasswordInput", "");
+  document.getElementById("alertProxySection")?.removeAttribute("open");
+  syncAlertProxyInputs();
   syncChannelInputs();
+}
+
+function syncAlertProxyInputs() {
+  const type = document.getElementById("alertProxyTypeInput")?.value || "none";
+  const fields = document.getElementById("alertProxyFields");
+  const authFields = document.getElementById("alertHttpProxyAuthFields");
+  const hint = document.getElementById("alertProxyHint");
+  const summary = document.getElementById("alertProxySummaryText");
+  if (fields) fields.hidden = type === "none";
+  if (authFields) authFields.hidden = type !== "http";
+  if (summary) {
+    const host = document.getElementById("alertProxyHostInput")?.value.trim();
+    const port = document.getElementById("alertProxyPortInput")?.value;
+    const endpoint = host ? ` · ${host}${port ? `:${port}` : ""}` : "";
+    summary.textContent = type === "http"
+      ? `HTTP 代理${endpoint}`
+      : type === "socks5" ? `SOCKS5 代理${endpoint}` : "不使用代理";
+  }
+  if (hint) {
+    hint.textContent = type === "socks5"
+      ? "SOCKS5 可用于短信、机器人、HTTP 和邮件告警；当前仅支持无需认证的 SOCKS5 代理。"
+      : "HTTP 代理适用于短信、企业微信、钉钉和 HTTP 告警；邮件请使用 SOCKS5。";
+  }
 }
 
 function syncChannelInputs() {
@@ -935,6 +974,8 @@ function buildAlertChannelPayload() {
 
   const channelType = channelTypeSelect.value;
   const smtpPort = getValueIfExists("smtpPortInput");
+  const proxyType = getValueIfExists("alertProxyTypeInput") || "none";
+  const proxyPort = getValueIfExists("alertProxyPortInput");
   const apiUrl = getWebhookUrlForType(channelType, getValueIfExists);
   const groupName = getValueIfExists("alertGroupNameInput");
   return {
@@ -970,6 +1011,11 @@ function buildAlertChannelPayload() {
     wecom_mentioned_list: channelType === "wecom" ? getValueIfExists("wecomMentionedListInput") || null : null,
     wecom_mentioned_mobiles: channelType === "wecom" ? getValueIfExists("wecomMentionedMobileInput") || null : null,
     wecom_at_all: channelType === "wecom" ? getCheckedIfExists("wecomAtAllInput") : false,
+    proxy_type: proxyType,
+    proxy_host: proxyType !== "none" ? getValueIfExists("alertProxyHostInput") || null : null,
+    proxy_port: proxyType !== "none" && proxyPort ? Number(proxyPort) : null,
+    proxy_username: proxyType === "http" ? getValueIfExists("alertProxyUsernameInput") || null : null,
+    proxy_password: proxyType === "http" ? getValueIfExists("alertProxyPasswordInput") || null : null,
     enabled: getCheckedIfExists("alertGroupEnabledInput"),
   };
 }
@@ -1097,10 +1143,10 @@ function renderAlertSettingsTable() {
 
   tbody.innerHTML = filteredServices.map((service) => {
     const testBusy = isAlertActionBusy(service.id, "test");
-    const group = alertGroupForService(service);
+    const groups = alertGroupsForService(service);
     const lastAlert = lastServiceAlert(service);
     const notifyState = alertDeliveryState(lastAlert);
-    const bindingStatus = alertBindingStatus(service, group);
+    const bindingStatus = alertBindingStatus(service, groups);
     return `
     <tr>
       <td class="select-column"><input type="checkbox" data-alert-row-check="${service.id}" aria-label="选择 ${escapeHtml(service.service_name)}"></td>
@@ -1114,10 +1160,8 @@ function renderAlertSettingsTable() {
       <td><span class="state-pill ${bindingStatus.className}">${bindingStatus.text}</span></td>
       <td>
         <div class="alert-binding-rule-cell">
-          <select class="alert-binding-select ${service.alert_group_id ? "bound" : ""}" data-service-alert-group-id="${service.id}" aria-label="设置 ${escapeHtml(service.service_name)} 的告警绑">
-            ${renderAlertGroupSelectOptions(service.alert_group_id)}
-          </select>
-          <small>${alertRuleText(group)}</small>
+          ${renderServiceAlertGroupPicker(service, groups)}
+          <small>${alertRuleText(groups)}</small>
         </div>
       </td>
       <td>${formatCheckInterval(service.check_interval)}</td>
@@ -1147,14 +1191,15 @@ function renderAlertSettingsTable() {
 
 function filteredAlertServices() {
   return alertSettingsState.services.filter((service) => {
-    const group = alertGroupForService(service);
+    const groups = alertGroupsForService(service);
+    const hasGroups = serviceAlertGroupIds(service).length > 0;
     const status = alertSettingsState.filters.status || "all";
     const type = alertSettingsState.filters.serviceType || "all";
     const query = alertSettingsState.filters.query || "";
-    if (status === "bound" && !service.alert_group_id) return false;
-    if (status === "unbound" && service.alert_group_id) return false;
-    if (status === "enabled" && !group?.enabled) return false;
-    if (status === "disabled" && (!group || group.enabled)) return false;
+    if (status === "bound" && !hasGroups) return false;
+    if (status === "unbound" && hasGroups) return false;
+    if (status === "enabled" && !groups.some((group) => group.enabled)) return false;
+    if (status === "disabled" && (!hasGroups || groups.some((group) => group.enabled))) return false;
     if (type !== "all" && serviceTypeGroup(service.service_type) !== type) return false;
     if (query) {
       const haystack = [
@@ -1171,24 +1216,26 @@ function filteredAlertServices() {
   });
 }
 
-function alertGroupForService(service) {
-  return alertSettingsState.groups.find((group) => Number(group.id) === Number(service.alert_group_id)) || null;
+function alertGroupsForService(service) {
+  const ids = new Set(serviceAlertGroupIds(service));
+  return alertSettingsState.groups.filter((group) => ids.has(Number(group.id)));
 }
 
-function alertBindingStatus(service, group) {
-  if (!service.alert_group_id) return { text: "未绑", className: "disabled" };
-  if (!group) return { text: "配置缺失", className: "danger" };
-  return group.enabled
+function alertBindingStatus(service, groups) {
+  const ids = serviceAlertGroupIds(service);
+  if (!ids.length) return { text: "未绑", className: "disabled" };
+  if (groups.length !== ids.length) return { text: "配置缺失", className: "danger" };
+  return groups.some((group) => group.enabled)
     ? { text: "告警启用", className: "enabled" }
     : { text: "告警停用", className: "warning" };
 }
 
-function alertRuleText(group) {
-  if (!group) return "未绑";
-  const count = Array.isArray(group.policies) && group.policies.length
+function alertRuleText(groups) {
+  if (!groups.length) return "未绑";
+  const count = groups.reduce((total, group) => total + (Array.isArray(group.policies) && group.policies.length
     ? group.policies.length
-    : (group.policy_ids || []).length;
-  return count ? `${count} 条规则` : "未设置规";
+    : (group.policy_ids || []).length), 0);
+  return `${groups.length} 个告警组 · ${count} 条规则`;
 }
 
 function renderAlertServiceTypeTag(type) {
@@ -1342,6 +1389,48 @@ async function bindServiceAlertGroup(serviceId, value) {
     );
     renderAlertSettingsTable();
     showToast("服务告警组已更新");
+  } catch (error) {
+    showToast(error.message);
+    renderAlertSettingsTable();
+  }
+}
+
+function renderServiceAlertGroupPicker(service, groups) {
+  const selectedIds = new Set(serviceAlertGroupIds(service));
+  const label = groups.length === 0
+    ? "不绑定"
+    : groups.length === 1 ? groups[0].group_name : `已选 ${groups.length} 个告警组`;
+  return `
+    <details class="alert-group-picker ${selectedIds.size ? "bound" : ""}">
+      <summary aria-label="设置 ${escapeHtml(service.service_name)} 的告警绑定">
+        <span>${escapeHtml(label)}</span>
+        <i data-lucide="chevron-down"></i>
+      </summary>
+      <div class="alert-group-picker-menu">
+        <div class="alert-group-picker-options">
+          ${alertSettingsState.groups.map((group) => `
+            <label>
+              <input type="checkbox" value="${group.id}" ${selectedIds.has(Number(group.id)) ? "checked" : ""}>
+              <span>${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停用"}</span>
+            </label>
+          `).join("") || '<p class="empty">暂无告警组</p>'}
+        </div>
+        <button type="button" data-save-alert-groups="${service.id}">保存</button>
+      </div>
+    </details>
+  `;
+}
+
+async function bindServiceAlertGroups(serviceId, groupIds) {
+  try {
+    const updated = await LiveMonitorApi.updateServiceAlertGroup(serviceId, {
+      alert_group_ids: groupIds,
+    });
+    alertSettingsState.services = alertSettingsState.services.map((service) =>
+      Number(service.id) === Number(updated.id) ? updated : service
+    );
+    renderAlertSettingsTable();
+    showToast(groupIds.length ? "服务告警组已更新" : "服务告警绑定已取消");
   } catch (error) {
     showToast(error.message);
     renderAlertSettingsTable();
@@ -1512,6 +1601,16 @@ function handleAlertGroupListClick(event) {
 
 function handleAlertSettingsTableClick(event) {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const saveGroupsButton = target?.closest("[data-save-alert-groups]");
+  if (saveGroupsButton) {
+    event.preventDefault();
+    const picker = saveGroupsButton.closest(".alert-group-picker");
+    const groupIds = Array.from(picker?.querySelectorAll('input[type="checkbox"]:checked') || [])
+      .map((input) => Number(input.value))
+      .filter(Boolean);
+    bindServiceAlertGroups(Number(saveGroupsButton.dataset.saveAlertGroups), groupIds);
+    return;
+  }
   const recordsButton = target?.closest("[data-alert-records]");
   if (recordsButton) {
     event.preventDefault();

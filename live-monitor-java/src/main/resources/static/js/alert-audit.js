@@ -212,9 +212,7 @@
       if (button) openDetail(Number(button.dataset.detailIndex));
     });
     document.getElementById("auditDetailCloseBtn").addEventListener("click", () => detailDialog.close());
-    detailDialog.addEventListener("click", (event) => {
-      if (event.target === detailDialog) detailDialog.close();
-    });
+    detailDialog.addEventListener("cancel", (event) => event.preventDefault());
     document.getElementById("filterApplyBtn").addEventListener("click", applyFilters);
     document.getElementById("filterResetBtn").addEventListener("click", resetFilters);
     document.getElementById("filterQuery").addEventListener("keydown", (e) => {

@@ -189,6 +189,68 @@ class AlertDeliveryServiceTest {
     }
 
     @Test
+    void configuredHttpProxyRoutesWebhookRequest() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        requestUri = null;
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "webhook";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", "http://127.0.0.1:1/robot");
+        config.put("proxy_type", "http");
+        config.put("proxy_host", "127.0.0.1");
+        config.put("proxy_port", server.getAddress().getPort());
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "proxied alert");
+
+        assertTrue(result.success, result.message);
+        assertEquals("/robot", requestUri.getPath());
+        assertEquals("proxied alert", mapper.readValue(requestBody, Map.class).get("content"));
+    }
+
+    @Test
+    void enabledProxyWithoutHostDoesNotFallBackToDirectConnection() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "webhook";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", robotUrl);
+        config.put("proxy_type", "http");
+        config.put("proxy_port", 8080);
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "must use proxy");
+
+        assertEquals(false, result.success);
+        assertTrue(result.message.contains("proxy host is empty"));
+    }
+
+    @Test
+    void emailRejectsHttpProxyInsteadOfConnectingDirectly() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "email";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("smtp_host", "127.0.0.1");
+        config.put("smtp_port", 1);
+        config.put("alert_email", "ops@example.com");
+        config.put("smtp_from", "monitor@example.com");
+        config.put("smtp_auth", false);
+        config.put("proxy_type", "http");
+        config.put("proxy_host", "127.0.0.1");
+        config.put("proxy_port", 8080);
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "email alert");
+
+        assertEquals(false, result.success);
+        assertTrue(result.message.contains("requires a SOCKS5 proxy"));
+    }
+
+    @Test
     void rendersBundledJinjaTemplateVariables(@TempDir Path templateDir) {
         Map<String, Object> variables = new LinkedHashMap<String, Object>();
         variables.put("serviceName", "Order API");

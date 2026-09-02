@@ -22,7 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AlertAdminService {
     private static final String[] SECRET_FIELDS = {
-        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret"
+        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret", "proxy_password"
     };
 
     private final AlertMapper alertMapper;
@@ -265,6 +265,11 @@ public class AlertAdminService {
         config.put("wecom_mentioned_list", payload.wecomMentionedList);
         config.put("wecom_mentioned_mobiles", payload.wecomMentionedMobiles);
         config.put("wecom_at_all", payload.wecomAtAll == null ? false : payload.wecomAtAll);
+        config.put("proxy_type", payload.proxyType);
+        config.put("proxy_host", payload.proxyHost);
+        config.put("proxy_port", payload.proxyPort);
+        config.put("proxy_username", payload.proxyUsername);
+        config.put("proxy_password", payload.proxyPassword);
         if (existing != null) {
             for (String field : SECRET_FIELDS) {
                 if (config.get(field) == null && existing.containsKey(field)) {

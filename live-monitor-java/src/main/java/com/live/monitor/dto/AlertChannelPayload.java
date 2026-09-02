@@ -37,5 +37,10 @@ public class AlertChannelPayload {
     public String wecomMentionedList;
     public String wecomMentionedMobiles;
     public Boolean wecomAtAll = false;
+    public String proxyType;
+    public String proxyHost;
+    public Integer proxyPort;
+    public String proxyUsername;
+    public String proxyPassword;
     public Boolean enabled = true;
 }

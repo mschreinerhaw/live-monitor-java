@@ -2510,6 +2510,73 @@ body[data-page="alert-settings"] .alert-config-modal .inline-grid {
   gap: 10px;
 }
 
+body[data-page="alert-settings"] .alert-config-modal .proxy-config-fields {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary h2,
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary p {
+  margin: 0;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary h2 {
+  color: #334155;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary p {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-summary svg {
+  width: 17px;
+  height: 17px;
+  color: #64748b;
+  transition: transform 0.16s ease;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-section[open] .alert-proxy-summary svg {
+  transform: rotate(180deg);
+}
+
+body[data-page="alert-settings"] .alert-config-modal .alert-proxy-body {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .proxy-config-fields[hidden],
+body[data-page="alert-settings"] .alert-config-modal #alertHttpProxyAuthFields[hidden] {
+  display: none;
+}
+
+body[data-page="alert-settings"] .alert-config-modal .proxy-config-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 body[data-page="alert-settings"] .alert-config-modal .form-actions {
   padding-top: 2px;
 }
@@ -2786,6 +2853,105 @@ body[data-page="alert-settings"] .alert-config-layout.config-mode .panel-main {
 .alert-binding-select.bound {
   border-color: #cfe4ff;
   background-color: #f8fbff;
+}
+
+.alert-group-picker {
+  position: relative;
+  width: 160px;
+}
+
+.alert-group-picker summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border: 1px solid #d6e0eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alert-group-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.alert-group-picker summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-group-picker summary svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  transition: transform 160ms ease;
+}
+
+.alert-group-picker[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.alert-group-picker.bound summary {
+  border-color: #cfe4ff;
+  background: #f8fbff;
+}
+
+.alert-group-picker-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 220px;
+  padding: 8px;
+  border: 1px solid #d6e0eb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.alert-group-picker-options {
+  display: grid;
+  max-height: 184px;
+  overflow-y: auto;
+}
+
+.alert-group-picker-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.alert-group-picker-options label:hover {
+  background: #f1f5f9;
+}
+
+.alert-group-picker-options input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.alert-group-picker-menu > button {
+  width: 100%;
+  height: 32px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .alert-binding-rule-cell {
