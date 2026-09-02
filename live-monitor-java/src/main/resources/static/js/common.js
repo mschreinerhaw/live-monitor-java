@@ -283,23 +283,13 @@ function showConfirmDialog(options = {}) {
       dialog.hidden = true;
       submit.removeEventListener("click", confirm);
       cancel.removeEventListener("click", dismiss);
-      dialog.removeEventListener("click", backdropDismiss);
-      document.removeEventListener("keydown", escapeDismiss);
       resolve(value);
     };
     const confirm = () => close(true);
     const dismiss = () => close(false);
-    const backdropDismiss = (event) => {
-      if (event.target === dialog) dismiss();
-    };
-    const escapeDismiss = (event) => {
-      if (event.key === "Escape") dismiss();
-    };
 
     submit.addEventListener("click", confirm);
     cancel.addEventListener("click", dismiss);
-    dialog.addEventListener("click", backdropDismiss);
-    document.addEventListener("keydown", escapeDismiss);
     submit.focus();
     if (window.lucide) window.lucide.createIcons();
   });

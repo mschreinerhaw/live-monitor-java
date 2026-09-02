@@ -26,6 +26,7 @@
       <a href="/hosts">主机维护</a>
       <a id="serviceFormNav" class="active" href="/services/new">添加服务</a>
       <a href="/alerts/settings">告警设置</a>
+      <a href="/alerts/audit">告警审计</a>
     </nav>
   </header>
 
@@ -125,9 +126,8 @@
         </section>
 
         <label class="span-2">
-          <span>告警组</span>
-          <select name="alert_group_id" id="serviceAlertGroupSelect">
-            <option value="">不绑定告警</option>
+          <span>告警组 <small style="color:#94a3b8;">(可多选，按住 Ctrl / Cmd 或 Shift)</small></span>
+          <select name="alert_group_ids" id="serviceAlertGroupSelect" multiple size="4">
           </select>
         </label>
 

@@ -16,8 +16,15 @@ public class LiveMonitorProperties {
     private boolean embedTokenLongTerm = false;
     private String secretKey = "change-this-dev-key";
     private String rocksdbPath = "./data/rocksdb";
+    private String luceneIndexPath = "./data/search-lucene";
+    private int metricRetentionDays = 30;
+    private int alertNotifyRetentionDays = 90;
     private String sqlitePath = "./data/live_monitor.db";
     private String sqliteBackupDir = "./data/backup";
+    private String h2LegacyPath = "./data/h2/live_monitor";
+    private String h2LegacyUsername = "sa";
+    private String h2LegacyPassword = "live_monitor";
+    private String h2LegacyBackupDir = "./data/backup";
 
     public int getSchedulerTickSeconds() {
         return schedulerTickSeconds;
@@ -99,6 +106,30 @@ public class LiveMonitorProperties {
         this.rocksdbPath = rocksdbPath;
     }
 
+    public String getLuceneIndexPath() {
+        return luceneIndexPath;
+    }
+
+    public void setLuceneIndexPath(String luceneIndexPath) {
+        this.luceneIndexPath = luceneIndexPath;
+    }
+
+    public int getMetricRetentionDays() {
+        return metricRetentionDays;
+    }
+
+    public void setMetricRetentionDays(int metricRetentionDays) {
+        this.metricRetentionDays = Math.max(1, metricRetentionDays);
+    }
+
+    public int getAlertNotifyRetentionDays() {
+        return alertNotifyRetentionDays;
+    }
+
+    public void setAlertNotifyRetentionDays(int alertNotifyRetentionDays) {
+        this.alertNotifyRetentionDays = Math.max(1, alertNotifyRetentionDays);
+    }
+
     public String getSqlitePath() {
         return sqlitePath;
     }
@@ -113,5 +144,37 @@ public class LiveMonitorProperties {
 
     public void setSqliteBackupDir(String sqliteBackupDir) {
         this.sqliteBackupDir = sqliteBackupDir;
+    }
+
+    public String getH2LegacyPath() {
+        return h2LegacyPath;
+    }
+
+    public void setH2LegacyPath(String h2LegacyPath) {
+        this.h2LegacyPath = h2LegacyPath;
+    }
+
+    public String getH2LegacyUsername() {
+        return h2LegacyUsername;
+    }
+
+    public void setH2LegacyUsername(String h2LegacyUsername) {
+        this.h2LegacyUsername = h2LegacyUsername;
+    }
+
+    public String getH2LegacyPassword() {
+        return h2LegacyPassword;
+    }
+
+    public void setH2LegacyPassword(String h2LegacyPassword) {
+        this.h2LegacyPassword = h2LegacyPassword;
+    }
+
+    public String getH2LegacyBackupDir() {
+        return h2LegacyBackupDir;
+    }
+
+    public void setH2LegacyBackupDir(String h2LegacyBackupDir) {
+        this.h2LegacyBackupDir = h2LegacyBackupDir;
     }
 }

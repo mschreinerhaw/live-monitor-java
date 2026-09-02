@@ -38,15 +38,21 @@ public class RocksDbHistoryRepository implements Closeable {
 
     private final LiveMonitorProperties properties;
     private final ObjectMapper objectMapper;
+    private final MetricSearchIndex metricSearchIndex;
     private final AtomicLong resultSeq = new AtomicLong();
     private final AtomicLong alertSeq = new AtomicLong();
     private final AtomicLong metricSeq = new AtomicLong();
     private Options options;
     private RocksDB db;
 
-    public RocksDbHistoryRepository(LiveMonitorProperties properties, ObjectMapper objectMapper) {
+    public RocksDbHistoryRepository(
+        LiveMonitorProperties properties,
+        ObjectMapper objectMapper,
+        @org.springframework.beans.factory.annotation.Autowired(required = false) MetricSearchIndex metricSearchIndex
+    ) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.metricSearchIndex = metricSearchIndex;
     }
 
     @PostConstruct
@@ -57,6 +63,44 @@ public class RocksDbHistoryRepository implements Closeable {
         options = new Options().setCreateIfMissing(true);
         db = RocksDB.open(options, path.toString());
         initializeSequences();
+        rebuildMetricSearchIndexIfEmpty();
+    }
+
+    private void rebuildMetricSearchIndexIfEmpty() {
+        if (metricSearchIndex == null || !metricSearchIndex.isEmpty()) {
+            return;
+        }
+        int indexed = 0;
+        try (RocksIterator iterator = db.newIterator()) {
+            iterator.seek(bytes("metric:"));
+            while (iterator.isValid()) {
+                String key = text(iterator.key());
+                if (!key.startsWith("metric:")) {
+                    break;
+                }
+                Map<String, Object> value = readMap(iterator.value());
+                Long id = longValue(value.get("id"));
+                Long hostId = longValue(value.get("host_id"));
+                String checkedAt = stringValue(value.get("checked_at"));
+                metricSearchIndex.indexMetric(
+                    id,
+                    hostId,
+                    doubleValue(value.get("cpu_usage_percent")),
+                    doubleValue(value.get("load_average")),
+                    doubleValue(value.get("memory_used_percent")),
+                    doubleValue(value.get("disk_used_percent")),
+                    stringValue(value.get("disk_metrics_json")),
+                    checkedAt
+                );
+                indexed++;
+                iterator.next();
+            }
+        }
+        if (indexed > 0) {
+            metricSearchIndex.flush();
+            org.slf4j.LoggerFactory.getLogger(RocksDbHistoryRepository.class)
+                .info("Rebuilt Lucene metric index from RocksDB, indexed {} host-metric documents", indexed);
+        }
     }
 
     public synchronized MonitorResult saveMonitorResult(MonitorResult result) {
@@ -108,11 +152,15 @@ public class RocksDbHistoryRepository implements Closeable {
     public synchronized List<MonitorResult> listRecentMonitorResults(int limit) {
         List<MonitorResult> rows = new ArrayList<MonitorResult>();
         try (RocksIterator iterator = db.newIterator()) {
-            iterator.seekToLast();
+            // Bound the reverse scan strictly to the "check:" prefix range so we don't
+            // walk through the (much larger) metric:/alert: ranges of the database.
+            seekBeforePrefixEnd(iterator, "check:");
             while (iterator.isValid() && rows.size() < limit) {
-                if (text(iterator.key()).startsWith("check:")) {
-                    rows.add(mapToMonitorResult(readMap(iterator.value())));
+                String key = text(iterator.key());
+                if (!key.startsWith("check:")) {
+                    break;
                 }
+                rows.add(mapToMonitorResult(readMap(iterator.value())));
                 iterator.prev();
             }
         }
@@ -120,21 +168,60 @@ public class RocksDbHistoryRepository implements Closeable {
     }
 
     public synchronized Map<Long, MonitorResult> latestMonitorResultsBefore(String cutoff) {
-        LocalDateTime cutoffTime = parseTime(cutoff);
+        return latestMonitorResultsBefore(null, cutoff);
+    }
+
+    /**
+     * Fast path: for a bounded set of service IDs, look up the latest check result strictly before
+     * the given cutoff via one RocksDB seek per service, instead of scanning the entire history.
+     * If {@code serviceIds} is null, falls back to the original full scan (kept for callers that
+     * don't yet know the service universe).
+     */
+    public synchronized Map<Long, MonitorResult> latestMonitorResultsBefore(
+        java.util.Collection<Long> serviceIds,
+        String cutoff
+    ) {
+        String cutoffKeyTime = KEY_TIME.format(parseTime(cutoff));
         Map<Long, MonitorResult> latestByService = new HashMap<Long, MonitorResult>();
+        if (serviceIds != null) {
+            try (RocksIterator iterator = db.newIterator()) {
+                for (Long serviceId : serviceIds) {
+                    if (serviceId == null) {
+                        continue;
+                    }
+                    String prefix = "check:" + serviceId + ":";
+                    // Seek to the first key at-or-after (prefix + cutoffKeyTime), then step back
+                    // to obtain the latest key strictly before the cutoff within this service.
+                    iterator.seek(bytes(prefix + cutoffKeyTime));
+                    if (!iterator.isValid()) {
+                        iterator.seekToLast();
+                    } else {
+                        iterator.prev();
+                    }
+                    if (iterator.isValid() && text(iterator.key()).startsWith(prefix)) {
+                        latestByService.put(serviceId, mapToMonitorResult(readMap(iterator.value())));
+                    }
+                }
+            }
+            return latestByService;
+        }
+        // Fallback: original full scan (bounded to the check: range for a partial win).
+        LocalDateTime cutoffTime = parseTime(cutoff);
         Map<Long, LocalDateTime> latestTimeByService = new HashMap<Long, LocalDateTime>();
         try (RocksIterator iterator = db.newIterator()) {
-            iterator.seekToFirst();
+            iterator.seek(bytes("check:"));
             while (iterator.isValid()) {
-                if (text(iterator.key()).startsWith("check:")) {
-                    MonitorResult result = mapToMonitorResult(readMap(iterator.value()));
-                    LocalDateTime checkedAt = parseTime(result.checkedAt);
-                    if (result.serviceId != null && checkedAt.isBefore(cutoffTime)) {
-                        LocalDateTime currentLatest = latestTimeByService.get(result.serviceId);
-                        if (currentLatest == null || checkedAt.isAfter(currentLatest)) {
-                            latestTimeByService.put(result.serviceId, checkedAt);
-                            latestByService.put(result.serviceId, result);
-                        }
+                String key = text(iterator.key());
+                if (!key.startsWith("check:")) {
+                    break;
+                }
+                MonitorResult result = mapToMonitorResult(readMap(iterator.value()));
+                LocalDateTime checkedAt = parseTime(result.checkedAt);
+                if (result.serviceId != null && checkedAt.isBefore(cutoffTime)) {
+                    LocalDateTime currentLatest = latestTimeByService.get(result.serviceId);
+                    if (currentLatest == null || checkedAt.isAfter(currentLatest)) {
+                        latestTimeByService.put(result.serviceId, checkedAt);
+                        latestByService.put(result.serviceId, result);
                     }
                 }
                 iterator.next();
@@ -175,13 +262,17 @@ public class RocksDbHistoryRepository implements Closeable {
     public synchronized List<AlertRecord> listAlerts(Long serviceId, int limit) {
         List<AlertRecord> rows = new ArrayList<AlertRecord>();
         try (RocksIterator iterator = db.newIterator()) {
-            iterator.seekToLast();
+            // Restrict reverse scan to the "alert:" prefix range so we don't walk over the
+            // (potentially huge) check:/metric: ranges when they sort after "alert:".
+            seekBeforePrefixEnd(iterator, "alert:");
             while (iterator.isValid() && rows.size() < limit) {
-                if (text(iterator.key()).startsWith("alert:")) {
-                    AlertRecord record = mapToAlertRecord(readMap(iterator.value()));
-                    if (serviceId == null || serviceId.equals(record.serviceId)) {
-                        rows.add(record);
-                    }
+                String key = text(iterator.key());
+                if (!key.startsWith("alert:")) {
+                    break;
+                }
+                AlertRecord record = mapToAlertRecord(readMap(iterator.value()));
+                if (serviceId == null || serviceId.equals(record.serviceId)) {
+                    rows.add(record);
                 }
                 iterator.prev();
             }
@@ -190,17 +281,19 @@ public class RocksDbHistoryRepository implements Closeable {
     }
 
     public synchronized int countAlertsBetween(String startInclusive, String endExclusive) {
-        LocalDateTime startTime = parseTime(startInclusive);
-        LocalDateTime endTime = parseTime(endExclusive);
+        // Alert keys are of the form "alert:<yyyyMMddHHmmssSSS>:<id>:<uuid>", so the key range
+        // itself is enough to answer the count without touching value bytes or JSON parsing.
+        String startKey = "alert:" + KEY_TIME.format(parseTime(startInclusive));
+        String endKey = "alert:" + KEY_TIME.format(parseTime(endExclusive));
         int count = 0;
         try (RocksIterator iterator = db.newIterator()) {
-            iterator.seek(bytes("alert:"));
-            while (iterator.isValid() && text(iterator.key()).startsWith("alert:")) {
-                AlertRecord record = mapToAlertRecord(readMap(iterator.value()));
-                LocalDateTime createdAt = parseTime(record.createdAt);
-                if (!createdAt.isBefore(startTime) && createdAt.isBefore(endTime)) {
-                    count++;
+            iterator.seek(bytes(startKey));
+            while (iterator.isValid()) {
+                String key = text(iterator.key());
+                if (!key.startsWith("alert:") || key.compareTo(endKey) >= 0) {
+                    break;
                 }
+                count++;
                 iterator.next();
             }
         }
@@ -281,14 +374,33 @@ public class RocksDbHistoryRepository implements Closeable {
         value.put("checked_at", time);
         putMigrationId(value, migrationId);
         put(key("metric", String.valueOf(hostId), "system", keyTime(time) + ":" + metricId), value);
+        if (metricSearchIndex != null) {
+            metricSearchIndex.indexMetric(
+                metricId,
+                hostId,
+                cpuUsagePercent,
+                loadAverage,
+                memoryUsedPercent,
+                diskUsedPercent,
+                diskMetricsJson,
+                time
+            );
+        }
         return value;
     }
 
     public synchronized List<Map<String, Object>> listHostMetrics(Long hostId, int days, int limit) {
         ensureOpen();
+        int maxRows = Math.max(1, Math.min(limit, 10000));
+        // Fast path: Lucene secondary index for host metrics.
+        if (metricSearchIndex != null && hostId != null && !metricSearchIndex.isEmpty()) {
+            List<Map<String, Object>> hit = metricSearchIndex.searchByHost(hostId, days, maxRows);
+            if (!hit.isEmpty()) {
+                return hit;
+            }
+        }
         String prefix = "metric:" + hostId + ":system:";
         LocalDateTime cutoff = MonitorTime.now().minusDays(Math.max(1, days));
-        int maxRows = Math.max(1, Math.min(limit, 10000));
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
         try (RocksIterator iterator = db.newIterator()) {
             seekBeforePrefixEnd(iterator, prefix);
@@ -319,6 +431,43 @@ public class RocksDbHistoryRepository implements Closeable {
             }
         }
         return count;
+    }
+
+    /**
+     * Delete all "metric:*" host metric records whose keyTime component is strictly before
+     * the given cutoff time. Also propagates the delete to the Lucene metric index.
+     * Returns the number of RocksDB keys removed.
+     */
+    public synchronized int purgeMetricsBefore(LocalDateTime cutoff) {
+        ensureOpen();
+        String cutoffKeyTime = KEY_TIME.format(cutoff);
+        List<byte[]> victims = new ArrayList<byte[]>();
+        try (RocksIterator iterator = db.newIterator()) {
+            iterator.seek(bytes("metric:"));
+            while (iterator.isValid()) {
+                String key = text(iterator.key());
+                if (!key.startsWith("metric:")) {
+                    break;
+                }
+                // key format: metric:<hostId>:system:<yyyyMMddHHmmssSSS>:<metricId>:<uuid>
+                String[] parts = key.split(":");
+                if (parts.length >= 4 && parts[3].compareTo(cutoffKeyTime) < 0) {
+                    victims.add(copy(iterator.key()));
+                }
+                iterator.next();
+            }
+        }
+        for (byte[] key : victims) {
+            delete(key);
+        }
+        if (metricSearchIndex != null) {
+            long cutoffMs = cutoff.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            int removedFromIndex = metricSearchIndex.purgeBefore(cutoffMs);
+            org.slf4j.LoggerFactory.getLogger(RocksDbHistoryRepository.class)
+                .info("Metric TTL purge: RocksDB removed={}, Lucene removed={}, cutoff={}",
+                    victims.size(), removedFromIndex, cutoff);
+        }
+        return victims.size();
     }
 
     public synchronized void deleteByMigrationId(String migrationId) {
@@ -527,6 +676,20 @@ public class RocksDbHistoryRepository implements Closeable {
 
     private String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private Double doubleValue(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value != null && StringUtils.hasText(String.valueOf(value))) {
+            try {
+                return Double.valueOf(String.valueOf(value));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private byte[] bytes(String value) {

@@ -543,6 +543,15 @@ function buildServicePayload(form) {
   data.process_min_instances = isProcess ? Number(data.process_min_instances || 1) : null;
   data.alert_group_id = data.alert_group_id ? Number(data.alert_group_id) : null;
   data.alert_config_id = null;
+  // Collect multi-selected alert groups (if the form uses the multi-select).
+  const alertGroupSelect = form.elements.alert_group_ids || form.elements.alert_group_id;
+  if (alertGroupSelect && alertGroupSelect.multiple) {
+    const ids = Array.from(alertGroupSelect.selectedOptions || [])
+      .map((opt) => Number(opt.value))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    data.alert_group_ids = ids;
+    data.alert_group_id = ids[0] || null;
+  }
   data.cluster_name = data.cluster_name || null;
   data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
@@ -565,18 +574,22 @@ function buildServicePayload(form) {
 
 
 async function loadServiceAlertConfigOptions(form) {
-  const select = form.elements.alert_group_id || form.elements.alert_config_id;
+  const select = form.elements.alert_group_ids || form.elements.alert_group_id || form.elements.alert_config_id;
   if (!select) return;
   try {
     const groups = await LiveMonitorApi.alertGroups(false);
-    select.innerHTML = [
-      '<option value="">不绑定告警组</option>',
-      ...groups.map((group) =>
-        `<option value="${group.id}">${escapeHtml(group.group_name)} (${group.channels?.length || 0} 个渠道)</option>`
-      ),
-    ].join("");
+    const options = groups.map((group) =>
+      `<option value="${group.id}">${escapeHtml(group.group_name)} (${group.channels?.length || 0} 个渠道)</option>`
+    );
+    if (select.multiple) {
+      select.innerHTML = options.join("");
+    } else {
+      select.innerHTML = ['<option value="">不绑定告警组</option>', ...options].join("");
+    }
   } catch (error) {
-    select.innerHTML = '<option value="">告警组加载失败</option>';
+    select.innerHTML = select.multiple
+      ? ""
+      : '<option value="">告警组加载失败</option>';
     showToast(error.message);
   }
 }
@@ -627,7 +640,6 @@ function fillServiceForm(form, service) {
     "service_consecutive_failures",
     "service_recover_successes",
     "service_alert_cooldown_seconds",
-    "alert_group_id",
   ].forEach((name) => {
     if (form.elements[name]) {
       const defaults = {
@@ -651,6 +663,21 @@ function fillServiceForm(form, service) {
     }
   });
   const intervalParts = secondsToIntervalParts(service.check_interval);
+  // Hydrate alert group selection (multi-select preferred; single-select fallback)
+  const alertGroupField = form.elements.alert_group_ids || form.elements.alert_group_id;
+  if (alertGroupField) {
+    const bound = Array.isArray(service.alert_group_ids) && service.alert_group_ids.length > 0
+      ? service.alert_group_ids
+      : (service.alert_group_id ? [service.alert_group_id] : []);
+    const boundSet = new Set(bound.map((id) => String(id)));
+    if (alertGroupField.multiple) {
+      Array.from(alertGroupField.options).forEach((opt) => {
+        opt.selected = boundSet.has(String(opt.value));
+      });
+    } else {
+      alertGroupField.value = bound[0] != null ? String(bound[0]) : "";
+    }
+  }
   if (form.elements.check_interval_value) {
     form.elements.check_interval_value.value = service.check_interval_value || intervalParts.value;
   }

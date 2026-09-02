@@ -91,6 +91,12 @@ public class ServicePayload {
     public Integer serviceAlertCooldownSeconds = 600;
     public Long alertConfigId;
     public Long alertGroupId;
+    /**
+     * All alert groups the service should be bound to. When present, this is the
+     * source of truth; {@link #alertGroupId} is kept for backward compatibility with
+     * older clients and is treated as the primary group.
+     */
+    public List<Long> alertGroupIds;
     public Boolean enabled = true;
 
     public static class CrossDatabaseQueryPayload {

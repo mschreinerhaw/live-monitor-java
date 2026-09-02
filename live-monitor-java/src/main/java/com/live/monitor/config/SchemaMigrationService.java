@@ -57,7 +57,69 @@ public class SchemaMigrationService {
         addColumnIfMissing("host_latest_metric", "disk_metrics_json", "VARCHAR(100000)", "LONGTEXT");
         addColumnIfMissing("host_latest_metric", "physical_disk_metrics_json", "VARCHAR(100000)", "LONGTEXT");
         addColumnIfMissing("monitor_check_event", "event_type", "VARCHAR(64)");
+        migrateServiceAlertGroupCompositePrimaryKey();
         createCommonIndexes();
+    }
+
+    /**
+     * The initial version of {@code service_alert_group} enforced a one-to-one binding by
+     * declaring {@code PRIMARY KEY (service_id)}. We now support one service being bound to
+     * multiple alert groups, so this migration relaxes the PK to the composite
+     * {@code (service_id, group_id)} idempotently on both MySQL and H2.
+     */
+    private void migrateServiceAlertGroupCompositePrimaryKey() {
+        if (!tableExists("service_alert_group")) {
+            return;
+        }
+        try {
+            Integer pkColumnCount = databaseDialect.isMysql()
+                ? jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.key_column_usage " +
+                        "WHERE table_schema = SCHEMA() AND LOWER(table_name) = 'service_alert_group' " +
+                        "AND LOWER(constraint_name) = 'primary'",
+                    Integer.class
+                )
+                : jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.key_column_usage k " +
+                        "JOIN information_schema.table_constraints c " +
+                        "ON c.constraint_catalog = k.constraint_catalog " +
+                        "AND c.constraint_schema = k.constraint_schema " +
+                        "AND c.constraint_name = k.constraint_name " +
+                        "WHERE k.table_schema = SCHEMA() AND LOWER(k.table_name) = 'service_alert_group' " +
+                        "AND c.constraint_type = 'PRIMARY KEY'",
+                    Integer.class
+                );
+            if (pkColumnCount != null && pkColumnCount >= 2) {
+                return; // Already composite.
+            }
+        } catch (Exception ignored) {
+            // Fall through to attempt the migration; both DDLs below are idempotent-ish.
+        }
+        try {
+            if (databaseDialect.isMysql()) {
+                jdbcTemplate.execute("ALTER TABLE service_alert_group DROP PRIMARY KEY");
+                jdbcTemplate.execute("ALTER TABLE service_alert_group ADD PRIMARY KEY (service_id, group_id)");
+            } else {
+                rebuildH2ServiceAlertGroupTable();
+            }
+            log.info("Migrated service_alert_group PRIMARY KEY to (service_id, group_id)");
+        } catch (Exception ex) {
+            log.warn("Failed to migrate service_alert_group PK to composite: {}", ex.getMessage());
+        }
+    }
+
+    private void rebuildH2ServiceAlertGroupTable() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS service_alert_group_migration");
+        jdbcTemplate.execute("CREATE TABLE service_alert_group_migration (" +
+            "service_id BIGINT NOT NULL, " +
+            "group_id BIGINT NOT NULL, " +
+            "PRIMARY KEY (service_id, group_id), " +
+            "FOREIGN KEY(service_id) REFERENCES monitor_service(id) ON DELETE CASCADE, " +
+            "FOREIGN KEY(group_id) REFERENCES alert_group(id) ON DELETE CASCADE)");
+        jdbcTemplate.execute("INSERT INTO service_alert_group_migration (service_id, group_id) " +
+            "SELECT DISTINCT service_id, group_id FROM service_alert_group");
+        jdbcTemplate.execute("DROP TABLE service_alert_group");
+        jdbcTemplate.execute("ALTER TABLE service_alert_group_migration RENAME TO service_alert_group");
     }
 
     private void createLoginAuditLogTable() {

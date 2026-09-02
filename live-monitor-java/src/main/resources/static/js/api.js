@@ -131,6 +131,8 @@
     alerts: (id, limit = 50) => request(`/api/services/${id}/alerts?limit=${limit}`),
     allAlerts: (limit = 50) => request(`/api/alerts?limit=${limit}`),
     clearAlerts: () => request("/api/alerts", { method: "DELETE" }),
+    alertNotifications: (queryString = "") => request(`/api/alert-notifications${queryString ? `?${queryString}` : ""}`),
+    alertNotificationsTrend: (days = 14) => request(`/api/alert-notifications/trend?days=${days}`),
     currentUser: () => request("/api/auth/me", { redirectOnUnauthorized: false }),
     logout: () => request("/api/auth/logout", { method: "POST", redirectOnUnauthorized: false }),
     createEmbedToken: (data = {}) => request("/api/embed-token", { method: "POST", body: JSON.stringify(data) }),

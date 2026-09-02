@@ -53,15 +53,6 @@ function bindHostEvents() {
   document.getElementById("exportHostMetricsBtn")?.addEventListener("click", exportSelectedHostMetricHistory);
   bindHostMetricChartResize();
   document.getElementById("closeHostChartZoomBtn")?.addEventListener("click", closeHostChartZoomModal);
-  document.getElementById("hostModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "hostModal") closeHostModal();
-  });
-  document.getElementById("hostDetailModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "hostDetailModal") closeHostDetailModal();
-  });
-  document.getElementById("hostChartZoomModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "hostChartZoomModal") closeHostChartZoomModal();
-  });
 }
 
 async function loadHostAlertGroups() {

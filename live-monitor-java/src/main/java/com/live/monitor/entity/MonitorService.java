@@ -77,6 +77,9 @@ public class MonitorService {
     public Long alertGroupId;
     public String alertGroupName;
     public Boolean alertGroupEnabled;
+    /** All alert groups bound to this service. Populated by the service layer. */
+    public List<Long> alertGroupIds;
+    public List<String> alertGroupNames;
     public Boolean enabled;
     public String createdAt;
     public String lastStatus;

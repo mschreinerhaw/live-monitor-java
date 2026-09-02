@@ -2800,6 +2800,12 @@ body[data-page="alert-settings"] .alert-config-layout.config-mode .panel-main {
   line-height: 1.3;
 }
 
+.field-note {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .alert-rule-link {
   color: #2563eb;
   font-weight: 700;

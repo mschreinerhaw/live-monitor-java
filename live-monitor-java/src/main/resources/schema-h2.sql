@@ -127,8 +127,9 @@ CREATE TABLE IF NOT EXISTS group_channel_rel (
 );
 
 CREATE TABLE IF NOT EXISTS service_alert_group (
-    service_id BIGINT PRIMARY KEY,
+    service_id BIGINT NOT NULL,
     group_id BIGINT NOT NULL,
+    PRIMARY KEY (service_id, group_id),
     FOREIGN KEY(service_id) REFERENCES monitor_service(id) ON DELETE CASCADE,
     FOREIGN KEY(group_id) REFERENCES alert_group(id) ON DELETE CASCADE
 );

@@ -1,11 +1,23 @@
+/**
+ * Return a human-readable label for a service's alert group binding.
+ * Handles the new multi-binding fields (alert_group_ids / alert_group_names) with
+ * fallback to the legacy singular fields.
+ */
+function serviceAlertGroupLabel(service, fallback = "未绑定告警组") {
+  if (!service) return fallback;
+  const names = Array.isArray(service.alert_group_names)
+    ? service.alert_group_names.filter(Boolean)
+    : [];
+  if (names.length > 1) return `${names.join(", ")}（共 ${names.length} 个）`;
+  if (names.length === 1) return names[0];
+  return service.alert_group_name || fallback;
+}
+
 async function initDashboard() {
   document.getElementById("activityRefreshBtn")?.addEventListener("click", loadDashboard);
   document.getElementById("serviceExportBtn")?.addEventListener("click", exportServiceListExcel);
   document.getElementById("dashboardEmbedBtn")?.addEventListener("click", showEmbedUrl);
   document.getElementById("embedModalCloseBtn")?.addEventListener("click", closeEmbedModal);
-  document.getElementById("embedModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "embedModal") closeEmbedModal();
-  });
   document.getElementById("embedCopyBtn")?.addEventListener("click", copyEmbedUrl);
   document.getElementById("activityClearReloadBtn")?.addEventListener("click", clearDashboardActivityMessages);
   document.querySelectorAll(".status-filter-grid .metric").forEach((card) => {
@@ -425,7 +437,7 @@ function currentServiceExportRows() {
         status: statusLabel(service.last_status),
         responseTime: service.last_response_time_ms ?? "",
         lastCheckedAt: formatTime(service.last_checked_at),
-        alertGroup: service.alert_group_name || "未绑定告警",
+        alertGroup: serviceAlertGroupLabel(service, "未绑定告警组"),
         checkInterval: formatCheckInterval(service.check_interval),
         enabled: service.enabled ? "是" : "否",
         monitorReason: service.monitor_reason || "",
@@ -596,7 +608,7 @@ function renderLegacyServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <a class="primary-button" href="${addInstanceHref}">
@@ -616,7 +628,7 @@ function renderDashboardAlertGroupOptions(selectedId) {
   const mixed = selectedId === "__mixed";
   return [
     mixed ? '<option value="__mixed" selected>当前为混合配置</option>' : "",
-    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警</option>`,
+    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警组</option>`,
     ...dashboardState.alertGroups.map((group) => `
       <option value="${group.id}" ${Number(selectedId) === Number(group.id) ? "selected" : ""}>
         ${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停"}
@@ -640,11 +652,11 @@ function renderLegacyInstanceRow(service) {
       </div>
       <div class="instance-meta">
         <span>${formatTime(service.last_checked_at)}</span>
-        <small>${escapeHtml(service.alert_group_name || "未绑定告")}</small>
+        <small>${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</small>
       </div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}"><i data-lucide="eye"></i></a>
-        <button title="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button title="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         ${serviceOpenButton(service)}
         <a title="配置" href="${serviceEditHref(service.id)}"><i data-lucide="settings"></i></a>
       </div>
@@ -656,7 +668,7 @@ function renderDashboardAlertGroupOptions(selectedId) {
   const mixed = selectedId === "__mixed";
   return [
     mixed ? '<option value="__mixed" selected>混合配置</option>' : "",
-    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警</option>`,
+    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警组</option>`,
     ...dashboardState.alertGroups.map((group) => `
       <option value="${group.id}" ${Number(selectedId) === Number(group.id) ? "selected" : ""}>
         ${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停"}
@@ -730,7 +742,7 @@ function renderServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -774,11 +786,11 @@ function renderInstanceRow(service) {
       </div>
       <div class="instance-meta">
         <span>${formatTime(service.last_checked_at)}</span>
-        <small>${escapeHtml(service.alert_group_name || "未绑定告")}</small>
+        <small>${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</small>
       </div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}"><i data-lucide="eye"></i></a>
-        <button type="button" title="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button type="button" title="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         ${serviceOpenButton(service)}
         <a class="instance-text-action" title="编辑实例" href="${serviceEditHref(service.id)}"><i data-lucide="pencil"></i><span>编辑</span></a>
         <button class="instance-text-action danger" type="button" title="删除实例" onclick="deleteServiceInstance(${service.id})"><i data-lucide="trash-2"></i><span>删除</span></button>
@@ -835,7 +847,7 @@ function renderServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" aria-label="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" aria-label="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -872,23 +884,23 @@ function renderServiceGroupCard(group) {
             <div class="instance-table-head">
               <span>实例名称</span>
               <span>类型</span>
-              <span>状"/span>
+              <span>状态</span>
               <span>响应时间</span>
               <span>监控图表</span>
-              <span>最后上报时"/span>
-              <span>告警状"/span>
+              <span>最后上报时间</span>
+              <span>告警组</span>
               <span>操作</span>
             </div>
             ${group.visibleInstances.map(renderInstanceRow).join("") || '<p class="empty">暂无匹配实例</p>'}
           </div>
         </div>
         <div class="instance-list-footer">
-          <span>"${group.visibleInstances.length} "/span>
+          <span>共 ${group.visibleInstances.length} 条</span>
           <div class="pager">
-            <button class="icon-button" type="button" disabled aria-label="上一"><i data-lucide="chevron-left"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="上一页"><i data-lucide="chevron-left"></i></button>
             <button class="page-number active" type="button">1</button>
-            <button class="icon-button" type="button" disabled aria-label="下一"><i data-lucide="chevron-right"></i></button>
-            <button class="page-size" type="button">10 ""<i data-lucide="chevron-down"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="下一页"><i data-lucide="chevron-right"></i></button>
+            <button class="page-size" type="button">10 条/页<i data-lucide="chevron-down"></i></button>
           </div>
         </div>
       </div>
@@ -914,10 +926,10 @@ function renderInstanceRow(service) {
       <div class="instance-latency">${renderLatency(service.last_response_time_ms)}</div>
       <div class="instance-health">${renderSparkline(service)}</div>
       <div class="instance-meta"><span>${formatTime(service.last_checked_at)}</span></div>
-      <div class="instance-alert-state">${escapeHtml(service.alert_group_name || "未绑定告")}</div>
+      <div class="instance-alert-state">${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}" aria-label="详情"><i data-lucide="eye"></i></a>
-        <button type="button" title="立即检" aria-label="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button type="button" title="立即检测" aria-label="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         <a title="编辑实例" href="${serviceEditHref(service.id)}" aria-label="编辑实例"><i data-lucide="pencil"></i></a>
         <button class="danger" type="button" title="删除实例" aria-label="删除实例" onclick="deleteServiceInstance(${service.id})"><i data-lucide="trash-2"></i></button>
       </div>
@@ -971,7 +983,7 @@ function renderServiceGroupCard(group) {
               </label>
             </div>
           </details>
-          <button class="icon-button" type="button" title="检测全部实" aria-label="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" aria-label="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -1008,23 +1020,23 @@ function renderServiceGroupCard(group) {
             <div class="instance-table-head">
               <span>实例名称</span>
               <span>类型</span>
-              <span>状"/span>
+              <span>状态</span>
               <span>响应时间</span>
               <span>趋势</span>
-              <span>最后上报时"/span>
-              <span>告警状"/span>
+              <span>最后上报时间</span>
+              <span>告警组</span>
               <span>操作</span>
             </div>
             ${group.visibleInstances.map(renderInstanceRow).join("") || '<p class="empty">暂无匹配实例</p>'}
           </div>
         </div>
         <div class="instance-list-footer">
-          <span>"${group.visibleInstances.length} "/span>
+          <span>共 ${group.visibleInstances.length} 条</span>
           <div class="pager">
-            <button class="icon-button" type="button" disabled aria-label="上一"><i data-lucide="chevron-left"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="上一页"><i data-lucide="chevron-left"></i></button>
             <button class="page-number active" type="button">1</button>
-            <button class="icon-button" type="button" disabled aria-label="下一"><i data-lucide="chevron-right"></i></button>
-            <button class="page-size" type="button">10 ""<i data-lucide="chevron-down"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="下一页"><i data-lucide="chevron-right"></i></button>
+            <button class="page-size" type="button">10 条/页<i data-lucide="chevron-down"></i></button>
           </div>
         </div>
       </div>
@@ -1150,7 +1162,7 @@ async function applyServiceGroupAlert(index, value) {
       LiveMonitorApi.updateServiceAlertGroup(service.id, { alert_group_id: alertGroupId })
     ));
     await loadDashboard();
-    showToast("实例告警已批量关");
+    showToast("实例告警绑定已批量更新");
   } catch (error) {
     showToast(error.message);
     renderServiceTable();
@@ -1295,7 +1307,7 @@ function renderServiceGroupCard(group) {
 function renderInstancePanel(group, bodyId, collapsed) {
   const query = dashboardState.instanceQueries[group.key] || "";
   const rows = group.visibleInstances.filter((service) => instanceMatchesGroupQuery(service, group.key));
-  const pageSize = 8;
+  const pageSize = 20;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(Math.max(1, Number(dashboardState.instancePages[group.key] || 1)), totalPages);
   const start = (currentPage - 1) * pageSize;

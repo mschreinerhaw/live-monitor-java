@@ -25,6 +25,7 @@
     <a href="/dashboard">监控首页</a>
     <a href="/hosts">主机维护</a>
     <a class="active" href="/alerts/settings">告警设置</a>
+    <a href="/alerts/audit">告警审计</a>
   </nav>
 </header>
 
@@ -511,8 +512,8 @@
         <div class="service-binding-summary span-2" id="alertBindingServiceSummary" hidden></div>
 
         <label class="span-2">
-          <span>绑定规则</span>
-          <select id="alertBindingGroupSelect">
+          <span>绑定规则 <small class="field-note">(可多选)</small></span>
+          <select id="alertBindingGroupSelect" multiple size="4">
             <option value="">不绑定告警</option>
           </select>
         </label>

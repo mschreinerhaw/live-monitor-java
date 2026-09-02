@@ -2,6 +2,7 @@ package com.live.monitor.mapper;
 
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertGroup;
+import com.live.monitor.entity.AlertNotifyRecord;
 import com.live.monitor.entity.AlertPolicy;
 import com.live.monitor.entity.AlertState;
 import com.live.monitor.entity.CheckEvent;
@@ -150,4 +151,75 @@ public interface AlertMapper {
         @Param("notifyStatus") String notifyStatus,
         @Param("notifyMessage") String notifyMessage
     );
+
+    @Select("<script>" +
+        "SELECT r.id, r.service_id, r.alert_key, r.alert_record_id, r.alert_type, " +
+        "r.notify_status, r.notify_message, r.created_at, " +
+        "s.service_name, s.service_type, s.cluster_name " +
+        "FROM alert_notify_record r " +
+        "LEFT JOIN monitor_service s ON s.id = r.service_id " +
+        "<where>" +
+        "<if test='status != null and status != \"\"'> AND r.notify_status = #{status} </if>" +
+        "<if test='startTime != null and startTime != \"\"'> AND r.created_at &gt;= #{startTime} </if>" +
+        "<if test='endTime != null and endTime != \"\"'> AND r.created_at &lt; #{endTime} </if>" +
+        "<if test='query != null and query != \"\"'>" +
+        " AND (" +
+        "LOWER(COALESCE(s.service_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(s.cluster_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.alert_type, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.notify_message, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        ") </if>" +
+        "</where>" +
+        " ORDER BY r.id DESC LIMIT #{limit} OFFSET #{offset}" +
+        "</script>")
+    List<AlertNotifyRecord> listNotifyRecords(
+        @Param("status") String status,
+        @Param("query") String query,
+        @Param("startTime") String startTime,
+        @Param("endTime") String endTime,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
+
+    @Select("<script>" +
+        "SELECT COUNT(*) FROM alert_notify_record r " +
+        "LEFT JOIN monitor_service s ON s.id = r.service_id " +
+        "<where>" +
+        "<if test='status != null and status != \"\"'> AND r.notify_status = #{status} </if>" +
+        "<if test='startTime != null and startTime != \"\"'> AND r.created_at &gt;= #{startTime} </if>" +
+        "<if test='endTime != null and endTime != \"\"'> AND r.created_at &lt; #{endTime} </if>" +
+        "<if test='query != null and query != \"\"'>" +
+        " AND (" +
+        "LOWER(COALESCE(s.service_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(s.cluster_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.alert_type, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.notify_message, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        ") </if>" +
+        "</where>" +
+        "</script>")
+    long countNotifyRecords(
+        @Param("status") String status,
+        @Param("query") String query,
+        @Param("startTime") String startTime,
+        @Param("endTime") String endTime
+    );
+
+    @Select("SELECT COUNT(*) FROM alert_notify_record " +
+        "WHERE created_at >= #{startInclusive} AND created_at < #{endExclusive}")
+    long countNotifyRecordsBetween(
+        @Param("startInclusive") String startInclusive,
+        @Param("endExclusive") String endExclusive
+    );
+
+    @Select("SELECT COUNT(*) FROM alert_notify_record " +
+        "WHERE notify_status = #{status} " +
+        "AND created_at >= #{startInclusive} AND created_at < #{endExclusive}")
+    long countNotifyRecordsBetweenByStatus(
+        @Param("status") String status,
+        @Param("startInclusive") String startInclusive,
+        @Param("endExclusive") String endExclusive
+    );
+
+    @Delete("DELETE FROM alert_notify_record WHERE created_at < #{cutoff}")
+    int deleteNotifyRecordsBefore(@Param("cutoff") String cutoff);
 }

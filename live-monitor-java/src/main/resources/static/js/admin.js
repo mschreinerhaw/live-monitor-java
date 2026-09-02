@@ -31,10 +31,11 @@ async function initAdmin() {
     }
   });
   document.getElementById("createUserModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "createUserModal") closeCreateUserModal();
+    // Backdrop click no longer closes the modal; only the close/cancel buttons do.
+    void event;
   });
   document.getElementById("resetPasswordModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "resetPasswordModal") closeResetPasswordModal();
+    void event;
   });
 
   try {

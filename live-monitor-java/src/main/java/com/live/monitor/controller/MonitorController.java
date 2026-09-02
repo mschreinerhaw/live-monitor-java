@@ -210,10 +210,15 @@ public class MonitorController {
         if (serviceMapper.findById(serviceId) == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "service not found");
         }
-        if (payload.alertGroupId == null) {
-            serviceMapper.unbindAlertGroup(serviceId);
-        } else {
-            serviceMapper.bindAlertGroup(serviceId, payload.alertGroupId);
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<>();
+        if (payload.alertGroupIds != null) {
+            for (Long id : payload.alertGroupIds) if (id != null) desired.add(id);
+        } else if (payload.alertGroupId != null) {
+            desired.add(payload.alertGroupId);
+        }
+        serviceMapper.unbindAlertGroup(serviceId);
+        for (Long id : desired) {
+            serviceMapper.bindAlertGroup(serviceId, id);
         }
         return liveMonitorService.getService(serviceId);
     }

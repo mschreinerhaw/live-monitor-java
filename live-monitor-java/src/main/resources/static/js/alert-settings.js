@@ -3,8 +3,6 @@ async function initAlertSettings() {
   const bindingBtn = document.getElementById('showBindingTestBtn');
   const configBtn = document.getElementById('showAlertConfigBtn');
   const newAlertBtn = document.getElementById('newAlertGroupBtn');
-  const modal = document.getElementById("alertConfigModal");
-  const bindingModal = document.getElementById("alertBindingModal");
 
   function switchAlertPage(mode) {
     const isConfig = mode === 'config';
@@ -66,12 +64,7 @@ async function initAlertSettings() {
   document.getElementById("alertGroupList")?.addEventListener("click", handleAlertGroupListClick);
   document.getElementById("alertSettingsTable")?.addEventListener("click", handleAlertSettingsTableClick);
   document.getElementById("alertSettingsTable")?.addEventListener("change", handleAlertSettingsTableChange);
-  modal?.addEventListener("click", (event) => {
-    if (event.target === modal) closeAlertConfigModal();
-  });
-  bindingModal?.addEventListener("click", (event) => {
-    if (event.target === bindingModal) closeServiceBindingModal();
-  });
+  // Modals intentionally do NOT close on backdrop click — only close/cancel buttons close them.
   document.getElementById("closeAlertBindingModalBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("alertBindingServiceSelect")?.addEventListener("change", () => {
@@ -418,11 +411,38 @@ function renderServiceBindingGroupOptions(selectedIds = []) {
   const selectedServices = selectedIds.length
     ? selectedIds.map((id) => alertSettingsState.services.find((service) => Number(service.id) === Number(id))).filter(Boolean)
     : [];
-  const commonGroupId = selectedServices.length
-    && selectedServices.every((service) => Number(service.alert_group_id || 0) === Number(selectedServices[0].alert_group_id || 0))
-      ? selectedServices[0].alert_group_id || ""
-      : "";
-  select.innerHTML = renderAlertGroupSelectOptions(commonGroupId);
+  const firstGroupIds = selectedServices.length ? serviceAlertGroupIds(selectedServices[0]) : [];
+  const commonGroupIds = selectedServices.length
+    && selectedServices.every((service) => sameIds(serviceAlertGroupIds(service), firstGroupIds))
+      ? firstGroupIds
+      : [];
+  select.innerHTML = renderAlertGroupSelectOptions("");
+  setSelectedAlertGroups(select, commonGroupIds);
+}
+
+function serviceAlertGroupIds(service) {
+  if (Array.isArray(service?.alert_group_ids)) {
+    return service.alert_group_ids.map(Number).filter(Boolean);
+  }
+  return service?.alert_group_id ? [Number(service.alert_group_id)] : [];
+}
+
+function sameIds(left, right) {
+  const leftIds = [...left].sort((a, b) => a - b);
+  const rightIds = [...right].sort((a, b) => a - b);
+  return leftIds.length === rightIds.length && leftIds.every((id, index) => id === rightIds[index]);
+}
+
+function setSelectedAlertGroups(select, groupIds) {
+  const selected = new Set(groupIds.map(Number));
+  Array.from(select.options).forEach((option) => {
+    option.selected = option.value ? selected.has(Number(option.value)) : selected.size === 0;
+  });
+}
+
+function selectedAlertGroupIds() {
+  const select = document.getElementById("alertBindingGroupSelect");
+  return Array.from(select?.selectedOptions || []).map((option) => Number(option.value)).filter(Boolean);
 }
 
 function selectedBindingServices() {
@@ -440,7 +460,7 @@ function syncServiceBindingGroupFromService() {
   if (alertSettingsState.bindingServiceIds.length) return;
   const groupSelect = document.getElementById("alertBindingGroupSelect");
   const service = selectedBindingServices()[0];
-  if (groupSelect && service) groupSelect.value = service.alert_group_id || "";
+  if (groupSelect && service) setSelectedAlertGroups(groupSelect, serviceAlertGroupIds(service));
 }
 
 function syncServiceBindingScheduleFromService() {
@@ -472,8 +492,10 @@ function renderServiceBindingPreview() {
   const preview = document.getElementById("alertBindingPreview");
   if (!preview) return;
   const services = selectedBindingServices();
-  const groupId = document.getElementById("alertBindingGroupSelect")?.value || "";
-  const group = groupId ? alertSettingsState.groups.find((item) => Number(item.id) === Number(groupId)) : null;
+  const groupIds = selectedAlertGroupIds();
+  const groups = groupIds
+    .map((id) => alertSettingsState.groups.find((item) => Number(item.id) === id))
+    .filter(Boolean);
   const intervalValue = document.getElementById("alertBindingIntervalValue")?.value || 1;
   const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
   const intervalText = formatCheckInterval(intervalToSeconds(intervalValue, intervalUnit));
@@ -481,10 +503,10 @@ function renderServiceBindingPreview() {
     ? services[0].service_name
     : (services.length ? `${services.length} 个服务` : "未选择服务");
   preview.innerHTML = `
-    <span class="recipient-icon"><i data-lucide="${group ? channelIcon(groupAlertType(group)) : "bell-off"}"></i></span>
+    <span class="recipient-icon"><i data-lucide="${groups.length ? channelIcon(groupAlertType(groups[0])) : "bell-off"}"></i></span>
     <span>
       <strong>${escapeHtml(serviceText)}</strong>
-      <small>${group ? `${escapeHtml(group.group_name)} / ${escapeHtml(groupPolicyText(group))}` : "保存后将取消告警绑定"} / ${escapeHtml(intervalText)}</small>
+      <small>${groups.length ? escapeHtml(groups.map((group) => group.group_name).join("、")) : "保存后将取消告警绑定"} / ${escapeHtml(intervalText)}</small>
     </span>
   `;
   if (window.lucide) window.lucide.createIcons();
@@ -497,24 +519,24 @@ async function submitServiceBindingForm(event) {
     showToast("请选择服务");
     return;
   }
-  const groupValue = document.getElementById("alertBindingGroupSelect")?.value || "";
+  const groupIds = selectedAlertGroupIds();
   const intervalValue = Number(document.getElementById("alertBindingIntervalValue")?.value || 1);
   const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
   try {
-    const updatedServices = await Promise.all(services.map((service) =>
-      LiveMonitorApi.updateAlertSettings(service.id, {
-        alert_group_id: groupValue ? Number(groupValue) : null,
+    const updatedServices = await Promise.all(services.map(async (service) => {
+      await LiveMonitorApi.updateServiceAlertGroup(service.id, { alert_group_ids: groupIds });
+      return LiveMonitorApi.updateAlertSettings(service.id, {
         check_interval_value: intervalValue,
         check_interval_unit: intervalUnit,
         check_interval: intervalToSeconds(intervalValue, intervalUnit),
-      })
-    ));
+      });
+    }));
     alertSettingsState.services = alertSettingsState.services.map((service) =>
       updatedServices.find((item) => Number(item.id) === Number(service.id)) || service
     );
     await loadAlertSettings();
     closeServiceBindingModal();
-    showToast(groupValue ? "服务告警绑定已保" : "服务告警绑定已取");
+    showToast(groupIds.length ? "服务告警绑定已保存" : "服务告警绑定已取消");
   } catch (error) {
     showToast(error.message);
   }

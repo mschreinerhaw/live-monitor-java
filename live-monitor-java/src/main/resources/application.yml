@@ -8,6 +8,9 @@ spring:
   # 1. Default H2 file database. H2 keeps legacy mode and uses ./data/h2/live_monitor.
   # 2. To switch to MySQL as the config database, either set the LIVE_MONITOR_DB_* env vars,
   #    or replace the datasource and sql.init.platform values with the commented MySQL sample below.
+  #    On the first startup after switching, H2ToMysqlMigrationService automatically copies all
+  #    existing data from the old H2 file (see live-monitor.h2-legacy-* below) into MySQL, then
+  #    backs up and archives the H2 files. This runs only once, tracked via the migration_marker table.
   #
   # MySQL sample:
   # datasource:
@@ -60,6 +63,11 @@ live-monitor:
   rocksdb-path: ./data/rocksdb
   sqlite-path: ./data/live_monitor.db
   sqlite-backup-dir: ./data/backup
+  # Legacy H2 file used as the migration source when switching to MySQL (see comment above).
+  h2-legacy-path: ${LIVE_MONITOR_H2_LEGACY_PATH:./data/h2/live_monitor}
+  h2-legacy-username: ${LIVE_MONITOR_H2_LEGACY_USERNAME:sa}
+  h2-legacy-password: ${LIVE_MONITOR_H2_LEGACY_PASSWORD:live_monitor}
+  h2-legacy-backup-dir: ${LIVE_MONITOR_H2_LEGACY_BACKUP_DIR:./data/backup}
 
 logging:
   file:

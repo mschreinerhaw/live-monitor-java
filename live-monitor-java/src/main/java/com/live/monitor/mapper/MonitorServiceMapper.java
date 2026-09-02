@@ -61,13 +61,29 @@ public interface MonitorServiceMapper {
         "INSERT INTO service_alert_group (service_id, group_id) VALUES (#{serviceId}, #{groupId}) " +
         "ON DUPLICATE KEY UPDATE group_id = VALUES(group_id)" +
         "</when>" +
-        "<otherwise>MERGE INTO service_alert_group KEY(service_id) VALUES (#{serviceId}, #{groupId})</otherwise>" +
+        "<otherwise>MERGE INTO service_alert_group KEY(service_id, group_id) VALUES (#{serviceId}, #{groupId})</otherwise>" +
         "</choose>" +
         "</script>")
     int bindAlertGroup(@Param("serviceId") Long serviceId, @Param("groupId") Long groupId);
 
     @Delete("DELETE FROM service_alert_group WHERE service_id = #{serviceId}")
     int unbindAlertGroup(@Param("serviceId") Long serviceId);
+
+    @Delete("DELETE FROM service_alert_group WHERE service_id = #{serviceId} AND group_id = #{groupId}")
+    int unbindAlertGroupById(@Param("serviceId") Long serviceId, @Param("groupId") Long groupId);
+
+    @Select("<script>" +
+        "SELECT sag.service_id, sag.group_id, ag.group_name, ag.enabled AS group_enabled " +
+        "FROM service_alert_group sag JOIN alert_group ag ON ag.id = sag.group_id " +
+        "<where>" +
+        "<if test='serviceIds != null and serviceIds.size() > 0'>" +
+        " sag.service_id IN " +
+        "<foreach collection='serviceIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>" +
+        "</if>" +
+        "</where>" +
+        " ORDER BY sag.service_id, sag.group_id" +
+        "</script>")
+    List<java.util.Map<String, Object>> listServiceAlertGroups(@Param("serviceIds") java.util.List<Long> serviceIds);
 
     @Insert("<script>" +
         "<choose>" +

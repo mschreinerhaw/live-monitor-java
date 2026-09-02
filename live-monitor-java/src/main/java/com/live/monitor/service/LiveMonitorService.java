@@ -63,12 +63,14 @@ public class LiveMonitorService {
             hydrateTypedFields(row);
             maskSecrets(row);
         }
+        populateAlertGroupBindings(rows);
         return rows;
     }
 
     public MonitorService getService(Long id) {
         MonitorService service = requireService(id);
         maskSecrets(service);
+        populateAlertGroupBindings(java.util.Collections.singletonList(service));
         return service;
     }
 
@@ -77,7 +79,7 @@ public class LiveMonitorService {
         validatePayload(null, payload);
         MonitorService service = fromPayload(payload);
         serviceMapper.insert(service);
-        syncAlertGroup(service.id, payload.alertGroupId);
+        syncAlertGroups(service.id, resolveGroupIds(payload));
         return getService(service.id);
     }
 
@@ -93,8 +95,14 @@ public class LiveMonitorService {
         if (serviceMapper.update(service) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "service not found");
         }
-        syncAlertGroup(id, payload.alertGroupId);
+        syncAlertGroups(id, resolveGroupIds(payload));
         return getService(id);
+    }
+
+    private java.util.List<Long> resolveGroupIds(ServicePayload payload) {
+        if (payload.alertGroupIds != null) return payload.alertGroupIds;
+        if (payload.alertGroupId != null) return java.util.Collections.singletonList(payload.alertGroupId);
+        return java.util.Collections.emptyList();
     }
 
     public boolean delete(Long id) {
@@ -257,7 +265,13 @@ public class LiveMonitorService {
     }
 
     private Map<String, Integer> statusCountBefore(List<MonitorService> services, LocalDateTime before) {
-        Map<Long, MonitorResult> latestByService = historyRepository.latestMonitorResultsBefore(formatTime(before));
+        List<Long> serviceIds = new java.util.ArrayList<Long>(services.size());
+        for (MonitorService s : services) {
+            if (s.id != null) {
+                serviceIds.add(s.id);
+            }
+        }
+        Map<Long, MonitorResult> latestByService = historyRepository.latestMonitorResultsBefore(serviceIds, formatTime(before));
         Map<String, Integer> counts = new HashMap<String, Integer>();
         counts.put("up", 0);
         counts.put("down", 0);
@@ -381,11 +395,101 @@ public class LiveMonitorService {
     }
 
     private void syncAlertGroup(Long serviceId, Long groupId) {
-        if (groupId == null) {
-            serviceMapper.unbindAlertGroup(serviceId);
-        } else {
-            serviceMapper.bindAlertGroup(serviceId, groupId);
+        syncAlertGroups(serviceId, groupId == null ? null : java.util.Collections.singletonList(groupId));
+    }
+
+    /**
+     * Rebind the service to exactly {@code groupIds} (null / empty means unbind all).
+     * Deduplicates and skips null entries. Existing rows outside the target set are removed.
+     */
+    private void syncAlertGroups(Long serviceId, java.util.List<Long> groupIds) {
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<>();
+        if (groupIds != null) {
+            for (Long id : groupIds) {
+                if (id != null) desired.add(id);
+            }
         }
+        serviceMapper.unbindAlertGroup(serviceId);
+        for (Long id : desired) {
+            serviceMapper.bindAlertGroup(serviceId, id);
+        }
+    }
+
+    /**
+     * Batch-load the alert-group bindings for the given services and populate
+     * {@code alertGroupIds}, {@code alertGroupNames}, and the legacy singular
+     * {@code alertGroupId} / {@code alertGroupName} / {@code alertGroupEnabled}
+     * (kept for backward compatibility — take the first bound group whose {@code enabled}
+     * is true, or the first group overall if none is enabled).
+     */
+    private void populateAlertGroupBindings(List<MonitorService> services) {
+        if (services == null || services.isEmpty()) return;
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (MonitorService s : services) {
+            if (s.id != null) ids.add(s.id);
+            s.alertGroupIds = new java.util.ArrayList<>();
+            s.alertGroupNames = new java.util.ArrayList<>();
+            s.alertGroupId = null;
+            s.alertGroupName = null;
+            s.alertGroupEnabled = null;
+        }
+        if (ids.isEmpty()) return;
+        List<java.util.Map<String, Object>> rows = serviceMapper.listServiceAlertGroups(ids);
+        java.util.Map<Long, MonitorService> byId = new java.util.HashMap<>();
+        for (MonitorService s : services) if (s.id != null) byId.put(s.id, s);
+        java.util.Map<Long, Long> firstEnabledGroupByService = new java.util.HashMap<>();
+        java.util.Map<Long, String> firstEnabledNameByService = new java.util.HashMap<>();
+        java.util.Map<Long, Boolean> anyEnabledByService = new java.util.HashMap<>();
+        for (java.util.Map<String, Object> row : rows) {
+            Long serviceId = toLong(row.get("service_id"));
+            Long groupId = toLong(row.get("group_id"));
+            String groupName = row.get("group_name") == null ? null : String.valueOf(row.get("group_name"));
+            Boolean groupEnabled = toBool(row.get("group_enabled"));
+            MonitorService s = byId.get(serviceId);
+            if (s == null) continue;
+            s.alertGroupIds.add(groupId);
+            s.alertGroupNames.add(groupName);
+            if (s.alertGroupId == null) {
+                s.alertGroupId = groupId;
+                s.alertGroupName = groupName;
+                s.alertGroupEnabled = groupEnabled;
+            }
+            if (Boolean.TRUE.equals(groupEnabled)) {
+                anyEnabledByService.put(serviceId, Boolean.TRUE);
+                firstEnabledGroupByService.putIfAbsent(serviceId, groupId);
+                firstEnabledNameByService.putIfAbsent(serviceId, groupName);
+            }
+        }
+        // Prefer the first enabled group as the "primary" for legacy singular fields,
+        // so AlertService (which reads alertGroupId + alertGroupEnabled) keeps working.
+        for (MonitorService s : services) {
+            if (s.id == null) continue;
+            Long enabledGroup = firstEnabledGroupByService.get(s.id);
+            if (enabledGroup != null) {
+                s.alertGroupId = enabledGroup;
+                s.alertGroupName = firstEnabledNameByService.get(s.id);
+                s.alertGroupEnabled = Boolean.TRUE;
+            } else if (!s.alertGroupIds.isEmpty()) {
+                // No enabled group but there are bindings; primary already set to first row above.
+                s.alertGroupEnabled = anyEnabledByService.get(s.id) != null ? Boolean.TRUE : Boolean.FALSE;
+            }
+        }
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number) return ((Number) value).longValue();
+        try { return Long.valueOf(String.valueOf(value)); } catch (NumberFormatException ex) { return null; }
+    }
+
+    private Boolean toBool(Object value) {
+        if (value == null) return null;
+        if (value instanceof Boolean) return (Boolean) value;
+        if (value instanceof Number) return ((Number) value).intValue() != 0;
+        String s = String.valueOf(value).trim().toLowerCase();
+        if ("true".equals(s) || "1".equals(s) || "yes".equals(s)) return Boolean.TRUE;
+        if ("false".equals(s) || "0".equals(s) || "no".equals(s)) return Boolean.FALSE;
+        return null;
     }
 
     private MonitorService fromPayload(ServicePayload payload) {

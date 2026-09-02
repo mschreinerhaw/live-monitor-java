@@ -579,16 +579,16 @@ public class AlertService {
     private List<AlertRecord> dispatch(MonitorService service, MonitorResult result, AlertPolicy policy, String alertKey, AlertState activeState) {
         String fallbackContent = defaultContent(service, result, policy);
         List<AlertRecord> records = new ArrayList<AlertRecord>();
-        if (service.alertGroupId == null) {
+        if (!hasAnyBoundGroup(service)) {
             records.add(record(service, fallbackContent + " Delivery skipped: no alert group bound.", policy.triggerType, "failed", alertKey));
             return records;
         }
-        if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
+        if (!hasAnyEnabledGroup(service)) {
             records.add(record(service, fallbackContent + " Delivery skipped: alert group is disabled.", policy.triggerType, "failed", alertKey));
             return records;
         }
 
-        List<AlertChannel> channels = alertMapper.listChannelsByGroup(service.alertGroupId);
+        List<AlertChannel> channels = collectDispatchChannels(service);
         int enabledChannels = 0;
         for (AlertChannel channel : channels) {
             if (!Boolean.TRUE.equals(channel.enabled)) {
@@ -673,16 +673,16 @@ public class AlertService {
 
     private List<AlertRecord> dispatch(MonitorService service, String content, String fallbackType, String alertKey) {
         List<AlertRecord> records = new ArrayList<AlertRecord>();
-        if (service.alertGroupId == null) {
+        if (!hasAnyBoundGroup(service)) {
             records.add(record(service, content + " Delivery skipped: no alert group bound.", fallbackType, "failed", alertKey));
             return records;
         }
-        if (Boolean.FALSE.equals(service.alertGroupEnabled)) {
+        if (!hasAnyEnabledGroup(service)) {
             records.add(record(service, content + " Delivery skipped: alert group is disabled.", fallbackType, "failed", alertKey));
             return records;
         }
 
-        List<AlertChannel> channels = alertMapper.listChannelsByGroup(service.alertGroupId);
+        List<AlertChannel> channels = collectDispatchChannels(service);
         int enabledChannels = 0;
         for (AlertChannel channel : channels) {
             if (!Boolean.TRUE.equals(channel.enabled)) {
@@ -705,6 +705,45 @@ public class AlertService {
             records.add(record(service, content + " Delivery skipped: no enabled alert channels.", fallbackType, "failed", alertKey));
         }
         return records;
+    }
+
+    /** True if the service is bound to at least one alert group (singular or plural field). */
+    private boolean hasAnyBoundGroup(MonitorService service) {
+        if (service.alertGroupIds != null && !service.alertGroupIds.isEmpty()) return true;
+        return service.alertGroupId != null;
+    }
+
+    /**
+     * True if there is at least one bound alert group that is currently enabled.
+     * Populated by LiveMonitorService: {@code alertGroupEnabled} reflects the primary
+     * (first-enabled-if-any) group, which is sufficient for this gate.
+     */
+    private boolean hasAnyEnabledGroup(MonitorService service) {
+        return !Boolean.FALSE.equals(service.alertGroupEnabled);
+    }
+
+    /**
+     * Return the union of channels across every alert group the service is bound to,
+     * deduplicated by channel id so we never send the same notification twice through the
+     * same channel even if two bound groups share it.
+     */
+    private List<AlertChannel> collectDispatchChannels(MonitorService service) {
+        java.util.List<Long> groupIds = service.alertGroupIds;
+        if (groupIds == null || groupIds.isEmpty()) {
+            groupIds = service.alertGroupId == null
+                ? java.util.Collections.<Long>emptyList()
+                : java.util.Collections.singletonList(service.alertGroupId);
+        }
+        java.util.LinkedHashMap<Long, AlertChannel> deduped = new java.util.LinkedHashMap<>();
+        for (Long groupId : groupIds) {
+            if (groupId == null) continue;
+            List<AlertChannel> channels = alertMapper.listChannelsByGroup(groupId);
+            for (AlertChannel channel : channels) {
+                if (channel == null || channel.id == null) continue;
+                deduped.putIfAbsent(channel.id, channel);
+            }
+        }
+        return new java.util.ArrayList<>(deduped.values());
     }
 
     private AlertRecord record(MonitorService service, String content, String type, String status, String alertKey) {
