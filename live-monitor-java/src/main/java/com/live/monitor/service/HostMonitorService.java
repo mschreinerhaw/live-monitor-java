@@ -370,6 +370,17 @@ public class HostMonitorService {
         for (Long groupId : desired) {
             serviceMapper.bindAlertGroup(service.id, groupId);
         }
+        java.util.LinkedHashSet<Long> persisted = new java.util.LinkedHashSet<Long>();
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(
+            java.util.Collections.singletonList(service.id)
+        )) {
+            if (binding.groupId != null) persisted.add(binding.groupId);
+        }
+        if (!persisted.equals(desired)) {
+            throw new IllegalStateException(
+                "host alert group binding was not persisted; verify service_alert_group primary key"
+            );
+        }
     }
 
     private List<Long> resolveGroupIds(HostPayload payload) {

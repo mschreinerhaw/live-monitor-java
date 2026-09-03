@@ -101,40 +101,54 @@ public class SchemaMigrationService {
             return;
         }
         try {
-            Integer pkColumnCount = databaseDialect.isMysql()
-                ? jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM information_schema.key_column_usage " +
-                        "WHERE table_schema = SCHEMA() AND LOWER(table_name) = 'service_alert_group' " +
-                        "AND LOWER(constraint_name) = 'primary'",
-                    Integer.class
-                )
-                : jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM information_schema.key_column_usage k " +
-                        "JOIN information_schema.table_constraints c " +
-                        "ON c.constraint_catalog = k.constraint_catalog " +
-                        "AND c.constraint_schema = k.constraint_schema " +
-                        "AND c.constraint_name = k.constraint_name " +
-                        "WHERE k.table_schema = SCHEMA() AND LOWER(k.table_name) = 'service_alert_group' " +
-                        "AND c.constraint_type = 'PRIMARY KEY'",
-                    Integer.class
-                );
-            if (pkColumnCount != null && pkColumnCount >= 2) {
+            if (hasServiceAlertGroupCompositePrimaryKey()) {
                 return; // Already composite.
             }
         } catch (Exception ignored) {
-            // Fall through to attempt the migration; both DDLs below are idempotent-ish.
+            // Fall through and attempt the migration when metadata inspection is unavailable.
         }
         try {
             if (databaseDialect.isMysql()) {
-                jdbcTemplate.execute("ALTER TABLE service_alert_group DROP PRIMARY KEY");
-                jdbcTemplate.execute("ALTER TABLE service_alert_group ADD PRIMARY KEY (service_id, group_id)");
+                // Keep a usable service_id index throughout the ALTER. MySQL can reject two
+                // separate statements because the first DROP temporarily breaks the FK index.
+                jdbcTemplate.execute(
+                    "ALTER TABLE service_alert_group " +
+                        "DROP PRIMARY KEY, ADD PRIMARY KEY (service_id, group_id)"
+                );
             } else {
                 rebuildH2ServiceAlertGroupTable();
             }
+            if (!hasServiceAlertGroupCompositePrimaryKey()) {
+                throw new IllegalStateException("service_alert_group primary key is not (service_id, group_id)");
+            }
             log.info("Migrated service_alert_group PRIMARY KEY to (service_id, group_id)");
         } catch (Exception ex) {
-            log.warn("Failed to migrate service_alert_group PK to composite: {}", ex.getMessage());
+            throw new IllegalStateException(
+                "Failed to enable multiple alert groups: service_alert_group requires composite primary key",
+                ex
+            );
         }
+    }
+
+    private boolean hasServiceAlertGroupCompositePrimaryKey() {
+        java.util.List<String> columns = databaseDialect.isMysql()
+            ? jdbcTemplate.queryForList(
+                "SELECT LOWER(column_name) FROM information_schema.key_column_usage " +
+                    "WHERE table_schema = SCHEMA() AND LOWER(table_name) = 'service_alert_group' " +
+                    "AND LOWER(constraint_name) = 'primary' ORDER BY ordinal_position",
+                String.class
+            )
+            : jdbcTemplate.queryForList(
+                "SELECT LOWER(k.column_name) FROM information_schema.key_column_usage k " +
+                    "JOIN information_schema.table_constraints c " +
+                    "ON c.constraint_catalog = k.constraint_catalog " +
+                    "AND c.constraint_schema = k.constraint_schema " +
+                    "AND c.constraint_name = k.constraint_name " +
+                    "WHERE k.table_schema = SCHEMA() AND LOWER(k.table_name) = 'service_alert_group' " +
+                    "AND c.constraint_type = 'PRIMARY KEY' ORDER BY k.ordinal_position",
+                String.class
+            );
+        return columns.equals(java.util.Arrays.asList("service_id", "group_id"));
     }
 
     private void rebuildH2ServiceAlertGroupTable() {

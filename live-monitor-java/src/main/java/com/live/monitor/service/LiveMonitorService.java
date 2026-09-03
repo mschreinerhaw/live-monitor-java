@@ -421,6 +421,17 @@ public class LiveMonitorService {
         for (Long id : desired) {
             serviceMapper.bindAlertGroup(serviceId, id);
         }
+        java.util.LinkedHashSet<Long> persisted = new java.util.LinkedHashSet<Long>();
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(
+            java.util.Collections.singletonList(serviceId)
+        )) {
+            if (binding.groupId != null) persisted.add(binding.groupId);
+        }
+        if (!persisted.equals(desired)) {
+            throw new IllegalStateException(
+                "alert group binding was not persisted; verify service_alert_group primary key"
+            );
+        }
     }
 
     /**
