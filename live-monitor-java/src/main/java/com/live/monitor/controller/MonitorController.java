@@ -207,20 +207,13 @@ public class MonitorController {
 
     @PutMapping("/api/services/{serviceId}/alert-group")
     public MonitorService bindAlertGroup(@PathVariable Long serviceId, @RequestBody ServiceAlertGroupPayload payload) {
-        if (serviceMapper.findById(serviceId) == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "service not found");
-        }
         java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<>();
         if (payload.alertGroupIds != null) {
             for (Long id : payload.alertGroupIds) if (id != null) desired.add(id);
         } else if (payload.alertGroupId != null) {
             desired.add(payload.alertGroupId);
         }
-        serviceMapper.unbindAlertGroup(serviceId);
-        for (Long id : desired) {
-            serviceMapper.bindAlertGroup(serviceId, id);
-        }
-        return liveMonitorService.getService(serviceId);
+        return liveMonitorService.bindAlertGroups(serviceId, new java.util.ArrayList<Long>(desired));
     }
 
     @PutMapping("/api/services/{serviceId}/alert-config")
@@ -260,16 +253,26 @@ public class MonitorController {
     @PostMapping("/api/services/{serviceId}/alert-test")
     public Map<String, Object> alertTest(@PathVariable Long serviceId) {
         MonitorService service = liveMonitorService.getService(serviceId);
-        AlertRecord record = alertService.testAlert(service);
+        List<AlertRecord> records = alertService.testAlerts(service);
+        AlertRecord record = records.isEmpty() ? null : records.get(0);
+        int succeeded = 0;
+        for (AlertRecord item : records) {
+            if (item != null && "success".equalsIgnoreCase(item.alertStatus)) succeeded++;
+        }
         Map<String, Object> result = new HashMap<String, Object>();
-        boolean success = "success".equals(record.alertStatus);
+        boolean success = !records.isEmpty() && succeeded == records.size();
         result.put("service_id", service.id);
         result.put("service_name", service.serviceName);
         result.put("alert_group_id", service.alertGroupId);
+        result.put("alert_group_ids", service.alertGroupIds);
         result.put("record", record);
+        result.put("records", records);
+        result.put("delivery_count", records.size());
+        result.put("success_count", succeeded);
+        result.put("failed_count", records.size() - succeeded);
         result.put("success", success);
         if (!success) {
-            result.put("error", record.alertContent);
+            result.put("error", record == null ? "no alert record generated" : record.alertContent);
         }
         return result;
     }

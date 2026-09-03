@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,10 @@ class AlertDeliveryServiceTest {
     private static String requestContentType;
     private static String baseUrl;
     private static String robotUrl;
+    private static String failingSmsUrl;
+    private static String backupSmsUrl;
+    private static final AtomicInteger failingSmsRequests = new AtomicInteger();
+    private static final AtomicInteger backupSmsRequests = new AtomicInteger();
 
     @BeforeAll
     static void startServer() throws Exception {
@@ -54,9 +60,26 @@ class AlertDeliveryServiceTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
+        server.createContext("/sms-primary", exchange -> {
+            failingSmsRequests.incrementAndGet();
+            byte[] body = "primary unavailable".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(503, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.createContext("/sms-backup", exchange -> {
+            backupSmsRequests.incrementAndGet();
+            requestUri = exchange.getRequestURI();
+            byte[] body = "0_1:13800000000".getBytes(GBK);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
         server.start();
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/smsSendServlet.htm";
         robotUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/robot?access_token=test-token";
+        failingSmsUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/sms-primary";
+        backupSmsUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/sms-backup";
     }
 
     @AfterAll
@@ -95,6 +118,28 @@ class AlertDeliveryServiceTest {
         assertEquals("text", params.get("rstype"));
         assertEquals("99", params.get("extCode"));
         assertEquals("\u670d\u52a1\u5f02\u5e38", URLDecoder.decode(params.get("content"), GBK.name()));
+    }
+
+    @Test
+    void smsGatewayFallsBackToNextConfiguredAddress() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        failingSmsRequests.set(0);
+        backupSmsRequests.set(0);
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "sms";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("alert_mobile", "13800000000");
+        config.put("sms_api_urls", Arrays.asList(failingSmsUrl, backupSmsUrl));
+        config.put("sms_username", "xxzx");
+        config.put("sms_password_is_md5", true);
+        config.put("sms_password_md5", "751CB3F4AA17C36186F4856C8982BF27");
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result = new AlertDeliveryService(mapper).send(channel, "服务异常");
+
+        assertTrue(result.success, result.message);
+        assertEquals(1, failingSmsRequests.get());
+        assertEquals(1, backupSmsRequests.get());
     }
 
     @Test

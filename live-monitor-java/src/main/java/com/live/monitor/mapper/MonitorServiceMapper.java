@@ -1,6 +1,7 @@
 package com.live.monitor.mapper;
 
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -11,12 +12,9 @@ import org.apache.ibatis.annotations.Update;
 
 public interface MonitorServiceMapper {
     String SERVICE_SELECT =
-        "SELECT s.*, sag.group_id AS alert_group_id, ag.group_name AS alert_group_name, " +
-        "ag.enabled AS alert_group_enabled, COALESCE(ls.status, 'UNKNOWN') AS last_status, " +
+        "SELECT s.*, COALESCE(ls.status, 'UNKNOWN') AS last_status, " +
         "ls.response_time_ms AS last_response_time_ms, ls.message AS last_message, ls.checked_at AS last_checked_at " +
         "FROM monitor_service s " +
-        "LEFT JOIN service_alert_group sag ON sag.service_id = s.id " +
-        "LEFT JOIN alert_group ag ON ag.id = sag.group_id " +
         "LEFT JOIN service_latest_status ls ON ls.service_id = s.id ";
 
     @Select(SERVICE_SELECT + "WHERE (#{includeDisabled} = 1 OR s.enabled = 1) " +
@@ -25,6 +23,12 @@ public interface MonitorServiceMapper {
 
     @Select(SERVICE_SELECT + "WHERE s.id = #{id}")
     MonitorService findById(@Param("id") Long id);
+
+    @Select("SELECT id FROM monitor_service WHERE service_type = #{serviceType} ORDER BY id LIMIT 1")
+    Long findFirstIdByServiceType(@Param("serviceType") String serviceType);
+
+    @Update("UPDATE monitor_service SET enabled = #{enabled} WHERE id = #{id}")
+    int updateEnabled(@Param("id") Long id, @Param("enabled") boolean enabled);
 
     @Insert("INSERT INTO monitor_service (" +
         "service_name, service_category, service_type, cluster_name, monitor_reason, endpoint, host, port, check_mode, " +
@@ -83,7 +87,7 @@ public interface MonitorServiceMapper {
         "</where>" +
         " ORDER BY sag.service_id, sag.group_id" +
         "</script>")
-    List<java.util.Map<String, Object>> listServiceAlertGroups(@Param("serviceIds") java.util.List<Long> serviceIds);
+    List<ServiceAlertGroupBinding> listServiceAlertGroups(@Param("serviceIds") java.util.List<Long> serviceIds);
 
     @Insert("<script>" +
         "<choose>" +

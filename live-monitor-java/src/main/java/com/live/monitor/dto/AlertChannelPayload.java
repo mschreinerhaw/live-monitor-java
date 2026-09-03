@@ -1,5 +1,6 @@
 package com.live.monitor.dto;
 
+import java.util.List;
 import javax.validation.constraints.NotBlank;
 
 public class AlertChannelPayload {
@@ -20,6 +21,7 @@ public class AlertChannelPayload {
     public Boolean smtpUseSsl = false;
     public String smtpSslTrust;
     public String smsApiUrl;
+    public List<String> smsApiUrls;
     public String smsApiToken;
     public String smsUsername;
     public String smsPassword;

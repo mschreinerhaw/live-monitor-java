@@ -261,8 +261,8 @@
             <div class="recipient-chip-list" id="alertMobileRecipientList"></div>
           </div>
           <label>
-            <span>短信接口地址</span>
-            <input id="smsApiUrlInput" type="url" placeholder="https://sms.example.com/send">
+            <span>短信接口地址 <small class="field-note">（按顺序故障转移，每行一个）</small></span>
+            <textarea id="smsApiUrlInput" rows="3" placeholder="https://sms-a.example.com/send&#10;https://sms-b.example.com/send"></textarea>
           </label>
           <div class="inline-grid">
             <label>
@@ -592,6 +592,43 @@
         </div>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="externalMessageModal" hidden>
+  <div class="modal-dialog external-message-modal" role="dialog" aria-modal="true" aria-labelledby="externalMessageModalTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="externalMessageModalTitle">更多操作 · 外部消息转发接口</h2>
+        <p class="panel-subtitle">管理接口状态、查看请求示例和外部请求审计。</p>
+      </div>
+      <button class="icon-button" id="closeExternalMessageModalBtn" type="button" title="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div class="external-message-modal-body">
+      <div class="external-message-status-row">
+        <span>接口状态：<strong id="externalMessageStatusText">-</strong></span>
+        <button class="light-button" id="externalMessageToggleBtn" type="button">启用</button>
+      </div>
+      <section class="setting-section">
+        <div class="section-head">
+          <div><h2>请求示例</h2><p>支持 JSON，也支持 Content-Type 为 text/plain 的原始文本。</p></div>
+          <button class="light-button" id="copyExternalMessageExampleBtn" type="button"><i data-lucide="copy"></i>复制</button>
+        </div>
+        <pre id="externalMessageCurlExample" class="external-message-code"></pre>
+      </section>
+      <section class="setting-section">
+        <div class="section-head">
+          <div><h2>最近请求审计</h2><p>记录来源、请求状态、消息摘要和通道投递结果。</p></div>
+          <button class="icon-button" id="reloadExternalMessageAuditBtn" type="button" title="刷新"><i data-lucide="refresh-cw"></i></button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table external-message-audit-table">
+            <thead><tr><th>时间</th><th>来源 IP</th><th>状态</th><th>消息摘要</th><th>投递</th><th>说明</th></tr></thead>
+            <tbody id="externalMessageAuditBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
 

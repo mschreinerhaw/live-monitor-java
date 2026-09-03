@@ -7,6 +7,7 @@ import com.live.monitor.dto.CheckResult;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
@@ -107,6 +108,13 @@ public class LiveMonitorService {
 
     public boolean delete(Long id) {
         return serviceMapper.delete(id) > 0;
+    }
+
+    @Transactional
+    public MonitorService bindAlertGroups(Long serviceId, java.util.List<Long> groupIds) {
+        requireService(serviceId);
+        syncAlertGroups(serviceId, groupIds);
+        return getService(serviceId);
     }
 
     public CheckResult test(ServicePayload payload) {
@@ -434,17 +442,17 @@ public class LiveMonitorService {
             s.alertGroupEnabled = null;
         }
         if (ids.isEmpty()) return;
-        List<java.util.Map<String, Object>> rows = serviceMapper.listServiceAlertGroups(ids);
+        List<ServiceAlertGroupBinding> rows = serviceMapper.listServiceAlertGroups(ids);
         java.util.Map<Long, MonitorService> byId = new java.util.HashMap<>();
         for (MonitorService s : services) if (s.id != null) byId.put(s.id, s);
         java.util.Map<Long, Long> firstEnabledGroupByService = new java.util.HashMap<>();
         java.util.Map<Long, String> firstEnabledNameByService = new java.util.HashMap<>();
         java.util.Map<Long, Boolean> anyEnabledByService = new java.util.HashMap<>();
-        for (java.util.Map<String, Object> row : rows) {
-            Long serviceId = toLong(row.get("service_id"));
-            Long groupId = toLong(row.get("group_id"));
-            String groupName = row.get("group_name") == null ? null : String.valueOf(row.get("group_name"));
-            Boolean groupEnabled = toBool(row.get("group_enabled"));
+        for (ServiceAlertGroupBinding row : rows) {
+            Long serviceId = row.serviceId;
+            Long groupId = row.groupId;
+            String groupName = row.groupName;
+            Boolean groupEnabled = row.groupEnabled;
             MonitorService s = byId.get(serviceId);
             if (s == null) continue;
             s.alertGroupIds.add(groupId);
@@ -474,22 +482,6 @@ public class LiveMonitorService {
                 s.alertGroupEnabled = anyEnabledByService.get(s.id) != null ? Boolean.TRUE : Boolean.FALSE;
             }
         }
-    }
-
-    private Long toLong(Object value) {
-        if (value == null) return null;
-        if (value instanceof Number) return ((Number) value).longValue();
-        try { return Long.valueOf(String.valueOf(value)); } catch (NumberFormatException ex) { return null; }
-    }
-
-    private Boolean toBool(Object value) {
-        if (value == null) return null;
-        if (value instanceof Boolean) return (Boolean) value;
-        if (value instanceof Number) return ((Number) value).intValue() != 0;
-        String s = String.valueOf(value).trim().toLowerCase();
-        if ("true".equals(s) || "1".equals(s) || "yes".equals(s)) return Boolean.TRUE;
-        if ("false".equals(s) || "0".equals(s) || "no".equals(s)) return Boolean.FALSE;
-        return null;
     }
 
     private MonitorService fromPayload(ServicePayload payload) {

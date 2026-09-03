@@ -53,6 +53,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         return "/login.html".equals(uri)
             || "/api/auth/login".equals(uri)
             || "/api/auth/me".equals(uri)
+            || "/api/external/messages".equals(uri)
             || "/api/health".equals(uri);
     }
 

@@ -31,6 +31,8 @@ public class HostConfig {
     public Integer checkIntervalValue;
     public String checkIntervalUnit;
     public Long alertGroupId;
+    public List<Long> alertGroupIds;
+    public List<String> alertGroupNames;
     public Double cpuUsagePercent;
     public Double loadAverage;
     public Double memoryUsedPercent;

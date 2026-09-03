@@ -64,6 +64,10 @@ async function initAlertSettings() {
   document.getElementById("alertGroupList")?.addEventListener("click", handleAlertGroupListClick);
   document.getElementById("alertSettingsTable")?.addEventListener("click", handleAlertSettingsTableClick);
   document.getElementById("alertSettingsTable")?.addEventListener("change", handleAlertSettingsTableChange);
+  document.getElementById("closeExternalMessageModalBtn")?.addEventListener("click", closeExternalMessageModal);
+  document.getElementById("externalMessageToggleBtn")?.addEventListener("click", toggleExternalMessageService);
+  document.getElementById("copyExternalMessageExampleBtn")?.addEventListener("click", copyExternalMessageExample);
+  document.getElementById("reloadExternalMessageAuditBtn")?.addEventListener("click", loadExternalMessageAudit);
   // Modals intentionally do NOT close on backdrop click — only close/cancel buttons close them.
   document.getElementById("closeAlertBindingModalBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
@@ -894,7 +898,10 @@ function fillAlertChannelForm(channel) {
   setCheckedIfExists("smtpTlsInput", Boolean(channel?.smtp_use_tls));
   setCheckedIfExists("smtpSslInput", Boolean(channel?.smtp_use_ssl) || Number(channel?.smtp_port || 0) === 465);
   setValueIfExists("smtpSslTrustInput", channel?.smtp_ssl_trust || "");
-  setValueIfExists("smsApiUrlInput", channel?.webhook_url || channel?.sms_api_url || "");
+  const smsApiUrls = Array.isArray(channel?.sms_api_urls) && channel.sms_api_urls.length
+    ? channel.sms_api_urls
+    : [channel?.sms_api_url].filter(Boolean);
+  setValueIfExists("smsApiUrlInput", smsApiUrls.join("\n"));
   setValueIfExists("smsApiTokenInput", "");
   setValueIfExists("smsUsernameInput", channel?.sms_username || "");
   setValueIfExists("smsPasswordInput", "");
@@ -977,6 +984,9 @@ function buildAlertChannelPayload() {
   const proxyType = getValueIfExists("alertProxyTypeInput") || "none";
   const proxyPort = getValueIfExists("alertProxyPortInput");
   const apiUrl = getWebhookUrlForType(channelType, getValueIfExists);
+  const smsApiUrls = channelType === "sms"
+    ? Array.from(new Set(apiUrl.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)))
+    : [];
   const groupName = getValueIfExists("alertGroupNameInput");
   return {
     channel_name: groupName ? `${groupName}通知` : `${channelTypeLabel(channelType)}通知`,
@@ -993,7 +1003,8 @@ function buildAlertChannelPayload() {
     smtp_use_tls: channelType === "email" ? getCheckedIfExists("smtpTlsInput") : false,
     smtp_use_ssl: channelType === "email" ? getCheckedIfExists("smtpSslInput") : false,
     smtp_ssl_trust: channelType === "email" ? getValueIfExists("smtpSslTrustInput") || null : null,
-    sms_api_url: channelType === "sms" ? apiUrl || null : null,
+    sms_api_url: channelType === "sms" ? smsApiUrls[0] || null : null,
+    sms_api_urls: channelType === "sms" ? smsApiUrls : null,
     sms_api_token: channelType === "sms" ? getValueIfExists("smsApiTokenInput") || null : null,
     sms_username: channelType === "sms" ? getValueIfExists("smsUsernameInput") || null : null,
     sms_password: channelType === "sms" ? getValueIfExists("smsPasswordInput") || null : null,
@@ -1147,6 +1158,10 @@ function renderAlertSettingsTable() {
     const lastAlert = lastServiceAlert(service);
     const notifyState = alertDeliveryState(lastAlert);
     const bindingStatus = alertBindingStatus(service, groups);
+    const isExternalMessage = service.service_type === "external_message";
+    const displayedStatus = isExternalMessage
+      ? { text: service.enabled ? "接口启用" : "接口禁用", className: service.enabled ? "enabled" : "danger" }
+      : bindingStatus;
     return `
     <tr>
       <td class="select-column"><input type="checkbox" data-alert-row-check="${service.id}" aria-label="选择 ${escapeHtml(service.service_name)}"></td>
@@ -1157,7 +1172,7 @@ function renderAlertSettingsTable() {
         </span>
       </td>
       <td>${renderAlertServiceTypeTag(service.service_type)}</td>
-      <td><span class="state-pill ${bindingStatus.className}">${bindingStatus.text}</span></td>
+      <td><span class="state-pill ${displayedStatus.className}">${displayedStatus.text}</span></td>
       <td>
         <div class="alert-binding-rule-cell">
           ${renderServiceAlertGroupPicker(service, groups)}
@@ -1177,6 +1192,10 @@ function renderAlertSettingsTable() {
             <i data-lucide="bell"></i>
             <span>告警记录</span>
           </button>
+          ${isExternalMessage ? `
+          <button class="icon-button alert-row-button alert-more-button" type="button" title="更多操作" data-external-message-more="${service.id}">
+            <i data-lucide="ellipsis"></i><span>更多</span>
+          </button>` : ""}
           <button class="icon-button alert-row-menu" type="button" title="编辑绑定" data-alert-bind="${service.id}">
             <i data-lucide="link"></i>
           </button>
@@ -1251,6 +1270,7 @@ function renderAlertServiceTypeTag(type) {
 }
 
 function serviceTypeGroup(type) {
+  if (type === "external_message") return "interface";
   if (type === "api") return "api";
   if (["mysql", "oracle", "postgresql", "postgres", "jdbc"].includes(type)) return "database";
   if (["redis", "zookeeper"].includes(type)) return "middleware";
@@ -1397,9 +1417,11 @@ async function bindServiceAlertGroup(serviceId, value) {
 
 function renderServiceAlertGroupPicker(service, groups) {
   const selectedIds = new Set(serviceAlertGroupIds(service));
-  const label = groups.length === 0
+  const label = selectedIds.size === 0
     ? "不绑定"
-    : groups.length === 1 ? groups[0].group_name : `已选 ${groups.length} 个告警组`;
+    : selectedIds.size === 1
+      ? (groups[0]?.group_name || service.alert_group_names?.[0] || service.alert_group_name || "已选 1 个告警组")
+      : `已选 ${selectedIds.size} 个告警组`;
   return `
     <details class="alert-group-picker ${selectedIds.size ? "bound" : ""}">
       <summary aria-label="设置 ${escapeHtml(service.service_name)} 的告警绑定">
@@ -1422,6 +1444,8 @@ function renderServiceAlertGroupPicker(service, groups) {
 }
 
 async function bindServiceAlertGroups(serviceId, groupIds) {
+  const saveButton = document.querySelector(`[data-save-alert-groups="${serviceId}"]`);
+  if (saveButton) saveButton.disabled = true;
   try {
     const updated = await LiveMonitorApi.updateServiceAlertGroup(serviceId, {
       alert_group_ids: groupIds,
@@ -1429,11 +1453,13 @@ async function bindServiceAlertGroups(serviceId, groupIds) {
     alertSettingsState.services = alertSettingsState.services.map((service) =>
       Number(service.id) === Number(updated.id) ? updated : service
     );
-    renderAlertSettingsTable();
+    await loadAlertSettings();
     showToast(groupIds.length ? "服务告警组已更新" : "服务告警绑定已取消");
   } catch (error) {
     showToast(error.message);
     renderAlertSettingsTable();
+  } finally {
+    if (saveButton?.isConnected) saveButton.disabled = false;
   }
 }
 
@@ -1506,11 +1532,15 @@ async function sendTestAlert(serviceId) {
     const alertType = normalizeApiValue(record, "alert_type", "alertType") || "-";
     const alertContent = normalizeApiValue(record, "alert_content", "alertContent") || result?.error || "-";
     const createdAt = normalizeApiValue(record, "created_at", "createdAt");
+    const deliveryCount = Number(result?.delivery_count ?? result?.records?.length ?? (record ? 1 : 0));
+    const successCount = Number(result?.success_count ?? (result?.success ? deliveryCount : 0));
+    const failedCount = Number(result?.failed_count ?? Math.max(0, deliveryCount - successCount));
     setAlertActionResult(serviceId, {
       ok: Boolean(result?.success),
       title: result?.success ? "告警测试已发送" : "告警测试发送失败",
       details: [
         `发送状态：${alertStatus}`,
+        `投递汇总：成功 ${successCount}，失败 ${failedCount}，共 ${deliveryCount} 个通道`,
         `告警类型：${alertType}`,
         `内容：${alertContent}`,
         createdAt ? `时间：${formatTime(createdAt)}` : "",
@@ -1601,6 +1631,30 @@ function handleAlertGroupListClick(event) {
 
 function handleAlertSettingsTableClick(event) {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const externalMoreButton = target?.closest("[data-external-message-more]");
+  if (externalMoreButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalMoreButton.dataset.externalMessageMore));
+    return;
+  }
+  const externalExampleButton = target?.closest("[data-external-message-example]");
+  if (externalExampleButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalExampleButton.dataset.externalMessageExample));
+    return;
+  }
+  const externalAuditButton = target?.closest("[data-external-message-audit]");
+  if (externalAuditButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalAuditButton.dataset.externalMessageAudit));
+    return;
+  }
+  const externalToggleButton = target?.closest("[data-external-message-toggle]");
+  if (externalToggleButton) {
+    event.preventDefault();
+    toggleExternalMessageService(Number(externalToggleButton.dataset.externalMessageToggle));
+    return;
+  }
   const saveGroupsButton = target?.closest("[data-save-alert-groups]");
   if (saveGroupsButton) {
     event.preventDefault();
@@ -1634,7 +1688,118 @@ function handleAlertSettingsTableClick(event) {
   }
 }
 
+function externalMessageService(serviceId) {
+  if (serviceId) {
+    return alertSettingsState.services.find((service) => Number(service.id) === Number(serviceId));
+  }
+  return alertSettingsState.services.find((service) => service.service_type === "external_message");
+}
+
+function openExternalMessageModal(serviceId) {
+  const service = externalMessageService(serviceId);
+  if (!service) return;
+  const modal = document.getElementById("externalMessageModal");
+  if (!modal) return;
+  modal.dataset.serviceId = service.id;
+  modal.hidden = false;
+  renderExternalMessageStatus(service);
+  const endpoint = `${window.location.origin}/api/external/messages`;
+  const example = `curl -X POST ${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"message":"外部系统通知：磁盘空间不足"}'`;
+  document.getElementById("externalMessageCurlExample").textContent = example;
+  loadExternalMessageAudit();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeExternalMessageModal() {
+  const modal = document.getElementById("externalMessageModal");
+  if (modal) modal.hidden = true;
+}
+
+function renderExternalMessageStatus(service) {
+  const status = document.getElementById("externalMessageStatusText");
+  const toggle = document.getElementById("externalMessageToggleBtn");
+  if (status) {
+    status.textContent = service?.enabled ? "已启用" : "已禁用";
+    status.className = service?.enabled ? "enabled" : "disabled";
+  }
+  if (toggle) toggle.textContent = service?.enabled ? "禁用接口" : "启用接口";
+}
+
+async function toggleExternalMessageService(serviceId) {
+  const modal = document.getElementById("externalMessageModal");
+  const service = externalMessageService(serviceId || Number(modal?.dataset.serviceId || 0));
+  if (!service) return;
+  try {
+    const result = await LiveMonitorApi.updateExternalMessageStatus(!Boolean(service.enabled));
+    service.enabled = Boolean(result.enabled);
+    renderExternalMessageStatus(service);
+    renderAlertSettingsTable();
+    showToast(service.enabled ? "外部消息接口已启用" : "外部消息接口已禁用");
+    if (!document.getElementById("externalMessageModal")?.hidden) loadExternalMessageAudit();
+  } catch (error) {
+    showToast(`更新接口状态失败：${error.message}`);
+  }
+}
+
+async function copyExternalMessageExample() {
+  const example = document.getElementById("externalMessageCurlExample")?.textContent || "";
+  try {
+    await navigator.clipboard.writeText(example);
+    showToast("请求示例已复制");
+  } catch (_) {
+    showToast("复制失败，请手动选择示例文本");
+  }
+}
+
+async function loadExternalMessageAudit() {
+  const tbody = document.getElementById("externalMessageAuditBody");
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+  try {
+    const result = await LiveMonitorApi.externalMessageAudit({ page: 1, pageSize: 20 });
+    const rows = result?.items || [];
+    tbody.innerHTML = rows.length ? rows.map((row) => {
+      const status = row.request_status || row.requestStatus || "-";
+      const statusText = {
+        SUCCESS: "成功",
+        FAILED: "失败",
+        REJECTED: "已拒绝",
+        CONFIG_ENABLED: "启用操作",
+        CONFIG_DISABLED: "禁用操作",
+      }[status] || status;
+      const deliveries = row.delivery_count ?? row.deliveryCount ?? 0;
+      const succeeded = row.success_count ?? row.successCount ?? 0;
+      return `<tr>
+        <td>${escapeHtml(formatTime(row.created_at || row.createdAt))}</td>
+        <td>${escapeHtml(row.client_ip || row.clientIp || "-")}</td>
+        <td><span class="state-pill ${status === "SUCCESS" || status === "CONFIG_ENABLED" ? "enabled" : "danger"}">${escapeHtml(statusText)}</span></td>
+        <td title="${escapeHtml(row.message_summary || row.messageSummary || "")}">${escapeHtml(row.message_summary || row.messageSummary || "-")}</td>
+        <td>${succeeded}/${deliveries}</td>
+        <td>${escapeHtml(row.detail || "-")}</td>
+      </tr>`;
+    }).join("") : '<tr><td colspan="6" class="empty">暂无外部请求记录</td></tr>';
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
 function handleAlertSettingsTableChange(event) {
+  const pickerCheckbox = event.target.closest('.alert-group-picker input[type="checkbox"]');
+  if (pickerCheckbox) {
+    const picker = pickerCheckbox.closest(".alert-group-picker");
+    const selected = Array.from(picker?.querySelectorAll('input[type="checkbox"]:checked') || []);
+    const summary = picker?.querySelector("summary span");
+    if (summary) {
+      summary.textContent = selected.length === 0
+        ? "不绑定"
+        : selected.length === 1
+          ? selected[0].closest("label")?.querySelector("span")?.textContent || "已选 1 个告警组"
+          : `已选 ${selected.length} 个告警组`;
+    }
+    return;
+  }
   const select = event.target.closest("[data-service-alert-group-id]");
   if (!select) return;
   bindServiceAlertGroup(Number(select.dataset.serviceAlertGroupId), select.value);

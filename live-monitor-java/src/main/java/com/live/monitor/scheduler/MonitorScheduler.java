@@ -70,6 +70,9 @@ public class MonitorScheduler {
     }
 
     private boolean isDue(MonitorService service) {
+        if ("external_message".equals(service.serviceType)) {
+            return false;
+        }
         if (service.lastCheckedAt == null || service.lastCheckedAt.trim().isEmpty()) {
             return true;
         }

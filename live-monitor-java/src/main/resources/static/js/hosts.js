@@ -64,14 +64,13 @@ async function loadHostAlertGroups() {
   }
 }
 
-function renderHostAlertGroupOptions(selectedId = "") {
+function renderHostAlertGroupOptions(selectedIds = []) {
   const select = document.getElementById("hostAlertGroupSelect");
   if (!select) return;
-  select.innerHTML = [
-    '<option value="">不绑定告警组</option>',
-    ...hostState.alertGroups.map((group) => `<option value="${group.id}">${escapeHtml(group.group_name)}</option>`),
-  ].join("");
-  select.value = selectedId ? String(selectedId) : "";
+  const selected = new Set((Array.isArray(selectedIds) ? selectedIds : [selectedIds]).map(Number).filter(Boolean));
+  select.innerHTML = hostState.alertGroups
+    .map((group) => `<option value="${group.id}" ${selected.has(Number(group.id)) ? "selected" : ""}>${escapeHtml(group.group_name)}</option>`)
+    .join("");
 }
 
 async function loadHosts() {
@@ -360,7 +359,7 @@ function hostStateView(host) {
 function openHostModal(id = null) {
   const host = id ? hostState.hosts.find((item) => Number(item.id) === Number(id)) : null;
   fillHostForm(host);
-  renderHostAlertGroupOptions(host?.alert_group_id || "");
+  renderHostAlertGroupOptions(host?.alert_group_ids || (host?.alert_group_id ? [host.alert_group_id] : []));
   const modal = document.getElementById("hostModal");
   if (modal) modal.hidden = false;
   if (window.lucide) window.lucide.createIcons();
@@ -492,7 +491,12 @@ function fillHostForm(host) {
   const intervalParts = secondsToIntervalParts(host?.check_interval || 60);
   form.elements.check_interval_value.value = host?.check_interval_value || intervalParts.value;
   form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
-  form.elements.alert_group_id.value = host?.alert_group_id || "";
+  const selectedAlertGroupIds = new Set(
+    (host?.alert_group_ids || (host?.alert_group_id ? [host.alert_group_id] : [])).map(Number)
+  );
+  Array.from(form.elements.alert_group_ids.options).forEach((option) => {
+    option.selected = selectedAlertGroupIds.has(Number(option.value));
+  });
   form.elements.enabled.checked = host ? Boolean(host.enabled) : true;
   syncHostEditingLock(form, Boolean(host));
   setText("hostModalTitle", host ? "编辑主机" : "添加主机");
@@ -548,7 +552,9 @@ function buildHostPayload(form) {
       form.elements.check_interval_value.value || 1,
       form.elements.check_interval_unit.value || "minutes"
     ),
-    alert_group_id: form.elements.alert_group_id.value ? Number(form.elements.alert_group_id.value) : null,
+    alert_group_ids: Array.from(form.elements.alert_group_ids.selectedOptions || [])
+      .map((option) => Number(option.value))
+      .filter(Boolean),
     enabled: form.elements.enabled.checked,
   };
 }

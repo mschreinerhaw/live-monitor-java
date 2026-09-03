@@ -7,6 +7,7 @@ import com.live.monitor.dto.HostProcessPayload;
 import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.HostProcessConfig;
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
@@ -56,20 +57,22 @@ public class HostMonitorService {
         List<HostConfig> hosts = hostMapper.listHosts(includeDisabled ? 1 : 0);
         for (HostConfig host : hosts) {
             if (host.monitorServiceId == null) {
-                syncMonitorService(host, host.alertGroupId);
+                syncMonitorService(host, singletonGroupId(host.alertGroupId));
             }
             applyCheckIntervalDisplay(host);
             attachDiskMetrics(host);
             mask(host);
         }
+        populateAlertGroupBindings(hosts);
         return hosts;
     }
 
     public HostConfig getHost(Long id) {
         HostConfig host = requireHost(id);
         if (host.monitorServiceId == null) {
-            syncMonitorService(host, host.alertGroupId);
+            syncMonitorService(host, singletonGroupId(host.alertGroupId));
         }
+        populateAlertGroupBindings(java.util.Collections.singletonList(host));
         applyCheckIntervalDisplay(host);
         attachDiskMetrics(host);
         mask(host);
@@ -80,7 +83,7 @@ public class HostMonitorService {
     public HostConfig createHost(HostPayload payload) {
         HostConfig host = fromPayload(payload);
         hostMapper.insertHost(host);
-        syncMonitorService(host, payload.alertGroupId);
+        syncMonitorService(host, resolveGroupIds(payload));
         return getHost(host.id);
     }
 
@@ -93,7 +96,7 @@ public class HostMonitorService {
         if (hostMapper.updateHost(host) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "host not found");
         }
-        syncMonitorService(host, payload.alertGroupId);
+        syncMonitorService(host, resolveGroupIds(payload));
         return getHost(id);
     }
 
@@ -320,11 +323,12 @@ public class HostMonitorService {
         host.resourceAlertCooldownSeconds = nonNegativeOrDefault(payload.resourceAlertCooldownSeconds, 600);
         host.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         host.alertGroupId = payload.alertGroupId;
+        host.alertGroupIds = resolveGroupIds(payload);
         host.enabled = payload.enabled == null || payload.enabled;
         return host;
     }
 
-    private void syncMonitorService(HostConfig host, Long alertGroupId) {
+    private void syncMonitorService(HostConfig host, List<Long> alertGroupIds) {
         MonitorService service = new MonitorService();
         service.id = host.monitorServiceId;
         service.serviceName = host.hostName;
@@ -356,10 +360,50 @@ public class HostMonitorService {
             serviceMapper.update(service);
         }
 
-        if (alertGroupId == null) {
-            serviceMapper.unbindAlertGroup(service.id);
-        } else {
-            serviceMapper.bindAlertGroup(service.id, alertGroupId);
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<Long>();
+        if (alertGroupIds != null) {
+            for (Long groupId : alertGroupIds) {
+                if (groupId != null) desired.add(groupId);
+            }
+        }
+        serviceMapper.unbindAlertGroup(service.id);
+        for (Long groupId : desired) {
+            serviceMapper.bindAlertGroup(service.id, groupId);
+        }
+    }
+
+    private List<Long> resolveGroupIds(HostPayload payload) {
+        if (payload.alertGroupIds != null) return payload.alertGroupIds;
+        return singletonGroupId(payload.alertGroupId);
+    }
+
+    private List<Long> singletonGroupId(Long groupId) {
+        return groupId == null
+            ? java.util.Collections.<Long>emptyList()
+            : java.util.Collections.singletonList(groupId);
+    }
+
+    private void populateAlertGroupBindings(List<HostConfig> hosts) {
+        if (hosts == null || hosts.isEmpty()) return;
+        List<Long> serviceIds = new java.util.ArrayList<Long>();
+        Map<Long, HostConfig> byServiceId = new java.util.HashMap<Long, HostConfig>();
+        for (HostConfig host : hosts) {
+            host.alertGroupIds = new java.util.ArrayList<Long>();
+            host.alertGroupNames = new java.util.ArrayList<String>();
+            if (host.monitorServiceId != null) {
+                serviceIds.add(host.monitorServiceId);
+                byServiceId.put(host.monitorServiceId, host);
+            }
+        }
+        if (serviceIds.isEmpty()) return;
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(serviceIds)) {
+            HostConfig host = byServiceId.get(binding.serviceId);
+            if (host == null || binding.groupId == null) continue;
+            host.alertGroupIds.add(binding.groupId);
+            host.alertGroupNames.add(binding.groupName);
+        }
+        for (HostConfig host : hosts) {
+            host.alertGroupId = host.alertGroupIds.isEmpty() ? null : host.alertGroupIds.get(0);
         }
     }
 

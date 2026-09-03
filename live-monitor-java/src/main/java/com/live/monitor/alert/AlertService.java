@@ -90,15 +90,23 @@ public class AlertService {
     }
 
     public AlertRecord testAlert(MonitorService service) {
-        List<AlertRecord> records = dispatch(
+        List<AlertRecord> records = testAlerts(service);
+        return records.isEmpty()
+            ? record(service, "No alert record generated.", "test", "failed", "test")
+            : records.get(0);
+    }
+
+    public List<AlertRecord> testAlerts(MonitorService service) {
+        return dispatch(
             service,
             "[Test Alert] Service " + service.serviceName + " alert delivery test.",
             "test",
             "test"
         );
-        return records.isEmpty()
-            ? record(service, "No alert record generated.", "test", "failed", "test")
-            : records.get(0);
+    }
+
+    public List<AlertRecord> forwardText(MonitorService service, String content) {
+        return dispatch(service, content, "external_message", "external_message");
     }
 
     private CheckEvent checkEvent(MonitorService service, MonitorResult result) {
@@ -735,15 +743,24 @@ public class AlertService {
                 : java.util.Collections.singletonList(service.alertGroupId);
         }
         java.util.LinkedHashMap<Long, AlertChannel> deduped = new java.util.LinkedHashMap<>();
+        java.util.List<AlertChannel> channelsWithoutId = new java.util.ArrayList<>();
         for (Long groupId : groupIds) {
             if (groupId == null) continue;
+            com.live.monitor.entity.AlertGroup group = alertMapper.findGroup(groupId);
+            if (group != null && Boolean.FALSE.equals(group.enabled)) continue;
             List<AlertChannel> channels = alertMapper.listChannelsByGroup(groupId);
             for (AlertChannel channel : channels) {
-                if (channel == null || channel.id == null) continue;
-                deduped.putIfAbsent(channel.id, channel);
+                if (channel == null) continue;
+                if (channel.id == null) {
+                    if (!channelsWithoutId.contains(channel)) channelsWithoutId.add(channel);
+                } else {
+                    deduped.putIfAbsent(channel.id, channel);
+                }
             }
         }
-        return new java.util.ArrayList<>(deduped.values());
+        java.util.List<AlertChannel> result = new java.util.ArrayList<>(deduped.values());
+        result.addAll(channelsWithoutId);
+        return result;
     }
 
     private AlertRecord record(MonitorService service, String content, String type, String status, String alertKey) {

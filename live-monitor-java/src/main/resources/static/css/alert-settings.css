@@ -2966,6 +2966,42 @@ body[data-page="alert-settings"] .alert-config-layout.config-mode .panel-main {
   line-height: 1.3;
 }
 
+.external-message-modal {
+  width: min(1080px, calc(100vw - 40px));
+}
+
+.external-message-modal-body {
+  display: grid;
+  gap: 16px;
+  padding: 18px 22px 24px;
+}
+
+.external-message-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.external-message-status-row strong.enabled { color: #15803d; }
+.external-message-status-row strong.disabled { color: #b91c1c; }
+
+.external-message-code {
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+}
+
+.external-message-audit-table td:nth-child(4) {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field-note {
   color: #64748b;
   font-size: 12px;
@@ -3010,6 +3046,7 @@ body[data-page="alert-settings"] .alert-config-layout.config-mode .panel-main {
 body[data-page="alert-settings"] .row-actions.compact {
   display: inline-flex;
   gap: 10px;
+  flex-wrap: nowrap;
 }
 
 body[data-page="alert-settings"] .row-actions .alert-row-button {
@@ -3024,6 +3061,14 @@ body[data-page="alert-settings"] .row-actions .alert-row-menu {
   width: 34px;
   min-width: 34px;
   border: 0;
+}
+
+body[data-page="alert-settings"] .row-actions .alert-more-button {
+  min-width: 72px;
+}
+
+body[data-page="alert-settings"] .alert-binding-table .actions-column {
+  white-space: nowrap;
 }
 
 .alert-binding-modal {

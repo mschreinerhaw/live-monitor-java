@@ -248,6 +248,7 @@ public class AlertAdminService {
         config.put("smtp_use_ssl", payload.smtpUseSsl == null ? false : payload.smtpUseSsl);
         config.put("smtp_ssl_trust", payload.smtpSslTrust);
         config.put("sms_api_url", payload.smsApiUrl);
+        config.put("sms_api_urls", payload.smsApiUrls);
         config.put("sms_api_token", payload.smsApiToken);
         config.put("sms_username", payload.smsUsername);
         config.put("sms_password", payload.smsPassword);

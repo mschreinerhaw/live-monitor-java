@@ -32,6 +32,12 @@ public class WebConfig implements WebMvcConfigurer {
                 "/hosts.html",
                 "/admin.html"
             )
-            .excludePathPatterns("/api/auth/login", "/api/auth/me", "/api/health", "/login.html");
+            .excludePathPatterns(
+                "/api/auth/login",
+                "/api/auth/me",
+                "/api/external/messages",
+                "/api/health",
+                "/login.html"
+            );
     }
 }

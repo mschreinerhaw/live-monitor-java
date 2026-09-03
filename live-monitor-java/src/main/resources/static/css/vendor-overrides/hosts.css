@@ -876,6 +876,12 @@ body[data-page="hosts"] #hostModal .host-form select {
   font-size: 13px;
 }
 
+body[data-page="hosts"] #hostModal .host-form select[multiple] {
+  height: 104px !important;
+  min-height: 104px !important;
+  padding-block: 4px;
+}
+
 body[data-page="hosts"] #hostModal .host-form textarea {
   min-height: 68px;
   padding: 8px 10px;

@@ -149,8 +149,8 @@ public class AlertDeliveryService {
     }
 
     private void sendSms(Map<String, Object> config, String content) throws IOException {
-        String apiUrl = stringValue(config, "sms_api_url");
-        if (!StringUtils.hasText(apiUrl)) {
+        List<String> apiUrls = smsApiUrls(config);
+        if (apiUrls.isEmpty()) {
             throw new IOException("SMS API URL is empty");
         }
         List<String> mobiles = splitRecipients(stringValue(config, "alert_mobile"));
@@ -161,14 +161,57 @@ public class AlertDeliveryService {
         if (StringUtils.hasText(username)) {
             for (int index = 0; index < mobiles.size(); index += 100) {
                 String batch = String.join(",", mobiles.subList(index, Math.min(index + 100, mobiles.size())));
-                sendSmsGateway(config, apiUrl, username, batch, content);
+                sendSmsWithFailover(apiUrls, apiUrl -> sendSmsGateway(config, apiUrl, username, batch, content));
             }
             return;
         }
         String token = stringValue(config, "sms_api_token");
         for (String mobile : mobiles) {
-            sendSmsJsonApi(config, apiUrl, token, mobile, content);
+            sendSmsWithFailover(apiUrls, apiUrl -> sendSmsJsonApi(config, apiUrl, token, mobile, content));
         }
+    }
+
+    private List<String> smsApiUrls(Map<String, Object> config) {
+        List<String> urls = new ArrayList<String>();
+        Object configured = config.get("sms_api_urls");
+        if (configured instanceof Iterable) {
+            for (Object value : (Iterable<?>) configured) {
+                addSmsApiUrl(urls, value);
+            }
+        } else if (configured != null) {
+            for (String value : String.valueOf(configured).split("[\\r\\n]+")) {
+                addSmsApiUrl(urls, value);
+            }
+        }
+        addSmsApiUrl(urls, config.get("sms_api_url"));
+        return urls;
+    }
+
+    private void addSmsApiUrl(List<String> urls, Object value) {
+        String url = value == null ? "" : String.valueOf(value).trim();
+        if (StringUtils.hasText(url) && !urls.contains(url)) {
+            urls.add(url);
+        }
+    }
+
+    private void sendSmsWithFailover(List<String> apiUrls, SmsGatewayAttempt attempt) throws IOException {
+        List<String> errors = new ArrayList<String>();
+        Exception lastError = null;
+        for (int index = 0; index < apiUrls.size(); index++) {
+            try {
+                attempt.send(apiUrls.get(index));
+                return;
+            } catch (Exception ex) {
+                lastError = ex;
+                errors.add("gateway #" + (index + 1) + ": " + ex.getMessage());
+            }
+        }
+        throw new IOException("All SMS gateways failed: " + String.join("; ", errors), lastError);
+    }
+
+    @FunctionalInterface
+    private interface SmsGatewayAttempt {
+        void send(String apiUrl) throws Exception;
     }
 
     private void sendSmsGateway(

@@ -126,6 +126,18 @@
     updateServiceAlertGroup: (id, data) => request(`/api/services/${id}/alert-group`, { method: "PUT", body: JSON.stringify(data) }),
     updateAlertSettings: (id, data) => request(`/api/services/${id}/alert-settings`, { method: "PUT", body: JSON.stringify(data) }),
     alertTest: (id) => request(`/api/services/${id}/alert-test`, { method: "POST" }),
+    updateExternalMessageStatus: (enabled) => request("/api/external/messages/status", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
+    externalMessageAudit: (params = {}) => {
+      const search = new URLSearchParams();
+      if (params.page) search.set("page", params.page);
+      if (params.pageSize) search.set("page_size", params.pageSize);
+      if (params.status) search.set("status", params.status);
+      if (params.query) search.set("query", params.query);
+      return request(`/api/external/messages/audit?${search.toString()}`);
+    },
     checkService: (id) => request(`/api/services/${id}/check`, { method: "POST" }),
     results: (id, limit = 100) => request(`/api/services/${id}/results?limit=${limit}`),
     alerts: (id, limit = 50) => request(`/api/services/${id}/alerts?limit=${limit}`),

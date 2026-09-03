@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -13,6 +14,7 @@ import com.live.monitor.alert.AlertService;
 import com.live.monitor.dto.CheckResult;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import java.util.Collections;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class LiveMonitorServiceTest {
@@ -27,6 +30,49 @@ class LiveMonitorServiceTest {
         new TypeReference<Map<String, Object>>() {};
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void replacesServiceBindingsWithAllSelectedAlertGroups() {
+        MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);
+        MonitorService stored = new MonitorService();
+        stored.id = 88L;
+        stored.serviceName = "ZooKeeper";
+        stored.serviceType = "zookeeper";
+        stored.configJson = "{}";
+        stored.secretConfigJson = "{}";
+        when(serviceMapper.findById(88L)).thenReturn(stored);
+
+        LiveMonitorService service = new LiveMonitorService(
+            serviceMapper,
+            mock(RocksDbHistoryRepository.class),
+            mock(MonitorRunnerService.class),
+            mock(AlertService.class),
+            objectMapper,
+            mock(CryptoService.class),
+            mock(TransactionTemplate.class)
+        );
+
+        ServiceAlertGroupBinding first = new ServiceAlertGroupBinding();
+        first.serviceId = 88L;
+        first.groupId = 10L;
+        first.groupName = "Email";
+        first.groupEnabled = true;
+        ServiceAlertGroupBinding second = new ServiceAlertGroupBinding();
+        second.serviceId = 88L;
+        second.groupId = 11L;
+        second.groupName = "SMS";
+        second.groupEnabled = true;
+        when(serviceMapper.listServiceAlertGroups(any())).thenReturn(java.util.Arrays.asList(first, second));
+
+        MonitorService result = service.bindAlertGroups(88L, java.util.Arrays.asList(10L, 11L, 10L));
+
+        InOrder writes = inOrder(serviceMapper);
+        writes.verify(serviceMapper).unbindAlertGroup(88L);
+        writes.verify(serviceMapper).bindAlertGroup(88L, 10L);
+        writes.verify(serviceMapper).bindAlertGroup(88L, 11L);
+        assertEquals(java.util.Arrays.asList(10L, 11L), result.alertGroupIds);
+        assertEquals(java.util.Arrays.asList("Email", "SMS"), result.alertGroupNames);
+    }
 
     @Test
     void createsServiceWithSnakeCaseAvailabilityAlertConfigPersistedAndHydrated() throws Exception {

@@ -11,11 +11,15 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface HostMapper {
-    String HOST_SELECT = "SELECT h.*, sag.group_id AS alert_group_id, " +
+    String HOST_SELECT = "SELECT h.*, (" +
+        "SELECT sag.group_id FROM service_alert_group sag " +
+        "LEFT JOIN alert_group ag ON ag.id = sag.group_id " +
+        "WHERE sag.service_id = h.monitor_service_id " +
+        "ORDER BY ag.enabled DESC, sag.group_id LIMIT 1" +
+        ") AS alert_group_id, " +
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
         "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, hm.physical_disk_metrics_json, " +
         "hm.checked_at AS metric_checked_at FROM host_config h " +
-        "LEFT JOIN service_alert_group sag ON sag.service_id = h.monitor_service_id " +
         "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
 
     @Select(HOST_SELECT + "WHERE (#{includeDisabled} = 1 OR h.enabled = 1) ORDER BY h.enabled DESC, h.cluster_name, h.host_name")

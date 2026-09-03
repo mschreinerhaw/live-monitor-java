@@ -21,6 +21,7 @@ function serviceTypeLabel(type) {
     postgres: "PostgreSQL",
     jdbc: "通用 JDBC",
     cross_database: "跨库比对",
+    external_message: "外部消息转发",
   }[type] || type;
 }
 
@@ -43,6 +44,7 @@ function serviceTypeIcon(type) {
     postgres: "database",
     jdbc: "database",
     cross_database: "git-compare-arrows",
+    external_message: "send",
   }[type] || "server";
 }
 
@@ -397,6 +399,7 @@ function serviceTypeLabel(type) {
     postgres: "PostgreSQL",
     jdbc: "\u901a\u7528 JDBC",
     cross_database: "\u8de8\u5e93\u6bd4\u5bf9",
+    external_message: "\u5916\u90e8\u6d88\u606f\u8f6c\u53d1",
   }[type] || type || "\u81ea\u5b9a\u4e49\u670d\u52a1";
 }
 
@@ -429,5 +432,4 @@ function formatCheckInterval(seconds) {
   };
   return `${parts.value} ${labels[parts.unit] || "\u79d2"}`;
 }
-
 

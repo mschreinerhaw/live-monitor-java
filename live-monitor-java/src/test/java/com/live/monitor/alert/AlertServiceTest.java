@@ -29,6 +29,32 @@ import org.junit.jupiter.api.Test;
 
 class AlertServiceTest {
     @Test
+    void externalTextIsForwardedOncePerEnabledChannelAcrossMultipleGroups() {
+        AlertMapper alertMapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService deliveryService = mock(AlertDeliveryService.class);
+        AlertService service = new AlertService(alertMapper, historyRepository, deliveryService);
+        MonitorService monitorService = monitorService();
+        monitorService.alertGroupIds = Arrays.asList(2L, 3L);
+        AlertChannel shared = alertChannel("http");
+        shared.id = 10L;
+        AlertChannel second = alertChannel("sms");
+        second.id = 11L;
+
+        when(alertMapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(shared));
+        when(alertMapper.listChannelsByGroup(3L)).thenReturn(Arrays.asList(shared, second));
+        when(deliveryService.send(any(AlertChannel.class), eq("外部系统通知")))
+            .thenReturn(AlertDeliveryService.DeliveryResult.success());
+        when(historyRepository.saveAlertRecord(any(AlertRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        java.util.List<AlertRecord> records = service.forwardText(monitorService, "外部系统通知");
+
+        org.junit.jupiter.api.Assertions.assertEquals(2, records.size());
+        verify(deliveryService).send(shared, "外部系统通知");
+        verify(deliveryService).send(second, "外部系统通知");
+    }
+
+    @Test
     void latencyPolicyDoesNotBypassConsecutiveDownPolicyForDownResult() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);

@@ -1,5 +1,6 @@
 package com.live.monitor.dto;
 
+import java.util.List;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
@@ -48,5 +49,7 @@ public class HostPayload {
     public Integer checkIntervalValue;
     public String checkIntervalUnit = "seconds";
     public Long alertGroupId;
+    /** Preferred multi-group binding; when present overrides {@link #alertGroupId}. */
+    public List<Long> alertGroupIds;
     public Boolean enabled = true;
 }

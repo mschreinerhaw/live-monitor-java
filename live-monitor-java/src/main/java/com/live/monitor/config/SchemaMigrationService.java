@@ -24,6 +24,7 @@ public class SchemaMigrationService {
             return;
         }
         createLoginAuditLogTable();
+        createExternalMessageAuditTable();
         createEventDrivenAlertTables();
         widenColumnIfPresent("tuser", "password", "VARCHAR(512)");
         addColumnIfMissing("monitor_service", "service_category", "VARCHAR(64) NOT NULL DEFAULT 'middleware'");
@@ -59,6 +60,34 @@ public class SchemaMigrationService {
         addColumnIfMissing("monitor_check_event", "event_type", "VARCHAR(64)");
         migrateServiceAlertGroupCompositePrimaryKey();
         createCommonIndexes();
+        ensureExternalMessageService();
+    }
+
+    private void ensureExternalMessageService() {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM monitor_service WHERE service_type = 'external_message'",
+            Integer.class
+        );
+        if (count != null && count > 0) {
+            return;
+        }
+        jdbcTemplate.update(
+            "INSERT INTO monitor_service (" +
+                "service_name, service_category, service_type, cluster_name, monitor_reason, " +
+                "check_mode, config_json, secret_config_json, check_interval, enabled" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "外部 REST 消息转发",
+            "alert",
+            "external_message",
+            "告警中心",
+            "接收外部 REST API 文本，并转发到本服务绑定的告警组",
+            "manual",
+            "{}",
+            "{}",
+            31536000,
+            0
+        );
+        log.info("Created built-in external REST message forwarding service");
     }
 
     /**
@@ -132,6 +161,25 @@ public class SchemaMigrationService {
             "event_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
             primaryKeySuffix() + ")");
         createIndexIfMissing("login_audit_log", "idx_login_audit_log_time", "event_time DESC");
+    }
+
+    private void createExternalMessageAuditTable() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS external_message_audit (" +
+            identityColumn("id") + ", " +
+            "service_id BIGINT, " +
+            "client_ip VARCHAR(64), " +
+            "content_type VARCHAR(255), " +
+            "message_summary VARCHAR(1000), " +
+            "message_length INT DEFAULT 0, " +
+            "request_status VARCHAR(32) NOT NULL, " +
+            "delivery_count INT DEFAULT 0, " +
+            "success_count INT DEFAULT 0, " +
+            "failed_count INT DEFAULT 0, " +
+            "detail VARCHAR(2000), " +
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            primaryKeySuffix() + ")");
+        createIndexIfMissing("external_message_audit", "idx_external_message_audit_time", "created_at DESC");
+        createIndexIfMissing("external_message_audit", "idx_external_message_audit_status", "request_status, created_at DESC");
     }
 
     private void createEventDrivenAlertTables() {
