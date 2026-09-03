@@ -97,6 +97,102 @@ body[data-page="add-service"] .service-type-trigger {
   height: 40px;
 }
 
+body[data-page="add-service"] .service-alert-group-picker {
+  position: relative;
+  width: 100%;
+  font-weight: 400;
+}
+
+body[data-page="add-service"] .service-alert-group-picker summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--lm-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+body[data-page="add-service"] .service-alert-group-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-page="add-service"] .service-alert-group-picker summary svg {
+  width: 16px;
+  transition: transform 0.18s ease;
+}
+
+body[data-page="add-service"] .service-alert-group-picker[open] summary {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+}
+
+body[data-page="add-service"] .service-alert-group-picker[open] summary svg {
+  transform: rotate(180deg);
+}
+
+body[data-page="add-service"] .service-alert-group-options {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: 240px;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid #d5dfeb;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+}
+
+body[data-page="add-service"] .service-alert-group-option {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 40px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: #334155;
+  cursor: pointer;
+}
+
+body[data-page="add-service"] .service-alert-group-option:hover {
+  background: #f1f6ff;
+}
+
+body[data-page="add-service"] .service-alert-group-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+body[data-page="add-service"] .service-alert-group-option small {
+  color: #8492a6;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+body[data-page="add-service"] .service-alert-group-empty {
+  margin: 0;
+  padding: 10px;
+  color: #8492a6;
+  text-align: center;
+}
+
+body[data-page="add-service"] .service-alert-group-picker.disabled summary {
+  background: #eef3f8;
+  color: #8a98aa;
+  pointer-events: none;
+}
+
 body[data-page="add-service"] .form-grid textarea {
   min-height: 112px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;

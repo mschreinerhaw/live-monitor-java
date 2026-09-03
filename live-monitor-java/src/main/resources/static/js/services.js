@@ -9,6 +9,11 @@ async function initAddService() {
   let activeDatabaseType = isDatabaseServiceType(typeSelect.value) ? typeSelect.value : "";
   const databaseTypeDrafts = {};
   let databaseConnectionOptions = [];
+  document.getElementById("serviceAlertGroupOptions")?.addEventListener("change", updateServiceAlertGroupSummary);
+  document.addEventListener("click", (event) => {
+    const picker = document.getElementById("serviceAlertGroupPicker");
+    if (picker?.open && !event.target.closest("#serviceAlertGroupPicker")) picker.open = false;
+  });
   initServiceTypePicker(typeSelect);
   const hostOptionsPromise = loadProcessHostOptions(form);
   const pathMatch = window.location.pathname.match(/\/services\/(\d+)\/edit$/);
@@ -323,6 +328,9 @@ function syncServiceEditingLock(form, editingExistingService = false) {
     && serviceType !== "cross_database"
   );
   form.classList.toggle("form-edit-locked", locked);
+  const alertGroupPicker = document.getElementById("serviceAlertGroupPicker");
+  alertGroupPicker?.classList.toggle("disabled", locked);
+  if (locked) alertGroupPicker?.removeAttribute("open");
   Array.from(form.elements).forEach((control) => {
     if (isServiceLockExemptControl(control)) return;
     if (locked) {
@@ -543,15 +551,9 @@ function buildServicePayload(form) {
   data.process_min_instances = isProcess ? Number(data.process_min_instances || 1) : null;
   data.alert_group_id = data.alert_group_id ? Number(data.alert_group_id) : null;
   data.alert_config_id = null;
-  // Collect multi-selected alert groups (if the form uses the multi-select).
-  const alertGroupSelect = form.elements.alert_group_ids || form.elements.alert_group_id;
-  if (alertGroupSelect && alertGroupSelect.multiple) {
-    const ids = Array.from(alertGroupSelect.selectedOptions || [])
-      .map((opt) => Number(opt.value))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    data.alert_group_ids = ids;
-    data.alert_group_id = ids[0] || null;
-  }
+  const alertGroupIds = selectedServiceAlertGroupIds();
+  data.alert_group_ids = alertGroupIds;
+  data.alert_group_id = alertGroupIds[0] || null;
   data.cluster_name = data.cluster_name || null;
   data.monitor_reason = data.monitor_reason?.trim() || null;
   delete data.web_scheme;
@@ -574,24 +576,41 @@ function buildServicePayload(form) {
 
 
 async function loadServiceAlertConfigOptions(form) {
-  const select = form.elements.alert_group_ids || form.elements.alert_group_id || form.elements.alert_config_id;
-  if (!select) return;
+  const options = document.getElementById("serviceAlertGroupOptions");
+  if (!options) return;
   try {
     const groups = await LiveMonitorApi.alertGroups(false);
-    const options = groups.map((group) =>
-      `<option value="${group.id}">${escapeHtml(group.group_name)} (${group.channels?.length || 0} 个渠道)</option>`
-    );
-    if (select.multiple) {
-      select.innerHTML = options.join("");
-    } else {
-      select.innerHTML = ['<option value="">不绑定告警组</option>', ...options].join("");
-    }
+    options.innerHTML = groups.length ? groups.map((group) => `
+      <label class="service-alert-group-option">
+        <input name="alert_group_ids" type="checkbox" value="${group.id}">
+        <span>${escapeHtml(group.group_name)}</span>
+        <small>${group.channels?.length || 0} 个渠道</small>
+      </label>
+    `).join("") : '<p class="service-alert-group-empty">暂无可用告警组</p>';
+    updateServiceAlertGroupSummary();
+    if (window.lucide) window.lucide.createIcons();
   } catch (error) {
-    select.innerHTML = select.multiple
-      ? ""
-      : '<option value="">告警组加载失败</option>';
+    options.innerHTML = '<p class="service-alert-group-empty">告警组加载失败</p>';
+    updateServiceAlertGroupSummary();
     showToast(error.message);
   }
+}
+
+function selectedServiceAlertGroupIds() {
+  return Array.from(document.querySelectorAll('#serviceAlertGroupOptions input[name="alert_group_ids"]:checked'))
+    .map((input) => Number(input.value))
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+function updateServiceAlertGroupSummary() {
+  const summary = document.getElementById("serviceAlertGroupSummary");
+  if (!summary) return;
+  const selected = Array.from(document.querySelectorAll('#serviceAlertGroupOptions input[name="alert_group_ids"]:checked'));
+  summary.textContent = selected.length === 0
+    ? "不绑定告警组"
+    : selected.length === 1
+      ? selected[0].closest("label")?.querySelector("span")?.textContent || "已选 1 个告警组"
+      : `已选 ${selected.length} 个告警组`;
 }
 
 
@@ -663,21 +682,14 @@ function fillServiceForm(form, service) {
     }
   });
   const intervalParts = secondsToIntervalParts(service.check_interval);
-  // Hydrate alert group selection (multi-select preferred; single-select fallback)
-  const alertGroupField = form.elements.alert_group_ids || form.elements.alert_group_id;
-  if (alertGroupField) {
-    const bound = Array.isArray(service.alert_group_ids) && service.alert_group_ids.length > 0
-      ? service.alert_group_ids
-      : (service.alert_group_id ? [service.alert_group_id] : []);
-    const boundSet = new Set(bound.map((id) => String(id)));
-    if (alertGroupField.multiple) {
-      Array.from(alertGroupField.options).forEach((opt) => {
-        opt.selected = boundSet.has(String(opt.value));
-      });
-    } else {
-      alertGroupField.value = bound[0] != null ? String(bound[0]) : "";
-    }
-  }
+  const bound = Array.isArray(service.alert_group_ids) && service.alert_group_ids.length > 0
+    ? service.alert_group_ids
+    : (service.alert_group_id ? [service.alert_group_id] : []);
+  const boundSet = new Set(bound.map(Number));
+  document.querySelectorAll('#serviceAlertGroupOptions input[name="alert_group_ids"]').forEach((input) => {
+    input.checked = boundSet.has(Number(input.value));
+  });
+  updateServiceAlertGroupSummary();
   if (form.elements.check_interval_value) {
     form.elements.check_interval_value.value = service.check_interval_value || intervalParts.value;
   }
