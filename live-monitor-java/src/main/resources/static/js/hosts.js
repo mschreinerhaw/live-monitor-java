@@ -45,6 +45,11 @@ function bindHostEvents() {
     const form = event.target.form;
     syncHostEditingLock(form, Boolean(form?.elements.id?.value));
   });
+  document.getElementById("hostAlertGroupOptions")?.addEventListener("change", updateHostAlertGroupSummary);
+  document.addEventListener("click", (event) => {
+    const picker = document.getElementById("hostAlertGroupPicker");
+    if (picker?.open && !event.target.closest("#hostAlertGroupPicker")) picker.open = false;
+  });
   bindHostAlertThresholdToggleEvents();
   bindHostDurationToggleEvents();
   document.getElementById("hostRealtimeMetricsBtn")?.addEventListener("click", () => setHostMetricView("realtime"));
@@ -65,12 +70,37 @@ async function loadHostAlertGroups() {
 }
 
 function renderHostAlertGroupOptions(selectedIds = []) {
-  const select = document.getElementById("hostAlertGroupSelect");
-  if (!select) return;
+  const options = document.getElementById("hostAlertGroupOptions");
+  if (!options) return;
   const selected = new Set((Array.isArray(selectedIds) ? selectedIds : [selectedIds]).map(Number).filter(Boolean));
-  select.innerHTML = hostState.alertGroups
-    .map((group) => `<option value="${group.id}" ${selected.has(Number(group.id)) ? "selected" : ""}>${escapeHtml(group.group_name)}</option>`)
-    .join("");
+  options.innerHTML = hostState.alertGroups.length
+    ? hostState.alertGroups.map((group) => `
+      <label class="host-alert-group-option">
+        <input name="alert_group_ids" type="checkbox" value="${group.id}" ${selected.has(Number(group.id)) ? "checked" : ""}>
+        <span>${escapeHtml(group.group_name)}</span>
+      </label>
+    `).join("")
+    : '<p class="host-alert-group-empty">暂无可用告警组</p>';
+  updateHostAlertGroupSummary();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function selectedHostAlertGroupIds() {
+  return Array.from(document.querySelectorAll('#hostAlertGroupOptions input[name="alert_group_ids"]:checked'))
+    .map((input) => Number(input.value))
+    .filter(Boolean);
+}
+
+function updateHostAlertGroupSummary() {
+  const summary = document.getElementById("hostAlertGroupSummary");
+  if (!summary) return;
+  const ids = selectedHostAlertGroupIds();
+  if (!ids.length) {
+    summary.textContent = "不绑定告警组";
+    return;
+  }
+  const names = ids.map((id) => hostState.alertGroups.find((group) => Number(group.id) === id)?.group_name).filter(Boolean);
+  summary.textContent = ids.length === 1 ? (names[0] || "已选 1 个告警组") : `已选 ${ids.length} 个告警组`;
 }
 
 async function loadHosts() {
@@ -368,6 +398,7 @@ function openHostModal(id = null) {
 function closeHostModal() {
   const modal = document.getElementById("hostModal");
   if (modal) modal.hidden = true;
+  document.getElementById("hostAlertGroupPicker")?.removeAttribute("open");
 }
 
 const hostAlertThresholdToggleFields = [
@@ -491,12 +522,6 @@ function fillHostForm(host) {
   const intervalParts = secondsToIntervalParts(host?.check_interval || 60);
   form.elements.check_interval_value.value = host?.check_interval_value || intervalParts.value;
   form.elements.check_interval_unit.value = host?.check_interval_unit || intervalParts.unit;
-  const selectedAlertGroupIds = new Set(
-    (host?.alert_group_ids || (host?.alert_group_id ? [host.alert_group_id] : [])).map(Number)
-  );
-  Array.from(form.elements.alert_group_ids.options).forEach((option) => {
-    option.selected = selectedAlertGroupIds.has(Number(option.value));
-  });
   form.elements.enabled.checked = host ? Boolean(host.enabled) : true;
   syncHostEditingLock(form, Boolean(host));
   setText("hostModalTitle", host ? "编辑主机" : "添加主机");
@@ -506,6 +531,9 @@ function syncHostEditingLock(form, editingExistingHost = false) {
   if (!form) return;
   const locked = Boolean(editingExistingHost && form.elements.enabled && !form.elements.enabled.checked);
   form.classList.toggle("form-edit-locked", locked);
+  const alertGroupPicker = document.getElementById("hostAlertGroupPicker");
+  alertGroupPicker?.classList.toggle("disabled", locked);
+  if (locked) alertGroupPicker?.removeAttribute("open");
   Array.from(form.elements).forEach((control) => {
     if (isHostLockExemptControl(control)) return;
     control.disabled = locked;
@@ -552,9 +580,7 @@ function buildHostPayload(form) {
       form.elements.check_interval_value.value || 1,
       form.elements.check_interval_unit.value || "minutes"
     ),
-    alert_group_ids: Array.from(form.elements.alert_group_ids.selectedOptions || [])
-      .map((option) => Number(option.value))
-      .filter(Boolean),
+    alert_group_ids: selectedHostAlertGroupIds(),
     enabled: form.elements.enabled.checked,
   };
 }

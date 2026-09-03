@@ -554,12 +554,16 @@
 
         <div class="service-binding-summary span-2" id="alertBindingServiceSummary" hidden></div>
 
-        <label class="span-2">
-          <span>绑定规则 <small class="field-note">(可多选)</small></span>
-          <select id="alertBindingGroupSelect" multiple size="4">
-            <option value="">不绑定告警</option>
-          </select>
-        </label>
+        <div class="alert-binding-group-field span-2">
+          <span>绑定规则</span>
+          <details class="alert-binding-group-picker" id="alertBindingGroupPicker">
+            <summary aria-label="选择绑定规则" aria-haspopup="listbox">
+              <span id="alertBindingGroupSummary">不绑定告警</span>
+              <i data-lucide="chevron-down"></i>
+            </summary>
+            <div class="alert-binding-group-options" id="alertBindingGroupOptions" role="listbox" aria-multiselectable="true"></div>
+          </details>
+        </div>
 
         <label class="span-2 interval-field">
           <span>检测间隔</span>

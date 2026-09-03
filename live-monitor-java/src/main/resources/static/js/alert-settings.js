@@ -76,7 +76,14 @@ async function initAlertSettings() {
     syncServiceBindingScheduleFromService();
     renderServiceBindingPreview();
   });
-  document.getElementById("alertBindingGroupSelect")?.addEventListener("change", renderServiceBindingPreview);
+  document.getElementById("alertBindingGroupOptions")?.addEventListener("change", () => {
+    updateAlertBindingGroupSummary();
+    renderServiceBindingPreview();
+  });
+  document.addEventListener("click", (event) => {
+    const picker = document.getElementById("alertBindingGroupPicker");
+    if (picker?.open && !event.target.closest("#alertBindingGroupPicker")) picker.open = false;
+  });
   document.getElementById("alertBindingIntervalValue")?.addEventListener("input", renderServiceBindingPreview);
   document.getElementById("alertBindingIntervalUnit")?.addEventListener("change", renderServiceBindingPreview);
   document.getElementById("alertBindingForm")?.addEventListener("submit", submitServiceBindingForm);
@@ -378,9 +385,10 @@ function openServiceBindingModal(serviceIds = []) {
 }
 
 function closeServiceBindingModal() {
-  const modal = document.getElementById("alertBindingModal");
-  if (modal) modal.hidden = true;
-  alertSettingsState.bindingServiceIds = [];
+    const modal = document.getElementById("alertBindingModal");
+    if (modal) modal.hidden = true;
+    document.getElementById("alertBindingGroupPicker")?.removeAttribute("open");
+    alertSettingsState.bindingServiceIds = [];
 }
 
 function renderServiceBindingServiceOptions(selectedIds = []) {
@@ -419,8 +427,8 @@ function renderServiceBindingServiceOptions(selectedIds = []) {
 }
 
 function renderServiceBindingGroupOptions(selectedIds = []) {
-  const select = document.getElementById("alertBindingGroupSelect");
-  if (!select) return;
+  const options = document.getElementById("alertBindingGroupOptions");
+  if (!options) return;
   const selectedServices = selectedIds.length
     ? selectedIds.map((id) => alertSettingsState.services.find((service) => Number(service.id) === Number(id))).filter(Boolean)
     : [];
@@ -429,8 +437,17 @@ function renderServiceBindingGroupOptions(selectedIds = []) {
     && selectedServices.every((service) => sameIds(serviceAlertGroupIds(service), firstGroupIds))
       ? firstGroupIds
       : [];
-  select.innerHTML = renderAlertGroupSelectOptions("");
-  setSelectedAlertGroups(select, commonGroupIds);
+  const selected = new Set(commonGroupIds.map(Number));
+  options.innerHTML = alertSettingsState.groups.length
+    ? alertSettingsState.groups.map((group) => `
+      <label class="alert-binding-group-option">
+        <input type="checkbox" value="${group.id}" ${selected.has(Number(group.id)) ? "checked" : ""}>
+        <span>${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停用"}</span>
+      </label>
+    `).join("")
+    : '<p class="alert-binding-group-empty">暂无告警组</p>';
+  updateAlertBindingGroupSummary();
+  if (window.lucide) window.lucide.createIcons();
 }
 
 function serviceAlertGroupIds(service) {
@@ -446,16 +463,34 @@ function sameIds(left, right) {
   return leftIds.length === rightIds.length && leftIds.every((id, index) => id === rightIds[index]);
 }
 
-function setSelectedAlertGroups(select, groupIds) {
+function setSelectedAlertGroups(container, groupIds) {
   const selected = new Set(groupIds.map(Number));
-  Array.from(select.options).forEach((option) => {
-    option.selected = option.value ? selected.has(Number(option.value)) : selected.size === 0;
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = selected.has(Number(input.value));
   });
+  updateAlertBindingGroupSummary();
 }
 
 function selectedAlertGroupIds() {
-  const select = document.getElementById("alertBindingGroupSelect");
-  return Array.from(select?.selectedOptions || []).map((option) => Number(option.value)).filter(Boolean);
+  return Array.from(document.querySelectorAll('#alertBindingGroupOptions input[type="checkbox"]:checked'))
+    .map((input) => Number(input.value))
+    .filter(Boolean);
+}
+
+function updateAlertBindingGroupSummary() {
+  const summary = document.getElementById("alertBindingGroupSummary");
+  if (!summary) return;
+  const ids = selectedAlertGroupIds();
+  if (!ids.length) {
+    summary.textContent = "不绑定告警";
+    return;
+  }
+  const groups = ids
+    .map((id) => alertSettingsState.groups.find((group) => Number(group.id) === id))
+    .filter(Boolean);
+  summary.textContent = ids.length === 1
+    ? (groups[0]?.group_name || "已选 1 个告警组")
+    : `已选 ${ids.length} 个告警组`;
 }
 
 function selectedBindingServices() {
@@ -471,7 +506,7 @@ function selectedBindingServices() {
 
 function syncServiceBindingGroupFromService() {
   if (alertSettingsState.bindingServiceIds.length) return;
-  const groupSelect = document.getElementById("alertBindingGroupSelect");
+  const groupSelect = document.getElementById("alertBindingGroupOptions");
   const service = selectedBindingServices()[0];
   if (groupSelect && service) setSelectedAlertGroups(groupSelect, serviceAlertGroupIds(service));
 }

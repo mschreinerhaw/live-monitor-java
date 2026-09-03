@@ -876,10 +876,93 @@ body[data-page="hosts"] #hostModal .host-form select {
   font-size: 13px;
 }
 
-body[data-page="hosts"] #hostModal .host-form select[multiple] {
-  height: 104px !important;
-  min-height: 104px !important;
-  padding-block: 4px;
+body[data-page="hosts"] #hostModal .host-alert-group-picker {
+  position: relative;
+  width: 100%;
+  color: #24364b;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #c9d7e8;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker summary svg {
+  width: 16px;
+  transition: transform 0.18s ease;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker[open] summary svg {
+  transform: rotate(180deg);
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker[open] summary {
+  border-color: #4d8ff7;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: 220px;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid #d5dfeb;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: #334155;
+  cursor: pointer;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-option:hover {
+  background: #f1f6ff;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-option input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: #2563eb;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-empty {
+  margin: 0;
+  padding: 10px;
+  color: #8492a6;
+  text-align: center;
+}
+
+body[data-page="hosts"] #hostModal .host-alert-group-picker.disabled summary {
+  background: #eef3f8;
+  color: #8a98aa;
+  pointer-events: none;
 }
 
 body[data-page="hosts"] #hostModal .host-form textarea {

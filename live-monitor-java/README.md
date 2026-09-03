@@ -126,6 +126,8 @@ HTTP 告警的请求体可以在告警渠道页面自由配置，适合钉钉、
 
 钉钉和企业微信内置渠道也会复用 `http_*.j2` 模板生成消息正文；如需调整机器人收到的告警文案，修改对应 HTTP 模板即可。
 
+短信渠道支持配置多个短信接口地址，每行一个并按填写顺序作为主、备网关。每批短信先调用第一个地址；连接失败、非 2xx 响应或网关返回失败码时，自动尝试下一个地址，任一地址成功后立即停止切换。原有单地址 `sms_api_url` 配置继续兼容。
+
 ## 通用 JDBC 驱动
 
 除内置 MySQL、Oracle、PostgreSQL 外，添加服务时可选择“通用 JDBC”。将对应数据库的 JDBC 驱动 jar 放到运行目录的 `lib/` 下，页面填写驱动类、JDBC 连接串、用户、密码、检测 SQL 和期望关键字即可。检测会执行 SQL，并在返回结果文本中查找期望关键字。
@@ -184,11 +186,36 @@ sameValues("A.FUND_CODE", "B.FUND_CODE") && absDiff(field("A.AMOUNT"), field("B.
 
 注意事项：规则长度最多 1000 字符；响应正文参与解析的最大长度为 262144 字符；JSON 路径深度最多 32 层；正则表达式最长 300 字符，正则匹配只读取响应正文前 8192 字符，并有 100ms 超时保护。带前导 0 的编号建议用引号按文本比较，例如 `json("$.FUND_CODE") == "011389"`。
 
+## 外部文本消息转发
+
+应用启动后会自动创建“外部 REST 消息转发”内置服务。它不参与定时探测，但会显示在“告警设置 → 服务绑定与测试”中；可像普通服务一样绑定多个告警组。同一告警通道即使被多个所选告警组复用，也只会收到一次消息。该外部入口默认禁用，管理员可在服务行点击“启用/禁用”，并通过“请求示例/请求审计”查看动态生成的 curl 示例及最近请求记录。
+
+外部系统无需登录会话，调用 `POST /api/external/messages` 即可转发文本。支持原始文本：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/external/messages \
+  -H "Content-Type: text/plain; charset=UTF-8" \
+  --data-binary "外部系统通知：磁盘空间不足"
+```
+
+也支持 JSON 字符串，或包含 `message`、`text`、`content` 任一文本字段的 JSON 对象：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/external/messages \
+  -H "Content-Type: application/json" \
+  -d '{"message":"外部系统通知：磁盘空间不足"}'
+```
+
+响应中的 `success` 表示所有目标通道是否均发送成功，`success_count` / `failed_count` 是成功和失败通道数，`records` 包含每个通道的投递记录。消息不能为空，最大长度为 100000 个字符。该接口为便于内部系统集成而公开放行，部署时应通过网关或防火墙限制可访问来源。
+
+外部请求审计会记录来源 IP、Content-Type、消息长度和摘要、请求状态、投递成功/失败数及处理说明。接口处于禁用状态、请求格式错误和通道投递失败时同样会留下记录；启用和禁用操作也会作为安全配置事件记录。
+
 ## 已提供接口
 
 - 服务监控：`/api/services`、`/api/services/{id}/check`、`/api/dashboard`
 - 告警配置：`/api/alert-policies`、`/api/alert-channels`、`/api/alert-groups`
 - 告警记录：`/api/alerts`、`/api/services/{id}/alerts`
+- 外部消息转发：`POST /api/external/messages`
 - 主机配置：`/api/hosts`
 - 主机指标：`/api/hosts/{id}/metrics`
 - 进程探测：`/api/hosts/{id}/processes`、`/api/hosts/{id}/process-status`

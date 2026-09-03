@@ -348,11 +348,16 @@
             </div>
           </div>
           </div>
-          <label class="host-alert-group-row">
-            <span>告警组绑定 <small class="field-note">(按住 Ctrl / Cmd 或 Shift 可多选)</small></span>
-            <select name="alert_group_ids" id="hostAlertGroupSelect" multiple size="4">
-            </select>
-          </label>
+          <div class="host-alert-group-row">
+            <span>告警组绑定</span>
+            <details class="host-alert-group-picker" id="hostAlertGroupPicker">
+              <summary aria-label="选择告警组" aria-haspopup="listbox">
+                <span id="hostAlertGroupSummary">不绑定告警组</span>
+                <i data-lucide="chevron-down"></i>
+              </summary>
+              <div class="host-alert-group-menu" id="hostAlertGroupOptions" role="listbox" aria-multiselectable="true"></div>
+            </details>
+          </div>
         </section>
         <section class="host-form-section host-key-section span-2">
           <div class="host-form-section-head">
