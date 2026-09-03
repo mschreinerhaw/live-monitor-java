@@ -125,11 +125,16 @@
           </div>
         </section>
 
-        <label class="span-2">
-          <span>告警组 <small style="color:#94a3b8;">(可多选，按住 Ctrl / Cmd 或 Shift)</small></span>
-          <select name="alert_group_ids" id="serviceAlertGroupSelect" multiple size="4">
-          </select>
-        </label>
+        <div class="form-field span-2 service-alert-group-field">
+          <span>告警组</span>
+          <details class="service-alert-group-picker" id="serviceAlertGroupPicker">
+            <summary aria-label="选择告警组" aria-haspopup="listbox">
+              <span id="serviceAlertGroupSummary">不绑定告警组</span>
+              <i data-lucide="chevron-down"></i>
+            </summary>
+            <div class="service-alert-group-options" id="serviceAlertGroupOptions" role="listbox" aria-multiselectable="true"></div>
+          </details>
+        </div>
 
         <label class="switch-row span-2">
           <input name="enabled" type="checkbox" checked>
