@@ -1,3 +1,5 @@
+const externalMessageAuditState = { page: 1, pageSize: 20, totalPages: 0 };
+
 async function initAlertSettings() {
   const layout = document.getElementById('alertSettingsLayout');
   const bindingBtn = document.getElementById('showBindingTestBtn');
@@ -65,9 +67,24 @@ async function initAlertSettings() {
   document.getElementById("alertSettingsTable")?.addEventListener("click", handleAlertSettingsTableClick);
   document.getElementById("alertSettingsTable")?.addEventListener("change", handleAlertSettingsTableChange);
   document.getElementById("closeExternalMessageModalBtn")?.addEventListener("click", closeExternalMessageModal);
-  document.getElementById("externalMessageToggleBtn")?.addEventListener("click", toggleExternalMessageService);
+  document.getElementById("externalMessageToggleBtn")?.addEventListener("click", () => toggleExternalMessageService());
   document.getElementById("copyExternalMessageExampleBtn")?.addEventListener("click", copyExternalMessageExample);
-  document.getElementById("reloadExternalMessageAuditBtn")?.addEventListener("click", loadExternalMessageAudit);
+  document.getElementById("reloadExternalMessageAuditBtn")?.addEventListener("click", () => loadExternalMessageAudit());
+  document.getElementById("externalMessageAuditPrevBtn")?.addEventListener("click", () => {
+    if (externalMessageAuditState.page <= 1) return;
+    externalMessageAuditState.page -= 1;
+    loadExternalMessageAudit();
+  });
+  document.getElementById("externalMessageAuditNextBtn")?.addEventListener("click", () => {
+    if (externalMessageAuditState.page >= externalMessageAuditState.totalPages) return;
+    externalMessageAuditState.page += 1;
+    loadExternalMessageAudit();
+  });
+  document.getElementById("externalMessageAuditPageSize")?.addEventListener("change", (event) => {
+    externalMessageAuditState.pageSize = Number(event.target.value) || 20;
+    externalMessageAuditState.page = 1;
+    loadExternalMessageAudit();
+  });
   // Modals intentionally do NOT close on backdrop click — only close/cancel buttons close them.
   document.getElementById("closeAlertBindingModalBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
@@ -1743,6 +1760,7 @@ function openExternalMessageModal(serviceId) {
   -H "Content-Type: application/json" \\
   -d '{"message":"外部系统通知：磁盘空间不足"}'`;
   document.getElementById("externalMessageCurlExample").textContent = example;
+  externalMessageAuditState.page = 1;
   loadExternalMessageAudit();
   if (window.lucide) window.lucide.createIcons();
 }
@@ -1781,10 +1799,39 @@ async function toggleExternalMessageService(serviceId) {
 async function copyExternalMessageExample() {
   const example = document.getElementById("externalMessageCurlExample")?.textContent || "";
   try {
-    await navigator.clipboard.writeText(example);
+    await copyAlertSettingsText(example);
     showToast("请求示例已复制");
   } catch (_) {
     showToast("复制失败，请手动选择示例文本");
+  }
+}
+
+async function copyAlertSettingsText(value) {
+  if (!value) throw new Error("copy content is empty");
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch (_) {
+      // Permission policies can reject Clipboard API even on HTTPS; use the legacy fallback.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.readOnly = true;
+  textarea.setAttribute("aria-hidden", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  try {
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    if (!document.execCommand("copy")) throw new Error("copy command was rejected");
+  } finally {
+    textarea.remove();
   }
 }
 
@@ -1793,7 +1840,13 @@ async function loadExternalMessageAudit() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
   try {
-    const result = await LiveMonitorApi.externalMessageAudit({ page: 1, pageSize: 20 });
+    const result = await LiveMonitorApi.externalMessageAudit({
+      page: externalMessageAuditState.page,
+      pageSize: externalMessageAuditState.pageSize,
+    });
+    externalMessageAuditState.page = Number(result?.page) || 1;
+    externalMessageAuditState.totalPages = Number(result?.total_pages ?? result?.totalPages) || 0;
+    renderExternalMessageAuditPagination(Number(result?.total) || 0);
     const rows = result?.items || [];
     tbody.innerHTML = rows.length ? rows.map((row) => {
       const status = row.request_status || row.requestStatus || "-";
@@ -1818,6 +1871,19 @@ async function loadExternalMessageAudit() {
   } catch (error) {
     tbody.innerHTML = `<tr><td colspan="6" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
   }
+}
+
+function renderExternalMessageAuditPagination(total) {
+  const displayPages = Math.max(1, externalMessageAuditState.totalPages);
+  const totalText = document.getElementById("externalMessageAuditTotal");
+  const pageInfo = document.getElementById("externalMessageAuditPageInfo");
+  const prev = document.getElementById("externalMessageAuditPrevBtn");
+  const next = document.getElementById("externalMessageAuditNextBtn");
+  if (totalText) totalText.textContent = `共 ${total} 条`;
+  if (pageInfo) pageInfo.textContent = `第 ${externalMessageAuditState.page} / ${displayPages} 页`;
+  if (prev) prev.disabled = externalMessageAuditState.page <= 1;
+  if (next) next.disabled = externalMessageAuditState.totalPages === 0
+    || externalMessageAuditState.page >= externalMessageAuditState.totalPages;
 }
 
 function handleAlertSettingsTableChange(event) {

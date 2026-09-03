@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class SchemaMigrationService {
     private static final Logger log = LoggerFactory.getLogger(SchemaMigrationService.class);
+    private static final String EXTERNAL_MESSAGE_DEFAULT_ENABLED_MARKER = "external_message_default_enabled_v1";
 
     private final JdbcTemplate jdbcTemplate;
     private final DatabaseDialect databaseDialect;
@@ -68,26 +69,49 @@ public class SchemaMigrationService {
             "SELECT COUNT(*) FROM monitor_service WHERE service_type = 'external_message'",
             Integer.class
         );
-        if (count != null && count > 0) {
-            return;
+        if (count == null || count == 0) {
+            jdbcTemplate.update(
+                "INSERT INTO monitor_service (" +
+                    "service_name, service_category, service_type, cluster_name, monitor_reason, " +
+                    "check_mode, config_json, secret_config_json, check_interval, enabled" +
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "外部 REST 消息转发",
+                "alert",
+                "external_message",
+                "告警中心",
+                "接收外部 REST API 文本，并转发到本服务绑定的告警组",
+                "manual",
+                "{}",
+                "{}",
+                31536000,
+                1
+            );
+            log.info("Created and enabled built-in external REST message forwarding service");
         }
-        jdbcTemplate.update(
-            "INSERT INTO monitor_service (" +
-                "service_name, service_category, service_type, cluster_name, monitor_reason, " +
-                "check_mode, config_json, secret_config_json, check_interval, enabled" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            "外部 REST 消息转发",
-            "alert",
-            "external_message",
-            "告警中心",
-            "接收外部 REST API 文本，并转发到本服务绑定的告警组",
-            "manual",
-            "{}",
-            "{}",
-            31536000,
-            0
+        enableExternalMessageServiceByDefaultOnce();
+    }
+
+    private void enableExternalMessageServiceByDefaultOnce() {
+        if (!tableExists("migration_marker")) return;
+        Integer migrated = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM migration_marker WHERE id = ?",
+            Integer.class,
+            EXTERNAL_MESSAGE_DEFAULT_ENABLED_MARKER
         );
-        log.info("Created built-in external REST message forwarding service");
+        if (migrated != null && migrated > 0) return;
+        jdbcTemplate.update("UPDATE monitor_service SET enabled = 1 WHERE service_type = 'external_message'");
+        if (databaseDialect.isMysql()) {
+            jdbcTemplate.update(
+                "INSERT IGNORE INTO migration_marker (id) VALUES (?)",
+                EXTERNAL_MESSAGE_DEFAULT_ENABLED_MARKER
+            );
+        } else {
+            jdbcTemplate.update(
+                "MERGE INTO migration_marker (id) KEY(id) VALUES (?)",
+                EXTERNAL_MESSAGE_DEFAULT_ENABLED_MARKER
+            );
+        }
+        log.info("Enabled external REST message forwarding service by default");
     }
 
     /**

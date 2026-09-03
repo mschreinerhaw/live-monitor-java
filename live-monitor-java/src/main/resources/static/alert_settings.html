@@ -615,7 +615,7 @@
       </div>
       <section class="setting-section">
         <div class="section-head">
-          <div><h2>请求示例</h2><p>支持 JSON，也支持 Content-Type 为 text/plain 的原始文本。</p></div>
+          <div><h2>请求示例</h2><p>支持任意合法 JSON；message、text、content 文本字段会优先作为消息，其余 JSON 将整体转为文本发送。也支持 Content-Type 为 text/plain 的原始文本。</p></div>
           <button class="light-button" id="copyExternalMessageExampleBtn" type="button"><i data-lucide="copy"></i>复制</button>
         </div>
         <pre id="externalMessageCurlExample" class="external-message-code"></pre>
@@ -630,6 +630,19 @@
             <thead><tr><th>时间</th><th>来源 IP</th><th>状态</th><th>消息摘要</th><th>投递</th><th>说明</th></tr></thead>
             <tbody id="externalMessageAuditBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
           </table>
+        </div>
+        <div class="external-message-audit-pagination" aria-label="外部请求审计分页">
+          <span id="externalMessageAuditTotal">共 0 条</span>
+          <label>每页
+            <select id="externalMessageAuditPageSize" aria-label="每页记录数">
+              <option value="10">10 条</option>
+              <option value="20" selected>20 条</option>
+              <option value="50">50 条</option>
+            </select>
+          </label>
+          <button class="light-button" id="externalMessageAuditPrevBtn" type="button">上一页</button>
+          <span id="externalMessageAuditPageInfo">第 1 / 1 页</span>
+          <button class="light-button" id="externalMessageAuditNextBtn" type="button">下一页</button>
         </div>
       </section>
     </div>

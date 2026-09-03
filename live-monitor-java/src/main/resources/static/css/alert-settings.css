@@ -3002,6 +3002,37 @@ body[data-page="alert-settings"] .alert-config-layout.config-mode .panel-main {
   white-space: nowrap;
 }
 
+.external-message-audit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.external-message-audit-pagination label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.external-message-audit-pagination select {
+  height: 36px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #26384e;
+}
+
+.external-message-audit-pagination .light-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .field-note {
   color: #64748b;
   font-size: 12px;

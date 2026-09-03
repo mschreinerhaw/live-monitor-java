@@ -19,6 +19,7 @@ public class LiveMonitorProperties {
     private String luceneIndexPath = "./data/search-lucene";
     private int metricRetentionDays = 30;
     private int alertNotifyRetentionDays = 90;
+    private int externalMessageAuditRetentionDays = 90;
     private String sqlitePath = "./data/live_monitor.db";
     private String sqliteBackupDir = "./data/backup";
     private String h2LegacyPath = "./data/h2/live_monitor";
@@ -128,6 +129,14 @@ public class LiveMonitorProperties {
 
     public void setAlertNotifyRetentionDays(int alertNotifyRetentionDays) {
         this.alertNotifyRetentionDays = Math.max(1, alertNotifyRetentionDays);
+    }
+
+    public int getExternalMessageAuditRetentionDays() {
+        return externalMessageAuditRetentionDays;
+    }
+
+    public void setExternalMessageAuditRetentionDays(int externalMessageAuditRetentionDays) {
+        this.externalMessageAuditRetentionDays = Math.max(1, externalMessageAuditRetentionDays);
     }
 
     public String getSqlitePath() {
