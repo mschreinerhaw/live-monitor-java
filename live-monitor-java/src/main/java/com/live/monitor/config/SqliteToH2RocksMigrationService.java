@@ -127,12 +127,15 @@ public class SqliteToH2RocksMigrationService {
         counts.configRows += copyTable(sqlite, "group_policy_rel", "group_id, policy_id");
         counts.configRows += copyTable(sqlite, "group_channel_rel", "group_id, channel_id");
         counts.configRows += copyTable(sqlite, "service_alert_group", "service_id");
+        counts.configRows += copyTable(sqlite, "external_project", "id");
+        counts.configRows += copyTable(sqlite, "external_project_alert_group", "project_id, group_id");
         counts.configRows += copyTable(sqlite, "host_config", "id");
         counts.configRows += copyTable(sqlite, "host_process_config", "id");
         restartIdentity("monitor_service");
         restartIdentity("alert_policy");
         restartIdentity("alert_channel");
         restartIdentity("alert_group");
+        restartIdentity("external_project");
         restartIdentity("host_config");
         restartIdentity("host_process_config");
 

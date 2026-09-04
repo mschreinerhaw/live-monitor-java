@@ -26,6 +26,7 @@ public class SchemaMigrationService {
         }
         createLoginAuditLogTable();
         createExternalMessageAuditTable();
+        createExternalProjectTables();
         createEventDrivenAlertTables();
         widenColumnIfPresent("tuser", "password", "VARCHAR(512)");
         addColumnIfMissing("monitor_service", "service_category", "VARCHAR(64) NOT NULL DEFAULT 'middleware'");
@@ -207,6 +208,7 @@ public class SchemaMigrationService {
             "service_id BIGINT, " +
             "client_ip VARCHAR(64), " +
             "content_type VARCHAR(255), " +
+            "project_name VARCHAR(255), " +
             "message_summary VARCHAR(1000), " +
             "message_length INT DEFAULT 0, " +
             "request_status VARCHAR(32) NOT NULL, " +
@@ -218,6 +220,28 @@ public class SchemaMigrationService {
             primaryKeySuffix() + ")");
         createIndexIfMissing("external_message_audit", "idx_external_message_audit_time", "created_at DESC");
         createIndexIfMissing("external_message_audit", "idx_external_message_audit_status", "request_status, created_at DESC");
+        addColumnIfMissing("external_message_audit", "project_name", "VARCHAR(255)");
+    }
+
+    private void createExternalProjectTables() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS external_project (" +
+            identityColumn("id") + ", " +
+            "project_name VARCHAR(255) NOT NULL, " +
+            "match_keyword VARCHAR(255) NOT NULL, " +
+            "description VARCHAR(1000), " +
+            "enabled INT DEFAULT 1, " +
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+            primaryKeySuffix() + ")");
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS external_project_alert_group (" +
+            "project_id BIGINT NOT NULL, " +
+            "group_id BIGINT NOT NULL, " +
+            "PRIMARY KEY (project_id, group_id), " +
+            "FOREIGN KEY(project_id) REFERENCES external_project(id) ON DELETE CASCADE, " +
+            "FOREIGN KEY(group_id) REFERENCES alert_group(id) ON DELETE CASCADE)");
+        createIndexIfMissing("external_project", "idx_external_project_enabled_keyword", "enabled, match_keyword");
+        createUniqueIndexIfMissing("external_project", "uk_external_project_name", "project_name");
+        createIndexIfMissing("external_project_alert_group", "idx_external_project_group", "group_id");
     }
 
     private void createEventDrivenAlertTables() {
@@ -331,6 +355,15 @@ public class SchemaMigrationService {
             jdbcTemplate.execute("CREATE INDEX " + indexName + " ON " + tableName + "(" + columns + ")");
         } catch (Exception ex) {
             log.warn("Failed to create index {} on {}: {}", indexName, tableName, ex.getMessage());
+        }
+    }
+
+    private void createUniqueIndexIfMissing(String tableName, String indexName, String columns) {
+        if (!tableExists(tableName) || indexExists(tableName, indexName)) return;
+        try {
+            jdbcTemplate.execute("CREATE UNIQUE INDEX " + indexName + " ON " + tableName + "(" + columns + ")");
+        } catch (Exception ex) {
+            log.warn("Failed to create unique index {} on {}: {}", indexName, tableName, ex.getMessage());
         }
     }
 

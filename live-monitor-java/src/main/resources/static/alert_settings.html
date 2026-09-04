@@ -31,13 +31,14 @@
 
 <main class="page alert-settings-page">
   <section class="alert-settings-hero">
-    <h1>服务绑定与测试</h1>
-    <p>管理监控服务与告警规则的绑定关系，并进行告警测试</p>
+    <h1 id="alertSettingsHeroTitle">服务绑定与测试</h1>
+    <p id="alertSettingsHeroSubtitle">管理监控服务与告警规则的绑定关系，并进行告警测试</p>
   </section>
 
   <div class="alert-page-tabs" role="tablist" aria-label="告警设置页面切换">
     <button class="tab-button active" id="showBindingTestBtn" type="button" role="tab" aria-selected="true">服务绑定与测试</button>
     <button class="tab-button" id="showAlertConfigBtn" type="button" role="tab" aria-selected="false">告警配置</button>
+    <button class="tab-button" id="showExternalProjectBtn" type="button" role="tab" aria-selected="false">外部项目通道</button>
   </div>
 
   <section class="alert-metric-strip" aria-label="告警设置概览">
@@ -178,6 +179,36 @@
           <span>页</span>
         </div>
       </div>
+    </div>
+
+    <div class="panel alert-config-panel external-project-panel">
+      <div class="panel-head">
+        <div>
+          <h1>外部项目通道</h1>
+          <p class="panel-subtitle">维护项目匹配关键字并绑定告警组，外部消息将按最长关键字优先匹配投递对象。</p>
+        </div>
+        <div class="panel-actions">
+          <button class="light-button" id="newExternalProjectBtn" type="button">
+            <i data-lucide="plus"></i><span>新增项目</span>
+          </button>
+        </div>
+      </div>
+      <div class="alert-binding-toolbar external-project-toolbar">
+        <div class="alert-toolbar-left"><span class="field-note">匹配方式：消息内容 LIKE %匹配关键字%</span></div>
+        <div class="alert-toolbar-right">
+          <label class="alert-search-field">
+            <input id="externalProjectSearchInput" type="search" placeholder="搜索项目名称或关键字">
+            <i data-lucide="search"></i>
+          </label>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table external-project-table">
+          <thead><tr><th>项目名称</th><th>匹配关键字</th><th>绑定告警组</th><th>项目说明</th><th>状态</th><th class="actions-column">操作</th></tr></thead>
+          <tbody id="externalProjectTableBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="alert-table-footer"><span id="externalProjectTotalText">共 0 个项目</span></div>
     </div>
   </section>
 </main>
@@ -599,6 +630,55 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="externalProjectModal" hidden>
+  <div class="modal-dialog external-project-modal" role="dialog" aria-modal="true" aria-labelledby="externalProjectFormTitle">
+    <form id="externalProjectForm">
+      <div class="modal-head">
+        <div>
+          <h2 id="externalProjectFormTitle">新增外部项目</h2>
+          <p class="panel-subtitle">项目匹配成功后，只向这里绑定的告警组发送消息。</p>
+        </div>
+        <button class="icon-button" id="closeExternalProjectModalBtn" type="button" title="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-grid alert-simple-form modal-body external-project-form-body">
+        <label>
+          <span>项目名称</span>
+          <input id="externalProjectNameInput" maxlength="255" required placeholder="例如：IDS3.0-ZYZQ">
+        </label>
+        <label>
+          <span>匹配关键字</span>
+          <input id="externalProjectKeywordInput" maxlength="255" required placeholder="默认与项目名称相同">
+        </label>
+        <label class="span-2">
+          <span>项目说明</span>
+          <textarea id="externalProjectDescriptionInput" maxlength="1000" rows="3" placeholder="填写项目负责人、用途等信息"></textarea>
+        </label>
+        <div class="external-project-group-field span-2">
+          <span>绑定告警组 <small>（可多选）</small></span>
+          <details class="external-project-group-picker" id="externalProjectGroupPicker">
+            <summary aria-label="选择项目告警组" aria-haspopup="listbox">
+              <span id="externalProjectGroupSummary">请选择告警组</span>
+              <i data-lucide="chevron-down"></i>
+            </summary>
+            <div class="external-project-group-options" id="externalProjectGroupOptions" role="listbox" aria-multiselectable="true"></div>
+          </details>
+        </div>
+        <div class="external-project-status-card span-2">
+          <div><strong>项目路由状态</strong><small>停用后，该项目将不参与消息匹配</small></div>
+          <label class="switch-row">
+            <input id="externalProjectEnabledInput" type="checkbox" checked>
+            <span>启用</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions external-project-form-actions">
+        <button class="ghost-button" id="cancelExternalProjectBtn" type="button">取消</button>
+        <button class="primary-button" type="submit"><i data-lucide="save"></i>保存项目</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="externalMessageModal" hidden>
   <div class="modal-dialog external-message-modal" role="dialog" aria-modal="true" aria-labelledby="externalMessageModalTitle">
     <div class="modal-head">
@@ -615,7 +695,7 @@
       </div>
       <section class="setting-section">
         <div class="section-head">
-          <div><h2>请求示例</h2><p>支持任意合法 JSON；message、text、content 文本字段会优先作为消息，其余 JSON 将整体转为文本发送。也支持 Content-Type 为 text/plain 的原始文本。</p></div>
+          <div><h2>请求示例</h2><p>支持任意合法 JSON；系统使用消息内容与“外部项目通道”的匹配关键字进行 LIKE 匹配，并投递到项目绑定的告警组。</p></div>
           <button class="light-button" id="copyExternalMessageExampleBtn" type="button"><i data-lucide="copy"></i>复制</button>
         </div>
         <pre id="externalMessageCurlExample" class="external-message-code"></pre>
@@ -627,8 +707,8 @@
         </div>
         <div class="table-wrap">
           <table class="data-table external-message-audit-table">
-            <thead><tr><th>时间</th><th>来源 IP</th><th>状态</th><th>消息摘要</th><th>投递</th><th>说明</th></tr></thead>
-            <tbody id="externalMessageAuditBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+            <thead><tr><th>时间</th><th>来源 IP</th><th>项目名称</th><th>状态</th><th>消息摘要</th><th>投递</th><th>说明</th></tr></thead>
+            <tbody id="externalMessageAuditBody"><tr><td colspan="7" class="empty">加载中...</td></tr></tbody>
           </table>
         </div>
         <div class="external-message-audit-pagination" aria-label="外部请求审计分页">

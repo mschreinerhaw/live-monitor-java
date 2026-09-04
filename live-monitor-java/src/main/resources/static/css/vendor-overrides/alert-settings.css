@@ -572,7 +572,7 @@ body[data-page="alert-settings"] .alert-settings-hero p {
 
 body[data-page="alert-settings"] .alert-page-tabs {
   display: inline-grid;
-  grid-template-columns: repeat(2, auto);
+  grid-template-columns: repeat(3, auto);
   gap: 0;
   margin-bottom: 18px;
   padding: 2px;
@@ -785,7 +785,7 @@ body[data-page="alert-settings"] .alert-config-modal .form-actions .ghost-button
   body[data-page="alert-settings"] .alert-page-tabs {
     display: grid;
     width: 100%;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   body[data-page="alert-settings"] .alert-config-modal .alert-basic-grid,

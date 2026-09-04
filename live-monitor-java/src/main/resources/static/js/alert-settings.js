@@ -1,29 +1,49 @@
 const externalMessageAuditState = { page: 1, pageSize: 20, totalPages: 0 };
+const externalProjectState = { items: [], editingId: null, query: "" };
 
 async function initAlertSettings() {
   const layout = document.getElementById('alertSettingsLayout');
   const bindingBtn = document.getElementById('showBindingTestBtn');
   const configBtn = document.getElementById('showAlertConfigBtn');
+  const projectBtn = document.getElementById('showExternalProjectBtn');
   const newAlertBtn = document.getElementById('newAlertGroupBtn');
 
   function switchAlertPage(mode) {
     const isConfig = mode === 'config';
+    const isProject = mode === 'project';
+    const isBinding = !isConfig && !isProject;
     if (layout) {
       layout.classList.toggle('config-mode', isConfig);
-      layout.classList.toggle('binding-mode', !isConfig);
+      layout.classList.toggle('project-mode', isProject);
+      layout.classList.toggle('binding-mode', isBinding);
     }
     if (bindingBtn) {
-      bindingBtn.classList.toggle('active', !isConfig);
-      bindingBtn.setAttribute('aria-selected', String(!isConfig));
+      bindingBtn.classList.toggle('active', isBinding);
+      bindingBtn.setAttribute('aria-selected', String(isBinding));
     }
     if (configBtn) {
       configBtn.classList.toggle('active', isConfig);
       configBtn.setAttribute('aria-selected', String(isConfig));
     }
+    if (projectBtn) {
+      projectBtn.classList.toggle('active', isProject);
+      projectBtn.setAttribute('aria-selected', String(isProject));
+    }
+    const title = document.getElementById("alertSettingsHeroTitle");
+    const subtitle = document.getElementById("alertSettingsHeroSubtitle");
+    const copy = isProject
+      ? ["外部项目通道", "通过项目关键字匹配外部消息，并绑定对应的告警组和发送对象"]
+      : isConfig
+        ? ["告警配置", "维护告警通道、接收对象和触发策略"]
+        : ["服务绑定与测试", "管理监控服务与告警规则的绑定关系，并进行告警测试"];
+    if (title) title.textContent = copy[0];
+    if (subtitle) subtitle.textContent = copy[1];
+    if (isProject) loadExternalProjects();
   }
 
   bindingBtn?.addEventListener('click', () => switchAlertPage('binding'));
   configBtn?.addEventListener('click', () => switchAlertPage('config'));
+  projectBtn?.addEventListener('click', () => switchAlertPage('project'));
   newAlertBtn?.addEventListener('click', () => {
     switchAlertPage('config');
     openAlertConfigModal(null);
@@ -85,6 +105,16 @@ async function initAlertSettings() {
     externalMessageAuditState.page = 1;
     loadExternalMessageAudit();
   });
+  document.getElementById("newExternalProjectBtn")?.addEventListener("click", () => openExternalProjectModal());
+  document.getElementById("closeExternalProjectModalBtn")?.addEventListener("click", closeExternalProjectModal);
+  document.getElementById("cancelExternalProjectBtn")?.addEventListener("click", closeExternalProjectModal);
+  document.getElementById("externalProjectForm")?.addEventListener("submit", submitExternalProject);
+  document.getElementById("externalProjectTableBody")?.addEventListener("click", handleExternalProjectTableClick);
+  document.getElementById("externalProjectSearchInput")?.addEventListener("input", (event) => {
+    externalProjectState.query = event.target.value.trim().toLowerCase();
+    renderExternalProjects();
+  });
+  document.getElementById("externalProjectGroupOptions")?.addEventListener("change", updateExternalProjectGroupSummary);
   // Modals intentionally do NOT close on backdrop click — only close/cancel buttons close them.
   document.getElementById("closeAlertBindingModalBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
@@ -100,6 +130,8 @@ async function initAlertSettings() {
   document.addEventListener("click", (event) => {
     const picker = document.getElementById("alertBindingGroupPicker");
     if (picker?.open && !event.target.closest("#alertBindingGroupPicker")) picker.open = false;
+    const projectPicker = document.getElementById("externalProjectGroupPicker");
+    if (projectPicker?.open && !event.target.closest("#externalProjectGroupPicker")) projectPicker.open = false;
   });
   document.getElementById("alertBindingIntervalValue")?.addEventListener("input", renderServiceBindingPreview);
   document.getElementById("alertBindingIntervalUnit")?.addEventListener("change", renderServiceBindingPreview);
@@ -308,13 +340,17 @@ function renderAlertGroups() {
   list.innerHTML = alertSettingsState.groups.map((group) => {
     const channel = groupPrimaryChannel(group);
     const testBusy = isAlertConfigTestBusy(group.id);
+    const relationCount = Number(group.service_count || 0) + Number(group.external_project_count || 0);
+    const relationText = group.external_project_count
+      ? `${group.service_count || 0} 个服务 / ${group.external_project_count} 个项目`
+      : `${group.service_count || 0} 个服务`;
     return `
     <tr class="clickable-row" data-alert-group-id="${group.id}">
       <td>${renderChannelTypePill(groupAlertType(group))}</td>
       <td><strong>${escapeHtml(group.group_name)}</strong></td>
       <td class="wrap-cell">${escapeHtml(channelRecipientText(groupPrimaryChannel(group) || {}))}</td>
       <td class="wrap-cell">${escapeHtml(groupPolicyText(group))}</td>
-      <td>${group.service_count || 0} 个服务</td>
+      <td>${relationText}</td>
       <td>${group.enabled ? '<span class="state-pill enabled">启用</span>' : '<span class="state-pill disabled">停用</span>'}</td>
       <td class="actions-column">
         <div class="row-actions compact">
@@ -322,7 +358,7 @@ function renderAlertGroups() {
             <i data-lucide="${testBusy ? "loader-circle" : "send"}"></i>
           </button>
           <button class="icon-button" type="button" title="编辑" data-alert-edit-id="${group.id}"><i data-lucide="pencil"></i></button>
-          <button class="icon-button" type="button" title="${group.service_count ? "有关联服务，不允许删" : "删除"}" ${group.service_count ? "disabled" : ""} data-alert-delete-id="${group.id}"><i data-lucide="trash-2"></i></button>
+          <button class="icon-button" type="button" title="${relationCount ? "有关联服务或项目，不允许删除" : "删除"}" ${relationCount ? "disabled" : ""} data-alert-delete-id="${group.id}"><i data-lucide="trash-2"></i></button>
         </div>
       </td>
     </tr>
@@ -1747,6 +1783,174 @@ function externalMessageService(serviceId) {
   return alertSettingsState.services.find((service) => service.service_type === "external_message");
 }
 
+async function loadExternalProjects() {
+  const tbody = document.getElementById("externalProjectTableBody");
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+  try {
+    externalProjectState.items = await LiveMonitorApi.externalProjects();
+    renderExternalProjects();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderExternalProjects() {
+  const tbody = document.getElementById("externalProjectTableBody");
+  if (!tbody) return;
+  const query = externalProjectState.query;
+  const rows = externalProjectState.items.filter((item) => {
+    if (!query) return true;
+    return [item.project_name, item.match_keyword, item.description, ...(item.alert_group_names || [])]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  });
+  tbody.innerHTML = rows.length ? rows.map((item) => {
+    const groups = (item.alert_group_names || []).map((name) =>
+      `<span class="external-project-group-tag">${escapeHtml(name)}</span>`
+    ).join("");
+    return `<tr>
+      <td>${escapeHtml(item.project_name)}</td>
+      <td>${escapeHtml(item.match_keyword)}</td>
+      <td><div class="external-project-group-tags">${groups || "-"}</div></td>
+      <td class="project-description" title="${escapeHtml(item.description || "")}">${escapeHtml(item.description || "-")}</td>
+      <td><span class="state-pill ${item.enabled ? "enabled" : "disabled"}">${item.enabled ? "启用" : "停用"}</span></td>
+      <td class="actions-column"><div class="row-actions compact">
+        <button class="icon-button" type="button" title="编辑项目" data-external-project-edit="${item.id}"><i data-lucide="pencil"></i></button>
+        <button class="icon-button" type="button" title="${item.enabled ? "停用项目" : "启用项目"}" data-external-project-toggle="${item.id}"><i data-lucide="${item.enabled ? "circle-pause" : "circle-play"}"></i></button>
+        <button class="icon-button" type="button" title="删除项目" data-external-project-delete="${item.id}"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="6" class="empty">暂无外部项目</td></tr>';
+  const total = document.getElementById("externalProjectTotalText");
+  if (total) total.textContent = query
+    ? `筛选到 ${rows.length} 个项目，共 ${externalProjectState.items.length} 个`
+    : `共 ${externalProjectState.items.length} 个项目`;
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function openExternalProjectModal(project = null) {
+  externalProjectState.editingId = project?.id || null;
+  const modal = document.getElementById("externalProjectModal");
+  if (!modal) return;
+  document.getElementById("externalProjectFormTitle").textContent = project ? "编辑外部项目" : "新增外部项目";
+  document.getElementById("externalProjectNameInput").value = project?.project_name || "";
+  document.getElementById("externalProjectKeywordInput").value = project?.match_keyword || "";
+  document.getElementById("externalProjectDescriptionInput").value = project?.description || "";
+  document.getElementById("externalProjectEnabledInput").checked = project ? Boolean(project.enabled) : true;
+  renderExternalProjectGroupOptions(project?.alert_group_ids || []);
+  const picker = document.getElementById("externalProjectGroupPicker");
+  if (picker) picker.open = false;
+  modal.hidden = false;
+  const body = modal.querySelector(".external-project-form-body");
+  if (body) body.scrollTop = 0;
+  document.getElementById("externalProjectNameInput")?.focus();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeExternalProjectModal() {
+  const modal = document.getElementById("externalProjectModal");
+  if (modal) modal.hidden = true;
+  const picker = document.getElementById("externalProjectGroupPicker");
+  if (picker) picker.open = false;
+  externalProjectState.editingId = null;
+}
+
+function renderExternalProjectGroupOptions(selectedIds) {
+  const selected = new Set((selectedIds || []).map(Number));
+  const container = document.getElementById("externalProjectGroupOptions");
+  if (!container) return;
+  container.innerHTML = alertSettingsState.groups.length
+    ? alertSettingsState.groups.map((group) => {
+      const id = Number(group.id);
+      const name = group.group_name || group.groupName || `告警组 ${id}`;
+      return `<label class="external-project-group-option"><input type="checkbox" value="${id}" ${selected.has(id) ? "checked" : ""}><span>${escapeHtml(name)}</span>${group.enabled ? "" : '<small class="field-note">已停用</small>'}</label>`;
+    }).join("")
+    : '<p class="empty external-project-group-empty">暂无告警组，请先在“告警配置”中新增</p>';
+  updateExternalProjectGroupSummary();
+}
+
+function updateExternalProjectGroupSummary() {
+  const selected = Array.from(document.querySelectorAll('#externalProjectGroupOptions input[type="checkbox"]:checked'));
+  const summary = document.getElementById("externalProjectGroupSummary");
+  if (!summary) return;
+  summary.textContent = selected.length === 0
+    ? "请选择告警组"
+    : selected.length === 1
+      ? selected[0].closest("label")?.querySelector("span")?.textContent || "已选 1 个告警组"
+      : `已选 ${selected.length} 个告警组`;
+}
+
+async function submitExternalProject(event) {
+  event.preventDefault();
+  const projectName = document.getElementById("externalProjectNameInput").value.trim();
+  const keyword = document.getElementById("externalProjectKeywordInput").value.trim() || projectName;
+  const groupIds = Array.from(document.querySelectorAll('#externalProjectGroupOptions input[type="checkbox"]:checked'))
+    .map((input) => Number(input.value)).filter(Boolean);
+  if (!projectName) return showToast("请输入项目名称");
+  if (!keyword) return showToast("请输入匹配关键字");
+  if (!groupIds.length) return showToast("请至少选择一个告警组");
+  const payload = {
+    project_name: projectName,
+    match_keyword: keyword,
+    description: document.getElementById("externalProjectDescriptionInput").value.trim() || null,
+    enabled: document.getElementById("externalProjectEnabledInput").checked,
+    alert_group_ids: groupIds,
+  };
+  try {
+    if (externalProjectState.editingId) {
+      await LiveMonitorApi.updateExternalProject(externalProjectState.editingId, payload);
+    } else {
+      await LiveMonitorApi.createExternalProject(payload);
+    }
+    closeExternalProjectModal();
+    await loadExternalProjects();
+    showToast("项目通道已保存");
+  } catch (error) {
+    showToast(`保存失败：${error.message}`);
+  }
+}
+
+async function handleExternalProjectTableClick(event) {
+  const edit = event.target.closest("[data-external-project-edit]");
+  const toggle = event.target.closest("[data-external-project-toggle]");
+  const remove = event.target.closest("[data-external-project-delete]");
+  const id = Number(edit?.dataset.externalProjectEdit || toggle?.dataset.externalProjectToggle || remove?.dataset.externalProjectDelete);
+  if (!id) return;
+  const project = externalProjectState.items.find((item) => Number(item.id) === id);
+  if (!project) return;
+  if (edit) return openExternalProjectModal(project);
+  if (toggle) {
+    try {
+      await LiveMonitorApi.updateExternalProject(id, {
+        project_name: project.project_name,
+        match_keyword: project.match_keyword,
+        description: project.description,
+        enabled: !project.enabled,
+        alert_group_ids: project.alert_group_ids,
+      });
+      await loadExternalProjects();
+      showToast(project.enabled ? "项目路由已停用" : "项目路由已启用");
+    } catch (error) {
+      showToast(`更新失败：${error.message}`);
+    }
+    return;
+  }
+  const confirmed = await showConfirmDialog({
+    title: "删除外部项目",
+    message: `确定删除项目“${project.project_name}”吗？`,
+    detail: "删除后，包含该项目关键字的外部消息将无法投递。",
+    confirmText: "删除",
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await LiveMonitorApi.deleteExternalProject(id);
+    await loadExternalProjects();
+    showToast("项目已删除");
+  } catch (error) {
+    showToast(`删除失败：${error.message}`);
+  }
+}
+
 function openExternalMessageModal(serviceId) {
   const service = externalMessageService(serviceId);
   if (!service) return;
@@ -1758,7 +1962,7 @@ function openExternalMessageModal(serviceId) {
   const endpoint = `${window.location.origin}/api/external/messages`;
   const example = `curl -X POST ${endpoint} \\
   -H "Content-Type: application/json" \\
-  -d '{"message":"外部系统通知：磁盘空间不足"}'`;
+  -d '{"content":"项目名称:IDS3.0-ZYZQ,流程名称:告警测试,任务名称:,执行状态:success,状态类型:成功,流程开始时间:2026-09-04 14:41:40,流程结束时间:2026-09-04 14:41:40"}'`;
   document.getElementById("externalMessageCurlExample").textContent = example;
   externalMessageAuditState.page = 1;
   loadExternalMessageAudit();
@@ -1838,7 +2042,7 @@ async function copyAlertSettingsText(value) {
 async function loadExternalMessageAudit() {
   const tbody = document.getElementById("externalMessageAuditBody");
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">加载中...</td></tr>';
   try {
     const result = await LiveMonitorApi.externalMessageAudit({
       page: externalMessageAuditState.page,
@@ -1862,14 +2066,15 @@ async function loadExternalMessageAudit() {
       return `<tr>
         <td>${escapeHtml(formatTime(row.created_at || row.createdAt))}</td>
         <td>${escapeHtml(row.client_ip || row.clientIp || "-")}</td>
+        <td>${escapeHtml(row.project_name || row.projectName || "-")}</td>
         <td><span class="state-pill ${status === "SUCCESS" || status === "CONFIG_ENABLED" ? "enabled" : "danger"}">${escapeHtml(statusText)}</span></td>
         <td title="${escapeHtml(row.message_summary || row.messageSummary || "")}">${escapeHtml(row.message_summary || row.messageSummary || "-")}</td>
         <td>${succeeded}/${deliveries}</td>
         <td>${escapeHtml(row.detail || "-")}</td>
       </tr>`;
-    }).join("") : '<tr><td colspan="6" class="empty">暂无外部请求记录</td></tr>';
+    }).join("") : '<tr><td colspan="7" class="empty">暂无外部请求记录</td></tr>';
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
   }
 }
 

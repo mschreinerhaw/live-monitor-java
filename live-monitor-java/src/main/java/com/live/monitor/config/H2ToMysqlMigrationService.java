@@ -54,13 +54,15 @@ public class H2ToMysqlMigrationService {
         {"group_policy_rel", "group_id,policy_id"},
         {"group_channel_rel", "group_id,channel_id"},
         {"service_alert_group", "service_id"},
+        {"external_project", "id"},
+        {"external_project_alert_group", "project_id,group_id"},
         {"host_config", "id"},
         {"host_process_config", "id"}
     };
 
     private static final String[] AUTO_INCREMENT_TABLES = {
         "monitor_service", "alert_policy", "alert_channel", "alert_group",
-        "host_config", "host_process_config"
+        "external_project", "host_config", "host_process_config"
     };
 
     private final LiveMonitorProperties properties;

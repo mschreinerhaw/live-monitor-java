@@ -99,6 +99,9 @@ public interface AlertMapper {
     @Select("SELECT COUNT(*) FROM service_alert_group WHERE group_id = #{groupId}")
     int countServicesByGroup(@Param("groupId") Long groupId);
 
+    @Select("SELECT COUNT(*) FROM external_project_alert_group WHERE group_id = #{groupId}")
+    int countExternalProjectsByGroup(@Param("groupId") Long groupId);
+
     @Insert("INSERT INTO monitor_check_event (" +
         "service_id, status, response_time_ms, message, event_type, alert_type, checked_at, consumed" +
         ") VALUES (" +

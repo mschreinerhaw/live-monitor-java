@@ -138,6 +138,26 @@ CREATE TABLE IF NOT EXISTS service_alert_group (
     CONSTRAINT fk_service_alert_group_group FOREIGN KEY(group_id) REFERENCES alert_group(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS external_project (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    project_name VARCHAR(255) NOT NULL,
+    match_keyword VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    enabled INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_external_project_name (project_name)
+);
+
+CREATE TABLE IF NOT EXISTS external_project_alert_group (
+    project_id BIGINT NOT NULL,
+    group_id BIGINT NOT NULL,
+    PRIMARY KEY (project_id, group_id),
+    CONSTRAINT fk_external_project_group_project FOREIGN KEY(project_id) REFERENCES external_project(id) ON DELETE CASCADE,
+    CONSTRAINT fk_external_project_group_alert FOREIGN KEY(group_id) REFERENCES alert_group(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS alert_state (
     service_id BIGINT NOT NULL,
     alert_key VARCHAR(128) NOT NULL,

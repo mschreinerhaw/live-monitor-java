@@ -157,8 +157,8 @@ public class AlertAdminService {
         if (existing == null) {
             return false;
         }
-        if (alertMapper.countServicesByGroup(id) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务的告警配置不允许删除，仅能修改");
+        if (alertMapper.countServicesByGroup(id) > 0 || alertMapper.countExternalProjectsByGroup(id) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务或外部项目的告警配置不允许删除，仅能修改");
         }
         List<AlertChannel> channels = alertMapper.listChannelsByGroup(id);
         alertMapper.deleteGroupPolicies(id);
@@ -212,6 +212,7 @@ public class AlertAdminService {
         item.put("policies", policies);
         item.put("channels", channels);
         item.put("service_count", alertMapper.countServicesByGroup(group.id));
+        item.put("external_project_count", alertMapper.countExternalProjectsByGroup(group.id));
         return item;
     }
 
