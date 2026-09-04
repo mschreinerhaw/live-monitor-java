@@ -61,6 +61,7 @@ live-monitor:
   secret-key: ${LIVE_MONITOR_SECRET_KEY:change-this-dev-key}
   template-dir: ./templates
   rocksdb-path: ./data/rocksdb
+  external-message-audit-retention-days: ${LIVE_MONITOR_EXTERNAL_MESSAGE_AUDIT_RETENTION_DAYS:90}
   sqlite-path: ./data/live_monitor.db
   sqlite-backup-dir: ./data/backup
   # Legacy H2 file used as the migration source when switching to MySQL (see comment above).

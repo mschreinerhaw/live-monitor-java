@@ -138,6 +138,16 @@
       if (params.query) search.set("query", params.query);
       return request(`/api/external/messages/audit?${search.toString()}`);
     },
+    externalProjects: () => request("/api/external-projects"),
+    createExternalProject: (data) => request("/api/external-projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    updateExternalProject: (id, data) => request(`/api/external-projects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+    deleteExternalProject: (id) => request(`/api/external-projects/${id}`, { method: "DELETE" }),
     checkService: (id) => request(`/api/services/${id}/check`, { method: "POST" }),
     results: (id, limit = 100) => request(`/api/services/${id}/results?limit=${limit}`),
     alerts: (id, limit = 50) => request(`/api/services/${id}/alerts?limit=${limit}`),
