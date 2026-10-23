@@ -433,6 +433,9 @@ function showResultAssertionDslPreview(form) {
 
 function validateServiceAssertionConfig(form) {
   if (!form) return true;
+  if (form.elements.service_type?.value === "data_send" && !validateDataSendConfig(form)) {
+    return false;
+  }
   if (form.elements.service_type?.value === "cross_database" && !validateCrossDatabaseConfig(form)) {
     return false;
   }
@@ -441,6 +444,31 @@ function validateServiceAssertionConfig(form) {
   }
   if (isResultAssertionRuleMode(form) && assertionModeValue(form, "result_assertion_mode") === "visual") {
     return validateResultVisualAssertionConfig(form);
+  }
+  return true;
+}
+
+function validateDataSendConfig(form) {
+  const dbSelect = document.getElementById("dataSendDatabaseConnection");
+  if (!dbSelect?.value) {
+    showToast("请选择引用的数据库资产");
+    dbSelect?.focus();
+    return false;
+  }
+  const queryInput = document.getElementById("dataSendQuery");
+  if (!queryInput?.value?.trim()) {
+    showToast("请填写数据查询语句");
+    queryInput?.focus();
+    return false;
+  }
+  const hiddenCols = document.getElementById("dataSendSelectedColumns")?.value;
+  let cols = [];
+  try {
+    cols = JSON.parse(hiddenCols || "[]");
+  } catch (_) {}
+  if (cols.length > 4) {
+    showToast("适合手机短信显示的限制：最多只能选择 4 列！");
+    return false;
   }
   return true;
 }

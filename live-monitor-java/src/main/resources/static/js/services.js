@@ -333,7 +333,7 @@ function syncServiceEditingLock(form, editingExistingService = false) {
     && form.elements.enabled
     && !form.elements.enabled.checked
     && !isDatabaseServiceType(serviceType)
-    && serviceType !== "cross_database"
+    && serviceType !== "data_send"
   );
   form.classList.toggle("form-edit-locked", locked);
   const alertGroupPicker = document.getElementById("serviceAlertGroupPicker");
