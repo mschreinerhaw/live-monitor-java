@@ -77,7 +77,7 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
   padding: 20px;
 }
 
@@ -86,9 +86,9 @@ const handleLogin = async () => {
   max-width: 400px;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  padding: 32px 28px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 36px 32px;
 }
 
 .login-head {
@@ -97,19 +97,20 @@ const handleLogin = async () => {
 }
 
 .login-brand {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 12px;
-  background: #176b87;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   color: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.4);
 }
 
 .login-head h2 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #0f172a;
 }
@@ -121,8 +122,9 @@ const handleLogin = async () => {
 
 .btn-block {
   width: 100%;
-  height: 40px;
+  height: 42px;
   font-size: 14px;
-  margin-top: 8px;
+  font-weight: 600;
+  margin-top: 10px;
 }
 </style>

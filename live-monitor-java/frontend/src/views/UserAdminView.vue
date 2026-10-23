@@ -2,18 +2,29 @@
   <div class="page-container user-admin-page">
     <div class="page-header">
       <div class="page-header-title">
-        <h1>用户账号管理</h1>
-        <p>系统运维人员与管理员账号权限管理</p>
+        <h1>用户账号与安全审计</h1>
+        <p>系统运维人员与管理员账号权限管理，提供用户登录安全审计日志</p>
       </div>
       <div>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button v-if="currentTab === 'users'" class="btn btn-primary" @click="showCreateModal = true">
           <IconSvg name="plus" size="14" />
           <span>新建用户</span>
         </button>
       </div>
     </div>
 
-    <div class="card">
+    <!-- 选项卡切换 -->
+    <div class="tabs-nav" style="margin-bottom: 20px;">
+      <button class="tab-btn" :class="{ active: currentTab === 'users' }" @click="currentTab = 'users'">
+        用户账号列表 ({{ users.length }})
+      </button>
+      <button class="tab-btn" :class="{ active: currentTab === 'logs' }" @click="currentTab = 'logs'; fetchAuditLogs()">
+        登录审计日志
+      </button>
+    </div>
+
+    <!-- 1. 用户列表 Tab -->
+    <div v-if="currentTab === 'users'" class="card">
       <div class="card-header">
         <div class="card-title">
           <IconSvg name="users" size="16" />
@@ -26,9 +37,9 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>登录用户名</th>
+              <th>登录账号</th>
               <th>姓名 / 昵称</th>
-              <th>权限角色</th>
+              <th>权限等级</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
@@ -44,7 +55,7 @@
                 </span>
               </td>
               <td>
-                <span class="badge" :class="u.status === 1 ? 'badge-up' : 'badge-down'">
+                <span :class="['badge', u.status === 1 ? 'badge-up' : 'badge-down']">
                   {{ u.status === 1 ? '正常' : '已禁用' }}
                 </span>
               </td>
@@ -62,6 +73,43 @@
                   </button>
                 </div>
               </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2. 登录审计日志 Tab -->
+    <div v-if="currentTab === 'logs'" class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <IconSvg name="activity" size="16" />
+          <span>登录安全审计日志</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" @click="fetchAuditLogs">刷新日志</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>登录时间</th>
+              <th>用户账号</th>
+              <th>操作类型</th>
+              <th>来源 IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!auditLogs.length">
+              <td colspan="4" class="text-center text-muted" style="padding: 24px;">暂无登录审计记录</td>
+            </tr>
+            <tr v-for="log in auditLogs" :key="log.id || log.event_time">
+              <td style="font-family: monospace; font-size: 12px;">{{ log.event_time || '-' }}</td>
+              <td><strong>{{ log.user_id || log.userId }}</strong></td>
+              <td>
+                <span class="badge badge-info">{{ log.action || 'LOGIN' }}</span>
+              </td>
+              <td style="font-family: monospace;">{{ log.ip_address || log.ipAddress || '-' }}</td>
             </tr>
           </tbody>
         </table>
@@ -134,7 +182,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
 
+const currentTab = ref('users')
 const users = ref([])
+const auditLogs = ref([])
+
 const showCreateModal = ref(false)
 const showResetModal = ref(false)
 const currentSelectedUser = ref(null)
@@ -155,6 +206,13 @@ const fetchUsers = async () => {
   }
 }
 
+const fetchAuditLogs = async () => {
+  try {
+    const res = await api.listLoginAuditLogs({ page: 1, page_size: 50 })
+    auditLogs.value = res.records || res.items || []
+  } catch (_) {}
+}
+
 const handleCreateUser = async () => {
   try {
     await api.createUser(createForm)
@@ -171,8 +229,9 @@ const handleCreateUser = async () => {
 
 const toggleStatus = async (u) => {
   const nextStatus = u.status === 1 ? 0 : 1
+  const uid = u.user_id || u.userid
   try {
-    await api.updateUserStatus(u.id, { status: nextStatus })
+    await api.updateUserStatus(uid, { status: nextStatus })
     store.showToast('状态更新成功', 'success')
     await fetchUsers()
   } catch (err) {
@@ -187,8 +246,9 @@ const openResetPwdModal = (u) => {
 }
 
 const handleResetPassword = async () => {
+  const uid = currentSelectedUser.value?.user_id || currentSelectedUser.value?.userid
   try {
-    await api.resetUserPassword(currentSelectedUser.value.id, { password: newPassword.value })
+    await api.resetUserPassword(uid, { password: newPassword.value })
     store.showToast('密码重置成功', 'success')
     showResetModal.value = false
   } catch (err) {
@@ -200,3 +260,26 @@ onMounted(() => {
   fetchUsers()
 })
 </script>
+
+<style scoped>
+.tabs-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #e2e8f0;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  position: relative;
+  bottom: -2px;
+}
+.tab-btn.active {
+  color: #0284c7;
+  border-bottom: 2px solid #0284c7;
+}
+</style>

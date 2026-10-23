@@ -102,6 +102,7 @@
       </div>
 
       <!-- 2. 服务类型专属配置 -->
+
       <!-- 2.1 Web应用 -->
       <div v-if="form.service_type === 'web'" class="card">
         <div class="card-header">
@@ -132,6 +133,10 @@
           <label class="form-label">响应包含关键字</label>
           <input v-model="form.response_keyword" type="text" class="form-control" placeholder="例如：OK 或 success" />
         </div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+          <input v-model="form.ignore_ssl_verification" type="checkbox" />
+          <span>忽略 SSL 证书验证</span>
+        </label>
       </div>
 
       <!-- 2.2 API接口 -->
@@ -156,13 +161,140 @@
             </select>
           </div>
         </div>
+
         <div class="form-group">
-          <label class="form-label">请求体 (Body)</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin: 0;">请求头 (Headers)</label>
+            <button type="button" class="btn btn-ghost btn-sm" @click="addApiHeader">
+              <IconSvg name="plus" size="12" />
+              <span>添加 Header</span>
+            </button>
+          </div>
+          <div v-for="(h, idx) in form.api_headers" :key="idx" style="display: flex; gap: 8px; margin-bottom: 6px;">
+            <input v-model="h.name" type="text" class="form-control" placeholder="Header Name" style="width: 200px;" />
+            <input v-model="h.value" type="text" class="form-control" placeholder="Header Value" />
+            <button type="button" class="btn btn-danger btn-sm" @click="removeApiHeader(idx)">
+              <IconSvg name="trash" size="12" />
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">请求体 (Request Body)</label>
           <textarea v-model="form.api_request_body" rows="3" class="form-control" placeholder='{"query":"status"}'></textarea>
         </div>
       </div>
 
-      <!-- 2.3 数据库 (MySQL, Oracle, PostgreSQL, 通用JDBC) -->
+      <!-- 2.3 进程检测 -->
+      <div v-if="form.service_type === 'process'" class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <IconSvg name="server" size="16" />
+            <span>进程检测参数</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">目标主机 (SSH)</label>
+            <select v-model="form.host_id" class="form-control" required>
+              <option value="">-- 选择已维护的主机 --</option>
+              <option v-for="h in hostsList" :key="h.id" :value="h.id">
+                {{ h.host_name }} ({{ h.ip }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">进程名</label>
+            <input v-model="form.process_name" type="text" class="form-control" placeholder="例如：nginx" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">匹配关键字</label>
+            <input v-model="form.process_match_keyword" type="text" class="form-control" placeholder="例如：java -jar app.jar" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">自定义检查命令 (可选)</label>
+          <input v-model="form.process_check_command" type="text" class="form-control" placeholder="pgrep -f app.jar" />
+        </div>
+      </div>
+
+      <!-- 2.4 端口检测 -->
+      <div v-if="form.service_type === 'port'" class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <IconSvg name="activity" size="16" />
+            <span>端口检测参数</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">目标主机 / IP</label>
+            <input v-model="form.host" type="text" class="form-control" placeholder="127.0.0.1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">目标端口</label>
+            <input v-model.number="form.port" type="number" class="form-control" placeholder="8080" required />
+          </div>
+        </div>
+      </div>
+
+      <!-- 2.5 Redis -->
+      <div v-if="form.service_type === 'redis'" class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <IconSvg name="database" size="16" />
+            <span>Redis 检测参数</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Redis 主机</label>
+            <input v-model="form.host" type="text" class="form-control" placeholder="127.0.0.1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">端口</label>
+            <input v-model.number="form.port" type="number" class="form-control" placeholder="6379" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">密码</label>
+            <input v-model="form.redis_password" type="password" class="form-control" placeholder="密码 (无则留空)" />
+          </div>
+        </div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+          <input v-model="form.redis_cluster_mode" type="checkbox" />
+          <span>启用 Redis 集群模式探测</span>
+        </label>
+      </div>
+
+      <!-- 2.6 ZooKeeper -->
+      <div v-if="form.service_type === 'zookeeper'" class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <IconSvg name="activity" size="16" />
+            <span>ZooKeeper 检测参数</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ZooKeeper 主机</label>
+            <input v-model="form.host" type="text" class="form-control" placeholder="127.0.0.1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">端口</label>
+            <input v-model.number="form.port" type="number" class="form-control" placeholder="2181" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">检测四字命令</label>
+            <select v-model="form.zookeeper_check_mode" class="form-control">
+              <option value="ruok">ruok (心跳探测)</option>
+              <option value="stat">stat (状态探测)</option>
+              <option value="srvr">srvr (服务端信息)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2.7 数据库 (MySQL, Oracle, PostgreSQL, 通用JDBC) -->
       <div v-if="isDatabaseType" class="card">
         <div class="card-header">
           <div class="card-title">
@@ -203,18 +335,28 @@
             <input v-model="form.database_password" type="password" class="form-control" placeholder="留空保持原密码" :readonly="Boolean(form.database_connection_service_id)" />
           </div>
         </div>
+        <div v-if="form.service_type === 'jdbc'" class="form-row">
+          <div class="form-group" style="grid-column: span 2;">
+            <label class="form-label">JDBC 连接串 (URL)</label>
+            <input v-model="form.jdbc_url" type="text" class="form-control" placeholder="jdbc:sqlserver://127.0.0.1:1433;databaseName=test" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">JDBC 驱动类</label>
+            <input v-model="form.jdbc_driver_class" type="text" class="form-control" placeholder="com.microsoft.sqlserver.jdbc.SQLServerDriver" />
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">探测 SQL</label>
+          <label class="form-label">探测 SQL 语句</label>
           <input v-model="form.database_query" type="text" class="form-control" placeholder="SELECT 1" />
         </div>
       </div>
 
-      <!-- 2.4 数据发送服务项 (核心新增需求) -->
+      <!-- 2.8 数据发送服务项 (核心新增需求) -->
       <div v-if="form.service_type === 'data_send'" class="card">
         <div class="card-header">
           <div class="card-title">
             <IconSvg name="send" size="16" />
-            <span>数据发送配置 (短信)</span>
+            <span>数据发送配置</span>
             <span class="badge badge-info" style="margin-left: 8px;">最多 10 条记录 · 适配手机短信显示限制</span>
           </div>
         </div>
@@ -225,14 +367,14 @@
             <select v-model="form.database_connection_service_id" class="form-control" required>
               <option value="">-- 请选择已维护好的数据库监控 --</option>
               <option v-for="conn in dbConnections" :key="conn.id" :value="conn.id">
-                {{ conn.cluster_name ? `${conn.cluster_name} / ` : '' }}{{ conn.service_name }} ({{ conn.service_type.toUpperCase() }})
+                {{ conn.cluster_name ? `${conn.cluster_name} / ` : '' }}{{ conn.service_name }} ({{ (conn.service_type || '').toUpperCase() }})
               </option>
             </select>
           </div>
 
           <div class="form-group">
             <label class="form-label">短信播报标题 (可选)</label>
-            <input v-model="form.data_send_title" type="text" class="form-control" placeholder="例如：核心交易大额指标提醒" maxlength="40" />
+            <input v-model="form.data_send_title" type="text" class="form-control" placeholder="例如：核心业务大额提醒" maxlength="40" />
           </div>
         </div>
 
@@ -422,6 +564,7 @@ const dataSendPreviewResult = ref(null)
 
 const dbConnections = ref([])
 const alertGroups = ref([])
+const hostsList = ref([])
 
 const form = reactive({
   service_type: 'web',
@@ -437,7 +580,20 @@ const form = reactive({
   http_method: 'GET',
   expected_status_code: 200,
   response_keyword: '',
+  ignore_ssl_verification: false,
+  api_headers: [],
   api_request_body: '',
+
+  // Process / Port
+  host_id: '',
+  process_name: '',
+  process_match_keyword: '',
+  process_check_command: '',
+
+  // Redis / ZK
+  redis_password: '',
+  redis_cluster_mode: false,
+  zookeeper_check_mode: 'ruok',
 
   // Database
   database_connection_service_id: '',
@@ -446,6 +602,8 @@ const form = reactive({
   database_name: '',
   database_username: '',
   database_password: '',
+  jdbc_url: '',
+  jdbc_driver_class: '',
   database_query: '',
 
   // Data Send (服务项)
@@ -484,10 +642,20 @@ const toggleColumnSelection = (col, e) => {
   refreshLiveSmsPreview()
 }
 
+const addApiHeader = () => {
+  form.api_headers.push({ name: '', value: '' })
+}
+
+const removeApiHeader = (idx) => {
+  form.api_headers.splice(idx, 1)
+}
+
 const handleTypeChange = () => {
   if (form.service_type === 'mysql') form.port = 3306
   if (form.service_type === 'oracle') form.port = 1521
   if (form.service_type === 'postgresql') form.port = 5432
+  if (form.service_type === 'redis') form.port = 6379
+  if (form.service_type === 'zookeeper') form.port = 2181
   if (form.service_type === 'data_send') {
     if (!form.database_query) {
       form.database_query = 'SELECT FUND_CODE, FUND_NAME, NAV FROM T_FUND WHERE STATUS = 1 ORDER BY UPDATE_TIME DESC'
@@ -502,6 +670,8 @@ const handleDbConnectionChange = () => {
     form.port = selected.port || null
     form.database_name = selected.database_name || ''
     form.database_username = selected.database_username || ''
+    form.jdbc_url = selected.jdbc_url || ''
+    form.jdbc_driver_class = selected.jdbc_driver_class || ''
   }
 }
 
@@ -619,16 +789,19 @@ const handleSubmit = async () => {
 
 onMounted(async () => {
   try {
-    const [dbList, groupList] = await Promise.all([
+    const [dbList, groupList, hList] = await Promise.all([
       api.databaseConnections(true).catch(() => []),
-      api.listAlertGroups(true).catch(() => [])
+      api.listAlertGroups(true).catch(() => []),
+      api.listHosts(true).catch(() => [])
     ])
     dbConnections.value = dbList || []
     alertGroups.value = groupList || []
+    hostsList.value = hList || []
 
     if (isEdit.value) {
       const srv = await api.getService(serviceId.value)
       Object.assign(form, srv)
+      if (srv.api_headers) form.api_headers = srv.api_headers
       if (srv.service_type === 'data_send') {
         form.data_send_selected_columns = srv.data_send_selected_columns || []
         form.data_send_column_aliases = srv.data_send_column_aliases || {}

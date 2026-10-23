@@ -1,29 +1,29 @@
 :root {
-  --primary-color: #176b87;
-  --primary-hover: #10566e;
-  --primary-light: #e0f2fe;
-  --primary-text: #0369a1;
-  --bg-color: #f1f5f9;
+  --primary-color: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-light: #f0f9ff;
+  --primary-text: #0284c7;
+  --bg-color: #f8fafc;
   --surface-color: #ffffff;
   --border-color: #e2e8f0;
   --border-focus: #0284c7;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --text-light: #94a3b8;
-  --status-up: #16a34a;
-  --status-up-bg: #dcfce7;
-  --status-down: #dc2626;
-  --status-down-bg: #fee2e2;
-  --status-warn: #ea580c;
-  --status-warn-bg: #ffedd5;
+  --status-up: #10b981;
+  --status-up-bg: #ecfdf5;
+  --status-down: #ef4444;
+  --status-down-bg: #fef2f2;
+  --status-warn: #f59e0b;
+  --status-warn-bg: #fffbeb;
   --status-unknown: #64748b;
   --status-unknown-bg: #f1f5f9;
   --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 10px;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
 }
 
 * {
@@ -58,9 +58,9 @@ a:hover {
 }
 
 .page-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px 20px 48px;
+  max-width: 100%;
+  margin: 0;
+  padding: 24px 28px 48px;
   width: 100%;
 }
 

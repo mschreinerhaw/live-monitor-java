@@ -1,6 +1,15 @@
 <template>
-  <div class="app-container">
-    <HeaderNav v-if="showHeader" />
+  <div v-if="!isAuthPage" class="app-layout">
+    <SidebarNav />
+    <div class="main-content-wrapper">
+      <TopHeader />
+      <main class="page-body">
+        <router-view />
+      </main>
+    </div>
+    <ToastNotice />
+  </div>
+  <div v-else class="auth-layout">
     <router-view />
     <ToastNotice />
   </div>
@@ -9,13 +18,38 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import HeaderNav from './components/HeaderNav.vue'
+import SidebarNav from './components/SidebarNav.vue'
+import TopHeader from './components/TopHeader.vue'
 import ToastNotice from './components/ToastNotice.vue'
 
 const route = useRoute()
-const showHeader = computed(() => route.path !== '/login')
+const isAuthPage = computed(() => route.path === '/login')
 </script>
 
 <style>
 @import './assets/styles/main.css';
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+.main-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.page-body {
+  flex: 1;
+  padding: 0;
+}
+
+.auth-layout {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
 </style>

@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { store } from '../store'
 
 const routes = [
   {
@@ -62,8 +63,9 @@ const router = createRouter({
   routes
 })
 
-// 兼容直接通过无 hash 路径访问（如 /hosts、/data-send 等），自动映射到 hash 路由
-router.beforeEach((to, from, next) => {
+// 登录与未授权路由守卫
+router.beforeEach(async (to, from, next) => {
+  // 兼容直接从非 hash 地址进入（如 /data-send、/hosts 等）
   if (to.matched.length === 0) {
     const rawPath = window.location.pathname.replace(/^\//, '')
     if (rawPath && rawPath !== 'index.html' && rawPath !== '/') {
@@ -73,6 +75,22 @@ router.beforeEach((to, from, next) => {
     next('/dashboard')
     return
   }
+
+  // 访问登录页时放行
+  if (to.path === '/login') {
+    next()
+    return
+  }
+
+  // 其他受保护页面检查是否登录
+  if (!store.user) {
+    const user = await store.fetchCurrentUser()
+    if (!user) {
+      next('/login')
+      return
+    }
+  }
+
   next()
 })
 
