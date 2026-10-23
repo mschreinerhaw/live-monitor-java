@@ -43,16 +43,19 @@ public class AuthInterceptor implements HandlerInterceptor {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"detail\":\"authentication required\"}");
-        } else {
-            response.sendRedirect("/login.html");
+            return false;
         }
-        return false;
+        return true;
     }
 
     private boolean isPublic(String uri) {
         return "/login.html".equals(uri)
+            || "/login".equals(uri)
+            || "/favicon.svg".equals(uri)
+            || (uri != null && uri.startsWith("/static/"))
             || "/api/auth/login".equals(uri)
             || "/api/auth/me".equals(uri)
+            || "/api/auth/current-user".equals(uri)
             || "/api/external/messages".equals(uri)
             || "/api/health".equals(uri);
     }

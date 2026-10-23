@@ -64,7 +64,7 @@ public class AuthController {
         return result;
     }
 
-    @GetMapping("/api/auth/me")
+    @GetMapping({"/api/auth/me", "/api/auth/current-user"})
     public Map<String, Object> me(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         Object user = session == null ? null : session.getAttribute(SESSION_USER);
