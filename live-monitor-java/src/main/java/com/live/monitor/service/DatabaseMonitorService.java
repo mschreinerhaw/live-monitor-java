@@ -168,6 +168,34 @@ public class DatabaseMonitorService {
         String jdbcUrl,
         double timeoutSeconds
     ) {
+        return preview(
+            type,
+            host,
+            port,
+            databaseName,
+            username,
+            password,
+            query,
+            jdbcDriverClass,
+            jdbcUrl,
+            databaseResultMaxRows(),
+            timeoutSeconds
+        );
+    }
+
+    public PreviewResult preview(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        int requestedMaxRows,
+        double timeoutSeconds
+    ) {
         String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
         boolean genericJdbc = "jdbc".equals(normalizedType);
         if (genericJdbc && (!StringUtils.hasText(jdbcDriverClass) || !StringUtils.hasText(jdbcUrl))) {
@@ -193,7 +221,7 @@ public class DatabaseMonitorService {
             }
             try (Connection connection = connect(url, properties, jdbcDriverClass);
                  Statement statement = connection.createStatement()) {
-                int maxRows = databaseResultMaxRows();
+                int maxRows = Math.max(1, Math.min(ABSOLUTE_MAX_RESULT_ROWS, requestedMaxRows));
                 statement.setQueryTimeout(timeoutSecondsInt);
                 statement.setMaxRows(maxRows);
                 boolean hasResultSet = statement.execute(sql);
@@ -527,7 +555,7 @@ public class DatabaseMonitorService {
         return Math.max(1, Math.min(60, (int) Math.ceil(timeoutSeconds)));
     }
 
-    private void validateReadOnlySql(String sql) {
+    public void validateReadOnlySql(String sql) {
         String normalized = normalizeSqlForValidation(sql);
         if (!StringUtils.hasText(normalized)) {
             throw new IllegalArgumentException("SQL is required");

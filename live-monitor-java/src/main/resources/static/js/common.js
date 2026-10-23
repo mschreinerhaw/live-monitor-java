@@ -21,6 +21,7 @@ function serviceTypeLabel(type) {
     postgres: "PostgreSQL",
     jdbc: "通用 JDBC",
     cross_database: "跨库比对",
+    data_send: "数据发送 (短信)",
     external_message: "外部消息转发",
   }[type] || type;
 }
@@ -44,6 +45,7 @@ function serviceTypeIcon(type) {
     postgres: "database",
     jdbc: "database",
     cross_database: "git-compare-arrows",
+    data_send: "send",
     external_message: "send",
   }[type] || "server";
 }

@@ -25,6 +25,7 @@
       <a href="/dashboard">监控首页</a>
       <a href="/hosts">主机维护</a>
       <a id="serviceFormNav" class="active" href="/services/new">添加服务</a>
+      <a href="/data-send">数据发送</a>
       <a href="/alerts/settings">告警设置</a>
       <a href="/alerts/audit">告警审计</a>
     </nav>
@@ -53,7 +54,7 @@
             <option value="oracle">Oracle</option>
             <option value="postgresql">PostgreSQL</option>
             <option value="jdbc">通用 JDBC</option>
-            <option value="cross_database">跨库比对任务</option>
+            <option value="data_send">数据发送 (短信)</option>
           </select>
         </div>
 
@@ -168,7 +169,7 @@
   <script src="/js/service-types/service-type-api.js"></script>
   <script src="/js/service-types/service-type-process.js"></script>
   <script src="/js/service-types/service-type-database.js"></script>
-  <script src="/js/service-types/service-type-cross-database.js"></script>
+  <script src="/js/service-types/service-type-data-send.js"></script>
   <script src="/js/service-types/service-assertions.js"></script>
   <script src="/js/services.js"></script>
   <script src="/js/alert-settings.js"></script>

@@ -70,6 +70,10 @@ public class MonitorService {
     public List<CrossDatabaseQuery> crossDatabaseQueries;
     public String jdbcDriverClass;
     public String jdbcUrl;
+    public List<String> dataSendSelectedColumns;
+    public Map<String, String> dataSendColumnAliases;
+    public String dataSendTitle;
+    public Integer dataSendMaxRows;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;

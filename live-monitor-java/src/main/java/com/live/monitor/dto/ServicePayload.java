@@ -73,6 +73,10 @@ public class ServicePayload {
     public List<CrossDatabaseQueryPayload> crossDatabaseQueries;
     public String jdbcDriverClass;
     public String jdbcUrl;
+    public List<String> dataSendSelectedColumns;
+    public Map<String, String> dataSendColumnAliases;
+    public String dataSendTitle;
+    public Integer dataSendMaxRows;
     @Min(1)
     @Max(31536000)
     public Integer checkInterval = 60;

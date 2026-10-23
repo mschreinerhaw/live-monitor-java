@@ -4,6 +4,8 @@ server:
 debug: false
 
 spring:
+  main:
+    allow-circular-references: true
   # Config database:
   # 1. Default H2 file database. H2 keeps legacy mode and uses ./data/h2/live_monitor.
   # 2. To switch to MySQL as the config database, either set the LIVE_MONITOR_DB_* env vars,

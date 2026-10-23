@@ -21,6 +21,14 @@ public class MonitorRunnerService {
     private final ProcessMonitorService processMonitorService;
     private final HostResourceMonitorService hostResourceMonitorService;
 
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private DataSendService dataSendService;
+
+    public void setDataSendService(DataSendService dataSendService) {
+        this.dataSendService = dataSendService;
+    }
+
     public MonitorRunnerService(
         LiveMonitorProperties properties,
         WebMonitorService webMonitorService,
@@ -99,6 +107,12 @@ public class MonitorRunnerService {
         }
         if ("port".equals(type) || "tcp".equals(type)) {
             return portMonitorService.check(service.host, service.port, timeout);
+        }
+        if ("data_send".equals(type)) {
+            if (dataSendService != null) {
+                return dataSendService.runServiceCheck(service, timeout);
+            }
+            return new CheckResult("DOWN", 0, "DataSendService 未初始化");
         }
         if ("cross_database".equals(type)) {
             return databaseMonitorService.checkCrossDatabase(

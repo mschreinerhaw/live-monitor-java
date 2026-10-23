@@ -170,6 +170,9 @@ public class LiveMonitorService {
     }
 
     public MonitorService databaseConnectionForUse(String serviceType, Long connectionServiceId) {
+        if (!StringUtils.hasText(serviceType)) {
+            return databaseConnectionSourceAny(null, connectionServiceId);
+        }
         return databaseConnectionSource(null, serviceType, connectionServiceId);
     }
 
@@ -562,6 +565,19 @@ public class LiveMonitorService {
             validateCrossDatabasePayload(currentServiceId, payload);
             return;
         }
+        if ("data_send".equals(type)) {
+            if (payload.databaseConnectionServiceId == null) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "请选择引用的数据库资产");
+            }
+            if (!StringUtils.hasText(payload.databaseQuery)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "查询语句不能为空");
+            }
+            if (payload.dataSendSelectedColumns != null && payload.dataSendSelectedColumns.size() > 4) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "发送列数不能超过 4 列（手机短信限制）");
+            }
+            databaseConnectionSourceAny(currentServiceId, payload.databaseConnectionServiceId);
+            return;
+        }
         boolean usesDatabaseConnectionReference = isDatabaseType(type) && payload.databaseConnectionServiceId != null;
         if (usesDatabaseConnectionReference) {
             databaseConnectionSource(currentServiceId, type, payload.databaseConnectionServiceId);
@@ -735,6 +751,25 @@ public class LiveMonitorService {
             return;
         }
 
+        if ("data_send".equals(service.serviceType)) {
+            service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
+            service.databaseQuery = emptyToNull(payload.databaseQuery);
+            service.dataSendSelectedColumns = cleanStringList(payload.dataSendSelectedColumns);
+            service.dataSendColumnAliases = payload.dataSendColumnAliases;
+            service.dataSendTitle = emptyToNull(payload.dataSendTitle);
+            service.dataSendMaxRows = payload.dataSendMaxRows != null ? Math.min(10, Math.max(1, payload.dataSendMaxRows)) : 10;
+            service.checkMode = "data_send";
+            service.checkCommand = service.databaseQuery;
+            service.endpoint = "data_send #" + service.databaseConnectionServiceId;
+            putIfNotNull(config, "database_connection_service_id", service.databaseConnectionServiceId);
+            putIfNotNull(config, "database_query", service.databaseQuery);
+            putIfNotNull(config, "data_send_selected_columns", service.dataSendSelectedColumns);
+            putIfNotNull(config, "data_send_column_aliases", service.dataSendColumnAliases);
+            putIfNotNull(config, "data_send_title", service.dataSendTitle);
+            config.put("data_send_max_rows", service.dataSendMaxRows);
+            return;
+        }
+
         if (isDatabaseType(service.serviceType)) {
             service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
             service.databaseName = emptyToNull(payload.databaseName);
@@ -842,6 +877,14 @@ public class LiveMonitorService {
             service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
             service.crossDatabaseQueries = crossDatabaseQueryListValue(config, "cross_database_queries", service.id);
             service.endpoint = "cross database";
+        } else if ("data_send".equals(service.serviceType)) {
+            service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
+            service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
+            service.dataSendSelectedColumns = stringListValue(config, "data_send_selected_columns");
+            service.dataSendColumnAliases = stringMapValue(config, "data_send_column_aliases");
+            service.dataSendTitle = stringValue(config, "data_send_title", null);
+            service.dataSendMaxRows = intValue(config, "data_send_max_rows", 10);
+            service.endpoint = "data_send #" + (service.databaseConnectionServiceId != null ? service.databaseConnectionServiceId : "-");
         } else if (isDatabaseType(service.serviceType)) {
             service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
             service.databaseName = stringValue(config, "database_name", null);
@@ -907,7 +950,7 @@ public class LiveMonitorService {
         return source;
     }
 
-    private MonitorService databaseConnectionSourceAny(Long currentServiceId, Long connectionServiceId) {
+    public MonitorService databaseConnectionSourceAny(Long currentServiceId, Long connectionServiceId) {
         if (connectionServiceId == null) {
             return null;
         }
@@ -1246,6 +1289,20 @@ public class LiveMonitorService {
             header.put("name", name);
             header.put("value", headerValue);
             result.add(header);
+        }
+        return result;
+    }
+
+    private Map<String, String> stringMapValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!(value instanceof Map<?, ?>)) {
+            return result;
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                result.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            }
         }
         return result;
     }

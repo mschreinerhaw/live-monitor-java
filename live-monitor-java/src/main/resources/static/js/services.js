@@ -22,7 +22,7 @@ async function initAddService() {
   const databaseConnectionsPromise = loadDatabaseConnectionOptions(form, editId).then((connections) => {
     databaseConnectionOptions = connections;
     renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
-    renderCrossDatabaseSourceOptions(form, databaseConnectionOptions, editId);
+    initDataSendSection(form, databaseConnectionOptions, editId);
   });
   const presetClusterName = params.get("cluster_name");
   if (!editId && presetClusterName && form.elements.cluster_name) {
@@ -34,27 +34,28 @@ async function initAddService() {
     const isRedis = typeSelect.value === "redis";
     const isZookeeper = typeSelect.value === "zookeeper";
     const isProcess = typeSelect.value === "process";
-    const isCrossDatabase = typeSelect.value === "cross_database";
+    const isDataSend = typeSelect.value === "data_send";
     const isDatabase = isDatabaseServiceType(typeSelect.value);
     const isGenericJdbc = typeSelect.value === "jdbc";
-    syncCrossDatabaseCopy(form, isCrossDatabase);
+    syncDataSendCopy(form, isDataSend);
     const databaseConnectionSelect = form.elements.database_connection_service_id;
     if (databaseConnectionSelect) {
       renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
-      renderCrossDatabaseSourceOptions(form, databaseConnectionOptions, editId);
+      initDataSendSection(form, databaseConnectionOptions, editId);
     }
     const usesDatabaseConnectionRef = Boolean(isDatabase && databaseConnectionSelect?.value);
     toggleFieldSet(".web-only", isWeb && !isApi);
     toggleFieldSet(".web-monitor-only", isWeb && !isApi);
     toggleFieldSet(".api-only", isApi);
-    toggleFieldSet(".result-rule-only", !isApi && (isDatabase || isCrossDatabase));
-    toggleFieldSet(".host-field", !isWeb && !isCrossDatabase && !isGenericJdbc);
-    toggleFieldSet(".port-field", !isWeb && !isProcess && !isCrossDatabase && !isGenericJdbc);
+    toggleFieldSet(".result-rule-only", !isApi && isDatabase);
+    toggleFieldSet(".host-field", !isWeb && !isDataSend && !isGenericJdbc);
+    toggleFieldSet(".port-field", !isWeb && !isProcess && !isDataSend && !isGenericJdbc);
     toggleFieldSet(".process-only", isProcess);
     toggleFieldSet(".redis-only", isRedis);
     toggleFieldSet(".zookeeper-only", isZookeeper);
     toggleFieldSet(".database-only", isDatabase);
-    toggleFieldSet(".cross-db-only", isCrossDatabase);
+    toggleFieldSet(".data-send-only", isDataSend);
+    toggleFieldSet(".cross-db-only", false);
     toggleFieldSet(".database-connection-manual-only", isDatabase && !usesDatabaseConnectionRef);
     toggleFieldSet(".jdbc-only", isGenericJdbc);
     toggleFieldSet(".standard-database-only", isDatabase && !isGenericJdbc);
@@ -71,8 +72,8 @@ async function initAddService() {
     const processCommandInput = form.elements.check_command;
     if (urlInput) urlInput.required = isWeb && !isApi;
     if (apiUrlInput) apiUrlInput.required = isApi;
-    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc && !isCrossDatabase && !usesDatabaseConnectionRef;
-    if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess && !isCrossDatabase;
+    if (hostInput) hostInput.required = !isWeb && !isProcess && !isGenericJdbc && !isDataSend && !usesDatabaseConnectionRef;
+    if (portInput) portInput.required = !isWeb && !isDatabase && !isProcess && !isDataSend;
     if (processNameInput) processNameInput.required = isProcess;
     if (processKeywordInput) processKeywordInput.required = false;
     if (processCommandInput) processCommandInput.required = isProcess;
@@ -132,9 +133,16 @@ async function initAddService() {
     syncFields();
     resetDatabasePreviewPanel();
   });
-  initCrossDatabaseBuilder(form);
-  initCompareRuleTemplate(form);
   document.getElementById("addApiHeaderBtn")?.addEventListener("click", () => addApiHeaderRow());
+  document.getElementById("dataSendDatabaseConnection")?.addEventListener("change", () => {
+    triggerDataSendLivePreview(form);
+  });
+  document.getElementById("dataSendQuery")?.addEventListener("input", () => {
+    triggerDataSendLivePreview(form);
+  });
+  document.getElementById("dataSendTitle")?.addEventListener("input", () => {
+    triggerDataSendLivePreview(form);
+  });
   form.elements.enabled?.addEventListener("change", () => syncServiceEditingLock(form, editingExistingService));
   initAssertionModeControls(form);
   renderApiHeaderRows([]);
@@ -293,7 +301,7 @@ const SERVICE_TYPE_FORM_PARTIALS = [
   "/partials/service-forms/process.html",
   "/partials/service-forms/redis.html",
   "/partials/service-forms/zookeeper.html",
-  "/partials/service-forms/cross-database.html",
+  "/partials/service-forms/data-send.html",
   "/partials/service-forms/database.html",
 ];
 
@@ -397,21 +405,21 @@ function syncApiFieldCopy(form, isApi) {
   });
 }
 
-function syncCrossDatabaseCopy(form, isCrossDatabase) {
+function syncDataSendCopy(form, isDataSend) {
   const subtitle = document.getElementById("serviceFormSubtitle");
   if (subtitle) {
-    subtitle.textContent = isCrossDatabase
-      ? "配置多数据源 SQL、字段映射、比对规则和告警策略"
+    subtitle.textContent = isDataSend
+      ? "配置引用数据库资产、查询 SQL 与手机短信列数限制（最多 10 条）"
       : "配置检测目标、探测条件和告警配置";
   }
   const serviceNameInput = form?.elements.service_name;
   if (serviceNameInput && !serviceNameInput.value) {
-    serviceNameInput.placeholder = isCrossDatabase ? "例如：TA 与估值系统基金数据比对" : "例如：交易系统 Web";
+    serviceNameInput.placeholder = isDataSend ? "例如：核心业务指标短信定时推送" : "例如：交易系统 Web";
   }
   const monitorReasonInput = form?.elements.monitor_reason;
   if (monitorReasonInput && !monitorReasonInput.value) {
-    monitorReasonInput.placeholder = isCrossDatabase
-      ? "例如：每日比对多库聚合结果，差异触发统一告警"
+    monitorReasonInput.placeholder = isDataSend
+      ? "例如：定时查询已维护数据库资产并格式化为适合手机短信显示的限制内容发送"
       : "例如：这是核心交易链路入口，需要持续监控可用性和响应时间";
   }
 }
@@ -465,16 +473,19 @@ function buildServicePayload(form) {
   if (!data.port && serviceType === "mysql") data.port = 3306;
   if (!data.port && serviceType === "oracle") data.port = 1521;
   if (!data.port && serviceType === "postgresql") data.port = 5432;
-  if (serviceType === "process" || serviceType === "jdbc" || serviceType === "cross_database") data.port = null;
+  if (serviceType === "process" || serviceType === "jdbc" || serviceType === "data_send") data.port = null;
   data.expected_status_code = data.expected_status_code ? Number(data.expected_status_code) : null;
   data.zookeeper_expected_nodes = data.zookeeper_expected_nodes ? Number(data.zookeeper_expected_nodes) : null;
   const isDatabase = isDatabaseServiceType(serviceType);
-  const isCrossDatabase = serviceType === "cross_database";
+  const isDataSend = serviceType === "data_send";
   const isGenericJdbc = serviceType === "jdbc";
   const isProcess = serviceType === "process";
+  const dataSendConnectionSelect = document.getElementById("dataSendDatabaseConnection");
   const databaseConnectionServiceId = isDatabase && data.database_connection_service_id
     ? Number(data.database_connection_service_id)
-    : null;
+    : isDataSend && dataSendConnectionSelect?.value
+      ? Number(dataSendConnectionSelect.value)
+      : null;
   const usesDatabaseConnectionRef = Boolean(databaseConnectionServiceId);
   data.service_type = serviceType;
   const isWebUrl = isWebUrlServiceType(serviceType);
@@ -504,7 +515,7 @@ function buildServicePayload(form) {
     data.url = isWebUrl ? normalizeWebUrl(data.url, data.web_scheme) : null;
     data.http_method = isWebUrl ? data.http_method || "GET" : "GET";
     data.response_keyword = isWebUrl ? data.response_keyword || null : null;
-    data.api_assertion_expression = (isDatabase && isDatabaseAdvancedRule) || isCrossDatabase
+    data.api_assertion_expression = (isDatabase && isDatabaseAdvancedRule)
       ? buildResultAssertionExpression(form) || null
       : null;
     data.expected_status_code = isWebUrl ? data.expected_status_code : null;
@@ -524,16 +535,32 @@ function buildServicePayload(form) {
     data.api_text_assertion_value = null;
   }
   if (usesDatabaseConnectionRef) data.port = null;
-  data.host = isWebUrl || isGenericJdbc || isCrossDatabase || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
+  data.host = isWebUrl || isGenericJdbc || isDataSend || usesDatabaseConnectionRef ? null : data.host?.trim() || null;
   data.database_connection_service_id = databaseConnectionServiceId;
   data.database_name = isDatabase && !isGenericJdbc && !usesDatabaseConnectionRef ? data.database_name || null : null;
   data.database_username = isDatabase && !usesDatabaseConnectionRef ? data.database_username || null : null;
   data.database_password = isDatabase && !usesDatabaseConnectionRef ? data.database_password || null : null;
-  data.database_query = isDatabase ? data.database_query || null : null;
+  data.database_query = isDataSend
+    ? (document.getElementById("dataSendQuery")?.value?.trim() || null)
+    : (isDatabase ? data.database_query || null : null);
   data.expected_result = isDatabase && !isDatabaseAdvancedRule ? data.expected_result || null : null;
   data.database_result_operator = isDatabase && !isDatabaseAdvancedRule ? data.database_result_operator || "fuzzy" : "fuzzy";
   data.database_assertion_fields = isDatabase && isDatabaseAdvancedRule ? selectedDatabaseAssertionFields(form) : [];
-  data.cross_database_queries = isCrossDatabase ? collectCrossDatabaseQueries() : [];
+  data.cross_database_queries = [];
+  if (isDataSend) {
+    try {
+      data.data_send_selected_columns = JSON.parse(document.getElementById("dataSendSelectedColumns")?.value || "[]");
+    } catch (_) {
+      data.data_send_selected_columns = [];
+    }
+    try {
+      data.data_send_column_aliases = JSON.parse(document.getElementById("dataSendColumnAliases")?.value || "{}");
+    } catch (_) {
+      data.data_send_column_aliases = {};
+    }
+    data.data_send_title = document.getElementById("dataSendTitle")?.value?.trim() || null;
+    data.data_send_max_rows = 10;
+  }
   data.jdbc_driver_class = isDatabase && !usesDatabaseConnectionRef ? data.jdbc_driver_class || null : null;
   data.jdbc_url = isGenericJdbc && !usesDatabaseConnectionRef ? data.jdbc_url || null : null;
   data.redis_username = serviceType === "redis" ? data.redis_username || null : null;
@@ -775,7 +802,28 @@ function fillServiceForm(form, service) {
   if (form.elements.ignore_ssl_verification) {
     form.elements.ignore_ssl_verification.checked = Boolean(service.ignore_ssl_verification);
   }
-  renderCrossDatabaseQueryRows(form, service.cross_database_queries || service.crossDatabaseQueries || []);
+  if (service.service_type === "data_send") {
+    const dbConnSelect = document.getElementById("dataSendDatabaseConnection");
+    if (dbConnSelect && service.database_connection_service_id) {
+      dbConnSelect.value = String(service.database_connection_service_id);
+    }
+    const queryInput = document.getElementById("dataSendQuery");
+    if (queryInput && service.database_query) {
+      queryInput.value = service.database_query;
+    }
+    const titleInput = document.getElementById("dataSendTitle");
+    if (titleInput && service.data_send_title) {
+      titleInput.value = service.data_send_title;
+    }
+    if (service.data_send_selected_columns) {
+      renderDataSendColumnPicker(
+        form,
+        service.data_send_selected_columns || [],
+        service.data_send_selected_columns || [],
+        service.data_send_column_aliases || {}
+      );
+    }
+  }
   syncApiMethodFields(form);
   syncApiAuthFields(form);
   syncApiAssertionMode(form);

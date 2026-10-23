@@ -36,6 +36,11 @@ public class PageController {
         return "forward:/hosts.html";
     }
 
+    @GetMapping("/data-send")
+    public String dataSend() {
+        return "forward:/data_send.html";
+    }
+
     @GetMapping("/admin")
     public String admin() {
         return "forward:/admin.html";
