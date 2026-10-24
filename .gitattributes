@@ -1,0 +1,4 @@
+agent/** text eol=lf
+deploy/container-platform/** text eol=lf
+scripts/*.mjs text eol=lf
+scripts/*.ps1 text eol=crlf
