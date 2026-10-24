@@ -19,12 +19,14 @@ public class OpsTaskService {
     private final DeploymentOrchestrationService deployments;private final ContainerManagementService containers;
     private final BackupRestoreService backups;private final AlertEventService alerts;
     private final OpsAuthorization authorization;
+    private final StackManagementService stacks;
     private final ThreadPoolExecutor workers=new ThreadPoolExecutor(6,6,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(24),r->{Thread t=new Thread(r,"container-ops");t.setDaemon(true);return t;});
     private final Map<SseEmitter,String[]> subscribers=new ConcurrentHashMap<>();
     public OpsTaskService(OpsRepository repo,OpsAgentGateway agent,DeploymentOrchestrationService deployments,
             ContainerManagementService containers,BackupRestoreService backups,AlertEventService alerts,OpsAuthorization authorization){
         this.repo=repo;this.agent=agent;this.deployments=deployments;this.containers=containers;this.backups=backups;this.alerts=alerts;
         this.authorization=authorization;
+        this.stacks=new StackManagementService(repo,agent);
     }
     public Map<String,Object> submit(String actor,String action,Map<String,Object> resource,Map<String,Object> input,String key) {
         return submit(actor,action,resource,input,key,false);
@@ -49,6 +51,9 @@ public class OpsTaskService {
                 if("stop".equals(action)){
                     Map<String,Object> app=repo.get("application",resourceId);
                     if(!"STOPPED".equals(text(app,"desired_state"))){app.put("desired_state","STOPPED");repo.save("application",app);}
+                }
+                if("stack_stop".equals(action)){
+                    Map<String,Object> stack=repo.get("stack",resourceId);stack.put("desired_state","STOPPED");repo.save("stack",stack);
                 }
                 repo.audit(actor,action,resourceId,id,"ACCEPTED");return null;
             });
@@ -81,13 +86,14 @@ public class OpsTaskService {
             if(repo.jdbc().update("UPDATE ops_task SET status='RUNNING',progress=5,message='CONNECTING',updated_at=? WHERE id=? AND status='QUEUED'",System.currentTimeMillis(),id)!=1)return;
             repo.taskEvent(id,5,"CONNECTING");
             String action=text(task,"action");Map<String,Object> request=parse(text(task,"request_json"));
-            if(flag(request,"internal"))require(Arrays.asList("probe","recover","circuit_break","backup").contains(action),"Invalid system operation");
+            if(flag(request,"internal"))require(Arrays.asList("probe","recover","circuit_break","backup","stack_probe","stack_recover").contains(action),"Invalid system operation");
             else authorization.check(text(task,"actor"),host,text(task,"environment"),action);
             Map<String,Object> resource=object(request,"resource"),input=object(request,"input"),result;
             // Re-read desired state and host maintenance immediately before every privileged action.
             Map<String,Object> currentHost=repo.get("host",host);
-            require(!flag(currentHost,"maintenance")||Arrays.asList("probe","images","logs","stop","maintenance_off","maintenance_on").contains(action),"Host entered maintenance");
-            if(Arrays.asList("deploy","validate","rollback").contains(action))result=deployments.execute(action,resource,input,id);
+            require(!flag(currentHost,"maintenance")||Arrays.asList("probe","images","logs","stop","stack_probe","stack_stop","stack_service_stop","maintenance_off","maintenance_on").contains(action),"Host entered maintenance");
+            if(StackManagementService.ACTIONS.contains(action))result=stacks.execute(action,resource,input,id);
+            else if(Arrays.asList("deploy","validate","rollback").contains(action))result=deployments.execute(action,resource,input,id);
             else if(Arrays.asList("backup","restore","restore_test").contains(action))result=backups.execute(action,resource,input,id);
             else if(Arrays.asList("start","stop","restart","logs").contains(action))result=containers.operate(action,resource,id);
             else if("recover".equals(action)||"circuit_break".equals(action)) {

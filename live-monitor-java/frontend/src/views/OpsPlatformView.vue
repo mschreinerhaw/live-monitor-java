@@ -2,6 +2,7 @@
   <div class="page-container ops-workspace">
     <div class="page-header"><div class="page-header-title"><h1>{{ title }}</h1><p>可追踪发布 · 受控恢复 · 保留原有监控</p></div><button class="btn btn-secondary" :disabled="loading" @click="refresh">刷新</button></div>
     <div v-if="error" role="alert" class="ops-error">{{ error }}</div>
+    <StackDeploymentPanel v-if="section === 'stacks'" :state="state" :busy="busy" :permitted="permitted" :time="time" :operate="operate" :save="save" />
     <div v-if="section === 'overview'">
       <div class="ops-metrics"><article v-for="item in [{ label: '服务器', value: overview.hosts }, { label: '运行容器', value: overview.running }, { label: '异常容器', value: overview.abnormal }, { label: '部署版本', value: overview.versions }, { label: '未恢复告警', value: overview.alerts }]" :key="item.label"><small>{{ item.label }}</small><strong>{{ item.value }}</strong></article></div>
       <section class="ops-panel"><h2>运行时与资源</h2><div class="ops-grid"><article v-for="s in state.snapshot" :key="s.id" class="ops-runtime"><h3>{{ s.host_id }} <span class="ops-badge" :class="{ warning: age(s.observed_at) }">{{ age(s.observed_at) ? '数据过期 / 请检查连接' : '已连接' }}</span></h3><p>Docker {{ s.data?.docker_version }} · {{ s.data?.cpu_count }} CPU · {{ Math.round((s.data?.memory_bytes || 0) / 1024 / 1024) }} MiB</p><p>最近采集 {{ time(s.observed_at) }}</p><div v-for="r in s.data?.resources || []" :key="r.ID">{{ r.Name }}：CPU {{ r.CPUPerc }} / 内存 {{ r.MemPerc }}</div></article></div><p v-if="!state.snapshot.length" class="ops-empty">注册服务器并执行连接检测后显示真实采集数据。</p></section>
@@ -66,6 +67,7 @@
 <script setup>
 import { useRoute } from 'vue-router'
 import { useOpsPlatform } from '../ops/useOpsPlatform'
+import StackDeploymentPanel from '../components/StackDeploymentPanel.vue'
 const { state, capabilities, tasks, audit, monitorHosts, loading, busy, error, activeTask, hostDraft, registryDraft, appDraft, grantDraft, alertRuleDraft, editor, imageDraft, imageResults, registryResults,
   section, title, containers, overview, permitted, time, age, pretty, refresh, resetApp, editApp, selectHost, save, saveApp, operate, imageOperation, deploy, backupOperation, acknowledge, roleChanged, follow,
   liveLogs, liveLogApp, liveLogTime, startLiveLogs, stopLiveLogs, resetDraft } = useOpsPlatform(useRoute())

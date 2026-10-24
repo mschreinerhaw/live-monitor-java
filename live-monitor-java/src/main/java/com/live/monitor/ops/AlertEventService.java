@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AlertEventService {
-    public static final List<String> CODES=Arrays.asList("*","HOST_OFFLINE","TASK_FAILED","RESOURCE_ALERT","CONTAINER_MISSING","CIRCUIT_OPEN","NATIVE_LIMIT","ALERT_ONLY","DOCKER_OWNS_RESTART","RECOVER");
+    public static final List<String> CODES=Arrays.asList("*","HOST_OFFLINE","TASK_FAILED","RESOURCE_ALERT","CONTAINER_MISSING","CIRCUIT_OPEN","NATIVE_LIMIT","ALERT_ONLY","DOCKER_OWNS_RESTART","RECOVER","STACK_UNHEALTHY","STACK_RECOVERY_EXHAUSTED");
     final OpsRepository repo;
     public AlertEventService(OpsRepository repo){this.repo=repo;}
     public synchronized void open(String host,String app,String code,String severity) {

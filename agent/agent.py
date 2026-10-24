@@ -628,6 +628,9 @@ class Agent:
             self.progress(10, "AGENT_ACCEPTED")
             if action == "probe":
                 data = self.snapshot()
+            elif isinstance(action, str) and action.startswith("stack_"):
+                from stack_ops import StackOperations
+                data = StackOperations(self).execute(action, payload)
             elif action == "images":
                 data = {"images": [json.loads(line) for line in self.run(["image", "ls", "--digests", "--format", "{{json .}}"]).splitlines()][:100]}
             elif action == "pull":
@@ -676,6 +679,11 @@ def main():
         data = sys.stdin.buffer.read(65537)
         check(len(data) <= 65536, "REQUEST_TOO_LARGE")
         request = json.loads(data)
+        selected = request.get("environment")
+        if selected != config.get("environment"):
+            profiles = config.get("profiles", {})
+            check(selected in profiles, "ENVIRONMENT_NOT_APPROVED")
+            config = {**config, **profiles[selected], "environment": selected}
         agent = Agent(config)
         import signal
         def deadline(signum, frame):
@@ -692,4 +700,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.modules.setdefault("agent", sys.modules[__name__])
     main()

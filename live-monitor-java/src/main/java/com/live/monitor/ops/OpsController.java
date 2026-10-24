@@ -14,6 +14,7 @@ public class OpsController {
     private final OpsRepository repo;private final OpsAuthorization auth;private final HostManagementService hosts;
     private final ImageRegistryService registries;private final DeploymentPolicy policy;private final OpsTaskService tasks;
     private final ContainerManagementService containers;
+    static { ACTIONS.addAll(StackManagementService.ACTIONS); }
     public OpsController(OpsRepository repo,OpsAuthorization auth,HostManagementService hosts,ImageRegistryService registries,DeploymentPolicy policy,OpsTaskService tasks,ContainerManagementService containers){this.repo=repo;this.auth=auth;this.hosts=hosts;this.registries=registries;this.policy=policy;this.tasks=tasks;this.containers=containers;}
     private Map<String,Object> ok(Object data){return map("data",data,"success",true);}
     @GetMapping("/capabilities")
@@ -23,8 +24,8 @@ public class OpsController {
         for(Map<String,Object> h:repo.list("host"))scopes.put(text(h,"id"),ACTIONS.stream().filter(a->auth.allowed(actor,text(h,"id"),text(h,"environment"),a)).collect(Collectors.toList()));
         return ok(map("administrator","admin".equalsIgnoreCase(actor),"ops_only",auth.operationsOnly(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
             "data_kinds",Arrays.asList("stateless","volume","postgres"),"roles",map(
-                "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack"),
-                "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback"),"recovery",Arrays.asList("read","backup","restore_test","restore"))));
+                "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image","stack_probe"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack","stack_probe","stack_start","stack_stop","stack_service_start","stack_service_stop","stack_service_restart"),
+                "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup"))));
     }
     @GetMapping("/templates/application")
     public Map<String,Object> applicationTemplate(HttpServletRequest request){auth.actor(request,false);return ok(map("id","","name","","host_id","","environment","","image","",
@@ -34,7 +35,7 @@ public class OpsController {
     private boolean visible(String actor,Map<String,Object> row){return auth.allowed(actor,text(row,"host_id").isEmpty()?text(row,"id"):text(row,"host_id"),text(row,"environment"),"read");}
     @GetMapping("/resources/{kind}")
     public Map<String,Object> list(@PathVariable String kind,HttpServletRequest request){
-        String actor=auth.actor(request,false);require(Arrays.asList("host","registry","application","snapshot","version","backup","alert","alert_rule","grant").contains(kind),"Unknown resource kind");
+        String actor=auth.actor(request,false);require(Arrays.asList("host","registry","application","snapshot","version","backup","alert","alert_rule","grant","stack","stack_version","stack_snapshot").contains(kind),"Unknown resource kind");
         if("grant".equals(kind))auth.admin(actor);
         List<Map<String,Object>> items=repo.list(kind);
         if("snapshot".equals(kind)){
@@ -76,6 +77,16 @@ public class OpsController {
             List<String> actions=Arrays.asList(text(input,"actions").split(","));require(!actions.isEmpty()&&ACTIONS.containsAll(actions),"Unsupported grant actions");
             result=repo.save("grant",map("id",text(input,"id"),"user_id",text(input,"user_id"),"host_id",host,"environment",env,
                 "actions",String.join(",",actions),"role",text(input,"role"),"ops_only",operationsOnly,"enabled",!Boolean.FALSE.equals(input.get("enabled")),"revision",input.getOrDefault("revision",0)));
+        }else if("stack".equals(kind)){
+            StackManagementService.validate(input);Map<String,Object> host=repo.get("host",text(input,"host_id"));
+            auth.check(actor,text(host,"id"),text(host,"environment"),"stack_deploy");
+            require(text(host,"environment").equals(text(input,"environment")),"Stack environment must match host");
+            Map<String,Object> value=map("id",text(input,"id"),"name",text(input,"name"),"host_id",text(host,"id"),"environment",text(host,"environment"),"package_ref",text(input,"package_ref"),"package_sha256",text(input,"package_sha256"),"desired_state","STOPPED","revision",input.getOrDefault("revision",0));
+            for(Map<String,Object> old:repo.list("stack"))if(text(old,"id").equals(text(input,"id"))){
+                require(text(old,"host_id").equals(text(host,"id"))&&text(old,"environment").equals(text(host,"environment")),"Create a separate stack to change host/environment");
+                value.put("desired_state",old.get("desired_state"));if(old.containsKey("active_version"))value.put("active_version",old.get("active_version"));
+            }
+            result=repo.save(kind,value);
         }else if("application".equals(kind)){
             Map<String,Object> host=repo.get("host",text(input,"host_id"));String env=text(host,"environment");
             auth.check(actor,text(host,"id"),env,"deploy");require(env.equals(text(input,"environment")),"Application environment must match host");
@@ -95,9 +106,9 @@ public class OpsController {
         String actor=auth.actor(request,true),action=text(input,"action"),id=text(input,"resource_id");
         require(ACTIONS.contains(action)&&!Arrays.asList("read","ack").contains(action),"Unknown operation");
         boolean hostAction=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action);
-        Map<String,Object> resource=repo.get(hostAction?"host":"application",id);String host=hostAction?id:text(resource,"host_id"),env=text(resource,"environment");
+        Map<String,Object> resource=repo.get(hostAction?"host":StackManagementService.ACTIONS.contains(action)?"stack":"application",id);String host=hostAction?id:text(resource,"host_id"),env=text(resource,"environment");
         auth.check(actor,host,env,action);
-        if(!Arrays.asList("probe","images","logs","validate","registry_catalog","resolve_image").contains(action))auth.confirm(input,action,id,env);
+        if(!Arrays.asList("probe","images","logs","validate","registry_catalog","resolve_image","stack_plan","stack_probe").contains(action))auth.confirm(input,action,id,env);
         Map<String,Object> body=object(input,"parameters");
         if(Arrays.asList("registry_catalog","resolve_image").contains(action)){
             Map<String,Object> registry=repo.get("registry",text(body,"registry_id"));

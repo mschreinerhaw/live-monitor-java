@@ -5,7 +5,7 @@ import { opsSections } from './sections'
 import { parsePairs, formatPairs, isTerminal, operationKey } from './model'
 import { createLogFollower } from './liveLogs'
 export function useOpsPlatform(route) {
-  const state = reactive({ host: [], registry: [], application: [], snapshot: [], backup: [], version: [], alert: [], alert_rule: [], grant: [] })
+  const state = reactive({ host: [], registry: [], application: [], snapshot: [], version: [], backup: [], alert: [], alert_rule: [], grant: [], stack: [], stack_version: [], stack_snapshot: [] })
   const capabilities = ref({ host_actions: {}, roles: {} }), tasks = ref([]), audit = ref([]), monitorHosts = ref([])
   const loading = ref(false), busy = ref(false), error = ref(''), activeTask = ref(null), imageResults = ref([]), registryResults = ref(null)
   const liveLogs = ref(''), liveLogApp = ref(null), liveLogTime = ref(null)
@@ -19,8 +19,9 @@ export function useOpsPlatform(route) {
   const section = computed(() => route.params.section || 'overview')
   const title = computed(() => opsSections.find(s => s.key === section.value)?.label || '容器运维')
   const containers = computed(() => state.snapshot.flatMap(s => (s.data?.containers || []).map(c => ({ ...c, host_id: s.host_id, environment: s.environment, observed_at: s.observed_at }))))
-  const overview = computed(() => ({ hosts: state.host.length, running: containers.value.filter(c => c.status === 'running').length,
-    abnormal: containers.value.filter(c => !c.healthy && !c.manual_stop).length, versions: state.version.length,
+  const stackContainers = computed(() => state.stack_snapshot.flatMap(s => s.data?.services || []))
+  const overview = computed(() => ({ hosts: state.host.length, running: [...containers.value, ...stackContainers.value].filter(c => c.status === 'running').length,
+    abnormal: [...containers.value, ...stackContainers.value].filter(c => !c.healthy && !c.manual_stop).length, versions: state.version.length + state.stack_version.length,
     alerts: state.alert.filter(a => a.status === 'OPEN').length }))
   const permitted = (host, action) => (capabilities.value.host_actions?.[host] || []).includes(action)
   const time = value => value ? new Date(Number(value)).toLocaleString() : '—'
@@ -81,7 +82,7 @@ export function useOpsPlatform(route) {
   async function operate(action, resource, parameters = {}) { return guarded(async () => {
     if (!resource) throw new Error('应用或服务器配置不可用，请刷新后确认其纳管状态')
     const request = { action, resource_id: resource.id, parameters, idempotency_key: operationKey() }
-    if (!['probe', 'images', 'logs', 'validate', 'registry_catalog', 'resolve_image'].includes(action)) {
+    if (!['probe', 'images', 'logs', 'validate', 'registry_catalog', 'resolve_image', 'stack_plan', 'stack_probe'].includes(action)) {
       const expected = `${action}:${resource.id}:${resource.environment}`
       const value = window.prompt(`确认 ${action}：${resource.name || resource.id}（${resource.environment}）\n请输入 ${expected}`)
       if (value === null) return
