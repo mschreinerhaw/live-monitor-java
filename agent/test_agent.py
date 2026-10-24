@@ -5,6 +5,8 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+import hashlib
+import urllib.error
 from unittest.mock import patch
 import agent
 
@@ -148,6 +150,33 @@ class AgentTests(unittest.TestCase):
         self.assertEqual("REGISTRY_AUTH_FAILED", agent.docker_error_code("unauthorized password=do-not-log"))
         self.assertEqual("PORT_CONFLICT", agent.docker_error_code("address already in use"))
         self.assertEqual("HOST_DISK_FULL", agent.docker_error_code("no space left on device"))
+    def test_registry_manifest_resolution_verifies_content_digest(self):
+        body = b'{"schemaVersion":2}'
+        digest = "sha256:" + hashlib.sha256(body).hexdigest()
+        class Response(io.BytesIO):
+            headers = {"Docker-Content-Digest": digest}
+        with patch.object(agent.urllib.request, "build_opener") as build:
+            build.return_value.open.return_value = Response(body)
+            result = self.a.registry_query("resolve_image", {"registry": "docker.io", "repository": "library/example", "tag": "version"})
+            self.assertEqual("docker.io/library/example@" + digest, result["image"])
+
+    def test_registry_cannot_redirect_credentials_to_another_auth_host(self):
+        with patch.object(agent.urllib.request, "build_opener") as build:
+            build.return_value.open.side_effect = urllib.error.HTTPError("https://registry", 401, "Unauthorized", {"WWW-Authenticate": 'Bearer realm="https://evil.test/token",service="test"'}, None)
+            with self.assertRaisesRegex(agent.AgentError, "AUTH_HOST_NOT_ALLOWED"):
+                self.a.registry_query("registry_catalog", {"registry": "docker.io", "repository": "library/example"})
+            self.assertEqual(1, build.return_value.open.call_count)
+
+    def test_failed_restore_stops_verification_container_without_removing_data(self):
+        stopped = []
+        def restore(action, payload):
+            self.a.validation_containers.append("isolated-verifier")
+            raise agent.AgentError("RESTORE_CONTENT_MISMATCH")
+        self.a.restore = restore
+        self.a.run = lambda args, **kw: stopped.append(args)
+        with self.assertRaisesRegex(agent.AgentError, "RESTORE_CONTENT_MISMATCH"):
+            self.a.execute({"protocol": 1, "environment": "test", "task_id": "restore-failed", "action": "restore_test", "payload": {}})
+        self.assertEqual([["stop", "isolated-verifier"]], stopped)
 
 
 if __name__ == "__main__":

@@ -74,7 +74,7 @@ try {
   const registrySaved = page.waitForResponse(r => r.url().endsWith('/api/ops/resources/registry') && r.request().method() === 'POST')
   await page.getByRole('button', { name: '保存仓库', exact: true }).click(); assert((await registrySaved).ok()); checks.registryConfigurationThroughUi = true
   const template = await api('/api/ops/templates/application')
-  const spec = { ...template, id: appId, name: '隔离 HTTP 验收应用', host_id: hostId, environment: 'acceptance', image, memory_mb: 64, cpus: 0.5,
+  const spec = { ...template, id: appId, name: '隔离 HTTP 验收应用 ' + suffix, host_id: hostId, environment: 'acceptance', image, memory_mb: 64, cpus: 0.5,
     command: ['python', '-m', 'http.server', '8080'], health: { command: ['python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/')"], interval_seconds: 1, timeout_seconds: 1 },
     restart_policy: 'no', health_deadline_seconds: 20 }
   await api('/api/ops/resources/application', spec)

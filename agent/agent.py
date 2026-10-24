@@ -94,6 +94,7 @@ class Agent:
         self.backups.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.redactions = []
         self.current_task = ""
+        self.validation_containers = []
 
     def progress(self, value, message):
         print(json.dumps({"progress": value, "message": message}), flush=True)
@@ -580,6 +581,7 @@ class Agent:
                 if action == "restore_test":
                     container = target
                     self.run(["run", "-d", "--name", container, "--network", "none", "--user", "postgres", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--label", "live-monitor.restore-test=true", "--env", "POSTGRES_HOST_AUTH_METHOD=trust", spec["image"]])
+                    self.validation_containers.append(container)
                     deadline = time.monotonic() + 60
                     while True:
                         try:
@@ -598,6 +600,7 @@ class Agent:
                 self.run(["exec", "--user", "postgres", container, "psql", "-U", user, "-d", target, "-v", "ON_ERROR_STOP=1", "-c", "SELECT count(*) FROM pg_catalog.pg_class"])
                 if action == "restore_test":
                     self.run(["stop", container])
+                    self.validation_containers.remove(container)
                 result["targets"].append({"database": target, "container": container, "verified": True})
         if action == "restore_test":
             manifest["restore_tested"] = True
@@ -650,6 +653,11 @@ class Agent:
             return result
         except Exception as error:
             code = str(error) if isinstance(error, AgentError) else "AGENT_EXECUTION_FAILED"
+            for container in self.validation_containers:
+                try:
+                    self.run(["stop", container], timeout=30)
+                except AgentError:
+                    pass
             atomic_json(path, {"status": "FAILED", "request_hash": fingerprint, "code": code, "finished_at": int(time.time() * 1000)})
             raise AgentError(code)
 
