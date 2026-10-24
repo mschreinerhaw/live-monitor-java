@@ -188,6 +188,18 @@ class AgentTests(unittest.TestCase):
         with self.assertRaisesRegex(agent.AgentError, "RESTORE_CONTENT_MISMATCH"):
             self.a.execute({"protocol": 1, "environment": "test", "task_id": "restore-failed", "action": "restore_test", "payload": {}})
         self.assertEqual([["stop", "isolated-verifier"]], stopped)
+    def test_exit_recovery_does_not_report_stale_healthy_check_as_its_cause(self):
+        self.spec["restart_policy"] = "no"
+        self.a.save_state("app", {"spec": self.spec, "manual_stop": False, "failure_since": 1})
+        self.a.inspect = lambda name: {"Config": {"Labels": {"live-monitor.app": "app"}}, "State": {"Running": False, "Status": "exited", "ExitCode": 137, "Health": {"Status": "healthy"}}, "HostConfig": {"RestartPolicy": {"Name": "no"}}}
+        self.a.run = lambda args: ""
+        self.assertEqual("exited", self.a.operate("recover", {"app_id": "app", "spec": self.spec})["reason"])
+    def test_explicit_start_resets_fault_debounce_window(self):
+        self.a.save_state("app", {"spec": self.spec, "manual_stop": True, "failure_since": 1})
+        self.a.inspect = lambda name: {"Config": {"Labels": {"live-monitor.app": "app"}}, "State": {"Status": "running"}}
+        self.a.run = lambda args: ""
+        self.a.operate("start", {"app_id": "app"})
+        self.assertEqual(0, self.a.state("app")["failure_since"])
 
 
 if __name__ == "__main__":

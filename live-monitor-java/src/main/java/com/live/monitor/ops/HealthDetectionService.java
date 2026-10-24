@@ -23,6 +23,10 @@ public class HealthDetectionService {
                 String appId=text(state,"app_id");Map<String,Object> app;
                 try{app=repo.get("application",appId);}catch(Exception missing){continue;}
                 if(!id.equals(text(app,"host_id")))continue;
+                Long changed=repo.jdbc().queryForObject("SELECT COALESCE(MAX(updated_at),0) FROM ops_task WHERE host_id=? AND resource_id=? AND action IN ('deploy','rollback','start','stop','restart','recover','circuit_break') AND status IN ('SUCCEEDED','FAILED','INTERRUPTED')",Long.class,id,appId);
+                // A completed runtime mutation invalidates every earlier sample, even after a failed request.
+                // Wait for the probe already queued above instead of issuing recovery from stale evidence.
+                if(changed!=null&&changed>=((Number)snapshot.get("observed_at")).longValue())continue;
                 if(!text(app,"active_version").isEmpty()){
                     Map<String,Object> version=repo.get("version",text(app,"active_version"));
                     if(((Number)snapshot.get("observed_at")).longValue()<((Number)version.get("created_at")).longValue())continue;

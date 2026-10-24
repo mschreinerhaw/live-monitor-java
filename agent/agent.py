@@ -478,7 +478,8 @@ class Agent:
             state["next_recovery_at"] = now + min(3600000, 30000 * 2 ** (state["recovery_attempts"] - 1))
             self.save_state(app, state)
             self.run(["container", "restart", "--time", "30", name])
-            return {"attempt": state["recovery_attempts"], "reason": health or "exited", "command": ["docker", "container", "restart", name], "started_at": now, "finished_at": int(time.time() * 1000)}
+            reason = "unhealthy" if data["State"].get("Running") and health == "unhealthy" else "exited"
+            return {"attempt": state["recovery_attempts"], "reason": reason, "command": ["docker", "container", "restart", name], "started_at": now, "finished_at": int(time.time() * 1000)}
         if action == "circuit_break":
             spec = state.get("spec", {}); self.validate(spec)
             check(not state.get("manual_stop") and data.get("RestartCount", 0) >= int(spec.get("restart_limit", 3)), "NATIVE_LIMIT_NOT_REACHED")
@@ -488,7 +489,7 @@ class Agent:
             return {"circuit_open": True, "native_restarts": data.get("RestartCount", 0)}
         if action in ("start", "restart"):
             self.run(["container", action, name])
-            state.update({"manual_stop": False, "recovery_attempts": 0, "next_recovery_at": 0, "circuit_open": False})
+            state.update({"manual_stop": False, "recovery_attempts": 0, "next_recovery_at": 0, "failure_since": 0, "circuit_open": False})
             spec = state.get("spec", {})
             restart = spec.get("restart_policy", "no")
             if restart == "on-failure":

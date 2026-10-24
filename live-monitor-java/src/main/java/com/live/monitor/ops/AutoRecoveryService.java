@@ -14,9 +14,10 @@ public class AutoRecoveryService {
         if(now-failureSince<number(app,"failure_window_seconds",30)*1000L)return "DEBOUNCE";
         if(flag(state,"resource_abnormal"))return "RESOURCE_ALERT";
         if(flag(state,"circuit_open"))return "CIRCUIT_OPEN";
+        long next=((Number)state.getOrDefault("next_recovery_at",0)).longValue();if(now<next)return "BACKOFF";
+        if("running".equals(text(state,"status"))&&"starting".equals(text(state,"health")))return "DEBOUNCE";
         if(number(state,"recovery_attempts",0)>=number(app,"restart_limit",3))return "CIRCUIT_OPEN";
         if(number(state,"native_restarts",0)>=number(app,"restart_limit",3))return "NATIVE_LIMIT";
-        long next=((Number)state.getOrDefault("next_recovery_at",0)).longValue();if(now<next)return "BACKOFF";
         if("unhealthy".equals(text(state,"health")))return flag(app,"recover_unhealthy")?"RECOVER":"ALERT_ONLY";
         if("exited".equals(text(state,"status"))&&number(state,"exit_code",0)!=0)
             return "no".equals(text(app,"restart_policy"))?"RECOVER":"DOCKER_OWNS_RESTART";

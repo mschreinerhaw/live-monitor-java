@@ -93,6 +93,17 @@ class ContainerOpsTest {
         assertEquals(1,rows(parse(text(tasks.publicTask(repo.task(id)),"result_json")),"containers").size());
         assertEquals(2,rows(parse(text(repo.task(id),"result_json")),"containers").size());
     }
+    @Test void aCompletedRecoveryInvalidatesOlderSnapshotsBeforeAnotherDecision(){
+        Map<String,Object>a=app();a.put("restart_policy","no");repo.save("application",a);
+        repo.save("snapshot",map("id","host-a","host_id","host-a","observed_at",System.currentTimeMillis()-1000,"data",map("containers",Arrays.asList(map("app_id","app-a","failure_since",1,"status","exited","exit_code",137)))));
+        String previous=text(tasks.submitSystem("recover",a,map(),"last-recovery"),"id");repo.jdbc().update("UPDATE ops_task SET status='SUCCEEDED',updated_at=? WHERE id=?",System.currentTimeMillis(),previous);
+        HealthDetectionService health=new HealthDetectionService(repo,tasks,new AutoRecoveryService(),new AlertEventService(repo));
+        org.springframework.test.util.ReflectionTestUtils.setField(health,"started",System.currentTimeMillis()-61000);health.tick();
+        assertEquals(1,repo.jdbc().queryForObject("SELECT COUNT(*) FROM ops_task WHERE action='recover'",Integer.class));
+        assertEquals(1,repo.jdbc().queryForObject("SELECT COUNT(*) FROM ops_task WHERE host_id='host-a' AND action='probe' AND status='QUEUED'",Integer.class));
+    }
+    @Test void stabilizationBackoffPrecedesCircuitEscalationAfterRestart(){AutoRecoveryService p=new AutoRecoveryService();assertEquals("BACKOFF",p.decision(app(),map("failure_since",1,"recovery_attempts",3,"next_recovery_at",200000,"health","starting"),false,100000));}
+    @Test void dockerHealthStartupIsNotACompletedRecoveryFailure(){AutoRecoveryService p=new AutoRecoveryService();assertEquals("DEBOUNCE",p.decision(app(),map("failure_since",1,"status","running","health","starting","recovery_attempts",3),false,100000));}
     void await(String id) throws Exception {long until=System.currentTimeMillis()+5000;while(System.currentTimeMillis()<until&&!Arrays.asList("SUCCEEDED","FAILED").contains(text(repo.task(id),"status")))Thread.sleep(20);assertTrue(Arrays.asList("SUCCEEDED","FAILED").contains(text(repo.task(id),"status")));}
     MockHttpServletRequest request(String id){MockHttpServletRequest r=new MockHttpServletRequest();TUser u=new TUser();u.userId=id;r.getSession().setAttribute(AuthController.SESSION_USER,u);return r;}
 }
