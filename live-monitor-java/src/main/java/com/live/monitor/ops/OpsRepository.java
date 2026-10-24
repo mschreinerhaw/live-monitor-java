@@ -40,7 +40,7 @@ public class OpsRepository {
     }
     public synchronized Map<String,Object> save(String kind,Map<String,Object> doc) {
         String id=identifier(text(doc,"id"));long revision=((Number)doc.getOrDefault("revision",0)).longValue();
-        String encoded=json(doc);require(encoded.length()<48000,"Resource document exceeds limit");
+        String encoded=json(doc);require(utf8Length(encoded)<48000,"Resource document exceeds UTF-8 byte limit");
         if(revision==0) {
             try { jdbc.update("INSERT INTO ops_resource(id,kind,document,revision,updated_at) VALUES(?,?,?,1,?)",id,kind,encoded,System.currentTimeMillis()); }
             catch(DuplicateKeyException e) { throw new ResponseStatusException(HttpStatus.CONFLICT,"Resource already exists"); }

@@ -35,7 +35,7 @@ public class OpsTaskService {
         String resourceId=text(resource,"id"),hostId=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action)?resourceId:text(resource,"host_id");
         String env=text(resource,"environment");
         Map<String,Object> request=map("resource",resource,"input",input,"internal",internal);String encoded=json(request);
-        require(encoded.length()<48000,"Task request exceeds limit");
+        require(utf8Length(encoded)<48000,"Task request exceeds UTF-8 byte limit");
         Map<String,Object> fingerprint=new LinkedHashMap<>(resource);
         for(String field:Arrays.asList("revision","desired_state","active_version","active_image"))fingerprint.remove(field);
         String hash=hash(json(map("action",action,"resource",fingerprint,"input",input)));
@@ -101,7 +101,7 @@ public class OpsTaskService {
                     "environment",text(currentHost,"environment"),"observed_at",System.currentTimeMillis(),"data",result)));
                 if("probe".equals(action))alerts.recovered(host);
             } else throw new IllegalArgumentException("Unknown operation");
-            String encoded=json(result);require(encoded.length()<48000,"Task output exceeds persistence limit");
+            String encoded=json(result);require(utf8Length(encoded)<48000,"Task output exceeds persistence UTF-8 byte limit");
             repo.transaction().execute(status->{
                 repo.jdbc().update("UPDATE ops_task SET status='SUCCEEDED',progress=100,message='COMPLETED',result_json=?,updated_at=? WHERE id=?",encoded,System.currentTimeMillis(),id);
                 repo.audit(text(task,"actor"),action,text(task,"resource_id"),id,"SUCCEEDED");

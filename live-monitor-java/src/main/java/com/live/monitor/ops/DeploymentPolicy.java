@@ -43,6 +43,6 @@ public class DeploymentPolicy {
             if("volume".equals(text(m,"type")))identifier(text(m,"source"));
             else require(flag(m,"read_only"),"Bind mounts must be read-only configuration mounts");
         }
-        require(json(app).length()<32000,"Deployment specification too large");
+        require(utf8Length(json(app))<32000,"Deployment specification exceeds UTF-8 byte limit");
     }
 }

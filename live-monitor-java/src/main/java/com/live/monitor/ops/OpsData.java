@@ -31,6 +31,7 @@ public final class OpsData {
     public static String json(Object value) {
         try { return JSON.writeValueAsString(value); } catch(Exception e) { throw new IllegalArgumentException("Invalid JSON"); }
     }
+    public static int utf8Length(String value){return value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;}
     public static Map<String,Object> parse(String value) {
         try { return JSON.readValue(value,new TypeReference<Map<String,Object>>(){}); }
         catch(Exception e) { throw new IllegalArgumentException("Invalid JSON object"); }
