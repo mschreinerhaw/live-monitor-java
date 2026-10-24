@@ -74,6 +74,17 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("private-password", json.dumps(self.spec))
         self.assertIn("private-password", self.a.redactions)
         path.unlink()
+        self.a.pull = lambda *args: {"image": self.spec["image"]}
+        self.a.exists = lambda name: False
+        commands = []
+        self.a.run = lambda args, **kwargs: commands.append(args) or ""
+        def failed_health(*args):
+            raise agent.AgentError("HEALTH_CHECK_FAILED")
+        self.a.wait_healthy = failed_health
+        with self.assertRaisesRegex(agent.AgentError, "HEALTH_CHECK_FAILED"):
+            self.a.deploy({"spec": self.spec})
+        self.assertFalse(path.exists(), "Failed deployment must remove its temporary secret environment file")
+        self.assertNotIn("private-password", json.dumps(commands))
 
     def test_container_argv_is_not_host_shell(self):
         self.spec["command"] = ["echo", "$(touch /host-owned)"]

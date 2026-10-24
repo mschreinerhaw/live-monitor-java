@@ -4,7 +4,8 @@ import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { chromium } from '../live-monitor-java/frontend/node_modules/playwright-core/index.mjs'
 
-const name = 'live-monitor-platform-acceptance', base = 'http://127.0.0.1:18081'
+const name = process.env.LIVE_MONITOR_TEST_PLATFORM_CONTAINER || 'live-monitor-platform-acceptance', base = process.env.LIVE_MONITOR_TEST_PLATFORM_URL || 'http://127.0.0.1:18081'
+assert.equal(new URL(base).hostname,'127.0.0.1')
 const inspect = JSON.parse(execFileSync('docker', ['inspect', name], { encoding: 'utf8' }))[0]
 assert.equal(inspect.Config.Labels['live-monitor.acceptance'], 'true')
 assert.equal(inspect.Config.User, '10001:10001')

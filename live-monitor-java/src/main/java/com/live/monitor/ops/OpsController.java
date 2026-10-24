@@ -13,7 +13,8 @@ public class OpsController {
     static final Set<String> ACTIONS=new LinkedHashSet<>(Arrays.asList("read","logs","probe","images","registry_catalog","resolve_image","pull","validate","deploy","rollback","start","stop","restart","backup","restore_test","restore","cleanup","ack","maintenance_on","maintenance_off"));
     private final OpsRepository repo;private final OpsAuthorization auth;private final HostManagementService hosts;
     private final ImageRegistryService registries;private final DeploymentPolicy policy;private final OpsTaskService tasks;
-    public OpsController(OpsRepository repo,OpsAuthorization auth,HostManagementService hosts,ImageRegistryService registries,DeploymentPolicy policy,OpsTaskService tasks){this.repo=repo;this.auth=auth;this.hosts=hosts;this.registries=registries;this.policy=policy;this.tasks=tasks;}
+    private final ContainerManagementService containers;
+    public OpsController(OpsRepository repo,OpsAuthorization auth,HostManagementService hosts,ImageRegistryService registries,DeploymentPolicy policy,OpsTaskService tasks,ContainerManagementService containers){this.repo=repo;this.auth=auth;this.hosts=hosts;this.registries=registries;this.policy=policy;this.tasks=tasks;this.containers=containers;}
     private Map<String,Object> ok(Object data){return map("data",data,"success",true);}
     @GetMapping("/capabilities")
     public Map<String,Object> capabilities(HttpServletRequest request){
@@ -36,6 +37,12 @@ public class OpsController {
         String actor=auth.actor(request,false);require(Arrays.asList("host","registry","application","snapshot","version","backup","alert","alert_rule","grant").contains(kind),"Unknown resource kind");
         if("grant".equals(kind))auth.admin(actor);
         List<Map<String,Object>> items=repo.list(kind);
+        if("snapshot".equals(kind)){
+            // Also scope historical snapshots without rewriting their archived source documents.
+            for(Map<String,Object> snapshot:items){
+                snapshot.put("data",containers.scopedSnapshot(text(snapshot,"host_id"),object(snapshot,"data")));
+            }
+        }
         if("registry".equals(kind)){if(!"admin".equalsIgnoreCase(actor)&&repo.list("host").stream().noneMatch(h->visible(actor,h)))items=Collections.emptyList();}
         else if(!"grant".equals(kind))items=items.stream().filter(v->visible(actor,v)).collect(Collectors.toList());
         return ok(items);

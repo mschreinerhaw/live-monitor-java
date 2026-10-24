@@ -96,6 +96,7 @@ public class OpsTaskService {
                 result=agent.call(currentHost,action,map("app_id",text(current,"id"),"spec",current),id);
             } else if(Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action)) {
                 result=agent.call(currentHost,action,input,id);
+                if("probe".equals(action))result=containers.scopedSnapshot(host,result);
                 if(action.startsWith("maintenance_")){currentHost.put("maintenance","maintenance_on".equals(action));repo.save("host",currentHost);}
                 if("probe".equals(action))repo.save("snapshot",mergeRevision("snapshot",map("id",host,"host_id",host,
                     "environment",text(currentHost,"environment"),"observed_at",System.currentTimeMillis(),"data",result)));
@@ -124,6 +125,8 @@ public class OpsTaskService {
         for(Map<String,Object> old:repo.list(kind))if(text(old,"id").equals(text(value,"id")))value.put("revision",old.get("revision"));return value;
     }
     public Map<String,Object> publicTask(Map<String,Object> task){Map<String,Object> value=new LinkedHashMap<>(task);value.remove("request_json");value.remove("request_hash");
+        if("probe".equals(text(task,"action"))&&!text(task,"result_json").isEmpty()&&!"{}".equals(text(task,"result_json")))
+            value.put("result_json",json(containers.scopedSnapshot(text(task,"host_id"),parse(text(task,"result_json")))));
         value.put("events",repo.jdbc().queryForList("SELECT progress,message,created_at FROM ops_task_event WHERE task_id=? ORDER BY created_at LIMIT 100",text(task,"id")));return value;}
     public SseEmitter stream(String id,String actor){
         if(subscribers.size()>=100)throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Too many event streams");

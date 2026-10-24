@@ -46,4 +46,11 @@ class OpsApplicationIntegrationTest {
         mvc.perform(post("/api/ops/resources/registry").session(admin()).header("X-Ops-Request","1").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
         mvc.perform(get("/api/ops/audit").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
     }
+    @Test void historicalSnapshotsAreScopedWithoutOverwritingArchivedData()throws Exception{
+        repo.save("host",OpsData.map("id","snapshot-host","environment","test"));
+        repo.save("application",OpsData.map("id","owned-app","host_id","snapshot-host","environment","test"));
+        repo.save("snapshot",OpsData.map("id","snapshot-host","host_id","snapshot-host","environment","test","data",OpsData.map("containers",java.util.Arrays.asList(OpsData.map("app_id","owned-app"),OpsData.map("app_id","other-host-app")))));
+        mvc.perform(get("/api/ops/resources/snapshot").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].data.containers.length()").value(1));
+        assertEquals(2,OpsData.rows(OpsData.object(repo.get("snapshot","snapshot-host"),"data"),"containers").size());
+    }
 }

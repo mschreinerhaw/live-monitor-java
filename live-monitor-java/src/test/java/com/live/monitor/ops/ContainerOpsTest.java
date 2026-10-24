@@ -80,6 +80,19 @@ class ContainerOpsTest {
     @Test void mutedRuleDoesNotDeleteExistingEventsOrAffectAnotherHost(){repo.save("alert_rule",map("id","muted","host_id","host-a","app_id","","code","*","severity","WARNING","enabled",false));AlertEventService events=new AlertEventService(repo);events.open("host-a","app-a","TASK_FAILED","ERROR");assertTrue(repo.list("alert").isEmpty());events.open("host-b","app-b","TASK_FAILED","ERROR");assertEquals(1,repo.list("alert").size());}
     @Test void multibyteDocumentsCannotOverflowMysqlTextStorage(){Map<String,Object> doc=map("id","oversize","name",String.join("",Collections.nCopies(20000,"中")));assertThrows(ResponseStatusException.class,()->repo.save("host",doc));}
     @Test void deploymentByteLimitIncludesUnicodeEnvironmentValues(){Map<String,Object>a=app();a.put("environment_variables",map("DESCRIPTION",String.join("",Collections.nCopies(16000,"中"))));assertThrows(ResponseStatusException.class,()->policy.validate(a));}
+    @Test void probeResultsCannotMixApplicationsAssignedToOtherLogicalHosts()throws Exception{
+        repo.save("application",app());Map<String,Object> other=app();other.put("id","app-b");other.put("host_id","host-b");repo.save("application",other);
+        when(agent.call(anyMap(),eq("probe"),anyMap(),anyString())).thenReturn(map("containers",Arrays.asList(map("app_id","app-a"),map("app_id","app-b"))));
+        String id=text(tasks.submit("admin","probe",repo.get("host","host-a"),map(),"scoped-probe"),"id");tasks.dispatch();await(id);
+        List<Map<String,Object>> containers=rows(object(repo.get("snapshot","host-a"),"data"),"containers");assertEquals(1,containers.size());assertEquals("app-a",containers.get(0).get("app_id"));
+        assertEquals(1,rows(parse(text(repo.task(id),"result_json")),"containers").size());
+    }
+    @Test void historicalTaskResultsAreScopedWithoutMutatingTheirOriginalReceipt(){
+        repo.save("application",app());String id=text(tasks.submit("admin","probe",repo.get("host","host-a"),map(),"history-probe"),"id");
+        repo.jdbc().update("UPDATE ops_task SET status='SUCCEEDED',result_json=? WHERE id=?",json(map("containers",Arrays.asList(map("app_id","app-a"),map("app_id","another-host-app")))),id);
+        assertEquals(1,rows(parse(text(tasks.publicTask(repo.task(id)),"result_json")),"containers").size());
+        assertEquals(2,rows(parse(text(repo.task(id),"result_json")),"containers").size());
+    }
     void await(String id) throws Exception {long until=System.currentTimeMillis()+5000;while(System.currentTimeMillis()<until&&!Arrays.asList("SUCCEEDED","FAILED").contains(text(repo.task(id),"status")))Thread.sleep(20);assertTrue(Arrays.asList("SUCCEEDED","FAILED").contains(text(repo.task(id),"status")));}
     MockHttpServletRequest request(String id){MockHttpServletRequest r=new MockHttpServletRequest();TUser u=new TUser();u.userId=id;r.getSession().setAttribute(AuthController.SESSION_USER,u);return r;}
 }
