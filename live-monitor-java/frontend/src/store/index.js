@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { api } from '../api'
+import { opsApi } from '../api/ops'
 
 export const store = reactive({
   user: null,
@@ -38,9 +39,14 @@ export const store = reactive({
 
   async fetchNotifications() {
     try {
-      const alerts = await api.allAlerts(20)
-      this.notifications.list = alerts || []
-      this.notifications.unreadCount = (alerts || []).filter(a => !a.seen).length
+      const results = await Promise.allSettled([api.allAlerts(20), this.user?.embed ? Promise.resolve([]) : opsApi.list('alert')])
+      const original = results[0].status === 'fulfilled' ? results[0].value || [] : []
+      const operations = results[1].status === 'fulfilled' ? results[1].value || [] : []
+      const merged = [...original, ...operations.map(a => ({ ...a, ops_event: true, service_name: a.app_id || a.host_id,
+        message: `${a.code} · ${a.status}`, created_at: new Date(a.created_at).toISOString(), seen: !!a.acknowledged_by || a.status === 'RECOVERED' }))]
+        .sort((a, b) => new Date(b.created_at || b.checked_at).getTime() - new Date(a.created_at || a.checked_at).getTime()).slice(0, 20)
+      this.notifications.list = merged
+      this.notifications.unreadCount = merged.filter(a => !a.seen).length
     } catch (_) {}
   }
 })

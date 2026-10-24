@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS ops_task_event (
+  id VARCHAR(64) PRIMARY KEY, task_id VARCHAR(64) NOT NULL,
+  progress INT NOT NULL, message VARCHAR(128) NOT NULL, created_at BIGINT NOT NULL
+);

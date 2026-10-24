@@ -1,0 +1,49 @@
+package com.live.monitor.ops;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.live.monitor.controller.AuthController;
+import com.live.monitor.entity.TUser;
+import java.nio.file.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:ops-app;MODE=LEGACY;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+    "live-monitor.secret-key=isolated-integration-test-key","live-monitor.ops.startup-grace-ms=600000"})
+@AutoConfigureMockMvc
+class OpsApplicationIntegrationTest {
+    static final Path ROOT=temp();
+    static Path temp(){try{return Files.createTempDirectory("live-monitor-ops-test-");}catch(Exception e){throw new IllegalStateException(e);}}
+    @DynamicPropertySource static void paths(DynamicPropertyRegistry r){
+        r.add("live-monitor.rocksdb-path",()->ROOT.resolve("rocksdb").toString());
+        r.add("live-monitor.sqlite-path",()->ROOT.resolve("absent.db").toString());
+        r.add("live-monitor.h2-legacy-path",()->ROOT.resolve("absent-h2").toString());
+    }
+    @Autowired MockMvc mvc;
+    @Autowired OpsRepository repo;
+    @Autowired OpsTaskService tasks;
+    MockHttpSession admin(){TUser u=new TUser();u.userId="admin";MockHttpSession s=new MockHttpSession();s.setAttribute(AuthController.SESSION_USER,u);return s;}
+    @Test void authenticationStillProtectsNewApi()throws Exception{mvc.perform(get("/api/ops/capabilities")).andExpect(status().isUnauthorized());}
+    @Test void actualSpringRepositoryProxySupportsSchedulerAndApi()throws Exception{
+        assertNotNull(repo.jdbc());assertNotNull(repo.transaction());tasks.dispatch();tasks.publishEvents();
+        mvc.perform(get("/api/ops/capabilities").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data.administrator").value(true));
+        mvc.perform(get("/api/ops/resources/host").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
+    }
+    @Test void originalMonitoringRoutesRemainAvailable()throws Exception{
+        for(String path:new String[]{"/api/dashboard","/api/services","/api/hosts","/api/alert-channels","/api/alerts"})
+            mvc.perform(get(path).session(admin())).andExpect(status().isOk());
+    }
+    @Test void mutationUsesSessionHeaderValidationAndUnifiedResponse()throws Exception{
+        String body="{\"id\":\"test-registry\",\"name\":\"test\",\"address\":\"docker.io\"}";
+        mvc.perform(post("/api/ops/resources/registry").session(admin()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/ops/resources/registry").session(admin()).header("X-Ops-Request","1").contentType("application/json").content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
+        mvc.perform(get("/api/ops/audit").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data").isArray());
+    }
+}

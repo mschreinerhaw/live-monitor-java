@@ -615,8 +615,7 @@ const exportExcel = () => {
       `"${getAlertGroupName(s).replace(/"/g, '""')}"`
     ])
   })
-  const csvContent = '﻿' + rows.map((e) => e.join(',')).join('
-')
+    const csvContent = '\uFEFF' + rows.map((e) => e.join(',')).join('\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

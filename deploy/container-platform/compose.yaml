@@ -1,0 +1,24 @@
+services:
+  platform:
+    image: ${LIVE_MONITOR_IMAGE:?Set a verified registry/repository@sha256 digest}
+    restart: unless-stopped
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:${LIVE_MONITOR_PORT:-18080}:8000"
+    environment:
+      LIVE_MONITOR_SECRET_KEY: ${LIVE_MONITOR_SECRET_KEY:?Use a stable secret from the deployment secret manager}
+      DEBUG: "false"
+      LOGGING_LEVEL_ROOT: INFO
+    volumes:
+      - monitor-data:/app/data
+      - monitor-logs:/app/logs
+    cpus: ${LIVE_MONITOR_CPUS:-2}
+    mem_limit: ${LIVE_MONITOR_MEMORY:-2g}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 60s
+volumes:
+  monitor-data:
+  monitor-logs:

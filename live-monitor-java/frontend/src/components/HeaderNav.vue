@@ -44,6 +44,7 @@
                 <div class="notify-title">{{ item.service_name || '服务异常' }}</div>
                 <div class="notify-msg">{{ item.message || item.alert_type }}</div>
                 <div class="notify-time">{{ item.created_at || item.checked_at }}</div>
+                <router-link v-if="item.ops_event" to="/ops/alerts" @click="showNotificationPanel = false">查看运维事件</router-link>
               </div>
             </div>
           </div>

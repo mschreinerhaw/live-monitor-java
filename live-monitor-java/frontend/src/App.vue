@@ -52,4 +52,5 @@ const isAuthPage = computed(() => route.path === '/login')
   min-height: 100vh;
   background-color: var(--bg-color);
 }
+@media(max-width:600px){.app-layout{flex-direction:column}}
 </style>

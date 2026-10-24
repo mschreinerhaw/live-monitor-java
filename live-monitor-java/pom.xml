@@ -170,4 +170,15 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>container-platform</id>
+            <properties><container.ui.dir>${project.basedir}/target/frontend-dist</container.ui.dir></properties>
+            <build><resources>
+                <resource><directory>src/main/resources</directory></resource>
+                <resource><directory>templates</directory><targetPath>templates</targetPath><includes><include>*.j2</include></includes></resource>
+                <resource><directory>${container.ui.dir}</directory><targetPath>static</targetPath></resource>
+            </resources></build>
+        </profile>
+    </profiles>
 </project>

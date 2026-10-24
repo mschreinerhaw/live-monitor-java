@@ -47,6 +47,11 @@ public class ApiRuleEvaluator {
 
     public ApiRuleEvaluator(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        // Initialize ANTLR's generated automata before the per-request execution budget.
+        // Cold class loading otherwise consumes the entire 200 ms assertion deadline.
+        ApiRuleLexer warmLexer = new ApiRuleLexer(CharStreams.fromString("1 < 2"));
+        ApiRuleParser warmParser = new ApiRuleParser(new CommonTokenStream(warmLexer));
+        warmParser.parse();
     }
 
     public Evaluation evaluate(String expression, ResponseContext context) {

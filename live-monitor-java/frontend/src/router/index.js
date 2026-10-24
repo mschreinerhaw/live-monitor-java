@@ -3,6 +3,11 @@ import { store } from '../store'
 
 const routes = [
   {
+    path: '/ops/:section',
+    name: 'ContainerOps',
+    component: () => import('../views/OpsPlatformView.vue')
+  },
+  {
     path: '/',
     redirect: '/dashboard'
   },

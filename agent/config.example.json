@@ -1,0 +1,13 @@
+{
+  "environment": "acceptance",
+  "state_root": "/var/lib/live-monitor-agent",
+  "backup_root": "/var/backups/live-monitor",
+  "secrets_root": "/etc/live-monitor-secrets",
+  "allowed_registries": ["docker.io"],
+  "allowed_bind_roots": ["/etc/live-monitor-app-config"],
+  "publish_address": "127.0.0.1",
+  "max_cpus": 8,
+  "max_memory_mb": 16384,
+  "docker_binary": "/usr/bin/docker",
+  "backup_helper_image": "REPLACE_WITH_APPROVED_REGISTRY_REPOSITORY@sha256:VERIFIED_DIGEST"
+}

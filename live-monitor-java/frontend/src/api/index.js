@@ -1,6 +1,6 @@
 const API_BASE = ''
 
-async function request(endpoint, options = {}) {
+export async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`
   const defaultHeaders = {
     'Accept': 'application/json',
