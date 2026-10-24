@@ -458,7 +458,11 @@ class Agent:
                 path = (self.secrets / ref).resolve(strict=True)
                 check(self.secrets in path.parents, "SECRET_PATH")
                 self.redactions.append(path.read_text().rstrip("\n"))
-            return {"logs": self.run(["logs", "--tail", "100", "--timestamps", name], include_stderr=True)[-24000:]}
+            text = self.run(["logs", "--tail", "100", "--timestamps", name], include_stderr=True)
+            tail = text.encode("utf-8")[-16000:].decode("utf-8", errors="ignore")
+            while len(json.dumps({"logs": tail}, ensure_ascii=False).encode("utf-8")) > 32000:
+                tail = tail[len(tail) // 2:]
+            return {"logs": tail}
         if action == "stop":
             state["manual_stop"] = True
             self.save_state(app, state)  # Persist intent before asking Docker to stop.

@@ -200,6 +200,13 @@ class AgentTests(unittest.TestCase):
         self.a.run = lambda args: ""
         self.a.operate("start", {"app_id": "app"})
         self.assertEqual(0, self.a.state("app")["failure_since"])
+    def test_unicode_and_control_character_logs_fit_the_persistence_wire_budget(self):
+        self.a.inspect = lambda name: {"Config": {"Labels": {"live-monitor.app": "app"}}, "State": {"Status": "running"}}
+        for value in ("中文日志" * 10000, "\x00" * 30000):
+            self.a.run = lambda args, **kw: value
+            result = self.a.operate("logs", {"app_id": "app"})
+            self.assertLessEqual(len(json.dumps(result, ensure_ascii=False).encode("utf-8")), 32000)
+            self.assertTrue(value.endswith(result["logs"]))
 
 
 if __name__ == "__main__":
