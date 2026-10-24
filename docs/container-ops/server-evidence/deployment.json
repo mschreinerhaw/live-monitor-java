@@ -1,0 +1,18 @@
+{
+  "status": "DEPLOYED",
+  "container": "live-monitor-container-platform-validation",
+  "platformImage": "localhost:18443/live-monitor/platform@sha256:d2847273a85458a1b53f25b0659d4402850819d9cfd4d03dfc62ef6342fe082b",
+  "applicationImage": "localhost:18443/live-monitor/validation-python@sha256:1572e703d663cdd4297c7011812196381b9cc52a14a20afd8f9ab59e15732bb3",
+  "registry": "localhost:18443",
+  "port": 18088,
+  "bind": "127.0.0.1",
+  "artifactSha256": "74ee3e845fd5d1b5b551a50a44650de6f87ae58354983aac78f81592862f37da",
+  "sourceRevision": "3a49803aa0b5866da51f1d59d5ef4dbfb06f4ca7",
+  "existingContainersUnchanged": true,
+  "existingContainerCount": 19,
+  "newDataDirectory": "/opt/live-monitor-container-platform-validation/data",
+  "defaultPasswordChanged": true,
+  "agentUser": "lm-ops-validation",
+  "dockerTcpExposed": false,
+  "deployedAt": 1792862369980
+}

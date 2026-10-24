@@ -1,0 +1,48 @@
+{
+  "checks": {
+    "originalMonitoringApis": true,
+    "pinnedSshRestrictedAgent": true,
+    "authenticatedTlsRegistryAndImmutableDigest": true,
+    "multipleApplicationsDeployment": true,
+    "versionHistoryAndControlledRollback": true,
+    "failedDeploymentDiagnosisAndPreviousContainerPreserved": true,
+    "volumeBackupRestoreTestAndOriginalDataPreserved": true,
+    "runningUnhealthyContainerAutomaticRecovery": true,
+    "manualStopNotAutomaticallyRestarted": true,
+    "abnormalExitAutomaticRecovery": true,
+    "restartLimitCircuitBreaker": true,
+    "scopedPermissionsLegacyIsolationAndAudit": true,
+    "existingProductionContainersUnchanged": true
+  },
+  "applications": [
+    "server-recovery-82398529",
+    "server-backup-82398529"
+  ],
+  "backupId": "481d2019-8125-459e-a87a-c20846f161b7",
+  "unhealthyRecoveryTask": "b15f279b-fc29-4712-8bb2-88d8baf6880a",
+  "exitRecoveryTask": "0dc9d2c5-114b-482d-b573-b068f68be84b",
+  "taskIds": [
+    "0364ed5a-57b1-4347-9391-3585621b1f89",
+    "97aeceb4-4088-443f-9cc7-0b93f5f9b8f3",
+    "85ecaeb2-9cb9-4aee-9227-15bd50f6ffea",
+    "c33c0979-ee81-4c18-a101-c2cd9643902d",
+    "d55e83b0-8c62-4b33-8c1c-b5337cb6b18f",
+    "1bb1d321-2cc3-4693-a628-8ede654899b7",
+    "136042d1-2e8b-46ba-9942-d0cbf69acbbb",
+    "6ffc022d-4189-4af7-a364-30e6e79fe64b",
+    "f07ed706-1331-443a-91b9-d5c0481b8dd4",
+    "f67be05c-dfc3-44d3-9292-c395657fc1e0",
+    "1288f21c-f369-46da-b027-eb8737f1a8b7",
+    "6a8c08eb-1460-4736-b63b-ef1ccc9bf059",
+    "78b9dfe2-cbf6-480e-872b-6e26a4c1bade",
+    "d82befcd-22fa-4197-8683-911ec38ecece",
+    "e681c332-3509-4c6a-b3f8-522e0af80b95",
+    "7fa37cb7-48cf-4559-a896-7069d57d1ecc",
+    "d69f0279-b1c0-40be-ad10-19505a517cf0",
+    "86632999-6e47-4de6-850e-547eaec8bb10"
+  ],
+  "sourceRevision": "3a49803aa0b5866da51f1d59d5ef4dbfb06f4ca7",
+  "physicalServersVerified": 1,
+  "existingProductionWorkloadsOperated": false,
+  "completedAt": 1792862627806
+}

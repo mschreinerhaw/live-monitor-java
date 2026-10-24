@@ -1,0 +1,18 @@
+{
+  "checks": {
+    "defaultPasswordRejected": true,
+    "overview": true,
+    "servers": true,
+    "images": true,
+    "deployments": true,
+    "containers": true,
+    "backups": true,
+    "alerts": true,
+    "tasks": true,
+    "permissions": true,
+    "mobile": true
+  },
+  "errors": [],
+  "transport": "SSH encrypted tunnel",
+  "server": "192.168.195.221"
+}
