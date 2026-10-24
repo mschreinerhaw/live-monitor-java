@@ -31,6 +31,31 @@ class OpsApplicationIntegrationTest {
     @Autowired OpsTaskService tasks;
     MockHttpSession admin(){TUser u=new TUser();u.userId="admin";MockHttpSession s=new MockHttpSession();s.setAttribute(AuthController.SESSION_USER,u);return s;}
     @Test void authenticationStillProtectsNewApi()throws Exception{mvc.perform(get("/api/ops/capabilities")).andExpect(status().isUnauthorized());}
+    MockHttpSession user(String id)throws Exception{
+        mvc.perform(post("/api/admin/users").session(admin()).contentType("application/json").content("{\"user_id\":\""+id+"\",\"password\":\"isolated-test-password\",\"name\":\"test\",\"enabled\":true}")).andExpect(status().isCreated());
+        TUser u=new TUser();u.userId=id;MockHttpSession s=new MockHttpSession();s.setAttribute(AuthController.SESSION_USER,u);return s;
+    }
+    @Test void operationsOnlyAccountCannotBypassScopesThroughLegacyApis()throws Exception{
+        MockHttpSession s=user("isolated-viewer");
+        String grant="{\"id\":\"isolated-grant\",\"user_id\":\"isolated-viewer\",\"host_id\":\"*\",\"environment\":\"*\",\"actions\":\"read\"}";
+        mvc.perform(post("/api/ops/resources/grant").session(admin()).header("X-Ops-Request","1").contentType("application/json").content(grant)).andExpect(status().isOk()).andExpect(jsonPath("$.data.ops_only").value(true));
+        mvc.perform(get("/api/hosts").session(s)).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("LEGACY_INTERFACE_DENIED"));
+        mvc.perform(post("/api/services").session(s).contentType("application/json").content("{}")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/ops/capabilities").session(s)).andExpect(status().isOk()).andExpect(jsonPath("$.data.ops_only").value(true));
+        java.util.Map<String,Object> g=repo.get("grant","isolated-grant");g.put("enabled",false);repo.save("grant",g);
+        mvc.perform(get("/api/hosts").session(s)).andExpect(status().isForbidden());
+        g=repo.get("grant","isolated-grant");g.put("ops_only",false);
+        mvc.perform(post("/api/ops/resources/grant").session(admin()).header("X-Ops-Request","1").contentType("application/json").content(OpsData.json(g))).andExpect(status().isBadRequest());
+        g.put("confirm_legacy_access","ALLOW_LEGACY:isolated-viewer");
+        mvc.perform(post("/api/ops/resources/grant").session(admin()).header("X-Ops-Request","1").contentType("application/json").content(OpsData.json(g))).andExpect(status().isOk());
+        mvc.perform(get("/api/hosts").session(s)).andExpect(status().isOk());
+        mvc.perform(post("/api/auth/logout").session(s)).andExpect(status().isOk());
+    }
+    @Test void ordinaryExistingMonitorUserRetainsOriginalRoutes()throws Exception{
+        MockHttpSession s=user("legacy-monitor-user");
+        mvc.perform(get("/api/hosts").session(s)).andExpect(status().isOk());
+        mvc.perform(get("/api/ops/capabilities").session(s)).andExpect(status().isOk()).andExpect(jsonPath("$.data.ops_only").value(false));
+    }
     @Test void actualSpringRepositoryProxySupportsSchedulerAndApi()throws Exception{
         assertNotNull(repo.jdbc());assertNotNull(repo.transaction());tasks.dispatch();tasks.publishEvents();
         mvc.perform(get("/api/ops/capabilities").session(admin())).andExpect(status().isOk()).andExpect(jsonPath("$.data.administrator").value(true));

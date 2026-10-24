@@ -21,7 +21,7 @@ public class OpsController {
         String actor=auth.actor(request,false);
         Map<String,Object> scopes=new LinkedHashMap<>();
         for(Map<String,Object> h:repo.list("host"))scopes.put(text(h,"id"),ACTIONS.stream().filter(a->auth.allowed(actor,text(h,"id"),text(h,"environment"),a)).collect(Collectors.toList()));
-        return ok(map("administrator","admin".equalsIgnoreCase(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
+        return ok(map("administrator","admin".equalsIgnoreCase(actor),"ops_only",auth.operationsOnly(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
             "data_kinds",Arrays.asList("stateless","volume","postgres"),"roles",map(
                 "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack"),
                 "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback"),"recovery",Arrays.asList("read","backup","restore_test","restore"))));
@@ -65,11 +65,17 @@ public class OpsController {
         }
         else if("grant".equals(kind)){
             auth.admin(actor);identifier(text(input,"id"));require(!text(input,"user_id").isEmpty(),"User id required");
+            boolean operationsOnly=!Boolean.FALSE.equals(input.get("ops_only"));
+            for(Map<String,Object> old:repo.list("grant"))if(text(old,"id").equals(text(input,"id"))){
+                require(text(old,"user_id").equals(text(input,"user_id")),"Grant user cannot change; create a separate grant");
+                if(Boolean.TRUE.equals(old.get("ops_only"))&&!operationsOnly)
+                    require(("ALLOW_LEGACY:"+text(input,"user_id")).equals(text(input,"confirm_legacy_access")),"Explicit confirmation required to restore legacy monitor access");
+            }
             String host=text(input,"host_id"),env=text(input,"environment");
             if(!"*".equals(host))repo.get("host",host);if(!"*".equals(env))identifier(env);
             List<String> actions=Arrays.asList(text(input,"actions").split(","));require(!actions.isEmpty()&&ACTIONS.containsAll(actions),"Unsupported grant actions");
             result=repo.save("grant",map("id",text(input,"id"),"user_id",text(input,"user_id"),"host_id",host,"environment",env,
-                "actions",String.join(",",actions),"role",text(input,"role"),"enabled",!Boolean.FALSE.equals(input.get("enabled")),"revision",input.getOrDefault("revision",0)));
+                "actions",String.join(",",actions),"role",text(input,"role"),"ops_only",operationsOnly,"enabled",!Boolean.FALSE.equals(input.get("enabled")),"revision",input.getOrDefault("revision",0)));
         }else if("application".equals(kind)){
             Map<String,Object> host=repo.get("host",text(input,"host_id"));String env=text(host,"environment");
             auth.check(actor,text(host,"id"),env,"deploy");require(env.equals(text(input,"environment")),"Application environment must match host");

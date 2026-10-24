@@ -17,6 +17,15 @@ public class OpsAuthorization {
     private final OpsRepository repo;
     private final UserMapper users;
     public OpsAuthorization(OpsRepository repo,UserMapper users){this.repo=repo;this.users=users;}
+    public boolean operationsOnly(String actor) {
+        return !"admin".equalsIgnoreCase(actor) && repo.list("grant").stream()
+            .anyMatch(g->actor.equals(text(g,"user_id"))&&Boolean.TRUE.equals(g.get("ops_only")));
+    }
+    public boolean legacyInterfaceAllowed(String actor,String path) {
+        if(!operationsOnly(actor))return true;
+        repo.audit(actor,"LEGACY_INTERFACE_DENIED",path,"","DENIED");
+        return false;
+    }
     public String actor(HttpServletRequest request,boolean write) {
         HttpSession s=request.getSession(false);
         if(s==null || s.getAttribute(AuthInterceptor.SESSION_EMBED_EXPIRES_AT)!=null)

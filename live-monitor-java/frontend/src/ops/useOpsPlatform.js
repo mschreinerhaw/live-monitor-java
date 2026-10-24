@@ -12,7 +12,7 @@ export function useOpsPlatform(route) {
   const hostDraft = reactive({ id: '', name: '', monitor_host_id: '', environment: '', group: '', ssh_host_key: '' })
   const registryDraft = reactive({ id: '', name: '', address: '', credential_ref: '' })
   const appDraft = reactive({ health: { command: [] }, ports: [], mounts: [], environment_variables: {}, secret_refs: {} })
-  const grantDraft = reactive({ id: '', user_id: '', host_id: '*', environment: '*', role: '', actions: '', enabled: true })
+  const grantDraft = reactive({ id: '', user_id: '', host_id: '*', environment: '*', role: '', actions: '', enabled: true, ops_only: true })
   const alertRuleDraft = reactive({ id: '', host_id: '', app_id: '', code: '*', severity: 'WARNING', enabled: true })
   const editor = reactive({ env: '', secrets: '', health: '[]', command: '[]' }), imageDraft = reactive({ host_id: '', image: '', registry_id: '', repository: '', tag: '' })
   let stream = null, refreshTimer = null
@@ -48,7 +48,15 @@ export function useOpsPlatform(route) {
   async function resetApp() { Object.keys(appDraft).forEach(k => delete appDraft[k]); Object.assign(appDraft, await opsApi.applicationTemplate()); Object.assign(editor, { env: '', secrets: '', health: '[]', command: '[]' }) }
   function editApp(app) { Object.keys(appDraft).forEach(k => delete appDraft[k]); Object.assign(appDraft, JSON.parse(JSON.stringify(app))); Object.assign(editor, { env: formatPairs(app.environment_variables), secrets: formatPairs(app.secret_refs), health: JSON.stringify(app.health.command), command: JSON.stringify(app.command || []) }) }
   function selectHost() { appDraft.environment = state.host.find(h => h.id === appDraft.host_id)?.environment || '' }
-  async function save(kind, value) { return guarded(async () => { await opsApi.save(kind, value); await refresh(); store.showToast('已保存', 'success') }) }
+  async function save(kind, value) { return guarded(async () => {
+    const payload = { ...value }
+    if (kind === 'grant' && !payload.ops_only && state.grant.some(g => g.id === payload.id && g.ops_only)) {
+      const confirmation = `ALLOW_LEGACY:${payload.user_id}`
+      if (window.prompt(`此操作恢复旧监控接口访问权限，请输入 ${confirmation}`) !== confirmation) return
+      payload.confirm_legacy_access = confirmation
+    }
+    await opsApi.save(kind, payload); await refresh(); store.showToast('已保存', 'success')
+  }) }
   async function saveApp() { return guarded(async () => {
     const spec = JSON.parse(JSON.stringify(appDraft)); spec.environment_variables = parsePairs(editor.env); spec.secret_refs = parsePairs(editor.secrets); spec.health.command = JSON.parse(editor.health); spec.command = JSON.parse(editor.command)
     const saved = await opsApi.save('application', spec); editApp(saved); await refresh(); store.showToast('部署配置已保存，请先执行发布前校验', 'success')

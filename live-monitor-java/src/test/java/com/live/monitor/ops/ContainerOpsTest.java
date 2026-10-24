@@ -31,6 +31,13 @@ class ContainerOpsTest {
         repo.save("host",map("id","host-b","environment","prod","monitor_host_id",2,"maintenance",false));
     }
     @AfterEach void stop(){tasks.shutdown();}
+    @Test void disabledGrantDoesNotRestoreLegacyInterfaceAccess(){
+        Map<String,Object> g=repo.save("grant",map("id","isolated","user_id","viewer","ops_only",true,"enabled",true));
+        assertTrue(auth.operationsOnly("viewer"));g.put("enabled",false);repo.save("grant",g);assertTrue(auth.operationsOnly("viewer"));
+        assertFalse(auth.legacyInterfaceAllowed("viewer","/api/hosts"));
+    }
+    @Test void historicalGrantPreservesExistingMonitorUser(){repo.save("grant",map("id","old","user_id","operator","enabled",true));assertFalse(auth.operationsOnly("operator"));assertTrue(auth.legacyInterfaceAllowed("operator","/api/hosts"));}
+    @Test void siteAdministratorCannotBeLockedOutByGrant(){repo.save("grant",map("id","admin-mode","user_id","admin","ops_only",true));assertFalse(auth.operationsOnly("admin"));}
     static Map<String,Object> app(){return map("id","app-a","host_id","host-a","environment","test","image","docker.io/library/nginx@sha256:"+String.join("",Collections.nCopies(64,"a")),
         "cpus",1,"memory_mb",64,"restart_policy","on-failure","restart_limit",3,"health_deadline_seconds",30,
         "health",map("command",Arrays.asList("true")),"data_kind","stateless","desired_state","RUNNING");}

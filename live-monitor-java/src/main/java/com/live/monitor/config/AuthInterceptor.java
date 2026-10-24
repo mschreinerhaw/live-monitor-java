@@ -2,6 +2,9 @@ package com.live.monitor.config;
 
 import com.live.monitor.controller.AuthController;
 import com.live.monitor.entity.TUser;
+import com.live.monitor.ops.OpsAuthorization;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.live.monitor.service.EmbedTokenService;
 import com.live.monitor.service.EmbedTokenService.EmbedToken;
 import com.live.monitor.service.SystemMetricsService;
@@ -18,6 +21,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     public static final String SESSION_EMBED_EXPIRES_AT = "EMBED_EXPIRES_AT";
     private final SystemMetricsService systemMetricsService;
     private final EmbedTokenService embedTokenService;
+    @Autowired private ObjectProvider<OpsAuthorization> operations;
 
     public AuthInterceptor(SystemMetricsService systemMetricsService, EmbedTokenService embedTokenService) {
         this.systemMetricsService = systemMetricsService;
@@ -32,6 +36,16 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         HttpSession session = request.getSession(false);
         if (isAuthenticatedSession(session)) {
+            String uri = request.getRequestURI();
+            Object principal = session.getAttribute(AuthController.SESSION_USER);
+            if (operations != null && principal instanceof TUser && isApi(uri)
+                && !uri.startsWith("/api/ops/") && !uri.startsWith("/api/auth/")
+                && !operations.getObject().legacyInterfaceAllowed(((TUser) principal).userId, uri)) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"code\":\"LEGACY_INTERFACE_DENIED\",\"message\":\"Operations-only account: use authorized operations APIs\"}");
+                return false;
+            }
             return true;
         }
         EmbedToken token = embedTokenService.verify(embedTokenValue(request));

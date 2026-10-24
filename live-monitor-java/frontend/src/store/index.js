@@ -29,6 +29,9 @@ export const store = reactive({
   async fetchCurrentUser() {
     try {
       const user = await api.currentUser()
+      if (user && !user.embed) {
+        try { user.ops_only = !!(await opsApi.capabilities()).ops_only } catch (_) {}
+      }
       this.user = user
       return user
     } catch (_) {
@@ -39,7 +42,7 @@ export const store = reactive({
 
   async fetchNotifications() {
     try {
-      const results = await Promise.allSettled([api.allAlerts(20), this.user?.embed ? Promise.resolve([]) : opsApi.list('alert')])
+      const results = await Promise.allSettled([this.user?.ops_only ? Promise.resolve([]) : api.allAlerts(20), this.user?.embed ? Promise.resolve([]) : opsApi.list('alert')])
       const original = results[0].status === 'fulfilled' ? results[0].value || [] : []
       const operations = results[1].status === 'fulfilled' ? results[1].value || [] : []
       const merged = [...original, ...operations.map(a => ({ ...a, ops_event: true, service_name: a.app_id || a.host_id,

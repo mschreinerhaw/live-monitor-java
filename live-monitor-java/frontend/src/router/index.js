@@ -96,6 +96,10 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  if (store.user?.ops_only && !to.path.startsWith('/ops/')) {
+    next('/ops/overview')
+    return
+  }
   next()
 })
 

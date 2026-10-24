@@ -112,6 +112,14 @@ try {
   await api('/api/ops/resources/grant', { id: 'grant-' + suffix, user_id: userId, host_id: hostId, environment: 'acceptance', role: 'viewer', actions: 'read,logs' })
   const viewer = await browser.newContext()
   await api('/api/auth/login', { username: userId, password }, viewer)
+  assert.equal((await viewer.request.get(base + '/api/hosts')).status(), 403)
+  assert.equal((await viewer.request.post(base + '/api/services', { data: {} })).status(), 403)
+  checks.legacyManagementBypassDenied = true
+  const viewerPage = await viewer.newPage()
+  await viewerPage.goto(base + '/#/hosts')
+  await viewerPage.waitForURL('**/#/ops/overview')
+  assert.equal(await viewerPage.locator('.ops-sidebar a[href="#/hosts"]').count(), 0)
+  checks.operationsOnlyNavigation = true
   const denied = await viewer.request.post(base + '/api/ops/operations', { headers: { 'X-Ops-Request': '1' }, data: { action: 'restart', resource_id: appId, parameters: {}, idempotency_key: randomUUID(), confirmation: `restart:${appId}:acceptance` } })
   assert.equal(denied.status(), 403); checks.directUnauthorizedOperationDenied = true
   const scopedHosts = await api('/api/ops/resources/host', null, viewer); assert(scopedHosts.every(h => h.id === hostId)); checks.serverAndEnvironmentReadScope = true

@@ -1,7 +1,7 @@
 <template>
   <header class="topbar">
     <div class="topbar-inner">
-      <router-link to="/dashboard" class="brand">
+      <router-link :to="store.user?.ops_only ? '/ops/overview' : '/dashboard'" class="brand">
         <span class="brand-mark">
           <IconSvg name="activity" size="18" />
         </span>
@@ -11,7 +11,7 @@
         </div>
       </router-link>
 
-      <nav class="nav">
+      <nav v-if="!store.user?.ops_only" class="nav">
         <router-link to="/dashboard" active-class="active">监控首页</router-link>
         <router-link to="/hosts" active-class="active">主机维护</router-link>
         <router-link to="/services/new" active-class="active">添加服务</router-link>
