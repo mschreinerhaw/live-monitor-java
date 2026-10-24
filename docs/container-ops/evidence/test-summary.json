@@ -1,0 +1,34 @@
+{
+  "java": {
+    "tests": 139,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "vue": {
+    "tests": 8,
+    "failures": 0
+  },
+  "agentUnit": {
+    "tests": 24,
+    "failures": 0
+  },
+  "realDocker": {
+    "scenarios": 2,
+    "failures": 0,
+    "postgresRetestedAfterFailureCleanup": true
+  },
+  "automaticSchedulerRecovery": {
+    "scenarios": 1,
+    "recoveryActor": "system",
+    "circuitEnforced": true
+  },
+  "vueBuild": "PASSED",
+  "javaPackage": "PASSED",
+  "frontendFilesMatchedInJar": 26,
+  "browser": {
+    "checks": 20,
+    "failures": 0
+  },
+  "operationsOnlyAccountIsolation": "PASSED"
+}

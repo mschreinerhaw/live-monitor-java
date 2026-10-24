@@ -26,8 +26,8 @@
 
 ## 阶段七：集成与优化
 
-完成：原有监控路由保留、统一通知入口、角色/服务器/环境/动作授权及撤销、执行前重鉴权、日志任务结果按 logs 权限过滤、审计、SSE/断线查询、内部 HTTP 幂等键兼容、标准非 root JAR 镜像/Compose 与构建脚本。ChatChat 同名开发分支仅新增接入说明，不复制运维业务或改生产配置。文件：deploy/container-platform、scripts/build-container-platform.ps1、02-deployment.md；另仓库 docs/container-ops-platform-integration.md。数据库：迁移脚本在 H2 与隔离 MySQL 8.4 上验证重复执行，无破坏语句。剩余：目标环境 Agent 安装、实际仓库/密钥配置及生产发布需另行批准。
+完成：原有监控路由保留、统一通知入口、角色/服务器/环境/动作授权及撤销、运维账号旧接口隔离与显式恢复授权、执行前重鉴权、日志任务结果按 logs 权限过滤、审计、SSE/断线查询、内部 HTTP 幂等键兼容、标准非 root JAR 镜像/Compose 与构建脚本。ChatChat 同名开发分支仅新增接入说明，不复制运维业务或改生产配置。文件：deploy/container-platform、scripts/build-container-platform.ps1、02-deployment.md；另仓库 docs/container-ops-platform-integration.md。数据库：账号隔离标记使用既有 JSON 文档，不新增旧表字段；迁移脚本在 H2 与隔离 MySQL 8.4 上验证重复执行，无破坏语句。剩余：目标环境 Agent 安装、实际仓库/密钥配置及生产发布需另行批准。
 
 ## 阶段八：验收
 
-最终结果和证据集中记录在 04-acceptance.md 及 evidence/。Java 功能测试 126 项、Vue3 单元测试 8 项、代理纯测试与真实 Docker/PG 验收共 20 项已通过；最终镜像、最终浏览器复验与工作区核对结果以验收报告为准。失败过程中发现的问题已修复后重新验证，不把此前失败记录宣称成功。生产未执行部署。
+最终结果和证据集中记录在 04-acceptance.md 及 evidence/。Java 功能测试 139 项、Vue3 单元测试 8 项、代理纯测试 24 项、真实 Docker/PG 场景 2 项、Java 调度器自动恢复/熔断闭环 1 项通过；最终镜像与最终浏览器复验均通过。额外覆盖 UTF-8 字节边界、私库身份端点越界拦截、失败恢复演练容器停机、临时 Secret 文件清理、中文/控制字符日志预算，以及状态变更后的快照新鲜度屏障。失败过程中发现的问题已修复后重新验证，不把此前失败记录宣称成功。生产未执行部署。

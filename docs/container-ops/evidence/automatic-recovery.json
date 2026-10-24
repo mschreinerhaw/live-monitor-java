@@ -1,0 +1,17 @@
+{
+  "appId": "auto-09d116ad",
+  "hostId": "auto-host-09d116ad",
+  "firstFaultAt": 1792859239209,
+  "automaticRecoveryTaskId": "aaa7b79d-fb85-4a7d-a467-6fed4d58d0bb",
+  "recoveryActor": "system",
+  "recoveryReason": "exited",
+  "recoverySeconds": 51.981,
+  "recoveryEventObserved": true,
+  "secondFaultAt": 1792859315538,
+  "circuitAlertId": "5c13c296-51b7-3b47-a732-84ff49190439",
+  "circuitSeverity": "CRITICAL",
+  "recoveryAttempts": 1,
+  "noRetryAfterLimit": true,
+  "manuallyStoppedAtEnd": true,
+  "productionFaultInjection": false
+}

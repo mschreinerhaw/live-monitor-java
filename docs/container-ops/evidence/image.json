@@ -1,0 +1,13 @@
+{
+  "image": "live-monitor-platform:container-ops-20261024",
+  "imageId": "sha256:9ae15d65a6731c637a704bb3f64f36f415cb9009a3ec656f7ce82de4170d7525",
+  "sourceRevision": "3a49803aa0b5866da51f1d59d5ef4dbfb06f4ca7",
+  "health": "healthy",
+  "user": "10001:10001",
+  "runningArtifactSha256": "74ee3e845fd5d1b5b551a50a44650de6f87ae58354983aac78f81592862f37da",
+  "hostDockerSocketMounted": false,
+  "healthHttpStatus": 200,
+  "vue3PageRendered": true,
+  "authenticatedOpsApi": true,
+  "browserErrors": []
+}

@@ -1,0 +1,28 @@
+{
+  "checks": {
+    "loginAndOriginalDashboard": true,
+    "originalMonitorApis": true,
+    "pinnedSshAgentAndServerRegistration": true,
+    "offlineHostDoesNotBlockOtherHost": true,
+    "registryConfigurationThroughUi": true,
+    "standardDeploymentFormSaved": true,
+    "deploymentThroughUiJavaSshAndDocker": true,
+    "immutableVersionHistory": true,
+    "nineRealPagesAndDesktopLayout": true,
+    "mobileLayout": true,
+    "liveStdoutAndStderrLogs": true,
+    "manualStopIntent": true,
+    "containerLifecycleThroughUi": true,
+    "legacyManagementBypassDenied": true,
+    "operationsOnlyNavigation": true,
+    "directUnauthorizedOperationDenied": true,
+    "serverAndEnvironmentReadScope": true,
+    "crossServerOperationDenied": true,
+    "permissionAudit": true,
+    "noBrowserErrors": true
+  },
+  "hostId": "e2e-5c0e3f9f",
+  "appId": "web-5c0e3f9f",
+  "deployedTaskId": "d50f39da-1631-4b89-8cd5-1a3412790ac5",
+  "errors": []
+}

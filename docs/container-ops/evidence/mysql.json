@@ -1,0 +1,13 @@
+{
+  "tables": [
+    "ops_audit",
+    "ops_lock",
+    "ops_migration",
+    "ops_resource",
+    "ops_task",
+    "ops_task_event"
+  ],
+  "appliedTwice": true,
+  "network": "none",
+  "destructiveStatements": false
+}

@@ -1,0 +1,74 @@
+{
+  "sourceCommit": "3a49803aa0b5866da51f1d59d5ef4dbfb06f4ca7",
+  "agentSourceCommit": "87fa1a9740ff3d75857c4263e05f0fcb8543a426",
+  "branch": "feature/container-ops-platform",
+  "localImage": "live-monitor-platform:container-ops-20261024",
+  "localImageId": "sha256:9ae15d65a6731c637a704bb3f64f36f415cb9009a3ec656f7ce82de4170d7525",
+  "repositoryDigest": null,
+  "publishedToRegistry": false,
+  "productionDeployed": false,
+  "artifacts": {
+    "app.jar": {
+      "sha256": "74ee3e845fd5d1b5b551a50a44650de6f87ae58354983aac78f81592862f37da",
+      "bytes": 137538708
+    },
+    "live-monitor-platform-container-ops-20261024.tar": {
+      "sha256": "4ff0e6fdbf15680a3a2626278ff78c21003eddd457f78c6341a72455cb869e53",
+      "bytes": 226062848
+    },
+    "agent/agent.py": {
+      "sha256": "62a34b1828576e0ebbc4acaaf8ea51791229fcc73dfb9b65787b30d1b949065e",
+      "bytes": 40766
+    },
+    "agent/config.example.json": {
+      "sha256": "24308cea7a523756e81990d934a6ccb4785baed5b6907a04089a368d305a8f66",
+      "bytes": 479
+    },
+    "Dockerfile": {
+      "sha256": "85e41c08d166665d1b8c44ffd76e9d9aedca468b2771e57050cf7d61d27d1230",
+      "bytes": 723
+    },
+    "compose.yaml": {
+      "sha256": "453a956103f1cd8efb3c9ac25a28736dd8c149740f200d8ebf56f6b93d366c46",
+      "bytes": 698
+    },
+    "README.md": {
+      "sha256": "4320c2fe2a88dd4f587cdf895ba2f20e5aca90b471255c49ecb02defb3c05bf4",
+      "bytes": 10414
+    }
+  },
+  "acceptance": {
+    "java": {
+      "tests": 139,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "vue": {
+      "tests": 8,
+      "failures": 0
+    },
+    "agentUnit": {
+      "tests": 24,
+      "failures": 0
+    },
+    "realDocker": {
+      "scenarios": 2,
+      "failures": 0,
+      "postgresRetestedAfterFailureCleanup": true
+    },
+    "automaticSchedulerRecovery": {
+      "scenarios": 1,
+      "recoveryActor": "system",
+      "circuitEnforced": true
+    },
+    "vueBuild": "PASSED",
+    "javaPackage": "PASSED",
+    "frontendFilesMatchedInJar": 26,
+    "browser": {
+      "checks": 20,
+      "failures": 0
+    },
+    "operationsOnlyAccountIsolation": "PASSED"
+  }
+}
