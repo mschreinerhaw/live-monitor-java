@@ -40,13 +40,19 @@
         <fileSet>
             <directory>../docs/container-ops</directory>
             <outputDirectory>ops/docs</outputDirectory>
-            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include></includes>
+            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include><include>10-simple-image-workflow.md</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>
             <directory>../scripts</directory>
             <outputDirectory>ops/tools</outputDirectory>
             <includes><include>install-agent-release.py</include><include>open-platform-firewall.ps1</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../docs/container-ops/simple-workflow-evidence</directory>
+            <outputDirectory>ops/docs/simple-workflow-evidence</outputDirectory>
+            <includes><include>*.json</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>

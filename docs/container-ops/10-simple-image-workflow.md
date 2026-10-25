@@ -27,4 +27,22 @@
 
 ## 验证记录
 
-Java 156 项通过，Vue 13 项通过，Agent 原测试与新增归档校验共 32 项通过；Vue 生产构建通过。最终打包、浏览器与真实隔离部署结果完成后追加于本文件；此处不将代码构建等同于生产验收。
+Java **156 项通过**，Vue **13 项通过**，Agent 原测试、新增归档校验及应用栈测试共 **48 项通过**，均无失败或跳过。Vue 生产构建、Spring Boot JAR、release.zip 与 release.tar.gz 打包通过。交付包附带本文及最新 Agent。
+
+已更新服务器控制面，入口 **http://192.168.195.221:18080/#/ops/images**。控制面镜像为 `localhost:18443/live-monitor/platform@sha256:0644d542ecf053fabadfd3d21838300a84a44c3e6ea0e9fe6b75b992b3e57750`，JAR SHA256 为 `8b456ffe5a2f8669ccc5c00b6f1ec02585b175942bee8cd84476519aab0f5742`，JAR 与 Vue 源码提交 `25c417c`。Agent 随联机验证补齐单容器资源关联，最终 SHA256 为 `0a6a70aab3e85b975342c1eea14bb332cbdd10c4a574996d31999cb2f45c2a8a`。
+
+真实浏览器使用隔离环境 `image-import-validation` 完成：
+
+- 从页面上传约 24 MB 的 Docker-save gzip 包，经 SSH 传输、校验并导入，不手工执行 docker load。
+- 从镜像列表选择部署，自动执行前置校验和发布，应用成功运行。
+- 页面实际显示 CPU / 内存；首次验收发现单容器采集结果未关联资源到应用行，补齐 `container_id`、`resources` 并增加回归测试后通过。
+- 仅对已核实身份的隔离应用注入进程崩溃，Docker 原生策略自动重启，HTTP 端点恢复、页面显示重启次数。没有对 Runtime OS 注入故障。此项验证的是退出恢复，不将其冒充另一次平台 unhealthy 恢复演练。
+- 通过页面主动停止后观察 70 秒，保持停机，未自动拉起。
+- 第二版镜像同样经页面上传，选择已有应用更新成功，镜像 ID 改变并保留至少两个版本记录。
+- 检查 11 个运维路由、原监控入口与 390px 手机布局，未出现页面异常或横向溢出。验收脚本先后修正 PID 命名空间的故障注入方式和下拉框测试选择器，最终检查通过。
+
+隔离应用 `app-ec383bdd1fc2` 的首次部署任务为 `892f2d76-16cf-4a13-9a4c-d13775780156`，更新任务为 `5e3d5122-063d-4f9a-9aca-7ff110dab146`，均 `SUCCEEDED`。测试应用最终停止，保留任务和版本供追溯。
+
+Runtime OS 七个生产服务未重启或更换，最终仍健康；核对的 32 个原有非目标容器均保留镜像与启动时间。控制面冷备位于 `/opt/live-monitor-production-migration/simple-ops-validation/control-data-backup`，原镜像、Compose 与 Agent 代码备份保留，没有覆盖原业务数据或执行数据恢复。
+
+脱敏证据见 [simple-workflow-evidence](simple-workflow-evidence/)。浏览器验证中的隔离端口绑定 127.0.0.1，HTTP 可达是在服务器本机验证，不宣称该测试端口已对其他主机开放。当前主机默认发布地址仍为 127.0.0.1；客户需要通过主机 IP 访问新部署应用时，应在首次安装时将 Agent `publish_address` 明确设置为批准的主机接口（例如 0.0.0.0），并按现场规则放行映射端口。默认不更改防火墙、现有应用监听地址、客户密钥或生产数据。

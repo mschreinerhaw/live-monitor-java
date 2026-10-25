@@ -90,6 +90,19 @@ class ImageImportTests(unittest.TestCase):
         self.assertIn("--no-healthcheck", args)
         self.assertNotIn("--health-cmd", args)
 
+    def test_single_container_monitoring_includes_its_own_resources_and_identity(self):
+        name = self.a.name("app")
+        def docker(args, **kwargs):
+            if args[0] == "info": return "{}"
+            if args[0] == "stats": return json.dumps({"Name": name, "CPUPerc": "1%", "MemPerc": "2%", "MemUsage": "3MiB / 64MiB"})
+            return name
+        inspected = {"Id": "container-identity", "Config": {"Image": self.spec["image"], "Labels": {"live-monitor.app": "app"}}, "State": {"Status": "running", "Running": True, "Health": {"Status": "healthy"}}}
+        with patch.object(self.a, "run", side_effect=docker), patch.object(self.a, "inspect", return_value=inspected):
+            row = self.a.snapshot()["containers"][0]
+            self.assertEqual("container-identity", row["container_id"])
+            self.assertEqual("1%", row["resources"]["CPUPerc"])
+            self.assertEqual("3MiB / 64MiB", row["resources"]["MemUsage"])
+
 
 if __name__ == "__main__":
     import unittest

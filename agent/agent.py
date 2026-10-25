@@ -530,6 +530,7 @@ class Agent:
                 local["failure_since"] = now
             self.save_state(app, local)
             containers.append({"app_id": app, "name": name, "image": data["Config"]["Image"], "status": state["Status"],
+                               "container_id": data.get("Id", ""), "resources": usage,
                                "health": health, "healthy": healthy, "exit_code": state.get("ExitCode", 0),
                                "native_restarts": data.get("RestartCount", 0), "maintenance": self.maintenance(),
                                "resource_abnormal": resource_abnormal, "circuit_open": bool(local.get("circuit_open")),

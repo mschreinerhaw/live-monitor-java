@@ -1,0 +1,57 @@
+{
+  "baseUrl": "http://192.168.195.221:18080",
+  "checks": {
+    "hostRegisteredThroughApi": true,
+    "singleBusinessNavigation": true,
+    "realGzipArchiveImported": true,
+    "archiveContentIdPinned": true,
+    "deployedFromImageList": true,
+    "liveResourceMonitoring": true,
+    "isolatedCrashInjected": true,
+    "nativeAutomaticRestart": true,
+    "restartCount": 1,
+    "applicationEndpointReachable": true,
+    "automaticRestartVisibleInMonitoring": true,
+    "manualStopRespectedAfter70Seconds": true,
+    "imageUpgradeSucceeded": true,
+    "versionHistoryPreserved": true,
+    "fixtureLeftStopped": true,
+    "allOriginalOperationsRoutesRetained": true,
+    "originalMonitorRetained": true,
+    "mobileNoOverflow": true,
+    "runtimeOsHealthy": true
+  },
+  "errors": [],
+  "taskIds": [
+    {
+      "id": "c201cf89-6ed5-4091-bdb6-d647534de8c7",
+      "action": "stop"
+    },
+    {
+      "id": "a9a0b48e-05b9-4128-9974-7a8f77f18fa6",
+      "action": "import_image"
+    },
+    {
+      "id": "892f2d76-16cf-4a13-9a4c-d13775780156",
+      "action": "deploy"
+    },
+    {
+      "id": "d2adc832-9b2e-4c97-8fc9-c27bf457528c",
+      "action": "stop"
+    },
+    {
+      "id": "ba846ec3-3daa-41d5-b146-1eae6a0b838b",
+      "action": "import_image"
+    },
+    {
+      "id": "5e3d5122-063d-4f9a-9aca-7ff110dab146",
+      "action": "deploy"
+    },
+    {
+      "id": "f81b577f-a85a-4d59-b086-e128171fc198",
+      "action": "stop"
+    }
+  ],
+  "appId": "app-ec383bdd1fc2",
+  "status": "SUCCESS"
+}

@@ -1,0 +1,14 @@
+{
+    "packageContentsVerified":  true,
+    "failures":  0,
+    "releaseZip":  true,
+    "packagedAgentSha256":  "0a6a70aab3e85b975342c1eea14bb332cbdd10c4a574996d31999cb2f45c2a8a",
+    "packagedJarSha256":  "8b456ffe5a2f8669ccc5c00b6f1ec02585b175942bee8cd84476519aab0f5742",
+    "skipped":  0,
+    "javaTests":  156,
+    "releaseTarGz":  true,
+    "vueTests":  13,
+    "agentTests":  48,
+    "javaPackage":  true,
+    "vueProductionBuild":  true
+}
