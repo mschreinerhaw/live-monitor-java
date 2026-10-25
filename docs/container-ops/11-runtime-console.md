@@ -16,4 +16,14 @@
 
 新组件为 `RuntimeConsoleView`、`RuntimeContainersPanel`；复用 `ImageLibraryPanel`、`QuickDeploymentPanel`、原任务 SSE 和串行日志跟踪。旧 `OpsPlatformView` 不再作为运行路由加载，入口改为两个工作页面。未新增 Java API、数据库表、迁移或业务硬编码。
 
-前端 17 项测试、Java 156 项测试通过，Vue、JAR 与交付包构建通过。浏览器预览已检查导航、七个实际服务、镜像列表、启动弹窗、旧入口跳转、基础监控和手机布局。生产更新与隔离容器生命周期结果在完成后追加；构建成功不等同于线上验收。
+前端 **17 项**、Java **156 项**测试通过，Vue、JAR 与交付包构建通过。Java 与 Agent 业务代码本次未变。浏览器预览以及发布后的服务器页面均检查了导航、七个实际服务、镜像列表、启动弹窗、旧入口跳转、基础监控和手机布局，无页面异常或横向溢出。
+
+新前端通过本地静态预览代理连接真实服务器，在专用隔离环境中完成镜像上传、弹窗启动、自动返回容器列表、显示状态与自动拉起策略、当前页日志、停止及人工停机状态验证。测试容器 `app-bef0d16d3cd9` 最终停止，生产 Runtime OS 保持健康；没有向生产业务注入故障。自动恢复执行链路沿用此前已通过的真实崩溃恢复与 70 秒人工停机观察，本次新增测试核对界面显示与资源范围，不将其描述为重新执行全部故障演练。
+
+## 生产发布
+
+2026-10-25 已更新服务器控制面，入口 **http://192.168.195.221:18080/#/ops/containers**，源码提交 `8052159`，分支 `feature/container-ops-platform`。镜像为 `localhost:18443/live-monitor/platform@sha256:8f28e49e148687473296a7602723d9d4dfb915a13932531cb4b2675960db6fbf`，运行 JAR SHA256 为 `12aef0ed61819a2c705299dc46a7cfaca5eee2ae1d3dd9cc3adeec68b673f8ee`。使用原有干净运行时构建，并保留镜像健康检查。
+
+控制面数据库冷备在 `/opt/live-monitor-production-migration/runtime-console-20261025/control-data-backup`，旧 Compose 与镜像保留。七个 Runtime OS 业务服务以及核对的 38 个非目标容器均未更换镜像或改变启动时间，最终无活动变更任务。没有数据库结构变更、业务数据覆盖或生产业务容器重启。
+
+脱敏验证结果见 [runtime-console-evidence](runtime-console-evidence/)。`lifecycle.json` 的 127.0.0.1 地址是新前端静态预览，后端为真实服务器；`ui.json` 是发布后的主机 IP 页面验证。

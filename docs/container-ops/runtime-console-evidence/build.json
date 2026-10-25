@@ -1,0 +1,10 @@
+{
+    "failures":  0,
+    "javaBusinessCodeChanged":  false,
+    "jarPackage":  true,
+    "databaseSchemaChanged":  false,
+    "vueBuild":  true,
+    "frontendTests":  17,
+    "javaTests":  156,
+    "sourceRevision":  "8052159"
+}

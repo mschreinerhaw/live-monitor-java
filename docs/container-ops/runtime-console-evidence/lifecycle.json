@@ -1,0 +1,28 @@
+{
+  "baseUrl": "http://127.0.0.1:18991",
+  "checks": {
+    "importFromCompactImagePage": true,
+    "startImageInDialog": true,
+    "startReturnsToContainerList": true,
+    "liveStatusAndRestartPolicy": true,
+    "logsInSamePage": true,
+    "stopAndManualStateVisible": true,
+    "runtimeOsProductionHealthy": true
+  },
+  "errors": [],
+  "tasks": [
+    {
+      "id": "56dc9016-0747-42e6-8b69-0efea9bedf93",
+      "action": "import_image"
+    },
+    {
+      "id": "aace8ea9-eb7f-4a73-96dd-28b98a3c4b72",
+      "action": "deploy"
+    },
+    {
+      "id": "28b73d88-abad-422c-a1d8-f867a348d33b",
+      "action": "stop"
+    }
+  ],
+  "isolatedApplication": "app-bef0d16d3cd9"
+}

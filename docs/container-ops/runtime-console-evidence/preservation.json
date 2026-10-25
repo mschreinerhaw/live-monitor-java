@@ -1,0 +1,15 @@
+{
+  "nonTargetContainersUnchanged": true,
+  "preservedContainerCount": 38,
+  "agentSha256": "0a6a70aab3e85b975342c1eea14bb332cbdd10c4a574996d31999cb2f45c2a8a",
+  "stackAgentSha256": "d5c00705149f5dafa78469f6c1b1b49cc7fd1ee76e420a371d30739d837d44b2",
+  "controller": {
+    "imageDigest": "localhost:18443/live-monitor/platform@sha256:8f28e49e148687473296a7602723d9d4dfb915a13932531cb4b2675960db6fbf",
+    "jarSha256": "12aef0ed61819a2c705299dc46a7cfaca5eee2ae1d3dd9cc3adeec68b673f8ee",
+    "sourceRevision": "8052159",
+    "healthy": true,
+    "businessContainersUnchanged": true,
+    "coldControlDataBackup": "/opt/live-monitor-production-migration/runtime-console-20261025/control-data-backup",
+    "port": 18080
+  }
+}

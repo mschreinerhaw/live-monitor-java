@@ -1,0 +1,13 @@
+{
+  "baseUrl": "http://192.168.195.221:18080",
+  "checks": {
+    "onlyRequestedNavigation": true,
+    "runtimeStackRowsAndOperations": true,
+    "onlyImportAndImages": true,
+    "startFromImageUsesDialog": true,
+    "oldManagementPagesNotExposed": true,
+    "basicMonitoringRetained": true,
+    "mobileNoOverflow": true
+  },
+  "errors": []
+}

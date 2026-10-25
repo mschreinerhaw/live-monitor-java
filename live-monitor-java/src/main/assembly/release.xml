@@ -56,6 +56,12 @@
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>
+            <directory>../docs/container-ops/runtime-console-evidence</directory>
+            <outputDirectory>ops/docs/runtime-console-evidence</outputDirectory>
+            <includes><include>*.json</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
             <directory>src/main/assembly/bin</directory>
             <outputDirectory>bin</outputDirectory>
             <fileMode>0755</fileMode>
