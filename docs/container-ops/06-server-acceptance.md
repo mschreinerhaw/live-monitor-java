@@ -1,5 +1,7 @@
 # 服务器部署与验证记录
 
+这是独立验证实例阶段的历史记录。用户后续已授权真实生产替换，当前控制面在本地 18080，详情见 [07-runtime-takeover.md](07-runtime-takeover.md)；18588 不作为生产控制入口。
+
 日期：2026-10-25。用户已授权将平台部署到服务器验证。产品定位见 [05-product-positioning.md](05-product-positioning.md)。本次新增独立平台，不替换已有监控系统或 ChatChat 生产服务。
 
 ## 部署结果

@@ -1,0 +1,11 @@
+{
+  "project": "lm-stack-acceptance-b05b3207",
+  "twoServicesDeployed": true,
+  "namespaceFollowerRecreated": true,
+  "manualStopProtected": true,
+  "failedReleaseRolledBack": true,
+  "originalDataPreserved": true,
+  "sustainedUnhealthyRecovered": true,
+  "stoppedAtEnd": true,
+  "productionContainersOperated": false
+}

@@ -1,5 +1,7 @@
 # 构建、隔离验收与部署手册
 
+当前本地控制面及 Runtime OS 生产接管、启动与后续发布流程见 [07-runtime-takeover.md](07-runtime-takeover.md)。用户已明确授权并完成七服务实际替换；下文独立验证流程保留作历史与新环境参考。
+
 初次开发阶段仅在本地隔离验收。2026-10-25 用户进一步授权部署到服务器验证：采用独立实例、端口和数据目录，保留现有生产服务。后续替换生产实例仍需明确指定环境与变更范围。
 
 ## 构建
@@ -36,7 +38,7 @@ docker image inspect YOUR_REGISTRY/live-monitor:YOUR_VERSION --format '{{json .R
 ## 受控代理安装（仅在批准的目标服务器执行）
 
 1. 独立运维 SSH 账号/密钥，不开放 Docker TCP。代理是固定命令入口，JSON 从 stdin 传入，不能请求任意 shell。
-2. 把 agent/agent.py 安装到 /opt/live-monitor-agent/agent.py，root 所有、不可由 SSH 账号修改；root 创建 /etc/live-monitor-agent.json（参考 config.example.json，0600）。指定唯一环境、允许仓库、只读配置挂载目录、资源上限和已核验 Digest 的备份 helper。
+2. 校验后把 agent/agent.py 与 agent/stack_ops.py 安装到 /opt/live-monitor-agent，root 所有、不可由 SSH 账号修改；可使用 scripts/install-agent-release.py 原子替换代码并备份原版本。root 创建 /etc/live-monitor-agent.json（0600）。默认环境保持兼容，新增环境通过显式 profiles 分别绑定状态、备份与批准发布包策略；不允许页面任意创建执行域。
 3. state_root、backup_root、secrets_root 创建为 0700，备份放在独立持久磁盘。Secrets 为本地只读文件，Docker 私库凭据为 secrets_root/<credential_ref>/config.json（0600）。不要把这些文件放入 Git、页面或应用镜像。
 4. authorized_keys 使用 `restrict,command="sudo -n /usr/bin/python3 /opt/live-monitor-agent/agent.py"`。sudoers 只允许这一条不可修改脚本，禁止参数/任意解释器命令；SSH 转发、PTY、密码登录关闭。也可由已有经批准的主机安全代理执行同一固定入口。
 5. 经可信渠道取服务器 SSH 公钥，核对指纹；平台保存完整 `ssh-ed25519 BASE64` 等公钥，运维连接 StrictHostKeyChecking=yes。公钥轮换必须显式重新核验。

@@ -1,0 +1,14 @@
+﻿{
+    "localJarSha256":  "fcd2e582e59bdab1ad766183d04927fc3d81d62815e4c6b70db2cd8108942f28",
+    "frontendFilesMatched":  26,
+    "deploymentTaskId":  "222bbaf8-712f-4a46-b105-3751e5b862b5",
+    "status":  "SUCCEEDED",
+    "healthy":  true,
+    "backup":  {
+                   "backup_id":  "stack-222bbaf8-712f-4a46-b105-3751e5b862b5",
+                   "original_data_preserved":  true,
+                   "verified_files":  19395
+               },
+    "serviceCount":  7,
+    "dependencies":  4
+}

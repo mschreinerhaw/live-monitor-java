@@ -1,0 +1,37 @@
+﻿{
+    "verifiedAt":  "2026-10-25T09:23:58.9334438+08:00",
+    "codeCommit":  "55c7fb3",
+    "localControlPlane":  "http://127.0.0.1:18080/#/ops/stacks",
+    "javaTests":  {
+                      "skipped":  0,
+                      "failed":  0,
+                      "passed":  149
+                  },
+    "vueTests":  {
+                     "passed":  11,
+                     "failed":  0
+                 },
+    "agentTests":  {
+                       "passed":  39,
+                       "failed":  0
+                   },
+    "realComposeIsolationTests":  {
+                                      "passed":  1,
+                                      "productionFaultInjection":  false
+                                  },
+    "browserChecks":  {
+                          "errors":  0,
+                          "passed":  14
+                      },
+    "localBootstrapVerified":  true,
+    "productionTakeoverExecuted":  true,
+    "physicalServersVerified":  1,
+    "productionDatabaseDisasterRestoreTested":  false,
+    "localJarSha256":  "fcd2e582e59bdab1ad766183d04927fc3d81d62815e4c6b70db2cd8108942f28",
+    "frontendFilesMatched":  26,
+    "deploymentTaskId":  "222bbaf8-712f-4a46-b105-3751e5b862b5",
+    "backupVerifiedFiles":  19395,
+    "productionAppServices":  7,
+    "preservedDockerDependencies":  3,
+    "externalDependencies":  1
+}

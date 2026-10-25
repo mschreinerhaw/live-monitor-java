@@ -1,0 +1,60 @@
+{
+  "allDeclaredServicesReplaced": true,
+  "serviceCount": 7,
+  "businessBinariesUnchanged": true,
+  "businessEnvironmentUnchanged": true,
+  "staticAddressesPreserved": true,
+  "namespaceFollowersUpdated": true,
+  "persistentMountsPreserved": true,
+  "configurationAndSecretBytesPreserved": true,
+  "businessPolicyFingerprintsPreserved": true,
+  "nonTargetContainersPreserved": true,
+  "services": {
+    "gateway": {
+      "id": "44f9e17257c9636ae748910c3e8e154cce988cce93d8d4616349006bdc57a17e",
+      "imageId": "sha256:6769dc3a703c719c1d2756bda113659be28ae16cf0da58dd5fd823d6b9a050ea",
+      "startedAt": "2026-10-25T00:33:41.330441Z"
+    },
+    "node-proxy": {
+      "id": "863d03d4492d536a90665f789128c639b7a0461c1a5a7eadaa0b5981a781c76b",
+      "imageId": "sha256:6769dc3a703c719c1d2756bda113659be28ae16cf0da58dd5fd823d6b9a050ea",
+      "startedAt": "2026-10-25T00:33:40.890084478Z"
+    },
+    "silo": {
+      "id": "73e2733c44145c93b0a31fde817dcfd7607d318107c43908b32cfc89af2339d0",
+      "imageId": "sha256:c676f34789e6598af571b590a782499df279d0d1cca41600752826634420d0bb",
+      "startedAt": "2026-10-25T00:33:40.511633522Z"
+    },
+    "api": {
+      "id": "98f676e6eebd9bf1ac777c924b0e1a250e22bce4818a0ba0bfcf35e4d37f54d9",
+      "imageId": "sha256:651ca6da77dbad0c3681c882e5ed22a5e45d008fcd085084d8535b4f1642960e",
+      "startedAt": "2026-10-25T00:33:40.667593993Z"
+    },
+    "coding-agent": {
+      "id": "0cb1333de8c4ae0b20d835409519744707147659fbe8cbdc4ff6346aa864b704",
+      "imageId": "sha256:62cdac1c8b41f492e6e8815974e9044c489634ed2780b285054e0064e0863d1f",
+      "startedAt": "2026-10-25T00:33:40.510323613Z"
+    },
+    "news": {
+      "id": "605dee33c6bb9be97f637447a5631a4e25443263177517ae078573f86637826e",
+      "imageId": "sha256:9ba6b23c5a41d8762a027513a583b694d5799fd47c0b7274e96a765611c0a3f3",
+      "startedAt": "2026-10-25T00:33:40.493188972Z"
+    },
+    "mcp": {
+      "id": "cd82b4533e20ea99e1426542b78f4e7a6c2f9af35e602f7c0e4125d94d2c8b03",
+      "imageId": "sha256:928216fe585016e38e47637e90299a00d3ecb2cc72d15ef7fe15dcb162a97755",
+      "startedAt": "2026-10-25T00:33:40.535878902Z"
+    }
+  },
+  "jarSha256": {
+    "api": "48d805e2b6dd9a6cd2533654ec074f2faa8f9d19b320cabc967b9564adae74ee",
+    "mcp": "84a7372d0ccb2e43636370bd7e90366a373b3b34c1287bbed5bba7d4f93ac2f0",
+    "news": "41b0cfecc6517bd169c7fe076d39664e16c3e03d3394ab32a822445f26695271"
+  },
+  "policyFingerprints": {
+    "api.mcp_tool_permission": "cc610360702deaaf14b4b97358dd5385",
+    "api.resource_grant": "1e84ebfbd55077b136e865b10ea74bd3",
+    "api.sys_user_role": "66ce7155c856069cc8c3804e437f2311",
+    "mcp.mcp_template_query_binding": "87fd1844b965b95ad5e0c8e50b3ed66b"
+  }
+}
