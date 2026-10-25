@@ -34,6 +34,12 @@ class StackOperations:
     def bundle(self, payload):
         reference = payload.get('package_ref', '')
         path = self.policy.get('packages', {}).get(reference)
+        if not path:
+            from installer import installed_policy
+            managed = installed_policy(self.a, payload.get('stack_id', ''))
+            if managed:
+                self.policy = managed
+                path = managed.get('packages', {}).get(reference)
         self.check(path, 'STACK_PACKAGE_NOT_APPROVED')
         raw = self.document(path)
         self.check(hashlib.sha256(raw).hexdigest() == payload.get('package_sha256'), 'STACK_PACKAGE_DIGEST_MISMATCH')
@@ -171,7 +177,7 @@ class StackOperations:
                     identity_matches = item['Image'] == json.loads(self.a.run(['image', 'inspect', expected]))[0]['Id']
                 except Exception:
                     identity_matches = False
-            healthy = running and identity_matches and item['State'].get('Health', {}).get('Status') != 'unhealthy'
+            healthy = running and identity_matches and item['State'].get('Health', {}).get('Status') not in ('unhealthy','starting')
             healthy = healthy and all(self.service_health(p, item) for p in manifest.get('readiness', {}).get(name, []))
             stopped = state.get('desired_state') != 'RUNNING' or runtime.get('manual_stop', False)
             if healthy:

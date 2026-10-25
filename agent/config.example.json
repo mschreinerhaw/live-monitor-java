@@ -7,6 +7,7 @@
   "allow_image_import": false,
   "max_image_archive_bytes": 4294967296,
   "max_image_unpacked_bytes": 21474836480,
+  "install_policy": {"enabled": false, "products": ["runtime-os"], "trusted_public_keys": [], "capabilities": [], "max_service_cpus": 4, "max_service_memory_mb": 4096},
   "allowed_bind_roots": ["/etc/live-monitor-app-config"],
   "publish_address": "127.0.0.1",
   "max_cpus": 8,

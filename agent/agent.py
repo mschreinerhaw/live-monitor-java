@@ -23,7 +23,9 @@ import urllib.parse
 
 
 class AgentError(Exception):
-    pass
+    def __init__(self, code, details=None):
+        super().__init__(code)
+        self.details=details
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -175,7 +177,7 @@ class Agent:
             images.append(item)
         return images[:100]
 
-    def import_archive(self, payload):
+    def import_archive(self, payload, input_stream=None):
         check(self.config.get("allow_image_import", False) is True, "IMAGE_IMPORT_NOT_APPROVED")
         size = payload.get("archive_bytes", 0)
         check(isinstance(size, int) and 0 < size <= self.config.get("max_image_archive_bytes", 4294967296), "ARCHIVE_SIZE_LIMIT")
@@ -190,15 +192,17 @@ class Agent:
             self.progress(15, "RECEIVE_ARCHIVE")
             with open(archive, "xb") as target:
                 while remaining:
-                    block = sys.stdin.buffer.read(min(1024 * 1024, remaining))
+                    block = (input_stream or sys.stdin.buffer).read(min(1024 * 1024, remaining))
                     check(bool(block), "INCOMPLETE_ARCHIVE")
                     target.write(block); digest.update(block); remaining -= len(block)
             check(digest.hexdigest() == expected, "ARCHIVE_CHECKSUM_MISMATCH")
             self.progress(35, "VALIDATE_ARCHIVE")
             # Inspect compressed Docker-save archives without extracting attacker paths.
             try:
-                with tarfile.open(archive, "r:*") as saved:
-                    members = {}; unpacked = 0
+                # Stream once: random seeks in a multi-GB gzip Docker-save file
+                # would repeatedly decompress all preceding image layers.
+                with tarfile.open(archive, "r|*") as saved:
+                    members = {}; documents = {}; metadata_bytes = 0; unpacked = 0
                     for member in saved:
                         name = member.name
                         check(not name.startswith("/") and ".." not in Path(name).parts and "\\" not in name and (member.isfile() or member.isdir()), "UNSAFE_ARCHIVE_MEMBER")
@@ -206,15 +210,23 @@ class Agent:
                         members[name] = member
                         unpacked += member.size
                         check(unpacked <= self.config.get("max_image_unpacked_bytes", 21474836480), "ARCHIVE_UNPACKED_LIMIT")
+                        if member.isfile() and 0 < member.size <= 1048576:
+                            data=saved.extractfile(member).read()
+                            if data.lstrip().startswith((b'{',b'[')):
+                                try:json.loads(data)
+                                except (ValueError,UnicodeError):continue
+                                metadata_bytes+=len(data)
+                                check(metadata_bytes <= 16777216, "ARCHIVE_METADATA_LIMIT")
+                                documents[name]=data
                     check(shutil.disk_usage(self.root).free > unpacked + 268435456, "HOST_DISK_FULL")
                     check("manifest.json" in members and 0 < members["manifest.json"].size <= 1048576, "DOCKER_SAVE_ARCHIVE_REQUIRED")
-                    manifests = json.load(saved.extractfile(members["manifest.json"]))
+                    manifests = json.loads(documents["manifest.json"])
                     check(isinstance(manifests, list) and 0 < len(manifests) <= 100, "ARCHIVE_IMAGE_LIMIT")
                     approved = []
                     for manifest in manifests:
                         config = members.get(manifest.get("Config"))
                         check(config is not None and config.isfile() and 0 < config.size <= 1048576, "INVALID_IMAGE_CONFIG")
-                        config_bytes = saved.extractfile(config).read()
+                        config_bytes = documents[config.name]
                         image_id = "sha256:" + hashlib.sha256(config_bytes).hexdigest()
                         layers = manifest.get("Layers")
                         check(isinstance(layers, list) and all(layer in members and members[layer].isfile() for layer in layers), "INVALID_IMAGE_LAYERS")
@@ -722,6 +734,9 @@ class Agent:
             elif isinstance(action, str) and action.startswith("stack_"):
                 from stack_ops import StackOperations
                 data = StackOperations(self).execute(action, payload)
+            elif isinstance(action, str) and action.startswith("install_"):
+                from installer import Installer
+                data = Installer(self).execute(action, payload)
             elif action == "images":
                 data = {"images": self.image_catalog()}
             elif action == "import_image":
@@ -760,7 +775,7 @@ class Agent:
                 except AgentError:
                     pass
             atomic_json(path, {"status": "FAILED", "request_hash": fingerprint, "code": code, "finished_at": int(time.time() * 1000)})
-            raise AgentError(code)
+            raise AgentError(code,getattr(error,'details',None))
 
 
 def main():
@@ -789,7 +804,9 @@ def main():
         print(json.dumps(result), flush=True)
     except Exception as error:
         code = str(error) if isinstance(error, AgentError) else "AGENT_EXECUTION_FAILED"
-        print(json.dumps({"ok": False, "code": code}), flush=True)
+        failure={"ok":False,"code":code}
+        if isinstance(error,AgentError) and error.details:failure['details']=error.details
+        print(json.dumps(failure), flush=True)
         sys.exit(1)
 
 

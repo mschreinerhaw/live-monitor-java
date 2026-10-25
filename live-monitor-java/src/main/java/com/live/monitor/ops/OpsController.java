@@ -14,8 +14,33 @@ public class OpsController {
     private final OpsRepository repo;private final OpsAuthorization auth;private final HostManagementService hosts;
     private final ImageRegistryService registries;private final DeploymentPolicy policy;private final OpsTaskService tasks;
     private final ContainerManagementService containers;
-    static { ACTIONS.addAll(StackManagementService.ACTIONS); ACTIONS.add("import_image"); }
+    static { ACTIONS.addAll(StackManagementService.ACTIONS); ACTIONS.addAll(Arrays.asList("import_image","install_upload","install_plan","install_apply")); }
     @org.springframework.beans.factory.annotation.Autowired private ImageArchiveService archives;
+    @org.springframework.beans.factory.annotation.Autowired private InstallationService installations;
+    @PostMapping(value="/installer/upload",consumes="multipart/form-data")
+    public Map<String,Object> uploadInstaller(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,@RequestParam("host_id") String hostId,@RequestParam("confirmation") String confirmation,@RequestParam("idempotency_key") String key,HttpServletRequest request)throws java.io.IOException {
+        String actor=auth.actor(request,true);Map<String,Object> host=repo.get("host",hostId);auth.check(actor,hostId,text(host,"environment"),"install_upload");
+        auth.confirm(map("confirmation",confirmation),"install_upload",hostId,text(host,"environment"));return ok(archives.submit(actor,host,file,key,"install_upload"));
+    }
+    @PostMapping("/installer/{id}/{operation}")
+    public Map<String,Object> install(@PathVariable String id,@PathVariable String operation,@RequestBody Map<String,Object> input,HttpServletRequest request){
+        require(Arrays.asList("plan","apply").contains(operation),"Unknown installer operation");String action="install_"+operation,actor=auth.actor(request,true);
+        Map<String,Object> resource=repo.get("installer",id);auth.check(actor,text(resource,"host_id"),text(resource,"environment"),action);
+        String key=text(input,"idempotency_key");require(key.matches("[a-zA-Z0-9_.:-]{8,128}"),"Invalid installation idempotency key");
+        String proof="plan".equals(operation)?OpsTaskService.hash(json(new TreeMap<>(object(input,"parameters")))):text(input,"plan_id");
+        if("apply".equals(operation))auth.confirm(input,action,id,text(resource,"environment"));
+        List<Map<String,Object>> existing=repo.jdbc().queryForList("SELECT * FROM ops_task WHERE actor=? AND idempotency_key=?",actor,key);
+        if(!existing.isEmpty()){
+            Map<String,Object> previous=existing.get(0),previousInput=object(parse(text(previous,"request_json")),"input");
+            require(action.equals(text(previous,"action"))&&id.equals(text(previous,"resource_id"))&&proof.equals(text(previousInput,"plan".equals(operation)?"client_parameters_hash":"plan_id")),"Installation idempotency key reused with different inputs");
+            return ok(tasks.publicTask(previous));
+        }
+        require(!"INSTALLED".equals(text(resource,"status")),"Installation already completed; use container management");
+        Map<String,Object> parameters;
+        if("plan".equals(operation)){parameters=installations.planInput(resource,object(input,"parameters"));parameters.put("client_parameters_hash",proof);}
+        else {auth.confirm(input,action,id,text(resource,"environment"));require(text(resource,"plan_id").equals(text(input,"plan_id"))&&"READY".equals(text(resource,"status")),"A successful current preflight is required");parameters=map("plan_id",text(input,"plan_id"));}
+        return ok(tasks.publicTask(tasks.submit(actor,action,resource,parameters,text(input,"idempotency_key"))));
+    }
     @PostMapping(value="/images/import",consumes="multipart/form-data")
     public Map<String,Object> importImage(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam("host_id") String hostId,@RequestParam("confirmation") String confirmation,
@@ -37,7 +62,7 @@ public class OpsController {
         return ok(map("administrator","admin".equalsIgnoreCase(actor),"ops_only",auth.operationsOnly(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
             "data_kinds",Arrays.asList("stateless","volume","postgres"),"roles",map(
                 "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image","stack_probe","stack_logs"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack","stack_probe","stack_start","stack_stop","stack_service_start","stack_service_stop","stack_service_restart","stack_logs"),
-                "deployer",Arrays.asList("read","logs","images","import_image","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback","stack_logs"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup","stack_logs"))));
+                "deployer",Arrays.asList("read","logs","images","import_image","install_upload","install_plan","install_apply","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback","stack_logs"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup","stack_logs"))));
     }
     @GetMapping("/templates/application")
     public Map<String,Object> applicationTemplate(HttpServletRequest request){auth.actor(request,false);return ok(map("id","","name","","host_id","","environment","","image","",
@@ -47,7 +72,7 @@ public class OpsController {
     private boolean visible(String actor,Map<String,Object> row){return auth.allowed(actor,text(row,"host_id").isEmpty()?text(row,"id"):text(row,"host_id"),text(row,"environment"),"read");}
     @GetMapping("/resources/{kind}")
     public Map<String,Object> list(@PathVariable String kind,HttpServletRequest request){
-        String actor=auth.actor(request,false);require(Arrays.asList("host","registry","application","snapshot","version","backup","alert","alert_rule","grant","stack","stack_version","stack_snapshot").contains(kind),"Unknown resource kind");
+        String actor=auth.actor(request,false);require(Arrays.asList("host","registry","application","snapshot","version","backup","alert","alert_rule","grant","stack","stack_version","stack_snapshot","installer").contains(kind),"Unknown resource kind");
         if("grant".equals(kind))auth.admin(actor);
         List<Map<String,Object>> items=repo.list(kind);
         if("snapshot".equals(kind)){
@@ -119,7 +144,7 @@ public class OpsController {
     @PostMapping("/operations")
     public Map<String,Object> operate(@RequestBody Map<String,Object> input,HttpServletRequest request){
         String actor=auth.actor(request,true),action=text(input,"action"),id=text(input,"resource_id");
-        require(ACTIONS.contains(action)&&!Arrays.asList("read","ack","import_image").contains(action),"Unknown operation; image imports require a file upload");
+        require(ACTIONS.contains(action)&&!Arrays.asList("read","ack","import_image","install_upload","install_plan","install_apply").contains(action),"Unknown operation; installers and image uploads require their dedicated endpoints");
         boolean hostAction=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action);
         Map<String,Object> resource=repo.get(hostAction?"host":StackManagementService.ACTIONS.contains(action)?"stack":"application",id);String host=hostAction?id:text(resource,"host_id"),env=text(resource,"environment");
         auth.check(actor,host,env,action);

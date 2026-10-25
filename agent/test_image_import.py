@@ -90,6 +90,21 @@ class ImageImportTests(unittest.TestCase):
         self.assertIn("--no-healthcheck", args)
         self.assertNotIn("--health-cmd", args)
 
+    def test_multi_image_gzip_with_interleaved_layers_preserves_all_config_identities(self):
+        output=io.BytesIO();manifest=[];expected=set()
+        with tarfile.open(fileobj=output,mode='w:gz') as saved:
+            for index in range(3):
+                config=json.dumps({'config':{'Env':['INDEX='+str(index)]}}).encode();name='config-'+str(index)+'.json';layer='layer-'+str(index)+'.tar'
+                entry=tarfile.TarInfo(layer);entry.size=2*1024*1024;saved.addfile(entry,io.BytesIO(b'\0'*entry.size))
+                entry=tarfile.TarInfo(name);entry.size=len(config);saved.addfile(entry,io.BytesIO(config))
+                manifest.append({'Config':name,'Layers':[layer],'RepoTags':[]});expected.add('sha256:'+hashlib.sha256(config).hexdigest())
+            data=json.dumps(manifest).encode();entry=tarfile.TarInfo('manifest.json');entry.size=len(data);saved.addfile(entry,io.BytesIO(data))
+        data=output.getvalue()
+        def docker(args,**kwargs):return json.dumps([{'Id':args[-1]}]) if args[:2]==['image','inspect'] else ''
+        with patch.object(agent.sys,'stdin',type('Input',(),{'buffer':io.BytesIO(data)})()),patch.object(self.a,'run',side_effect=docker):
+            result=self.a.import_archive({'archive_bytes':len(data),'archive_sha256':hashlib.sha256(data).hexdigest()})
+        self.assertEqual(expected,{item['image'] for item in result['images']})
+
     def test_single_container_monitoring_includes_its_own_resources_and_identity(self):
         name = self.a.name("app")
         def docker(args, **kwargs):

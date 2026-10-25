@@ -30,6 +30,17 @@ class OpsApplicationIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired OpsRepository repo;
     @Autowired OpsTaskService tasks;
+    @Test void installerEndpointsEnforceScopeAndNeverExposePrivateParameters()throws Exception{
+        repo.save("host",OpsData.map("id","installer-api-host","environment","test"));
+        org.springframework.mock.web.MockMultipartFile file=new org.springframework.mock.web.MockMultipartFile("file","runtime.install.tar.gz","application/octet-stream",new byte[]{1,2,3});
+        mvc.perform(multipart("/api/ops/installer/upload").file(file).session(admin()).param("host_id","installer-api-host").param("confirmation","install_upload:installer-api-host:test").param("idempotency_key","install-api-check")).andExpect(status().isForbidden());
+        MockHttpSession viewer=user("installer-viewer");
+        mvc.perform(multipart("/api/ops/installer/upload").file(file).session(viewer).header("X-Ops-Request","1").param("host_id","installer-api-host").param("confirmation","install_upload:installer-api-host:test").param("idempotency_key","install-api-check")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/ops/resources/installer_private").session(admin())).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/ops/operations").session(admin()).header("X-Ops-Request","1").contentType("application/json").content("{\"action\":\"install_apply\",\"resource_id\":\"installer-api-host\"}")).andExpect(status().isBadRequest());
+        repo.save("installer",OpsData.map("id","install-api-resource","host_id","installer-api-host","environment","test","status","UPLOADED"));
+        mvc.perform(post("/api/ops/installer/install-api-resource/apply").session(admin()).header("X-Ops-Request","1").contentType("application/json").content("{\"confirmation\":\"install_apply:install-api-resource:test\",\"idempotency_key\":\"install-apply-check\",\"plan_id\":\"unapproved\"}")).andExpect(status().isBadRequest());
+    }
     @Test void imageImportRequiresScopedPermissionHeaderAndExplicitConfirmation()throws Exception {
         repo.save("host",OpsData.map("id","import-test-host","environment","test"));
         org.springframework.mock.web.MockMultipartFile file=new org.springframework.mock.web.MockMultipartFile("file","demo.tar","application/octet-stream",new byte[]{1,2,3});

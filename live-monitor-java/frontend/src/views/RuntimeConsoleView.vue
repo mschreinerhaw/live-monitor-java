@@ -3,10 +3,12 @@
     <div class="page-header"><div><h1>{{ imagesPage ? '镜像管理' : '容器管理' }}</h1><p>{{ imagesPage ? '导入镜像，点击启动。' : '查看 Runtime OS 容器状态，管理启动、停止和自动拉起。' }}</p></div><div class="ops-actions"><label v-if="state.host.length > 1" class="runtime-host">运行主机<select v-model="hostId"><option v-for="host in state.host" :key="host.id" :value="host.id">{{ host.name || host.id }}</option></select></label><button class="btn btn-secondary" :disabled="loading" @click="refresh">刷新</button></div></div>
     <p v-if="error" role="alert" class="ops-error">{{ error }}</p>
     <p v-if="!loading && !state.host.length" class="ops-empty">尚未连接 Runtime OS 主机，请先完成安装包中的主机连接配置。</p>
+    <section v-if="imagesPage" class="ops-panel"><div class="runtime-summary"><div><h2>Runtime OS 一键安装</h2><p>上传完整安装包，按向导完成依赖和应用安装。</p></div><button class="btn btn-primary" :disabled="!hostId || !permitted(hostId,'install_upload')" @click="router.push({path:'/ops/images',query:{install:'1',host:hostId}})">安装 Runtime OS</button></div></section>
     <ImageLibraryPanel v-if="imagesPage" :state="scopedState" :active-task="activeTask" :busy="busy" :permitted="permitted" :follow="follow" :operate="operate" />
     <RuntimeContainersPanel v-else :monitoring="monitoring" :state="state" :host-id="hostId" :busy="busy" :permitted="permitted" :operate="operate" />
     <section v-if="activeTask && activeTask.host_id === hostId && !['images', 'logs', 'stack_logs'].includes(activeTask.action)" class="ops-panel runtime-task" aria-live="polite"><div class="runtime-summary"><strong>{{ actionLabel(activeTask.action) }}</strong><span>{{ statusLabel(activeTask.status) }}</span></div><progress :value="activeTask.progress" max="100"></progress><p>{{ messageLabel(activeTask.message) }} · {{ activeTask.progress }}%</p></section>
     <div v-if="showStart" class="runtime-overlay" @click.self="closeStart"><div role="dialog" aria-modal="true" aria-label="启动镜像" class="runtime-dialog"><button class="runtime-close" aria-label="关闭启动窗口" @click="closeStart">×</button><QuickDeploymentPanel :state="scopedState" :busy="busy" :permitted="permitted" :follow="follow" :refresh="refresh" @submitted="router.push('/ops/containers')" /></div></div>
+    <div v-if="showInstaller" class="runtime-overlay"><div role="dialog" aria-modal="true" aria-label="Runtime OS 安装向导" class="runtime-dialog"><button class="runtime-close" aria-label="关闭安装向导" @click="closeStart">×</button><RuntimeInstallWizard :key="hostId" :host="state.host.find(host=>host.id===hostId)" :permitted="permitted" :follow="follow" :refresh="refresh" @completed="router.push('/ops/containers')" /></div></div>
   </div>
 </template>
 <script setup>
@@ -19,6 +21,7 @@ import { actionLabel, statusLabel, messageLabel } from '../ops/presentation'
 import ImageLibraryPanel from '../components/ImageLibraryPanel.vue'
 import QuickDeploymentPanel from '../components/QuickDeploymentPanel.vue'
 import RuntimeContainersPanel from '../components/RuntimeContainersPanel.vue'
+import RuntimeInstallWizard from '../components/RuntimeInstallWizard.vue'
 const route = useRoute(), router = useRouter()
 const { state, monitoring, activeTask, busy, loading, error, refresh, follow, operate, permitted } = useOpsPlatform(route, {consoleOnly: true})
 const storageKey = 'runtime-console.host.' + (store.user?.user_id || '')
@@ -31,6 +34,7 @@ watch(hostId, host => { if (host) localStorage.setItem(storageKey, host) })
 const scopedState = computed(() => ({...state, host: state.host.filter(host => host.id === hostId.value), application: state.application.filter(app => app.host_id === hostId.value)}))
 const imagesPage = computed(() => route.params.section === 'images')
 const showStart = computed(() => imagesPage.value && Boolean(route.query.image || route.query.app))
+const showInstaller = computed(()=>imagesPage.value && route.query.install==='1')
 function closeStart() { router.replace({path: '/ops/images'}) }
 </script>
 <style src="../assets/styles/container-ops.css"></style>

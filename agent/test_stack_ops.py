@@ -30,6 +30,14 @@ class StackTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_docker_health_starting_is_not_ready_for_installation(self):
+        item={'Id':'container-a','Config':{'Image':self.config['services']['web']['image']},'State':{'Running':True,'Status':'running','Health':{'Status':'starting'}},'HostConfig':{'RestartPolicy':{'Name':'no'}}}
+        self.ops.containers=Mock(return_value={'web':item})
+        state={'desired_state':'RUNNING','services':{}}
+        self.assertFalse(self.ops.probe(self.manifest,self.files,state)['healthy'])
+        item['State']['Health']['Status']='healthy'
+        self.assertTrue(self.ops.probe(self.manifest,self.files,state)['healthy'])
+
     def test_immutable_images_and_resource_limits(self):
         self.ops.validate_compose(copy.deepcopy(self.config))
         for change in [{'image': 'registry.test/example:latest'}, {'cpus': 0}, {'mem_limit': ''}]:

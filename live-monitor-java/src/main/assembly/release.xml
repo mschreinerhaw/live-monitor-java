@@ -29,7 +29,7 @@
         <fileSet>
             <directory>../agent</directory>
             <outputDirectory>ops/agent</outputDirectory>
-            <includes><include>agent.py</include><include>stack_ops.py</include><include>config.example.json</include></includes>
+            <includes><include>agent.py</include><include>stack_ops.py</include><include>installer.py</include><include>config.example.json</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>
@@ -40,13 +40,13 @@
         <fileSet>
             <directory>../docs/container-ops</directory>
             <outputDirectory>ops/docs</outputDirectory>
-            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include><include>10-simple-image-workflow.md</include><include>11-runtime-console.md</include></includes>
+            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include><include>10-simple-image-workflow.md</include><include>11-runtime-console.md</include><include>12-one-click-installation.md</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>
             <directory>../scripts</directory>
             <outputDirectory>ops/tools</outputDirectory>
-            <includes><include>install-agent-release.py</include><include>open-platform-firewall.ps1</include></includes>
+            <includes><include>install-agent-release.py</include><include>build-install-bundle.py</include><include>open-platform-firewall.ps1</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>

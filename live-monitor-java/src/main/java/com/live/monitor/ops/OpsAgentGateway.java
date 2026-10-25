@@ -27,10 +27,15 @@ public class OpsAgentGateway {
         return call(host,action,payload,task,null);
     }
     public Map<String,Object> upload(Map<String,Object> host,Map<String,Object> input,String task) {
+        return upload(host,input,task,"import_image");
+    }
+    public Map<String,Object> upload(Map<String,Object> host,Map<String,Object> input,String task,String action) {
         java.nio.file.Path path=java.nio.file.Paths.get(text(input,"archive_path")).toAbsolutePath().normalize();
         java.nio.file.Path root=java.nio.file.Paths.get(uploadDirectory).toAbsolutePath().normalize();
         require(root.equals(path.getParent())&&!java.nio.file.Files.isSymbolicLink(path),"Invalid staged archive");
-        try {return call(host,"import_image",map("archive_bytes",input.get("archive_bytes"),"archive_sha256",text(input,"archive_sha256")),task,path);}
+        Map<String,Object> payload=map("archive_bytes",input.get("archive_bytes"),"archive_sha256",text(input,"archive_sha256"));
+        if("install_upload".equals(action))payload.put("installation_id",text(input,"installation_id"));
+        try {return call(host,action,payload,task,path);}
         finally {try{java.nio.file.Files.deleteIfExists(path);}catch(IOException ignored){}}
     }
     public void discardUpload(Map<String,Object> input) {
@@ -90,7 +95,11 @@ public class OpsAgentGateway {
             if(result==null)throw new IOException("Agent did not provide a terminal result");
             if(channel.getExitStatus()!=0 || !flag(result,"ok")) {
                 String code=text(result,"code");
-                throw new IllegalStateException("Agent operation failed ["+(code.matches("[A-Z_]{1,64}")?code:"UNKNOWN")+"]; inspect task diagnostics on the host");
+                Map<String,Object> details=object(result,"details");String reason=text(details,"reason");
+                List<String> failed=new ArrayList<>();Object services=details.get("failed_services");
+                if(services instanceof List)for(Object service:(List<?>)services)if(service instanceof String&&((String)service).matches("[A-Za-z0-9_.-]{1,64}")&&failed.size()<16)failed.add((String)service);
+                String diagnostic=(failed.isEmpty()?"":"; services: "+String.join(",",failed))+(reason.matches("[A-Z_]{1,80}")?"; reason: "+reason:"");
+                throw new IllegalStateException("Agent operation failed ["+(code.matches("[A-Z_]{1,80}")?code:"UNKNOWN")+"]"+diagnostic+"; inspect task diagnostics on the host");
             }
             return object(result,"data");
         } catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException("Agent interrupted");}

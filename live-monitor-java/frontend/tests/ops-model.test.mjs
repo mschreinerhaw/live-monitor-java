@@ -4,6 +4,21 @@ import { parsePairs, formatPairs, isTerminal, operationKey, uniqueRuntimeContain
 import { createLogFollower } from '../src/ops/liveLogs.js'
 import { deliverySteps } from '../src/ops/delivery.js'
 import { preferredHost, containerRows, recoveryText } from '../src/ops/runtimeConsole.js'
+import { installationFields, installationParameters, installationError, installationDiagnostic } from '../src/ops/installerModel.js'
+
+test('installer displays package-defined fields and does not expose generated credentials',()=>{
+  const schema={port:{type:'integer'},password:{type:'secret'},key:{type:'generated'},image:{type:'text',hidden:true}}
+  assert.deepEqual(installationFields(schema).map(([key])=>key),['port','password'])
+  assert.deepEqual(installationParameters(schema,{port:'18888',password:'test',key:'must-not-send',image:'sha256:id',unexpected:'ignored'}),{port:18888,password:'test',image:'sha256:id'})
+})
+test('installer diagnostics exclude parameter values, plans and raw tool results',()=>{
+  const result=installationDiagnostic({product:'test',parameters:{password:'private-value'}},{id:'task',status:'FAILED',result_json:'private-raw-output'},{checks:[{passed:false}],configuration:{password:'private-value'}})
+  assert(!JSON.stringify(result).includes('private'));assert.equal(result.taskId,'task');assert.deepEqual(result.checks,[{passed:false}])
+})
+test('installer errors identify failed services and require a new expired preflight',()=>{
+  assert(installationError('Agent operation failed [INSTALL_PLAN_EXPIRED_OR_CHANGED]').includes('重新检查'))
+  assert(installationError('Agent operation failed [INSTALL_FAILED_DATA_RETAINED_CHECK_HOST_DIAGNOSTICS]; services: api,mcp').includes('api,mcp'))
+})
 
 test('runtime console chooses a registered running target without business names', () => {
   const hosts = [{id: 'sandbox'}, {id: 'customer-node'}], apps = [{host_id: 'customer-node', desired_state: 'RUNNING'}]
