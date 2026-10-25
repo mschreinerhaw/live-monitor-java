@@ -29,7 +29,7 @@
         <fileSet>
             <directory>../agent</directory>
             <outputDirectory>ops/agent</outputDirectory>
-            <includes><include>agent.py</include><include>stack_ops.py</include><include>installer.py</include><include>config.example.json</include></includes>
+            <includes><include>agent.py</include><include>stack_ops.py</include><include>installer.py</include><include>agent-release.json</include><include>config.example.json</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>

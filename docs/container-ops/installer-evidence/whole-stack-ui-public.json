@@ -1,0 +1,14 @@
+{
+  "sourceRevision": "09f5763",
+  "installationId": "install-ee4c01acf8658e111766",
+  "wholeApplicationStartFromPage": true,
+  "nineComponentsHealthyAfterStart": true,
+  "wholeApplicationStopFromPage": true,
+  "startTaskId": "19aa6d3a-2808-40e8-b827-bafb8c86ae6e",
+  "stopTaskId": "51f62eb0-dde5-4d1d-b544-7dd9724b4e1a",
+  "manualStopObservationSeconds": 75,
+  "stoppedStackStillSampled": true,
+  "noUnexpectedRestartAfterStop": true,
+  "existingProductionHealthy": true,
+  "mobileNoDocumentOverflow": true
+}

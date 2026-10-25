@@ -1,6 +1,7 @@
 {
-  "verifiedAt": "2026-10-25T08:04:00.811Z",
-  "platformSourceRevision": "563a5a4",
+  "verifiedAt": "2026-10-25T08:14:47.950Z",
+  "platformSourceRevision": "09f5763",
+  "installationVerifiedWithRevision": "563a5a4",
   "productDefinitionRevision": "1f7bdadd3",
   "tests": {
     "java": {
@@ -27,11 +28,13 @@
     "nineServicesMonitored": true,
     "resourceMetricsCollected": true,
     "isolatedStackStoppedWithManualStopProtection": true,
-    "existingProductionHealthy": true
+    "existingProductionHealthy": true,
+    "wholeApplicationStartFromPage": true,
+    "wholeApplicationStopFromPage": true
   },
   "installationId": "install-ee4c01acf8658e111766",
   "installationTask": "9fbd25fd-2ced-43c5-b8e8-76789608123c",
-  "manualStopTask": "0f0002b2-fcd2-4ed9-abe0-c62ef796283f",
+  "manualStopTask": "51f62eb0-dde5-4d1d-b544-7dd9724b4e1a",
   "entrypoints": [
     {
       "label": "打开 Runtime OS",

@@ -2,6 +2,8 @@
 
 目标是新客户环境的完整安装。运维界面仍只有镜像管理、容器管理、基础监控；在镜像管理点击“安装 Runtime OS”，依次上传正式安装包、确认必要配置、检查并授权、查看安装结果。后台执行镜像导入、依赖启动、数据库初始化、应用健康检查与监控登记。不从镜像名称推测依赖，不执行上传包提供的主机 Shell 命令。
 
+安装完成后进入容器管理，使用“启动整套 / 停止整套”管理整套 Runtime OS；组件行保留独立启动、停止、重启与日志按钮。整套停止会记录人工停机意图，保留数据并继续采集，不会触发异常拉起。
+
 ## 安装包与制作
 
 安装包是带签名的 `.install.tar.gz`，不同于普通 `docker save` 镜像包。根目录包含 `installer.json`、`installer.sig` 及清单明确声明的镜像和模板文件。协议 `live-monitor.install.v1` 声明产品、版本、镜像内容 ID、每个文件 SHA256、参数、Compose 配置、资源需求、初始化资产、健康检查和访问入口。所有镜像由不可变配置 ID 引用。
@@ -23,13 +25,13 @@ python3 build-install-bundle.py --definition /build/definition/installer-definit
 前提是 Linux/amd64 主机已安装 Docker 与 Compose，平台已通过固定命令 SSH Agent 连接该主机。这属于平台安装初始化，客户日常安装不需要打开控制台。首次安装 Agent 时通过可信交付渠道配置发行公钥、允许的产品及必要能力；不得信任上传包自带的公钥。随交付的 `deploy/container-platform/trust/runtime-os-release-20261025.pub` 是本次发行公钥。
 
 ```bash
-python3 install-agent-release.py --release /release/verified-agent --target /opt/live-monitor-agent \
-  --installer-product runtime-os --trust-public-key /release/runtime-os-release-20261025.pub \
+python3 /release/ops/tools/install-agent-release.py --release /release/ops/agent --target /opt/live-monitor-agent \
+  --installer-product runtime-os --trust-public-key /release/ops/container-platform/trust/runtime-os-release-20261025.pub \
   --installer-capability docker_socket --installer-capability host_identity \
   --installer-max-cpus 4 --installer-max-memory-mb 4096
 ```
 
-Agent 清单应包含 agent.py、stack_ops.py、installer.py 及其 SHA256。公钥安装到 root 管理的信任目录。安装资源额度独立于原单容器操作额度，不为了安装大服务放宽普通容器策略。标准包需要约 16 GiB 主机内存、8 核及足够镜像、临时文件和数据空间；安装前还校验当前可用内存、磁盘、版本、地址和端口。主机发布接口由 Agent 既有 `publish_address` 决定，平台不自动修改防火墙。
+平台发行包的 `ops/agent/agent-release.json` 包含 agent.py、stack_ops.py、installer.py 的 SHA256。源代码修改后，发行方须同步维护该清单；Agent Python 文件固定 LF 换行，避免跨系统打包改变摘要。公钥安装到 root 管理的信任目录。安装资源额度独立于原单容器操作额度，不为了安装大服务放宽普通容器策略。标准包需要约 16 GiB 主机内存、8 核及足够镜像、临时文件和数据空间；安装前还校验当前可用内存、磁盘、版本、地址和端口。主机发布接口由 Agent 既有 `publish_address` 决定，平台不自动修改防火墙。
 
 ## 执行与数据保护
 
@@ -43,7 +45,7 @@ Agent 清单应包含 agent.py、stack_ops.py、installer.py 及其 SHA256。公
 
 ## 验证记录
 
-2026-10-25 已完成服务器发布及完整安装验收，入口 `http://192.168.195.221:18080/#/ops/images`。点击“安装 Runtime OS”进入四步向导。运行代码为 `563a5a4`；产品安装定义在 `Langchain4j-Chatchat` 的 `feature/runtime-os-one-click-delivery`，提交 `1f7bdadd3`。控制面镜像为 `localhost:18443/live-monitor/platform@sha256:a16a1998ce339a63f57c76e6982b41fc2588f5b774ed2a124be43d6e4b237213`，JAR SHA256 为 `2dbfb42437c47c044d1423d9444135596c809da472aae5a3ed895816987bec81`。
+2026-10-25 已完成服务器发布及完整安装验收，入口 `http://192.168.195.221:18080/#/ops/images`。点击“安装 Runtime OS”进入四步向导。完整安装在 `563a5a4` 验证，当前运行代码 `09f5763` 继续提供同一安装流程，并新增“启动整套 / 停止整套”快捷操作；产品安装定义在 `Langchain4j-Chatchat` 的 `feature/runtime-os-one-click-delivery`，提交 `1f7bdadd3`。控制面镜像为 `localhost:18443/live-monitor/platform@sha256:17951d6d8f7ed50fe7cf130ecd6c4e7d98e973ddf468b859aa33927d3e9a310e`，JAR SHA256 为 `95ac7fe2d3034da178f7b878fd6290b1eace5e874d71e87d32f5ff41402f3d5e`。
 
 真实安装包 `runtime-os.install.tar.gz` 为 **3,155,899,546 字节**，SHA256 **`fc64ff1703ea6bfb9b80b64b1fc0de079f2207e8a80c521295673b011feb762c`**。本地交付文件在仓库 `target/installer-validation/`；服务器保留文件在 `/opt/live-monitor-production-migration/installer-validation/runtime-os-2026.10.25-final.install.tar.gz`。完整业务安装包单独交付，不嵌入平台约 135 MB 的 JAR。它包含九种镜像内容，启动九个长驻服务，其中 Nginx 镜像用于网关和 Node 代理；Python 镜像用于按需沙箱。
 
@@ -56,10 +58,11 @@ Agent 清单应包含 agent.py、stack_ops.py、installer.py 及其 SHA256。公
 | 监控 | 九组件接入既有后台采集，CPU/内存可见；重开浏览器可恢复安装结果，无页面异常 |
 | 异常拉起 | 仅对隔离安装的 gateway 进程注入异常退出，原生重启次数 0→1，4.62 秒恢复 HTTP 访问 |
 | 幂等 | 重复提交同一安装请求返回同一任务，没有重复安装 |
+| 整套启停 | 从容器页面点击“启动整套”，九组件恢复健康；点击“停止整套”后整体停机，持续采集且未自动重启 |
 | 人工停机 | 平台停止整个隔离项目；继续观察 75 秒，九组件保持停止且标记人工停机 |
 | 存量保护 | 38 个既有非目标容器 ID、镜像和启动时间未变化，原生产 Runtime OS 健康 |
 
-验收项目 `lm-installer-acceptance-install-ee4c01acf8658e111766` 已停止以释放资源，其数据与诊断保留。18080 的生产控制面继续服务原 Runtime OS。没有替换旧业务数据库或修改原业务容器。发布前控制面数据库冷备位于 `/opt/live-monitor-production-migration/installer-platform-563a5a4/control-data-backup`。
+验收项目 `lm-installer-acceptance-install-ee4c01acf8658e111766` 最终停止以释放资源，其数据与诊断保留。18080 的生产控制面继续服务原 Runtime OS。没有替换旧业务数据库或修改原业务容器。最新发布前控制面数据库冷备位于 `/opt/live-monitor-production-migration/installer-platform-09f5763/control-data-backup`。
 
 验收证据见 [installer-evidence](installer-evidence/)。本次在同一物理服务器上的独立目录、网络和环境完成验证；尚未以另一台全新物理服务器验证所有防火墙、离线操作系统依赖及客户许可证。许可证、模型连接和客户业务任务需要在客户激活配置后另行验收。当前新装不提供覆盖既有安装的数据迁移或原地升级。
 
