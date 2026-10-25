@@ -3,10 +3,11 @@ import { randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
 
 const options = Object.fromEntries(process.argv.slice(2).map(arg => { const at = arg.indexOf('='); assert(at > 2, 'Use --key=value'); return [arg.slice(2, at), arg.slice(at + 1)] }))
-const base = options.url || 'http://127.0.0.1:18080'
-assert.equal(new URL(base).hostname, '127.0.0.1', 'This CLI talks to the local control plane, never directly to Docker')
-const raw = readFileSync(options.auth || 'target/runtime-os-production-control/secrets-private.json')
+const raw = readFileSync(options.auth || 'target/runtime-os-production-control/login-private.json')
 const credentials = JSON.parse(raw.toString(raw[0] === 255 && raw[1] === 254 ? 'utf16le' : 'utf8').replace(/^\uFEFF/, ''))
+const base = options.url || credentials.baseUrl || 'http://127.0.0.1:18080'
+assert(['http:', 'https:'].includes(new URL(base).protocol), 'HTTP(S) control plane required')
+assert.equal(new URL(base).origin, new URL(credentials.baseUrl || 'http://127.0.0.1:18080').origin, 'Target must match the persisted control-plane endpoint')
 let cookie = ''
 async function api(path, data) {
   const response = await fetch(base + path, { method: data ? 'POST' : 'GET', headers: { cookie, 'Content-Type': 'application/json', 'X-Ops-Request': '1' }, ...(data ? { body: JSON.stringify(data) } : {}) })

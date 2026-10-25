@@ -9,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (!$StorageRoot) { $StorageRoot = Join-Path $repository 'target/runtime-os-production-control' }
 $runtimeRoot = [IO.Path]::GetFullPath($StorageRoot)
+if (Test-Path -LiteralPath (Join-Path $runtimeRoot 'remote-controller.json')) { throw 'This state was handed off to a remote controller. Stop and reconcile that controller before starting another scheduler.' }
 $artifactPath = (Resolve-Path -LiteralPath $Artifact).Path
 if ((Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash -ine $ExpectedSha256) { throw 'Artifact SHA256 does not match the verified build' }
 if ($Port -lt 1024 -or $Port -gt 65535) { throw 'Choose an unprivileged TCP port' }

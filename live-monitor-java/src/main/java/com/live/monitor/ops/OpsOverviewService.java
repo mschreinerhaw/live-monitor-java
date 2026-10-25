@@ -13,9 +13,9 @@ public class OpsOverviewService {
     public OpsOverviewService(OpsRepository repo,OpsAuthorization auth){this.repo=repo;this.auth=auth;}
     public Map<String,Object> read(String actor,long now){
         List<Map<String,Object>> hosts=new ArrayList<>(), apps=new ArrayList<>(), runtimes=new ArrayList<>();
-        Set<String> visible=new HashSet<>();
+        Set<String> visible=new HashSet<>(), physical=new HashSet<>();
         for(Map<String,Object> h:repo.list("host"))if(auth.allowed(actor,text(h,"id"),text(h,"environment"),"read")){
-            visible.add(text(h,"id"));Map<String,Object> s=find(repo.list("snapshot"),"host_id",text(h,"id"));
+            visible.add(text(h,"id"));physical.add(text(h,"monitor_host_id"));Map<String,Object> s=find(repo.list("snapshot"),"host_id",text(h,"id"));
             hosts.add(map("id",text(h,"id"),"name",text(h,"name"),"environment",text(h,"environment"),"maintenance",flag(h,"maintenance"),
                 "observed_at",s.get("observed_at"),"stale",stale(s,now),"runtime",map("docker_version",object(s,"data").get("docker_version"),"cpu_count",object(s,"data").get("cpu_count"),"memory_bytes",object(s,"data").get("memory_bytes"))));
         }
@@ -50,7 +50,7 @@ public class OpsOverviewService {
         for(String kind:Arrays.asList("version","stack_version"))for(Map<String,Object> v:repo.list(kind))if(visible.contains(text(v,"host_id")))recent.add(map("id",text(v,"id"),"resource_id",text(v,kind.equals("version")?"app_id":"stack_id"),"host_id",text(v,"host_id"),"created_at",v.get("created_at"),"version",text(object(v,"spec"),kind.equals("version")?"image":"package_ref")));
         recent.sort((a,b)->Long.compare(((Number)b.get("created_at")).longValue(),((Number)a.get("created_at")).longValue()));
         return map("observed_at",now,"hosts",hosts,"applications",apps,"containers",new ArrayList<>(unique.values()),"recent_deployments",recent.stream().limit(10).collect(Collectors.toList()),"alerts",alerts,
-            "counts",map("hosts",hosts.size(),"applications",apps.size(),"healthy_applications",apps.stream().filter(a->"HEALTHY".equals(text(a,"status"))).count(),"running",unique.values().stream().filter(c->!flag(c,"stale")&&"running".equals(text(c,"status"))).count(),
+            "counts",map("hosts",physical.size(),"targets",hosts.size(),"applications",apps.size(),"healthy_applications",apps.stream().filter(a->"HEALTHY".equals(text(a,"status"))).count(),"running",unique.values().stream().filter(c->!flag(c,"stale")&&"running".equals(text(c,"status"))).count(),
                 "abnormal",unique.values().stream().filter(c->!flag(c,"stale")&&!flag(c,"healthy")&&!flag(c,"manual_stop")).count(),"stale_hosts",hosts.stream().filter(h->flag(h,"stale")).count(),"alerts",alerts.stream().filter(a->"OPEN".equals(text(a,"status"))).count()));
     }
     private static Map<String,Object> find(List<Map<String,Object>> rows,String key,String id){return rows.stream().filter(r->id.equals(text(r,key))).findFirst().orElseGet(OpsData::map);}

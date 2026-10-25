@@ -37,6 +37,7 @@ class ContainerOpsTest {
         HostManagementService service=new HostManagementService(repo,monitors);
         Map<String,Object> input=map("id","host-a-staging","environment","staging","monitor_host_id",1L,"ssh_host_key","ssh-ed25519 AAAA");
         assertEquals("staging",service.register(input).get("environment"));
+        Map<String,Object> counts=object(new OpsOverviewService(repo,auth).read("admin",System.currentTimeMillis()),"counts");assertEquals(2,counts.get("hosts"));assertEquals(3,counts.get("targets"));
         input.put("id","duplicate");assertThrows(ResponseStatusException.class,()->service.register(input));
     }
     @Test void registeredEnvironmentCannotBeReassigned(){

@@ -20,7 +20,7 @@ const props = defineProps({ monitoring: Object, state: Object, busy: Boolean, pe
 const host = ref(''), environment = ref('')
 const statusText = { HEALTHY: '健康', UNHEALTHY: '异常', UNKNOWN: '采集过期 / 未知', STOPPED: '人工停机', NOT_DEPLOYED: '未发布' }
 const environments = computed(() => [...new Set(props.monitoring.hosts.map(h => h.environment))])
-const applications = computed(() => props.monitoring.applications.filter(a => (!host.value || a.host_id === host.value) && (!environment.value || a.environment === environment.value)))
+const applications = computed(() => props.monitoring.applications.filter(a => (!host.value || a.host_id === host.value) && (!environment.value || a.environment === environment.value)).sort((a, b) => Number(a.status === 'STOPPED') - Number(b.status === 'STOPPED')))
 const actions = [{ key: 'start', label: '启动' }, { key: 'stop', label: '停止' }, { key: 'restart', label: '重启' }]
 const operation = (app, key) => app.kind === 'stack' ? 'stack_service_' + key : key
 function run(app, service, key) { return props.operate(operation(app, key), props.state[app.kind].find(a => a.id === app.id), app.kind === 'stack' ? { service: service.service } : {}) }
