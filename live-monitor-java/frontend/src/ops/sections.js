@@ -1,5 +1,6 @@
 export const opsSections = [
   { key: 'overview', label: '平台总览' },
+  { key: 'delivery', label: '部署交付向导' },
   { key: 'servers', label: '服务器管理' },
   { key: 'images', label: '镜像仓库' },
   { key: 'deployments', label: '应用部署' },

@@ -32,6 +32,47 @@ class ContainerOpsTest {
     }
     @AfterEach void stop(){tasks.shutdown();}
     static Map<String,Object> stack(){return map("id","stack-a","name","Example release","host_id","host-a","environment","test","package_ref","approved-release","package_sha256",String.join("",Collections.nCopies(64,"a")),"desired_state","RUNNING");}
+    @Test void samePhysicalServerCanHaveExplicitlySeparatedAgentEnvironments(){
+        HostMapper monitors=mock(HostMapper.class);when(monitors.findHost(1L)).thenReturn(new com.live.monitor.entity.HostConfig());
+        HostManagementService service=new HostManagementService(repo,monitors);
+        Map<String,Object> input=map("id","host-a-staging","environment","staging","monitor_host_id",1L,"ssh_host_key","ssh-ed25519 AAAA");
+        assertEquals("staging",service.register(input).get("environment"));
+        input.put("id","duplicate");assertThrows(ResponseStatusException.class,()->service.register(input));
+    }
+    @Test void registeredEnvironmentCannotBeReassigned(){
+        HostMapper monitors=mock(HostMapper.class);when(monitors.findHost(1L)).thenReturn(new com.live.monitor.entity.HostConfig());
+        HostManagementService service=new HostManagementService(repo,monitors);
+        Map<String,Object> input=repo.get("host","host-a");input.put("environment","changed");input.put("ssh_host_key","ssh-ed25519 AAAA");
+        assertThrows(ResponseStatusException.class,()->service.register(input));
+    }
+    @Test void overviewScopesHostsAndDoesNotExposeEnvironmentSecrets(){
+        repo.save("application",app());repo.save("grant",map("id","viewer-a","user_id","viewer","host_id","host-a","environment","test","actions","read","enabled",true));
+        Map<String,Object> result=new OpsOverviewService(repo,auth).read("viewer",System.currentTimeMillis());
+        assertEquals(1,rows(result,"hosts").size());assertEquals(1,rows(result,"applications").size());
+        assertEquals("NOT_DEPLOYED",rows(result,"applications").get(0).get("status"));assertFalse(json(result).contains("environment_variables"));
+    }
+    @Test void overviewIncludesStacksAndDeduplicatesSharedDockerDependencies(){
+        for(String id:Arrays.asList("stack-a","stack-c")){
+            Map<String,Object>s=stack();s.put("id",id);s.put("active_version","v-"+id);repo.save("stack",s);
+            repo.save("stack_version",map("id","v-"+id,"stack_id",id,"host_id","host-a","spec",s,"created_at",10L));
+            repo.save("stack_snapshot",map("id",id,"stack_id",id,"host_id","host-a","observed_at",100000L,"data",map("services",Arrays.asList(map("service","web","container_id",id,"status","running","healthy",true)),"dependencies",Arrays.asList(map("name","database","container_id","shared","running",true,"healthy",true),map("name","external","container_id","external:license","running",true,"healthy",true)))));
+        }
+        Map<String,Object> result=new OpsOverviewService(repo,auth).read("admin",100001L);
+        assertEquals(2,rows(result,"applications").size());assertEquals(3,rows(result,"containers").size());assertEquals(3L,object(result,"counts").get("running"));
+        assertEquals(2,rows(result,"recent_deployments").size());
+    }
+    @Test void overviewDoesNotReportStaleContainersAsRunningHealthy(){
+        Map<String,Object>s=stack();s.put("active_version","v");repo.save("stack",s);
+        repo.save("stack_snapshot",map("id","stack-a","stack_id","stack-a","host_id","host-a","observed_at",1L,"data",map("services",Arrays.asList(map("service","web","status","running","healthy",true)))));
+        Map<String,Object> result=new OpsOverviewService(repo,auth).read("admin",100000L);
+        assertEquals("UNKNOWN",rows(result,"applications").get(0).get("status"));assertEquals(0L,object(result,"counts").get("running"));
+    }
+    @Test void manuallyStoppedStacksAreStillSampledWithoutAutoRecovery()throws Exception{
+        Map<String,Object>s=stack();s.put("active_version","published");s.put("desired_state","STOPPED");repo.save("stack",s);
+        repo.save("stack_snapshot",map("id","stack-a","stack_id","stack-a","host_id","host-a","observed_at",System.currentTimeMillis(),"data",map("recovery_candidates",Arrays.asList("web"))));
+        HealthDetectionService detector=new HealthDetectionService(repo,tasks,new AutoRecoveryService(),new AlertEventService(repo));java.lang.reflect.Field started=HealthDetectionService.class.getDeclaredField("started");started.setAccessible(true);started.setLong(detector,0L);detector.tick();
+        assertTrue(repo.tasks().stream().anyMatch(t->"stack_probe".equals(text(t,"action"))));assertFalse(repo.tasks().stream().anyMatch(t->"stack_recover".equals(text(t,"action"))));
+    }
     @Test void stackConfigurationRejectsUnsealedPackages(){StackManagementService.validate(stack());Map<String,Object>s=stack();s.put("package_sha256","latest");assertThrows(ResponseStatusException.class,()->StackManagementService.validate(s));}
     @Test void stackStopPersistsIntentBeforeAsyncExecution(){Map<String,Object>s=repo.save("stack",stack());tasks.submit("admin","stack_stop",s,map(),"stack-stop-key");assertEquals("STOPPED",repo.get("stack","stack-a").get("desired_state"));}
     @Test void stackNeverForwardsBrowserYamlOrShell()throws Exception{

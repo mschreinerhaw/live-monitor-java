@@ -27,6 +27,29 @@
 
     <fileSets>
         <fileSet>
+            <directory>../agent</directory>
+            <outputDirectory>ops/agent</outputDirectory>
+            <includes><include>agent.py</include><include>stack_ops.py</include><include>config.example.json</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../deploy/container-platform</directory>
+            <outputDirectory>ops/container-platform</outputDirectory>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../docs/container-ops</directory>
+            <outputDirectory>ops/docs</outputDirectory>
+            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../scripts</directory>
+            <outputDirectory>ops/tools</outputDirectory>
+            <includes><include>install-agent-release.py</include><include>open-platform-firewall.ps1</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
             <directory>src/main/assembly/bin</directory>
             <outputDirectory>bin</outputDirectory>
             <fileMode>0755</fileMode>

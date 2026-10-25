@@ -2,12 +2,13 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { opsApi } from '../api/ops'
 import { store } from '../store'
 import { opsSections } from './sections'
-import { parsePairs, formatPairs, isTerminal, operationKey, uniqueRuntimeContainers } from './model'
+import { parsePairs, formatPairs, isTerminal, operationKey } from './model'
 import { createLogFollower } from './liveLogs'
 export function useOpsPlatform(route) {
   const state = reactive({ host: [], registry: [], application: [], snapshot: [], version: [], backup: [], alert: [], alert_rule: [], grant: [], stack: [], stack_version: [], stack_snapshot: [] })
   const capabilities = ref({ host_actions: {}, roles: {} }), tasks = ref([]), audit = ref([]), monitorHosts = ref([])
   const loading = ref(false), busy = ref(false), error = ref(''), activeTask = ref(null), imageResults = ref([]), registryResults = ref(null)
+  const monitoring = ref({ hosts: [], applications: [], containers: [], alerts: [], recent_deployments: [], counts: {} })
   const liveLogs = ref(''), liveLogApp = ref(null), liveLogTime = ref(null)
   const hostDraft = reactive({ id: '', name: '', monitor_host_id: '', environment: '', group: '', ssh_host_key: '' })
   const registryDraft = reactive({ id: '', name: '', address: '', credential_ref: '' })
@@ -19,11 +20,7 @@ export function useOpsPlatform(route) {
   const section = computed(() => route.params.section || 'overview')
   const title = computed(() => opsSections.find(s => s.key === section.value)?.label || '容器运维')
   const containers = computed(() => state.snapshot.flatMap(s => (s.data?.containers || []).map(c => ({ ...c, host_id: s.host_id, environment: s.environment, observed_at: s.observed_at }))))
-  const stackContainers = computed(() => state.stack_snapshot.flatMap(s => [...(s.data?.services || []).map(c => ({ ...c, host_id: s.host_id, app_id: `${s.stack_id}/${c.service}` })), ...(s.data?.dependencies || []).map(d => ({ ...d, host_id: s.host_id, status: d.running ? 'running' : 'exited' }))]))
-  const runtimes = computed(() => uniqueRuntimeContainers([...containers.value, ...stackContainers.value]))
-  const overview = computed(() => ({ hosts: state.host.length, running: runtimes.value.filter(c => c.status === 'running').length,
-    abnormal: runtimes.value.filter(c => !c.healthy && !c.manual_stop).length, versions: state.version.length + state.stack_version.length,
-    alerts: state.alert.filter(a => a.status === 'OPEN').length }))
+  const overview = computed(() => ({ ...monitoring.value.counts, versions: state.version.length + state.stack_version.length }))
   const permitted = (host, action) => (capabilities.value.host_actions?.[host] || []).includes(action)
   const time = value => value ? new Date(Number(value)).toLocaleString() : '—'
   const age = value => !value || Date.now() - Number(value) > 90000
@@ -36,6 +33,7 @@ export function useOpsPlatform(route) {
     loading.value = true
     try {
       capabilities.value = await opsApi.capabilities()
+      monitoring.value = await opsApi.overview()
       const kinds = Object.keys(state).filter(k => k !== 'grant' || capabilities.value.administrator)
       const results = await Promise.allSettled(kinds.map(k => opsApi.list(k)))
       results.forEach((r, i) => { if (r.status === 'fulfilled') state[kinds[i]] = r.value; else error.value = r.reason.message })
@@ -119,7 +117,7 @@ export function useOpsPlatform(route) {
     }, 10000)
   })
   onBeforeUnmount(() => { stream?.close(); clearInterval(refreshTimer); stopLiveLogs() })
-  return { state, capabilities, tasks, audit, monitorHosts, loading, busy, error, activeTask, hostDraft, registryDraft, appDraft, grantDraft, alertRuleDraft, editor, imageDraft, imageResults, registryResults,
+  return { monitoring, state, capabilities, tasks, audit, monitorHosts, loading, busy, error, activeTask, hostDraft, registryDraft, appDraft, grantDraft, alertRuleDraft, editor, imageDraft, imageResults, registryResults,
     section, title, containers, overview, permitted, time, age, pretty, refresh, resetApp, editApp, selectHost, save, saveApp, operate, imageOperation, deploy, backupOperation, acknowledge, roleChanged, follow,
     liveLogs, liveLogApp, liveLogTime, startLiveLogs, stopLiveLogs, resetDraft }
 }

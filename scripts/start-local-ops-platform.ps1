@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Artifact,
     [Parameter(Mandatory = $true)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ExpectedSha256,
     [string]$StorageRoot = '',
-    [int]$Port = 18080
+    [int]$Port = 18080,
+    [ValidatePattern('^(\d{1,3}\.){3}\d{1,3}$')][string]$ListenAddress = '0.0.0.0'
 )
 $ErrorActionPreference = 'Stop'
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -37,7 +38,7 @@ $jarPath = Join-Path $runtimeRoot 'app.jar'
 Copy-Item -LiteralPath $artifactPath -Destination $jarPath -Force
 $env:LIVE_MONITOR_SECRET_KEY = $secrets.encryptionKey
 $env:LIVE_MONITOR_DB_PASSWORD = $secrets.databasePassword
-$arguments = @('-jar', ('"' + $jarPath + '"'), '--server.address=127.0.0.1', "--server.port=$Port",
+$arguments = @('-jar', ('"' + $jarPath + '"'), "--server.address=$ListenAddress", "--server.port=$Port",
     '"--spring.datasource.url=jdbc:h2:file:./data/platform;MODE=LEGACY;DATABASE_TO_LOWER=TRUE"',
     '--live-monitor.rocksdb-path=./data/rocksdb', '--live-monitor.sqlite-path=./data/absent.db',
     '--live-monitor.h2-legacy-path=./data/absent-h2', '--debug=false', '--logging.level.root=INFO')
@@ -71,4 +72,4 @@ try {
 $loginPath = Join-Path $runtimeRoot 'login-private.json'
 @{ username = $secrets.username; password = $secrets.password; baseUrl = $baseUri } | ConvertTo-Json | Set-Content -LiteralPath $loginPath -Encoding UTF8
 & icacls.exe $loginPath /inheritance:r /grant:r "${env:USERNAME}:(F)" | Out-Null
-Write-Output "Local operations control plane started: PID $($process.Id), http://127.0.0.1:$Port/; persistent data in $runtimeRoot"
+Write-Output "Operations control plane started: PID $($process.Id), listening on ${ListenAddress}:$Port; persistent data in $runtimeRoot"

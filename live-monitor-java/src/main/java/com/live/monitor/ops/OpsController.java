@@ -17,6 +17,8 @@ public class OpsController {
     static { ACTIONS.addAll(StackManagementService.ACTIONS); }
     public OpsController(OpsRepository repo,OpsAuthorization auth,HostManagementService hosts,ImageRegistryService registries,DeploymentPolicy policy,OpsTaskService tasks,ContainerManagementService containers){this.repo=repo;this.auth=auth;this.hosts=hosts;this.registries=registries;this.policy=policy;this.tasks=tasks;this.containers=containers;}
     private Map<String,Object> ok(Object data){return map("data",data,"success",true);}
+    @GetMapping("/overview")
+    public Map<String,Object> overview(HttpServletRequest request){return ok(new OpsOverviewService(repo,auth).read(auth.actor(request,false),System.currentTimeMillis()));}
     @GetMapping("/capabilities")
     public Map<String,Object> capabilities(HttpServletRequest request){
         String actor=auth.actor(request,false);
@@ -60,7 +62,10 @@ public class OpsController {
             auth.admin(actor);identifier(text(input,"id"));Map<String,Object> h=repo.get("host",text(input,"host_id"));
             require(AlertEventService.CODES.contains(text(input,"code")),"Unsupported event code");
             require(Arrays.asList("WARNING","ERROR","CRITICAL").contains(text(input,"severity")),"Invalid severity");
-            if(!text(input,"app_id").isEmpty())require(text(repo.get("application",text(input,"app_id")),"host_id").equals(text(h,"id")),"Application outside host scope");
+            if(!text(input,"app_id").isEmpty()){
+                boolean owned=false;for(String type:Arrays.asList("application","stack"))for(Map<String,Object> app:repo.list(type))if(text(input,"app_id").equals(text(app,"id"))&&text(h,"id").equals(text(app,"host_id")))owned=true;
+                require(owned,"Application outside host scope");
+            }
             result=repo.save(kind,map("id",text(input,"id"),"host_id",text(h,"id"),"environment",text(h,"environment"),"app_id",text(input,"app_id"),
                 "code",text(input,"code"),"severity",text(input,"severity"),"enabled",!Boolean.FALSE.equals(input.get("enabled")),"revision",input.getOrDefault("revision",0)));
         }

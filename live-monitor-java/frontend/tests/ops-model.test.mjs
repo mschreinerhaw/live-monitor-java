@@ -2,6 +2,23 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { parsePairs, formatPairs, isTerminal, operationKey, uniqueRuntimeContainers } from '../src/ops/model.js'
 import { createLogFollower } from '../src/ops/liveLogs.js'
+import { deliverySteps } from '../src/ops/delivery.js'
+
+test('delivery cannot pass monitoring on stale evidence or restore from backup alone', () => {
+  const state = { registry: [{}], application: [], stack: [{}], alert_rule: [], grant: [], backup: [{ verified: true, restore_tested: false }] }
+  const monitoring = { hosts: [{ stale: true }], applications: [{ status: 'UNKNOWN', stale: true }] }
+  const steps = deliverySteps(state, monitoring, [{ status: 'SUCCEEDED', action: 'stack_deploy' }])
+  for (const key of ['host', 'release', 'monitor', 'alert', 'backup']) assert.equal(steps.find(s => s.key === key).done, false, key)
+})
+
+test('delivery monitoring requires a successful background sample, not only a manual probe', () => {
+  const state = { registry: [], application: [], stack: [{}], alert_rule: [], grant: [], backup: [] }
+  const monitoring = { hosts: [{ stale: false }], applications: [{ status: 'HEALTHY', stale: false }] }
+  const tasks = [{ status: 'SUCCEEDED', action: 'stack_probe', actor: 'admin' }]
+  assert.equal(deliverySteps(state, monitoring, tasks).find(s => s.key === 'monitor').done, false)
+  tasks.push({ status: 'SUCCEEDED', action: 'stack_probe', actor: 'system' })
+  assert.equal(deliverySteps(state, monitoring, tasks).find(s => s.key === 'monitor').done, true)
+})
 
 test('environment values preserve equals signs, spaces and Unicode', () => {
   assert.deepEqual(parsePairs('URL=https://example.test?a=b=c\nNAME=中文 空格\nEMPTY='), { URL: 'https://example.test?a=b=c', NAME: '中文 空格', EMPTY: '' })

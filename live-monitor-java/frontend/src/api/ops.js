@@ -7,6 +7,7 @@ async function call(path, options) {
 }
 const post = (path, body) => call(path, { method: 'POST', headers: { 'X-Ops-Request': '1' }, body: JSON.stringify(body) })
 export const opsApi = {
+  overview: () => call('/overview'),
   capabilities: () => call('/capabilities'),
   applicationTemplate: () => call('/templates/application'),
   list: kind => call('/resources/' + encodeURIComponent(kind)),

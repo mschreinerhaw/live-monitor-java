@@ -35,7 +35,7 @@ public class StackManagementService {
             for(Map<String,Object> old:repo.list("stack_snapshot"))if(text(old,"id").equals(text(spec,"id")))snapshot.put("revision",old.get("revision"));
             repo.save("stack_snapshot",snapshot);
             AlertEventService alerts=new AlertEventService(repo);
-            if(!flag(result,"healthy")&&"RUNNING".equals(text(repo.get("stack",text(spec,"id")),"desired_state")))alerts.open(text(spec,"host_id"),text(spec,"id"),"STACK_UNHEALTHY","ERROR");
+            if(!flag(host,"maintenance")&&!flag(result,"healthy")&&"RUNNING".equals(text(repo.get("stack",text(spec,"id")),"desired_state")))alerts.open(text(spec,"host_id"),text(spec,"id"),"STACK_UNHEALTHY","ERROR");
             else if(flag(result,"healthy"))alerts.recovered(text(spec,"id"));
             if(result.get("circuits") instanceof List&&!((List<?>)result.get("circuits")).isEmpty())alerts.open(text(spec,"host_id"),text(spec,"id"),"STACK_RECOVERY_EXHAUSTED","CRITICAL");
         }

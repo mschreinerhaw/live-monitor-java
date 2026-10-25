@@ -185,13 +185,15 @@ class StackOperations:
                     circuits.append(name)
                 elif now >= runtime.get('next_recovery_at', 0) and item:
                     policy = item['HostConfig']['RestartPolicy']['Name']
-                    if native_count >= limit or running or (policy == 'no' and item['State'].get('ExitCode', 0) != 0):
+                    if native_count >= limit or (running and manifest.get('recovery', {}).get('recover_unhealthy', True)) or (policy == 'no' and item['State'].get('ExitCode', 0) != 0):
                         candidates.append(name)
             services.append({'service': name, 'container_id': item['Id'] if item else '',
                 'image': item['Config']['Image'] if item else files['compose'][1]['services'][name]['image'], 'status': item['State']['Status'] if item else 'missing',
                 'healthy': healthy, 'manual_stop': stopped, 'restart_count': native_count,
                 'expected_image': expected, 'image_drift': not identity_matches,
                 'recovery_attempts': runtime.get('recovery_attempts', 0), 'circuit_open': name in circuits,
+                'failure_since': runtime.get('failure_since', 0), 'next_recovery_at': runtime.get('next_recovery_at', 0),
+                'restart_policy': item['HostConfig']['RestartPolicy']['Name'] if item else '',
                 'resources': next((v for k, v in resources.items() if item and item['Id'].startswith(k)), {})})
         dependencies = []
         for dependency in manifest.get('external_dependencies', []):
@@ -207,6 +209,7 @@ class StackOperations:
                 'image': 'external-service', 'running': healthy, 'healthy': healthy, 'management': 'external-service-preserved'})
         self.save(manifest['stack_id'], state)
         return {'services': services, 'dependencies': dependencies, 'recovery_candidates': candidates,
+                'recovery_policy': dict(manifest.get('recovery', {}), recover_unhealthy=manifest.get('recovery', {}).get('recover_unhealthy', True), controller='native-restart-with-platform-health-recovery'),
                 'circuits': circuits, 'desired_state': state['desired_state'],
                 'healthy': all(s['healthy'] or s['manual_stop'] for s in services) and all(d['healthy'] for d in dependencies)}
 

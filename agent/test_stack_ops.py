@@ -106,6 +106,19 @@ class StackTests(unittest.TestCase):
         state = {'desired_state': 'RUNNING', 'services': {'web': {'container_id': 'container', 'failure_since': 1, 'next_recovery_at': 9999999999999}}}
         self.assertEqual(self.ops.probe(self.manifest, self.files, state)['recovery_candidates'], [])
 
+    def test_unhealthy_recovery_policy_and_diagnostics_are_visible(self):
+        item = {'Id': 'container', 'Config': {'Image': 'immutable'}, 'State': {'Running': True, 'Status': 'running', 'Health': {'Status': 'unhealthy'}}, 'HostConfig': {'RestartPolicy': {'Name': 'unless-stopped'}}, 'RestartCount': 0}
+        self.ops.containers = Mock(return_value={'web': item})
+        manifest = dict(self.manifest, recovery={'limit': 3, 'failure_window_seconds': 1, 'recover_unhealthy': False})
+        state = {'desired_state': 'RUNNING', 'services': {'web': {'container_id': 'container', 'failure_since': 1}}}
+        result = self.ops.probe(manifest, self.files, state)
+        self.assertEqual(result['recovery_candidates'], [])
+        self.assertFalse(result['recovery_policy']['recover_unhealthy'])
+        self.assertEqual(result['services'][0]['failure_since'], 1)
+        self.assertEqual(result['services'][0]['restart_policy'], 'unless-stopped')
+        manifest['recovery']['recover_unhealthy'] = True
+        self.assertEqual(self.ops.probe(manifest, self.files, state)['recovery_candidates'], ['web'])
+
     def test_deploy_requires_data_compatibility_confirmation(self):
         self.ops.bundle = Mock(return_value=(self.manifest, self.files))
         self.ops.compose = Mock()
