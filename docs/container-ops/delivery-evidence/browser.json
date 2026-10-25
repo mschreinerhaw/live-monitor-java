@@ -1,0 +1,36 @@
+{
+  "baseUrl": "http://192.168.195.221:18080",
+  "checks": {
+    "authenticationRequired": true,
+    "loginThroughHostIp": true,
+    "overview": true,
+    "delivery": true,
+    "servers": true,
+    "images": true,
+    "deployments": true,
+    "stacks": true,
+    "containers": true,
+    "backups": true,
+    "alerts": true,
+    "tasks": true,
+    "permissions": true,
+    "productionAppMetricsAndRecoveryPolicy": true,
+    "stackServicesVisibleInContainerOperations": true,
+    "mobileGuide": true
+  },
+  "errors": [],
+  "productionServices": 7,
+  "dockerDependencies": 3,
+  "externalDependencies": 1,
+  "counts": {
+    "hosts": 1,
+    "targets": 2,
+    "applications": 2,
+    "healthy_applications": 1,
+    "running": 10,
+    "abnormal": 0,
+    "stale_hosts": 0,
+    "alerts": 0
+  },
+  "remoteClientNetworkAccessVerified": true
+}

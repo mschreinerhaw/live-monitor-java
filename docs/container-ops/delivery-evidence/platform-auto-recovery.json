@@ -1,0 +1,11 @@
+{
+  "productionFaultInjection": false,
+  "project": "lm-stack-acceptance-67d4f91b",
+  "platformDeploymentTaskId": "58630b79-e312-495d-8648-cef6cf8e9dc8",
+  "automaticRecoveryTaskId": "c8af3471-9494-4b62-9b34-6e42cbd7bc4a",
+  "recoveryLimitAlertId": "4fa243ee-580e-3184-a9f4-75db576615fd",
+  "manualStopTaskId": "73fa2a03-d53e-4a28-8021-a5af61bb3f9a",
+  "stoppedStackStillSampled": true,
+  "manualStopProtected": true,
+  "productionHealthy": true
+}

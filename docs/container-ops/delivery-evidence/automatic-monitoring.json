@@ -1,0 +1,8 @@
+{
+  "taskId": "5887dba6-ba05-4bd9-a2b5-353c6776d61b",
+  "actor": "system",
+  "status": "SUCCEEDED",
+  "createdAt": 1792895176022,
+  "afterLocalControllerRestart": true,
+  "healthy": true
+}

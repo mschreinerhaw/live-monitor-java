@@ -1,5 +1,7 @@
 # 构建、隔离验收与部署手册
 
+最新常驻控制面、主机 IP 访问及交付验收见 [09-delivery-acceptance.md](09-delivery-acceptance.md)；客户操作手册见 [08-customer-delivery.md](08-customer-delivery.md)。
+
 当前本地控制面及 Runtime OS 生产接管、启动与后续发布流程见 [07-runtime-takeover.md](07-runtime-takeover.md)。用户已明确授权并完成七服务实际替换；下文独立验证流程保留作历史与新环境参考。
 
 初次开发阶段仅在本地隔离验收。2026-10-25 用户进一步授权部署到服务器验证：采用独立实例、端口和数据目录，保留现有生产服务。后续替换生产实例仍需明确指定环境与变更范围。

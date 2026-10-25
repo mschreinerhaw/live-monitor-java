@@ -1,0 +1,44 @@
+﻿{
+    "verifiedAt":  "2026-10-25T10:27:20.6837593+08:00",
+    "sourceRevision":  "10b1d34",
+    "controlPlane":  "http://192.168.195.221:18080",
+    "javaTests":  {
+                      "skipped":  0,
+                      "failed":  0,
+                      "passed":  155
+                  },
+    "vueTests":  {
+                     "passed":  13,
+                     "failed":  0
+                 },
+    "agentTests":  {
+                       "passed":  40,
+                       "failed":  0
+                   },
+    "realIsolatedCompose":  {
+                                "skipped":  0,
+                                "passed":  1
+                            },
+    "platformAutomaticRecovery":  {
+                                      "limitAlertVerified":  true,
+                                      "manualStopProtected":  true,
+                                      "passed":  true
+                                  },
+    "browserChecks":  {
+                          "scriptErrors":  0,
+                          "remoteClientVerified":  true,
+                          "passed":  16
+                      },
+    "physicalServers":  1,
+    "environmentTargets":  2,
+    "productionApplicationServices":  7,
+    "dockerDependencies":  3,
+    "externalDependencies":  1,
+    "productionFaultInjection":  false,
+    "productionDatabaseDisasterRestoreTested":  false,
+    "localSchedulerStopped":  true,
+    "serverImageDigest":  "localhost:18443/live-monitor/platform@sha256:b82fa9b449c02e44830a800db7e8ca7876bf7556b85f995af8003160a3ecd763",
+    "jarSha256":  "3c324de386f767b57f9645eaf46a2fb5f2ba321b3b8ed9fe9221ce8a166cddd2",
+    "embeddedFrontendFilesMatched":  26,
+    "releaseZipSha256":  "e2c5cf389765ba821bc68c1d9611c1afe6a11a10319aeb06466baed4757fd712"
+}
