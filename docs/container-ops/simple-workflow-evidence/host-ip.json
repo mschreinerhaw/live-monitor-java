@@ -1,0 +1,8 @@
+{
+  "hostIpReachableFromWindows": true,
+  "endpoint": "http://192.168.195.221:18887/",
+  "isolatedApplication": "app-ec383bdd1fc2",
+  "deployTask": "7d11cab0-11e3-4966-a020-9dc9fdaf8cad",
+  "productionRestarted": false,
+  "firewallModified": false
+}

@@ -45,4 +45,6 @@ Java **156 项通过**，Vue **13 项通过**，Agent 原测试、新增归档�
 
 Runtime OS 七个生产服务未重启或更换，最终仍健康；核对的 32 个原有非目标容器均保留镜像与启动时间。控制面冷备位于 `/opt/live-monitor-production-migration/simple-ops-validation/control-data-backup`，原镜像、Compose 与 Agent 代码备份保留，没有覆盖原业务数据或执行数据恢复。
 
-脱敏证据见 [simple-workflow-evidence](simple-workflow-evidence/)。浏览器验证中的隔离端口绑定 127.0.0.1，HTTP 可达是在服务器本机验证，不宣称该测试端口已对其他主机开放。当前主机默认发布地址仍为 127.0.0.1；客户需要通过主机 IP 访问新部署应用时，应在首次安装时将 Agent `publish_address` 明确设置为批准的主机接口（例如 0.0.0.0），并按现场规则放行映射端口。默认不更改防火墙、现有应用监听地址、客户密钥或生产数据。
+脱敏证据见 [simple-workflow-evidence](simple-workflow-evidence/)。初轮隔离故障验证使用 127.0.0.1；随后针对此前“无法通过主机 IP 访问应用”的要求，将当前主机的新单容器部署发布地址调整为 `0.0.0.0`，旧配置私有备份保留。重新通过平台部署隔离应用后，从 Windows 实际访问 `http://192.168.195.221:18887/` 返回 HTTP 200，任务 `7d11cab0-11e3-4966-a020-9dc9fdaf8cad` 成功，验证后再次停止测试应用。没有修改防火墙或重启 Runtime OS，现有容器地址保持不变。
+
+客户首次安装仍应将 Agent `publish_address` 设置为现场批准的主机接口，并按网络规则放行映射端口；公共配置样例保留本机绑定作为安全初始值。平台不会自动更改防火墙、客户密钥或生产数据。
