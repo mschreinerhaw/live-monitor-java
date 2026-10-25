@@ -1,0 +1,23 @@
+{
+  "installation_id": "install-ee4c01acf8658e111766",
+  "project": "lm-installer-acceptance-install-ee4c01acf8658e111766",
+  "services": [
+    "api",
+    "coding-agent",
+    "gateway",
+    "mcp",
+    "news",
+    "node-proxy",
+    "opensearch",
+    "postgres",
+    "redis"
+  ],
+  "allRunning": true,
+  "allDockerHealthChecksPassed": true,
+  "freshDatabaseTableCounts": {
+    "runtime_os_api": 118,
+    "runtime_os_mcp": 63
+  },
+  "pinnedPythonRuntimeInitialized": true,
+  "customerDataImported": false
+}

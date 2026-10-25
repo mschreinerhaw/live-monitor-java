@@ -1,0 +1,11 @@
+{
+  "installation_id": "install-ee4c01acf8658e111766",
+  "project": "lm-installer-acceptance-install-ee4c01acf8658e111766",
+  "service": "gateway",
+  "productionFaultInjection": false,
+  "isolatedProcessCrashInjected": true,
+  "nativeRestartCountBefore": 0,
+  "nativeRestartCountAfter": 1,
+  "entrypointRecovered": true,
+  "recoverySeconds": 4.62
+}

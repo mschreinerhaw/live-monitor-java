@@ -1,6 +1,6 @@
 # 客户部署、监控与 DataOps 交付
 
-当前日常操作使用 [Runtime OS 控制台](11-runtime-console.md)：镜像管理、容器管理、基础监控。入口 `/#/ops/containers`。原通用高级运维页面已移出产品界面；本文的应用栈交付、备份恢复及权限配置保留为安装维护技术说明。
+当前日常操作使用 [Runtime OS 控制台](11-runtime-console.md)：镜像管理、容器管理、基础监控。入口 `/#/ops/containers`。完整新装使用 [Runtime OS 一键交付安装](12-one-click-installation.md)，无需逐个启动依赖镜像。本文后面的应用栈、备份及权限说明供交付人员维护使用。
 
 ## 交付物与首次启动
 
@@ -8,13 +8,24 @@
 
 选择一台常驻控制主机运行控制面，持久保存数据库、RocksDB、LIVE_MONITOR_SECRET_KEY 和备份。已有实例必须沿用原加密身份。开发笔记本睡眠后不再执行平台健康恢复；Docker 自身重启策略继续工作。生产交付应将控制面作为常驻服务部署。
 
-原生 JAR 用 `--server.address=0.0.0.0 --server.port=18080` 或环境变量 LIVE_MONITOR_BIND_ADDRESS 设置监听地址。浏览器使用 `http://控制主机IP:18080/#/ops/delivery`。仓库 Windows 启动工具支持 `-ListenAddress`；存量本地控制面复用其 private 身份和数据库。
+原生 JAR 用 `--server.address=0.0.0.0 --server.port=18080` 或环境变量 LIVE_MONITOR_BIND_ADDRESS 设置监听地址。浏览器使用 `http://控制主机IP:18080/#/ops/images`。仓库 Windows 启动工具支持 `-ListenAddress`；存量本地控制面复用其 private 身份和数据库。
 
 容器部署将已验证 JAR 复制为镜像上下文 app.jar，按 Dockerfile 构建并发布到客户批准仓库，设置 LIVE_MONITOR_IMAGE 为完整 Digest、LIVE_MONITOR_SECRET_KEY 为稳定密钥。Compose 默认仅暴露回环；在私网直接访问时设置 LIVE_MONITOR_BIND_IP 为控制主机的接口 IP，并设置 LIVE_MONITOR_PORT。通过 HTTPS 网关发布时可保留回环绑定。原生部署与容器部署二选一，不让两个控制器同时管理同一状态库。
 
 首次账户沿用原系统初始化流程，开放访问前修改初始管理员密码，配置人员授权。已有实例不用重建管理员或数据库。网络防火墙放行选定平台端口；Windows 可在管理员 PowerShell 执行 `ops/tools/open-platform-firewall.ps1 -Port 18080`，默认仅允许 LocalSubnet。远程网段须用 RemoteAddress 明确指定。不能把“本机通过 IP 请求成功”等同于远端穿过防火墙验收通过。
 
 ## 平台内操作顺序
+
+1. 镜像管理点击“安装 Runtime OS”，上传发行方提供的完整签名安装包。
+2. 确认访问端口，点击“下一步：检查环境”。核对检查结果并确认安装。
+3. 等待依赖、数据库和应用完成启动，点击安装结果中的访问入口。
+4. 点击“查看容器”，在同一页面查看状态、日志与自动拉起策略，执行启动、停止或重启。客户许可证与模型连接在 Runtime OS 内配置。
+
+普通镜像包仍使用镜像管理中的导入和“启动镜像”，完整产品依赖由安装包定义。目标主机、Agent 信任及安装权限由交付人员初始化，日常用户无需填写通用运维表单。
+
+## 交付人员维护参考
+
+以下记录底层 API 和资源的组织方式，旧高级页面已不作为当前产品入口。
 
 1. 进入“部署交付向导”。“主机维护”保存加密凭据，再到“服务器管理”关联主机、环境、分组及经可信渠道核实的 SSH 公钥。按 02-deployment 安装固定命令 Agent；不开放 Docker TCP。执行连接检测，确认采集新鲜。
 2. 在“镜像仓库”登记批准仓库与 Secret 引用。查询版本、解析或拉取 Digest。目标机配置对应批准仓库和凭据目录，平台页面不保存 Docker 密码。

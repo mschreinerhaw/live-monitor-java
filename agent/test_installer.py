@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 import agent
 from installer import Installer
+from stack_ops import StackOperations
 
 
 class InstallerTests(unittest.TestCase):
@@ -116,6 +117,20 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaisesRegex(agent.AgentError,'PLAN_EXPIRED_OR_CHANGED'):self.installer.apply('install-test',{'plan_id':'0'*64})
         file=self.a.root/'installations/install-test/plan.json';doc=json.loads(file.read_text());doc['created_at']=0;file.write_text(json.dumps(doc))
         with self.assertRaisesRegex(agent.AgentError,'PLAN_EXPIRED_OR_CHANGED'):self.installer.apply('install-test',{'plan_id':result['plan_id']})
+
+    def test_failed_health_check_stops_only_new_project_and_preserves_its_data(self):
+        metadata=self.upload();plan=self.plan(metadata)
+        destination=self.a.root/'installations/install-test';data=destination/'customer-data';data.write_bytes(b'must survive')
+        agent.atomic_json(self.a.root/'imports'/(self.image[7:]+'.json'),{'image':self.image})
+        with patch.object(self.a,'run',side_effect=self.docker),patch.object(self.a,'import_archive',return_value={'images':[{'image':self.image}]}),patch.object(StackOperations,'compose') as compose,patch.object(StackOperations,'wait_healthy',side_effect=agent.AgentError('STACK_HEALTH_DEADLINE')),patch.object(StackOperations,'containers',return_value={'web':{'State':{'Running':False}}}):
+            with self.assertRaisesRegex(agent.AgentError,'INSTALL_FAILED_DATA_RETAINED') as raised:self.installer.apply('install-test',{'plan_id':plan['plan_id']})
+        self.assertEqual(b'must survive',data.read_bytes())
+        self.assertEqual(['web'],raised.exception.details['failed_services'])
+        self.assertEqual('STOPPED',StackOperations(self.a).state('install-test')['desired_state'])
+        self.assertFalse((destination/'installed.json').exists())
+        self.assertTrue(any(call.args[2:]==('stop',) for call in compose.call_args_list))
+        self.assertTrue(all(call.args[0]['stack_id']=='install-test' for call in compose.call_args_list))
+        self.assertFalse(any('down' in call.args[2:] for call in compose.call_args_list))
 
 
 if __name__=='__main__':unittest.main()

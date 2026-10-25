@@ -14,6 +14,8 @@
 
 ## 实现与验证
 
+完整新客户安装已新增独立的四步向导，入口仍在镜像管理内，详见 [Runtime OS 一键交付安装](12-one-click-installation.md)。下列测试与发布记录对应简化控制台的首次发行；新安装功能的验证记录在该手册中维护。
+
 新组件为 `RuntimeConsoleView`、`RuntimeContainersPanel`；复用 `ImageLibraryPanel`、`QuickDeploymentPanel`、原任务 SSE 和串行日志跟踪。旧 `OpsPlatformView` 不再作为运行路由加载，入口改为两个工作页面。未新增 Java API、数据库表、迁移或业务硬编码。
 
 前端 **17 项**、Java **156 项**测试通过，Vue、JAR 与交付包构建通过。Java 与 Agent 业务代码本次未变。浏览器预览以及发布后的服务器页面均检查了导航、七个实际服务、镜像列表、启动弹窗、旧入口跳转、基础监控和手机布局，无页面异常或横向溢出。

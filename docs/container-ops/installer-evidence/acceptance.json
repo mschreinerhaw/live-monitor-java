@@ -1,0 +1,47 @@
+{
+  "verifiedAt": "2026-10-25T08:04:00.811Z",
+  "platformSourceRevision": "563a5a4",
+  "productDefinitionRevision": "1f7bdadd3",
+  "tests": {
+    "java": {
+      "passed": 161,
+      "failed": 0
+    },
+    "vue": {
+      "passed": 20,
+      "failed": 0
+    },
+    "agent": {
+      "passed": 61,
+      "failed": 0
+    }
+  },
+  "checks": {
+    "fullSignedPackageUploaded": true,
+    "realHostPreflightPassed": true,
+    "completeInstallSucceeded": true,
+    "applyIdempotencyPassed": true,
+    "publicEntrypointsAccessible": true,
+    "adoptedIntoMonitoring": true,
+    "freshRuntimeAdministratorLogin": true,
+    "nineServicesMonitored": true,
+    "resourceMetricsCollected": true,
+    "isolatedStackStoppedWithManualStopProtection": true,
+    "existingProductionHealthy": true
+  },
+  "installationId": "install-ee4c01acf8658e111766",
+  "installationTask": "9fbd25fd-2ced-43c5-b8e8-76789608123c",
+  "manualStopTask": "0f0002b2-fcd2-4ed9-abe0-c62ef796283f",
+  "entrypoints": [
+    {
+      "label": "打开 Runtime OS",
+      "url": "http://192.168.195.221:18200/"
+    },
+    {
+      "label": "打开 MCP 管理",
+      "url": "http://192.168.195.221:18201/admin/"
+    }
+  ],
+  "finalStage": "accepted-and-isolated-stack-stopped",
+  "productionBusinessRestarted": false
+}

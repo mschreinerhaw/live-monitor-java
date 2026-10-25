@@ -62,6 +62,12 @@
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>
+            <directory>../docs/container-ops/installer-evidence</directory>
+            <outputDirectory>ops/docs/installer-evidence</outputDirectory>
+            <includes><include>*.json</include><include>*.png</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
             <directory>src/main/assembly/bin</directory>
             <outputDirectory>bin</outputDirectory>
             <fileMode>0755</fileMode>

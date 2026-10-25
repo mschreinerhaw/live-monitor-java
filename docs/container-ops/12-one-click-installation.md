@@ -43,4 +43,33 @@ Agent 清单应包含 agent.py、stack_ops.py、installer.py 及其 SHA256。公
 
 ## 验证记录
 
-核心测试、真实发行包环境预检已完成。完整浏览器安装与服务器发布结果将在实际执行后记录于本节，未完成前不宣称整套安装验收成功。
+2026-10-25 已完成服务器发布及完整安装验收，入口 `http://192.168.195.221:18080/#/ops/images`。点击“安装 Runtime OS”进入四步向导。运行代码为 `563a5a4`；产品安装定义在 `Langchain4j-Chatchat` 的 `feature/runtime-os-one-click-delivery`，提交 `1f7bdadd3`。控制面镜像为 `localhost:18443/live-monitor/platform@sha256:a16a1998ce339a63f57c76e6982b41fc2588f5b774ed2a124be43d6e4b237213`，JAR SHA256 为 `2dbfb42437c47c044d1423d9444135596c809da472aae5a3ed895816987bec81`。
+
+真实安装包 `runtime-os.install.tar.gz` 为 **3,155,899,546 字节**，SHA256 **`fc64ff1703ea6bfb9b80b64b1fc0de079f2207e8a80c521295673b011feb762c`**。本地交付文件在仓库 `target/installer-validation/`；服务器保留文件在 `/opt/live-monitor-production-migration/installer-validation/runtime-os-2026.10.25-final.install.tar.gz`。完整业务安装包单独交付，不嵌入平台约 135 MB 的 JAR。它包含九种镜像内容，启动九个长驻服务，其中 Nginx 镜像用于网关和 Node 代理；Python 镜像用于按需沙箱。
+
+| 验证项 | 实际结果 |
+| --- | --- |
+| Java / Vue / Agent | 161 / 20 / 61 项测试通过，零失败；Vue、JAR、平台发行包构建通过 |
+| 真实页面安装 | Edge 浏览器上传完整包、验签、配置 18200/18201、预检、确认安装，全流程成功 |
+| 依赖与空库 | 九个服务运行；新 API 库 118 张表、MCP 库 63 张表，默认 Python 环境引用包内不可变镜像 ID |
+| 访问与认证 | 两个主机 IP 入口可访问；全新 Runtime OS 管理员登录通过，不记录登录令牌 |
+| 监控 | 九组件接入既有后台采集，CPU/内存可见；重开浏览器可恢复安装结果，无页面异常 |
+| 异常拉起 | 仅对隔离安装的 gateway 进程注入异常退出，原生重启次数 0→1，4.62 秒恢复 HTTP 访问 |
+| 幂等 | 重复提交同一安装请求返回同一任务，没有重复安装 |
+| 人工停机 | 平台停止整个隔离项目；继续观察 75 秒，九组件保持停止且标记人工停机 |
+| 存量保护 | 38 个既有非目标容器 ID、镜像和启动时间未变化，原生产 Runtime OS 健康 |
+
+验收项目 `lm-installer-acceptance-install-ee4c01acf8658e111766` 已停止以释放资源，其数据与诊断保留。18080 的生产控制面继续服务原 Runtime OS。没有替换旧业务数据库或修改原业务容器。发布前控制面数据库冷备位于 `/opt/live-monitor-production-migration/installer-platform-563a5a4/control-data-backup`。
+
+验收证据见 [installer-evidence](installer-evidence/)。本次在同一物理服务器上的独立目录、网络和环境完成验证；尚未以另一台全新物理服务器验证所有防火墙、离线操作系统依赖及客户许可证。许可证、模型连接和客户业务任务需要在客户激活配置后另行验收。当前新装不提供覆盖既有安装的数据迁移或原地升级。
+
+## 实施范围与文件
+
+| 阶段 | 完成内容及主要文件 | 数据与验证 |
+| --- | --- | --- |
+| 分支与方案 | 保留现有 Vue3 `feature/container-ops-platform`；产品新增独立发行分支，均不修改 main | 原监控与简化导航保留 |
+| 后端 | `InstallationService`、`OpsController`、`OpsTaskService`、`OpsAgentGateway`、`ImageArchiveService` | 沿用资源、异步任务、事务与加密；无平台数据库 DDL 变更 |
+| Vue3 | `RuntimeInstallWizard.vue`、`RuntimeConsoleView.vue`、`api/ops.js`、`ops/installerModel.js` | 四步向导、任务恢复与安全诊断；20 项前端测试 |
+| 安装引擎 | `agent/installer.py`、`agent.py`、`stack_ops.py` | 签名、摘要、环境校验、隔离新装；失败停机保留数据；61 项 Agent 测试 |
+| 发行 | `build-install-bundle.py`、产品 `build-runtime-os-installer.py`、`install-agent-release.py`、`release.xml` | 产品依赖定义与平台执行器分离；公开公钥，不发布私钥 |
+| 集成与交付 | 本手册及 `installer-evidence/` | 真实九服务安装、监控、异常恢复、人工停机与既有服务保护均已验证 |

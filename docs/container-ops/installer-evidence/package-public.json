@@ -1,0 +1,20 @@
+{
+  "bundle": "/opt/live-monitor-production-migration/installer-validation/runtime-os-2026.10.25-final.install.tar.gz",
+  "bundleSha256": "fc64ff1703ea6bfb9b80b64b1fc0de079f2207e8a80c521295673b011feb762c",
+  "bundleBytes": 3155899546,
+  "product": "runtime-os",
+  "version": "2026.10.25",
+  "images": {
+    "api": "sha256:2bbb85a920c00b3b563724506d20d88040ed9fd49ac3e9e2ae18d4a5c5b81959",
+    "mcp": "sha256:928216fe585016e38e47637e90299a00d3ecb2cc72d15ef7fe15dcb162a97755",
+    "news": "sha256:9ba6b23c5a41d8762a027513a583b694d5799fd47c0b7274e96a765611c0a3f3",
+    "coding-agent": "sha256:62cdac1c8b41f492e6e8815974e9044c489634ed2780b285054e0064e0863d1f",
+    "gateway": "sha256:6769dc3a703c719c1d2756bda113659be28ae16cf0da58dd5fd823d6b9a050ea",
+    "postgres": "sha256:662db3da228c2ea2649b3ae04db4b4479e85fea5979f6a917a7f6d5cb1e7ec39",
+    "redis": "sha256:7614ae9453d1d87e740a2056257a6de7135c84037c367e1fffa92ae922784631",
+    "opensearch": "sha256:731779f1c50424e38335b0af191058642a4964a2b2c62175ebcc8d5734fee13a",
+    "python": "sha256:7c665132dd360b4f84a669a16b53de93c0ff142e1ecf8f56bef1a07d6346fdc8"
+  },
+  "signingKeyIncluded": false,
+  "liveConfigurationIncluded": false
+}
