@@ -5,8 +5,8 @@
         <div class="login-brand">
           <IconSvg name="activity" size="24" />
         </div>
-        <h2>Live Monitor</h2>
-        <p>轻量事件驱动监控平台</p>
+        <h2>Runtime OS</h2>
+        <p>镜像与容器管理</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="login-form">
@@ -62,7 +62,7 @@ const handleLogin = async () => {
     await api.login(form)
     await store.fetchCurrentUser()
     store.showToast('登录成功', 'success')
-    router.push('/dashboard')
+    router.push('/ops/containers')
   } catch (err) {
     store.showToast(err.message || '用户名或密码错误', 'error')
   } finally {

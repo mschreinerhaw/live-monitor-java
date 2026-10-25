@@ -40,7 +40,7 @@
         <fileSet>
             <directory>../docs/container-ops</directory>
             <outputDirectory>ops/docs</outputDirectory>
-            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include><include>10-simple-image-workflow.md</include></includes>
+            <includes><include>02-deployment.md</include><include>08-customer-delivery.md</include><include>10-simple-image-workflow.md</include><include>11-runtime-console.md</include></includes>
             <fileMode>0644</fileMode>
         </fileSet>
         <fileSet>

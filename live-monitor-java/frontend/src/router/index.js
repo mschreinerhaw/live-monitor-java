@@ -5,11 +5,12 @@ const routes = [
   {
     path: '/ops/:section',
     name: 'ContainerOps',
-    component: () => import('../views/OpsPlatformView.vue')
+    component: () => import('../views/RuntimeConsoleView.vue'),
+    beforeEnter: to => ['images', 'containers'].includes(to.params.section) ? true : { path: to.params.section === 'deployments' ? '/ops/images' : '/ops/containers', query: to.query, replace: true }
   },
   {
     path: '/',
-    redirect: '/dashboard'
+    redirect: '/ops/containers'
   },
   {
     path: '/dashboard',
@@ -70,6 +71,10 @@ const router = createRouter({
 
 // 登录与未授权路由守卫
 router.beforeEach(async (to, from, next) => {
+  if (to.path.startsWith('/ops/') && !['images', 'containers'].includes(to.params.section)) {
+    next({ path: to.params.section === 'deployments' ? '/ops/images' : '/ops/containers', query: to.query, replace: true })
+    return
+  }
   // 兼容直接从非 hash 地址进入（如 /data-send、/hosts 等）
   if (to.matched.length === 0) {
     const rawPath = window.location.pathname.replace(/^\//, '')

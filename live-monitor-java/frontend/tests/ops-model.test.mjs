@@ -3,6 +3,32 @@ import assert from 'node:assert/strict'
 import { parsePairs, formatPairs, isTerminal, operationKey, uniqueRuntimeContainers } from '../src/ops/model.js'
 import { createLogFollower } from '../src/ops/liveLogs.js'
 import { deliverySteps } from '../src/ops/delivery.js'
+import { preferredHost, containerRows, recoveryText } from '../src/ops/runtimeConsole.js'
+
+test('runtime console chooses a registered running target without business names', () => {
+  const hosts = [{id: 'sandbox'}, {id: 'customer-node'}], apps = [{host_id: 'customer-node', desired_state: 'RUNNING'}]
+  assert.equal(preferredHost(hosts, apps), 'customer-node')
+  assert.equal(preferredHost(hosts, apps, 'sandbox'), 'sandbox')
+  assert.equal(preferredHost(hosts, apps, 'unauthorized'), 'customer-node')
+  assert.equal(preferredHost([], apps), '')
+})
+test('runtime container rows remain bound to host and application identities', () => {
+  const apps = [{id: 'suite', host_id: 'a', kind: 'stack', services: [{service: 'api'}]}, {id: 'other', host_id: 'b', kind: 'application', services: [{name: 'api'}]}]
+  const rows = containerRows(apps, 'a')
+  assert.equal(rows.length, 1); assert.equal(rows[0].app.id, 'suite'); assert.equal(rows[0].service.service, 'api')
+  assert.equal(new Set(containerRows(apps).map(row => row.key)).size, 2)
+})
+test('automatic restart display respects manual stop, stale data and circuit state', () => {
+  const app = {desired_state: 'RUNNING', recovery: {restart_policy: 'on-failure'}}
+  assert.equal(recoveryText(app, {}), '已开启')
+  assert.equal(recoveryText(app, {manual_stop: true}), '人工停止')
+  assert.equal(recoveryText({...app, stale: true}, {}), '等待采集')
+  assert.equal(recoveryText(app, {circuit_open: true}), '重试已达上限')
+  assert.equal(recoveryText(app, {maintenance: true}), '维护中')
+})
+test('a configured retry limit alone does not claim stack recovery is enabled', () => {
+  assert.equal(recoveryText({kind: 'stack', recovery: {limit: 3, recover_unhealthy: false}}, {restart_policy: 'no'}), '未开启')
+})
 
 test('delivery cannot pass monitoring on stale evidence or restore from backup alone', () => {
   const state = { registry: [{}], application: [], stack: [{}], alert_rule: [], grant: [], backup: [{ verified: true, restore_tested: false }] }

@@ -2,7 +2,7 @@
   <div v-if="!isAuthPage" class="app-layout">
     <SidebarNav />
     <div class="main-content-wrapper">
-      <TopHeader />
+      <TopHeader v-if="!route.path.startsWith('/ops/')" />
       <main class="page-body">
         <router-view />
       </main>

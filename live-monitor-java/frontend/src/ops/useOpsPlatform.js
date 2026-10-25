@@ -4,7 +4,7 @@ import { store } from '../store'
 import { opsSections } from './sections'
 import { parsePairs, formatPairs, isTerminal, operationKey } from './model'
 import { createLogFollower } from './liveLogs'
-export function useOpsPlatform(route) {
+export function useOpsPlatform(route, { consoleOnly = false } = {}) {
   const state = reactive({ host: [], registry: [], application: [], snapshot: [], version: [], backup: [], alert: [], alert_rule: [], grant: [], stack: [], stack_version: [], stack_snapshot: [] })
   const capabilities = ref({ host_actions: {}, roles: {} }), tasks = ref([]), audit = ref([]), monitorHosts = ref([])
   const loading = ref(false), busy = ref(false), error = ref(''), activeTask = ref(null), imageResults = ref([]), registryResults = ref(null)
@@ -34,11 +34,11 @@ export function useOpsPlatform(route) {
     try {
       capabilities.value = await opsApi.capabilities()
       monitoring.value = await opsApi.overview()
-      const kinds = Object.keys(state).filter(k => k !== 'grant' || capabilities.value.administrator)
+      const kinds = consoleOnly ? ['host', 'application', 'snapshot', 'stack'] : Object.keys(state).filter(k => k !== 'grant' || capabilities.value.administrator)
       const results = await Promise.allSettled(kinds.map(k => opsApi.list(k)))
       results.forEach((r, i) => { if (r.status === 'fulfilled') state[kinds[i]] = r.value; else error.value = r.reason.message })
-      tasks.value = await opsApi.tasks()
-      if (capabilities.value.administrator) {
+      if (!consoleOnly) tasks.value = await opsApi.tasks()
+      if (!consoleOnly && capabilities.value.administrator) {
         const results = await Promise.allSettled([opsApi.monitorHosts(), opsApi.audit()])
         if (results[0].status === 'fulfilled') monitorHosts.value = results[0].value
         if (results[1].status === 'fulfilled') audit.value = results[1].value
@@ -83,8 +83,10 @@ export function useOpsPlatform(route) {
     const request = { action, resource_id: resource.id, parameters, idempotency_key: operationKey() }
     if (!['probe', 'images', 'logs', 'validate', 'registry_catalog', 'resolve_image', 'stack_plan', 'stack_probe'].includes(action)) {
       const expected = `${action}:${resource.id}:${resource.environment}`
-      const labels = { stop: '停止', start: '启动', restart: '重启', deploy: '部署或升级', rollback: '回滚', cleanup: '清理镜像', stack_stop: '停止应用栈', stack_deploy: '备份并发布应用栈' }
-      if (!window.confirm(`确认${labels[action] || action}「${resource.name || resource.id}」？\n服务器：${resource.host_id || resource.id} · 环境：${resource.environment}\n停止后将保持人工停机状态，不会自动拉起。`)) return
+      const labels = { stop: '停止', start: '启动', restart: '重启', deploy: '部署或升级', rollback: '回滚', cleanup: '清理镜像', stack_stop: '停止应用栈', stack_deploy: '备份并发布应用栈', stack_service_start: '启动', stack_service_stop: '停止', stack_service_restart: '重启' }
+      const target = parameters.service || resource.name || resource.id
+      const note = ['stop', 'stack_stop', 'stack_service_stop'].includes(action) ? '\n停止后不会自动拉起。' : ''
+      if (!window.confirm(`确认${labels[action] || action}「${target}」？${note}`)) return
       request.confirmation = expected
     }
     const task = await opsApi.operate(request); follow(task); await refresh()
@@ -108,7 +110,7 @@ export function useOpsPlatform(route) {
   }
   watch(section, () => { if (section.value !== 'containers') stopLiveLogs(); refresh() })
   onMounted(async () => {
-    await refresh(); await guarded(resetApp)
+    await refresh(); if (!consoleOnly) await guarded(resetApp)
     refreshTimer = setInterval(async () => {
       if (activeTask.value && !isTerminal(activeTask.value.status) && !stream) {
         try { updateTask(await opsApi.task(activeTask.value.id)) } catch (e) { error.value = e.message }

@@ -1,13 +1,13 @@
 <template>
   <header class="topbar">
     <div class="topbar-inner">
-      <router-link :to="store.user?.ops_only ? '/ops/overview' : '/dashboard'" class="brand">
+      <router-link to="/ops/containers" class="brand">
         <span class="brand-mark">
           <IconSvg name="activity" size="18" />
         </span>
         <div class="brand-copy">
-          <strong>Live Monitor</strong>
-          <small>轻量事件驱动监控平台</small>
+          <strong>Runtime OS</strong>
+          <small>镜像与容器管理</small>
         </div>
       </router-link>
 
@@ -36,7 +36,7 @@
                 <div class="notify-title">{{ item.service_name || '服务异常' }}</div>
                 <div class="notify-msg">{{ item.message || item.alert_type }}</div>
                 <div class="notify-time">{{ item.created_at || item.checked_at }}</div>
-                <router-link v-if="item.ops_event" to="/ops/alerts" @click="showNotificationPanel = false">查看运维事件</router-link>
+                <router-link v-if="item.ops_event" to="/ops/containers" @click="showNotificationPanel = false">查看容器状态</router-link>
               </div>
             </div>
           </div>
