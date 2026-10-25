@@ -10,7 +10,7 @@ public class DeploymentPolicy {
     public void validate(Map<String,Object> app) {
         identifier(text(app,"id"));identifier(text(app,"host_id"));identifier(text(app,"environment"));
         String image=text(app,"image");
-        require(image.matches("[a-zA-Z0-9][a-zA-Z0-9.:-]+/[a-zA-Z0-9_./-]+@sha256:[a-f0-9]{64}"),"Use an explicit registry/repository@sha256 digest");
+        require(image.matches("sha256:[a-f0-9]{64}")||image.matches("[a-zA-Z0-9][a-zA-Z0-9.:-]+/[a-zA-Z0-9_./-]+@sha256:[a-f0-9]{64}"),"Use an imported image ID or explicit registry/repository@sha256 digest");
         require(number(app,"memory_mb",0)>=16 && number(app,"memory_mb",0)<=1048576,"Memory limit required (16..1048576 MiB)");
         require(app.get("cpus") instanceof Number && ((Number)app.get("cpus")).doubleValue()>0 && ((Number)app.get("cpus")).doubleValue()<=256,"CPU limit required");
         require(Arrays.asList("no","on-failure","unless-stopped").contains(text(app,"restart_policy")),"Unsupported Docker restart policy");
@@ -22,7 +22,8 @@ public class DeploymentPolicy {
         require(text(app,"network").isEmpty()||text(app,"network").matches("[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}"),"Invalid Docker network");
         require(!Arrays.asList("host","container","none").contains(text(app,"network")),"Isolated application network required");
         Map<String,Object> health=object(app,"health");
-        require(health.get("command") instanceof List && !((List<?>)health.get("command")).isEmpty(),"Health check argv required");
+        require(Arrays.asList("", "command", "running").contains(text(health,"mode")),"Unsupported health mode");
+        require(health.get("command") instanceof List && (!((List<?>)health.get("command")).isEmpty()||"running".equals(text(health,"mode"))),"Health check argv required");
         require(number(health,"interval_seconds",10)>=1 && number(health,"timeout_seconds",3)>=1,"Invalid health timings");
         require(number(app,"health_deadline_seconds",90)>=5 && number(app,"health_deadline_seconds",90)<=600,"Health deadline must be 5..600 seconds");
         for(Map.Entry<String,Object> env:object(app,"environment_variables").entrySet()) {

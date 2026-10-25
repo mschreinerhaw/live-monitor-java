@@ -20,7 +20,7 @@ public class DeploymentOrchestrationService {
         }
         // Approved registry metadata is only a reference; the host-local allowlist remains authoritative.
         String registry=text(spec,"image").split("/")[0];
-        Map<String,Object> registration=repo.list("registry").stream().filter(r->registry.equals(text(r,"address"))).findFirst()
+        Map<String,Object> registration=text(spec,"image").matches("sha256:[a-f0-9]{64}")?map():repo.list("registry").stream().filter(r->registry.equals(text(r,"address"))).findFirst()
             .orElseThrow(()->new IllegalArgumentException("Image registry has not been approved"));
         Map<String,Object> result=agent.call(host,action,map("spec",spec,"app_id",text(app,"id"),
             "credential_ref",text(registration,"credential_ref"),"data_compatible",flag(input,"data_compatible")),task);

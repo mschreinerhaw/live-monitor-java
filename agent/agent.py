@@ -149,9 +149,88 @@ class Agent:
         return output
 
     def image(self, value):
+        if isinstance(value, str) and re.fullmatch(r"sha256:[a-f0-9]{64}", value):
+            catalog = self.root / "imports" / (value[7:] + ".json")
+            check(catalog.is_file(), "LOCAL_IMAGE_NOT_IMPORTED_IN_ENVIRONMENT")
+            return value
         check(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.:-]+/[A-Za-z0-9_./-]+@sha256:[a-f0-9]{64}", value), "IMMUTABLE_IMAGE_REQUIRED")
         check(value.split("/")[0] in self.config["allowed_registries"], "REGISTRY_NOT_ALLOWED")
         return value
+
+    def image_catalog(self):
+        images = []
+        for path in sorted((self.root / "imports").glob("*.json"))[-100:]:
+            item = json.loads(path.read_text())
+            # Files are provenance, not a promise the image still exists in Docker.
+            if self.run(["image", "ls", "--no-trunc", "--quiet", item["image"]]).strip():
+                images.append(item)
+        imported = {item["image"] for item in images}
+        for line in self.run(["image", "ls", "--no-trunc", "--digests", "--format", "{{json .}}"]).splitlines()[:100]:
+            item = json.loads(line)
+            if item.get("ID") in imported:
+                continue
+            repository, digest = item.get("Repository", ""), item.get("Digest", "")
+            if repository.split("/")[0] in self.config["allowed_registries"] and re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+                item["image"] = repository + "@" + digest
+            images.append(item)
+        return images[:100]
+
+    def import_archive(self, payload):
+        check(self.config.get("allow_image_import", False) is True, "IMAGE_IMPORT_NOT_APPROVED")
+        size = payload.get("archive_bytes", 0)
+        check(isinstance(size, int) and 0 < size <= self.config.get("max_image_archive_bytes", 4294967296), "ARCHIVE_SIZE_LIMIT")
+        expected = payload.get("archive_sha256", "")
+        check(re.fullmatch(r"[a-f0-9]{64}", expected), "ARCHIVE_CHECKSUM_REQUIRED")
+        import shutil
+        check(shutil.disk_usage(self.root).free > size + 268435456, "HOST_DISK_FULL")
+        with tempfile.TemporaryDirectory(prefix="image-import-", dir=self.root) as folder:
+            archive = Path(folder) / "image.archive"
+            digest = hashlib.sha256()
+            remaining = size
+            self.progress(15, "RECEIVE_ARCHIVE")
+            with open(archive, "xb") as target:
+                while remaining:
+                    block = sys.stdin.buffer.read(min(1024 * 1024, remaining))
+                    check(bool(block), "INCOMPLETE_ARCHIVE")
+                    target.write(block); digest.update(block); remaining -= len(block)
+            check(digest.hexdigest() == expected, "ARCHIVE_CHECKSUM_MISMATCH")
+            self.progress(35, "VALIDATE_ARCHIVE")
+            # Inspect compressed Docker-save archives without extracting attacker paths.
+            try:
+                with tarfile.open(archive, "r:*") as saved:
+                    members = {}; unpacked = 0
+                    for member in saved:
+                        name = member.name
+                        check(not name.startswith("/") and ".." not in Path(name).parts and "\\" not in name and (member.isfile() or member.isdir()), "UNSAFE_ARCHIVE_MEMBER")
+                        check(name not in members and len(members) < 100000, "ARCHIVE_MEMBER_LIMIT")
+                        members[name] = member
+                        unpacked += member.size
+                        check(unpacked <= self.config.get("max_image_unpacked_bytes", 21474836480), "ARCHIVE_UNPACKED_LIMIT")
+                    check(shutil.disk_usage(self.root).free > unpacked + 268435456, "HOST_DISK_FULL")
+                    check("manifest.json" in members and 0 < members["manifest.json"].size <= 1048576, "DOCKER_SAVE_ARCHIVE_REQUIRED")
+                    manifests = json.load(saved.extractfile(members["manifest.json"]))
+                    check(isinstance(manifests, list) and 0 < len(manifests) <= 100, "ARCHIVE_IMAGE_LIMIT")
+                    approved = []
+                    for manifest in manifests:
+                        config = members.get(manifest.get("Config"))
+                        check(config is not None and config.isfile() and 0 < config.size <= 1048576, "INVALID_IMAGE_CONFIG")
+                        config_bytes = saved.extractfile(config).read()
+                        image_id = "sha256:" + hashlib.sha256(config_bytes).hexdigest()
+                        layers = manifest.get("Layers")
+                        check(isinstance(layers, list) and all(layer in members and members[layer].isfile() for layer in layers), "INVALID_IMAGE_LAYERS")
+                        metadata = json.loads(config_bytes).get("config") or {}
+                        tags = manifest.get("RepoTags") or []
+                        check(isinstance(tags, list) and all(isinstance(t, str) and len(t) <= 255 for t in tags), "INVALID_IMAGE_TAGS")
+                        approved.append({"image": image_id, "tags": tags, "ports": list((metadata.get("ExposedPorts") or {}).keys()), "healthcheck": (metadata.get("Healthcheck") or {}).get("Test", []), "volumes": list((metadata.get("Volumes") or {}).keys()), "imported_at": int(time.time()*1000), "archive_sha256": expected})
+            except (tarfile.TarError, ValueError, KeyError, TypeError):
+                raise AgentError("INVALID_DOCKER_ARCHIVE")
+            self.progress(55, "IMPORT_IMAGE")
+            self.run(["image", "load", "--input", str(archive)], timeout=600)
+            for item in approved:
+                actual = json.loads(self.run(["image", "inspect", item["image"]]))[0]
+                check(actual["Id"] == item["image"], "IMAGE_DIGEST_MISMATCH")
+                atomic_json(self.root / "imports" / (item["image"][7:] + ".json"), item)
+            return {"images": approved, "archive_sha256": expected, "imported": len(approved)}
 
     def name(self, app):
         return "lm-" + self.environment + "-" + identifier(app)
@@ -185,7 +264,8 @@ class Agent:
         check(5 <= int(spec.get("health_deadline_seconds", 90)) <= 600, "HEALTH_DEADLINE")
         health = spec.get("health", {})
         argv = health.get("command")
-        check(isinstance(argv, list) and 0 < len(argv) < 64 and all(isinstance(a, str) and len(a) < 2048 for a in argv), "HEALTH_ARGV")
+        check(health.get("mode", "command") in ("command", "running"), "HEALTH_MODE")
+        check(isinstance(argv, list) and len(argv) < 64 and all(isinstance(a, str) and len(a) < 2048 for a in argv) and (len(argv) > 0 or health.get("mode") == "running"), "HEALTH_ARGV")
         check(isinstance(spec.get("command", []), list) and len(spec.get("command", [])) < 64 and all(isinstance(a, str) and len(a) < 2048 for a in spec.get("command", [])), "CONTAINER_COMMAND_ARGV")
         check(1 <= int(health.get("interval_seconds", 10)) <= 300 and 1 <= int(health.get("timeout_seconds", 3)) <= 60, "HEALTH_TIMING")
         network = spec.get("network") or "bridge"
@@ -234,6 +314,10 @@ class Agent:
 
     def pull(self, image, credential_ref=""):
         self.image(image)
+        if image.startswith("sha256:"):
+            data = json.loads(self.run(["image", "inspect", image]))[0]
+            check(data["Id"] == image, "IMAGE_DIGEST_MISMATCH")
+            return {"image": image, "image_id": image}
         if credential_ref:
             identifier(credential_ref)
             path = (self.secrets / credential_ref).resolve(strict=True)
@@ -326,6 +410,8 @@ class Agent:
         for m in spec.get("mounts", []):
             args += ["--mount", "type=" + m["type"] + ",src=" + m["source"] + ",dst=" + m["target"] + (",readonly" if m.get("read_only") else "")]
         health = spec["health"]
+        if health.get("mode") == "running":
+            return args + ["--no-healthcheck", spec["image"]] + spec.get("command", [])
         args += ["--health-cmd", "exec " + " ".join(shlex.quote(a) for a in health["command"]),
                  "--health-interval", str(int(health.get("interval_seconds", 10))) + "s",
                  "--health-timeout", str(int(health.get("timeout_seconds", 3))) + "s", "--health-retries", "3", spec["image"]]
@@ -344,13 +430,16 @@ class Agent:
             labels = data.get("Labels") or {}
             check(labels.get("live-monitor.app") == spec["id"] and labels.get("live-monitor.environment") == self.environment, "VOLUME_OWNERSHIP")
 
-    def wait_healthy(self, name, seconds):
+    def wait_healthy(self, name, seconds, running_only=False):
         deadline = time.monotonic() + seconds
+        stable_since = time.monotonic()
         while time.monotonic() < deadline:
             state = self.inspect(name)["State"]
             if state.get("Health", {}).get("Status") == "healthy":
                 return
             check(state.get("Running") is True, "CANDIDATE_EXITED")
+            if running_only and time.monotonic() - stable_since >= min(5, seconds - 1):
+                return
             time.sleep(1)
         raise AgentError("HEALTH_CHECK_FAILED")
 
@@ -385,7 +474,7 @@ class Agent:
             created = True
             self.run(["container", "start", name])
             self.progress(70, "WAIT_HEALTHY")
-            self.wait_healthy(name, int(spec.get("health_deadline_seconds", 90)))
+            self.wait_healthy(name, int(spec.get("health_deadline_seconds", 90)), spec["health"].get("mode") == "running")
             state = self.state(app)
             state.update({"manual_stop": False, "recovery_attempts": 0, "failure_since": 0, "next_recovery_at": 0, "spec": spec})
             self.save_state(app, state)
@@ -428,7 +517,8 @@ class Agent:
             if name != self.name(app):
                 continue
             state = data["State"]; local = self.state(app); health = state.get("Health", {}).get("Status", "none")
-            healthy = bool(state.get("Running")) and health == "healthy"
+            process_only = local.get("spec", {}).get("health", {}).get("mode") == "running"
+            healthy = bool(state.get("Running")) and (health == "healthy" or (process_only and health == "none"))
             usage = resource_map.get(name, {})
             cpu = float(str(usage.get("CPUPerc", "0%")).rstrip("%")) / max(0.001, float(local.get("spec", {}).get("cpus", 1)))
             memory = float(str(usage.get("MemPerc", "0%")).rstrip("%"))
@@ -632,7 +722,9 @@ class Agent:
                 from stack_ops import StackOperations
                 data = StackOperations(self).execute(action, payload)
             elif action == "images":
-                data = {"images": [json.loads(line) for line in self.run(["image", "ls", "--digests", "--format", "{{json .}}"]).splitlines()][:100]}
+                data = {"images": self.image_catalog()}
+            elif action == "import_image":
+                data = self.import_archive(payload)
             elif action == "pull":
                 data = self.pull(payload["image"], payload.get("credential_ref", ""))
             elif action in ("registry_catalog", "resolve_image"):
@@ -676,7 +768,8 @@ def main():
         path = Path("/etc/live-monitor-agent.json")
         check(path.stat().st_uid == 0 and path.stat().st_mode & 0o022 == 0, "INSECURE_AGENT_CONFIG")
         config = json.loads(path.read_text())
-        data = sys.stdin.buffer.read(65537)
+        # JSON line followed by raw archive bytes for imports; legacy JSON ends at EOF.
+        data = sys.stdin.buffer.readline(65537)
         check(len(data) <= 65536, "REQUEST_TOO_LARGE")
         request = json.loads(data)
         selected = request.get("environment")

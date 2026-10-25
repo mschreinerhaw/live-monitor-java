@@ -16,6 +16,7 @@ export const opsApi = {
   tasks: () => call('/tasks'),
   task: id => call('/tasks/' + encodeURIComponent(id)),
   operate: request => post('/operations', request),
+  importImage: body => call('/images/import', { method: 'POST', headers: { 'X-Ops-Request': '1' }, body }),
   acknowledge: id => post('/alerts/' + encodeURIComponent(id) + '/ack', {}),
   audit: () => call('/audit')
 }

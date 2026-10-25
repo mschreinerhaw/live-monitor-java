@@ -4,7 +4,7 @@ export async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`
   const defaultHeaders = {
     'Accept': 'application/json',
-    ...(options.body ? { 'Content-Type': 'application/json' } : {})
+    ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {})
   }
 
   const config = {

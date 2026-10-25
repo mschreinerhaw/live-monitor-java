@@ -11,14 +11,6 @@
         </div>
       </router-link>
 
-      <nav v-if="!store.user?.ops_only" class="nav">
-        <router-link to="/dashboard" active-class="active">监控首页</router-link>
-        <router-link to="/hosts" active-class="active">主机维护</router-link>
-        <router-link to="/services/new" active-class="active">添加服务</router-link>
-        <router-link to="/alerts/settings" active-class="active">告警设置</router-link>
-        <router-link to="/alerts/audit" active-class="active">告警审计</router-link>
-      </nav>
-
       <div class="topbar-user">
         <!-- 告警通知铃铛 -->
         <div class="notify-wrapper">

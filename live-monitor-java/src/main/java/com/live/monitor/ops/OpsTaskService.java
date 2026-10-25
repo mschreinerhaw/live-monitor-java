@@ -34,13 +34,14 @@ public class OpsTaskService {
     public Map<String,Object> submitSystem(String action,Map<String,Object> resource,Map<String,Object> input,String key){return submit("system",action,resource,input,key,true);}
     private Map<String,Object> submit(String actor,String action,Map<String,Object> resource,Map<String,Object> input,String key,boolean internal) {
         require(key.matches("[a-zA-Z0-9_.:-]{8,128}"),"An idempotency key of 8..128 safe characters is required");
-        String resourceId=text(resource,"id"),hostId=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action)?resourceId:text(resource,"host_id");
+        String resourceId=text(resource,"id"),hostId=Arrays.asList("import_image","probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action)?resourceId:text(resource,"host_id");
         String env=text(resource,"environment");
         Map<String,Object> request=map("resource",resource,"input",input,"internal",internal);String encoded=json(request);
         require(utf8Length(encoded)<48000,"Task request exceeds UTF-8 byte limit");
         Map<String,Object> fingerprint=new LinkedHashMap<>(resource);
         for(String field:Arrays.asList("revision","desired_state","active_version","active_image"))fingerprint.remove(field);
-        String hash=hash(json(map("action",action,"resource",fingerprint,"input",input)));
+        Map<String,Object> hashedInput=new LinkedHashMap<>(input);if("import_image".equals(action))hashedInput.remove("archive_path");
+        String hash=hash(json(map("action",action,"resource",fingerprint,"input",hashedInput)));
         List<Map<String,Object>> existing=repo.jdbc().queryForList("SELECT * FROM ops_task WHERE actor=? AND idempotency_key=?",actor,key);
         if(!existing.isEmpty()){require(hash.equals(text(existing.get(0),"request_hash")),"Idempotency key reused with different request");return existing.get(0);}
         long now=System.currentTimeMillis();String id=UUID.randomUUID().toString();
@@ -92,7 +93,8 @@ public class OpsTaskService {
             // Re-read desired state and host maintenance immediately before every privileged action.
             Map<String,Object> currentHost=repo.get("host",host);
             require(!flag(currentHost,"maintenance")||Arrays.asList("probe","images","logs","stop","stack_probe","stack_stop","stack_service_stop","maintenance_off","maintenance_on").contains(action)||(StackManagementService.ACTIONS.contains(action)&&!"stack_recover".equals(action)),"Host entered maintenance");
-            if(StackManagementService.ACTIONS.contains(action))result=stacks.execute(action,resource,input,id);
+            if("import_image".equals(action))result=agent.upload(currentHost,input,id);
+            else if(StackManagementService.ACTIONS.contains(action))result=stacks.execute(action,resource,input,id);
             else if(Arrays.asList("deploy","validate","rollback").contains(action))result=deployments.execute(action,resource,input,id);
             else if(Arrays.asList("backup","restore","restore_test").contains(action))result=backups.execute(action,resource,input,id);
             else if(Arrays.asList("start","stop","restart","logs").contains(action))result=containers.operate(action,resource,id);
@@ -125,7 +127,10 @@ public class OpsTaskService {
                 repo.taskEvent(id,number(repo.task(id),"progress",5),"FAILED");
                 alerts.open(host,text(task,"resource_id"),"probe".equals(text(task,"action"))?"HOST_OFFLINE":"TASK_FAILED","ERROR");return null;
             });
-        }finally{repo.unlock("host:"+host,id);}
+        }finally{
+            if("import_image".equals(text(task,"action")))agent.discardUpload(object(parse(text(task,"request_json")),"input"));
+            repo.unlock("host:"+host,id);
+        }
     }
     Map<String,Object> mergeRevision(String kind,Map<String,Object> value){
         for(Map<String,Object> old:repo.list(kind))if(text(old,"id").equals(text(value,"id")))value.put("revision",old.get("revision"));return value;

@@ -65,7 +65,7 @@ export function useOpsPlatform(route) {
     activeTask.value = value
     if (isTerminal(value.status)) {
       stream?.close(); stream = null
-      if (value.status === 'SUCCEEDED' && value.action === 'images') imageResults.value = JSON.parse(value.result_json || '{}').images || []
+      if (value.status === 'SUCCEEDED' && ['images', 'import_image'].includes(value.action)) imageResults.value = JSON.parse(value.result_json || '{}').images || []
       if (value.status === 'SUCCEEDED' && value.action === 'registry_catalog') registryResults.value = JSON.parse(value.result_json || '{}')
       if (value.status === 'SUCCEEDED' && value.action === 'resolve_image') imageDraft.image = JSON.parse(value.result_json || '{}').image
       refresh()
@@ -83,9 +83,9 @@ export function useOpsPlatform(route) {
     const request = { action, resource_id: resource.id, parameters, idempotency_key: operationKey() }
     if (!['probe', 'images', 'logs', 'validate', 'registry_catalog', 'resolve_image', 'stack_plan', 'stack_probe'].includes(action)) {
       const expected = `${action}:${resource.id}:${resource.environment}`
-      const value = window.prompt(`确认 ${action}：${resource.name || resource.id}（${resource.environment}）\n请输入 ${expected}`)
-      if (value === null) return
-      request.confirmation = value
+      const labels = { stop: '停止', start: '启动', restart: '重启', deploy: '部署或升级', rollback: '回滚', cleanup: '清理镜像', stack_stop: '停止应用栈', stack_deploy: '备份并发布应用栈' }
+      if (!window.confirm(`确认${labels[action] || action}「${resource.name || resource.id}」？\n服务器：${resource.host_id || resource.id} · 环境：${resource.environment}\n停止后将保持人工停机状态，不会自动拉起。`)) return
+      request.confirmation = expected
     }
     const task = await opsApi.operate(request); follow(task); await refresh()
   }) }

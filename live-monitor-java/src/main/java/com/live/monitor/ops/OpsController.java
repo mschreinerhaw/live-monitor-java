@@ -14,7 +14,17 @@ public class OpsController {
     private final OpsRepository repo;private final OpsAuthorization auth;private final HostManagementService hosts;
     private final ImageRegistryService registries;private final DeploymentPolicy policy;private final OpsTaskService tasks;
     private final ContainerManagementService containers;
-    static { ACTIONS.addAll(StackManagementService.ACTIONS); }
+    static { ACTIONS.addAll(StackManagementService.ACTIONS); ACTIONS.add("import_image"); }
+    @org.springframework.beans.factory.annotation.Autowired private ImageArchiveService archives;
+    @PostMapping(value="/images/import",consumes="multipart/form-data")
+    public Map<String,Object> importImage(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam("host_id") String hostId,@RequestParam("confirmation") String confirmation,
+            @RequestParam("idempotency_key") String key,HttpServletRequest request) throws java.io.IOException {
+        String actor=auth.actor(request,true);Map<String,Object> host=repo.get("host",hostId);
+        auth.check(actor,hostId,text(host,"environment"),"import_image");
+        auth.confirm(map("confirmation",confirmation),"import_image",hostId,text(host,"environment"));
+        return ok(archives.submit(actor,host,file,key));
+    }
     public OpsController(OpsRepository repo,OpsAuthorization auth,HostManagementService hosts,ImageRegistryService registries,DeploymentPolicy policy,OpsTaskService tasks,ContainerManagementService containers){this.repo=repo;this.auth=auth;this.hosts=hosts;this.registries=registries;this.policy=policy;this.tasks=tasks;this.containers=containers;}
     private Map<String,Object> ok(Object data){return map("data",data,"success",true);}
     @GetMapping("/overview")
@@ -27,7 +37,7 @@ public class OpsController {
         return ok(map("administrator","admin".equalsIgnoreCase(actor),"ops_only",auth.operationsOnly(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
             "data_kinds",Arrays.asList("stateless","volume","postgres"),"roles",map(
                 "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image","stack_probe","stack_logs"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack","stack_probe","stack_start","stack_stop","stack_service_start","stack_service_stop","stack_service_restart","stack_logs"),
-                "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback","stack_logs"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup","stack_logs"))));
+                "deployer",Arrays.asList("read","logs","images","import_image","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback","stack_logs"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup","stack_logs"))));
     }
     @GetMapping("/templates/application")
     public Map<String,Object> applicationTemplate(HttpServletRequest request){auth.actor(request,false);return ok(map("id","","name","","host_id","","environment","","image","",
@@ -109,7 +119,7 @@ public class OpsController {
     @PostMapping("/operations")
     public Map<String,Object> operate(@RequestBody Map<String,Object> input,HttpServletRequest request){
         String actor=auth.actor(request,true),action=text(input,"action"),id=text(input,"resource_id");
-        require(ACTIONS.contains(action)&&!Arrays.asList("read","ack").contains(action),"Unknown operation");
+        require(ACTIONS.contains(action)&&!Arrays.asList("read","ack","import_image").contains(action),"Unknown operation; image imports require a file upload");
         boolean hostAction=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action);
         Map<String,Object> resource=repo.get(hostAction?"host":StackManagementService.ACTIONS.contains(action)?"stack":"application",id);String host=hostAction?id:text(resource,"host_id"),env=text(resource,"environment");
         auth.check(actor,host,env,action);

@@ -5,6 +5,11 @@ server:
 debug: false
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: ${LIVE_MONITOR_IMAGE_UPLOAD_MAX_SIZE:4GB}
+      max-request-size: ${LIVE_MONITOR_IMAGE_UPLOAD_MAX_REQUEST_SIZE:4097MB}
+      file-size-threshold: 0
   main:
     allow-circular-references: true
   # Config database:

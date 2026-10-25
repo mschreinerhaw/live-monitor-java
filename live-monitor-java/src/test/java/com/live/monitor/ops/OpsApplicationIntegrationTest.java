@@ -22,6 +22,7 @@ class OpsApplicationIntegrationTest {
     static final Path ROOT=temp();
     static Path temp(){try{return Files.createTempDirectory("live-monitor-ops-test-");}catch(Exception e){throw new IllegalStateException(e);}}
     @DynamicPropertySource static void paths(DynamicPropertyRegistry r){
+        r.add("live-monitor.ops.upload-directory",()->ROOT.resolve("uploads").toString());
         r.add("live-monitor.rocksdb-path",()->ROOT.resolve("rocksdb").toString());
         r.add("live-monitor.sqlite-path",()->ROOT.resolve("absent.db").toString());
         r.add("live-monitor.h2-legacy-path",()->ROOT.resolve("absent-h2").toString());
@@ -29,6 +30,16 @@ class OpsApplicationIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired OpsRepository repo;
     @Autowired OpsTaskService tasks;
+    @Test void imageImportRequiresScopedPermissionHeaderAndExplicitConfirmation()throws Exception {
+        repo.save("host",OpsData.map("id","import-test-host","environment","test"));
+        org.springframework.mock.web.MockMultipartFile file=new org.springframework.mock.web.MockMultipartFile("file","demo.tar","application/octet-stream",new byte[]{1,2,3});
+        mvc.perform(multipart("/api/ops/images/import").file(file).session(admin()).param("host_id","import-test-host").param("confirmation","import_image:import-test-host:test").param("idempotency_key","import-test-001")).andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/ops/images/import").file(file).session(admin()).header("X-Ops-Request","1").param("host_id","import-test-host").param("confirmation","wrong").param("idempotency_key","import-test-001")).andExpect(status().isBadRequest());
+        MockHttpSession viewer=user("archive-viewer");
+        mvc.perform(multipart("/api/ops/images/import").file(file).session(viewer).header("X-Ops-Request","1").param("host_id","import-test-host").param("confirmation","import_image:import-test-host:test").param("idempotency_key","import-test-001")).andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/ops/images/import").file(file).session(admin()).header("X-Ops-Request","1").param("host_id","import-test-host").param("confirmation","import_image:import-test-host:test").param("idempotency_key","import-test-001")).andExpect(status().isOk()).andExpect(jsonPath("$.data.action").value("import_image")).andExpect(jsonPath("$.data.host_id").value("import-test-host")).andExpect(jsonPath("$.data.request_json").doesNotExist());
+        mvc.perform(post("/api/ops/operations").session(admin()).header("X-Ops-Request","1").contentType("application/json").content("{\"action\":\"import_image\",\"resource_id\":\"import-test-host\",\"parameters\":{\"archive_path\":\"/etc/passwd\"}}")).andExpect(status().isBadRequest());
+    }
     MockHttpSession admin(){TUser u=new TUser();u.userId="admin";MockHttpSession s=new MockHttpSession();s.setAttribute(AuthController.SESSION_USER,u);return s;}
     @Test void authenticationStillProtectsNewApi()throws Exception{mvc.perform(get("/api/ops/capabilities")).andExpect(status().isUnauthorized());}
     MockHttpSession user(String id)throws Exception{
