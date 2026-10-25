@@ -151,7 +151,7 @@ public class HostResourceMonitorService {
         String physicalDiskOutput = sshService.exec(host, physicalDiskCommand(), timeoutMillis);
         List<Map<String, Object>> physicalDisks = parsePhysicalDiskMetrics(physicalDiskOutput);
         attachPhysicalDiskDetails(mountDisks, physicalDisks);
-        Integer diskDeviceCount = physicalDisks.isEmpty() ? parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis)) : physicalDisks.size();
+        Integer diskDeviceCount = physicalDisks.isEmpty() ? parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis)) : Integer.valueOf(physicalDisks.size());
         if (diskDeviceCount == null) {
             diskDeviceCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
         }

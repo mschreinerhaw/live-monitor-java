@@ -31,6 +31,38 @@ class ContainerOpsTest {
         repo.save("host",map("id","host-b","environment","prod","monitor_host_id",2,"maintenance",false));
     }
     @AfterEach void stop(){tasks.shutdown();}
+    static Map<String,Object> stack(){return map("id","stack-a","name","Example release","host_id","host-a","environment","test","package_ref","approved-release","package_sha256",String.join("",Collections.nCopies(64,"a")),"desired_state","RUNNING");}
+    @Test void stackConfigurationRejectsUnsealedPackages(){StackManagementService.validate(stack());Map<String,Object>s=stack();s.put("package_sha256","latest");assertThrows(ResponseStatusException.class,()->StackManagementService.validate(s));}
+    @Test void stackStopPersistsIntentBeforeAsyncExecution(){Map<String,Object>s=repo.save("stack",stack());tasks.submit("admin","stack_stop",s,map(),"stack-stop-key");assertEquals("STOPPED",repo.get("stack","stack-a").get("desired_state"));}
+    @Test void stackNeverForwardsBrowserYamlOrShell()throws Exception{
+        Map<String,Object>s=repo.save("stack",stack());when(agent.call(anyMap(),eq("stack_plan"),anyMap(),anyString())).thenAnswer(call->{Map<String,Object> p=call.getArgument(2);assertFalse(p.containsKey("compose"));assertFalse(p.containsKey("command"));assertEquals("approved-release",p.get("package_ref"));return map("project","example");});
+        String id=text(tasks.submit("admin","stack_plan",s,map("compose","untrusted yaml","command","rm -rf /"),"stack-plan-key"),"id");tasks.dispatch();await(id);assertEquals("SUCCEEDED",repo.task(id).get("status"));
+    }
+    @Test void stackProbeUsesPublishedPackageRatherThanEditedDraft(){
+        Map<String,Object> published=stack();repo.save("stack_version",map("id","published-stack","spec",published));Map<String,Object>draft=stack();draft.put("active_version","published-stack");draft.put("package_ref","unpublished");repo.save("stack",draft);
+        when(agent.call(anyMap(),eq("stack_probe"),anyMap(),anyString())).thenAnswer(call->{assertEquals("approved-release",((Map<?,?>)call.getArgument(2)).get("package_ref"));return map("services",new ArrayList<>(),"healthy",true);});new StackManagementService(repo,agent).execute("stack_probe",draft,map(),"test-probe");assertEquals(1,repo.list("stack_snapshot").size());
+    }
+    @Test void stackRecoveryCannotOverrideStoppedIntent(){Map<String,Object>s=stack();s.put("desired_state","STOPPED");repo.save("stack",s);assertThrows(ResponseStatusException.class,()->new StackManagementService(repo,agent).execute("stack_recover",s,map(),"recover"));verifyNoInteractions(agent);}
+    @Test void stackDeploymentRequiresDataAcknowledgement(){Map<String,Object>s=repo.save("stack",stack());assertThrows(ResponseStatusException.class,()->new StackManagementService(repo,agent).execute("stack_deploy",s,map(),"deploy"));verifyNoInteractions(agent);}
+    @Test void queuedReadOnlyLogsDoNotStarveHealthSampling()throws Exception{
+        tasks.submit("admin","logs",app(),map(),"queued-log-reader");
+        HealthDetectionService detector=new HealthDetectionService(repo,tasks,new AutoRecoveryService(),new AlertEventService(repo));
+        java.lang.reflect.Field started=HealthDetectionService.class.getDeclaredField("started");started.setAccessible(true);started.setLong(detector,0L);detector.tick();
+        assertTrue(repo.tasks().stream().anyMatch(t->"probe".equals(text(t,"action"))&&"host-a".equals(text(t,"host_id"))));
+    }
+    @Test void recentReadOnlyLogsDoNotInvalidateRecoveryEvidence()throws Exception{
+        Map<String,Object>s=stack();s.put("active_version","published");repo.save("stack",s);
+        repo.save("stack_snapshot",map("id","stack-a","stack_id","stack-a","host_id","host-a","observed_at",System.currentTimeMillis()-1000,"data",map("recovery_candidates",Arrays.asList("web"))));
+        String id=text(tasks.submit("admin","stack_logs",s,map("service","web"),"completed-log-reader"),"id");repo.jdbc().update("UPDATE ops_task SET status='SUCCEEDED',updated_at=? WHERE id=?",System.currentTimeMillis(),id);
+        HealthDetectionService detector=new HealthDetectionService(repo,tasks,new AutoRecoveryService(),new AlertEventService(repo));java.lang.reflect.Field started=HealthDetectionService.class.getDeclaredField("started");started.setAccessible(true);started.setLong(detector,0L);detector.tick();
+        assertTrue(repo.tasks().stream().anyMatch(t->"stack_recover".equals(text(t,"action"))));
+    }
+    @Test void authorizedStackDeploymentRunsInMaintenanceButAutomaticRecoveryDoesNot()throws Exception{
+        Map<String,Object>h=repo.get("host","host-a");h.put("maintenance",true);repo.save("host",h);Map<String,Object>s=repo.save("stack",stack());
+        when(agent.call(anyMap(),eq("stack_deploy"),anyMap(),anyString())).thenReturn(map("services",new ArrayList<>(),"healthy",true));
+        String id=text(tasks.submit("admin","stack_deploy",s,map("data_compatible",true),"stack-maintenance-deploy"),"id");tasks.dispatch();await(id);assertEquals("SUCCEEDED",repo.task(id).get("status"));
+        id=text(tasks.submitSystem("stack_recover",repo.get("stack","stack-a"),map(),"stack-maintenance-recover"),"id");tasks.dispatch();await(id);assertEquals("FAILED",repo.task(id).get("status"));verify(agent,never()).call(anyMap(),eq("stack_recover"),anyMap(),anyString());
+    }
     @Test void disabledGrantDoesNotRestoreLegacyInterfaceAccess(){
         Map<String,Object> g=repo.save("grant",map("id","isolated","user_id","viewer","ops_only",true,"enabled",true));
         assertTrue(auth.operationsOnly("viewer"));g.put("enabled",false);repo.save("grant",g);assertTrue(auth.operationsOnly("viewer"));

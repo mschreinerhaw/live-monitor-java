@@ -24,6 +24,14 @@ import org.junit.jupiter.api.Test;
 
 class HostResourceMonitorServiceTest {
     private final HostResourceMonitorService service = new HostResourceMonitorService(null, null, null, null);
+    @Test
+    void unavailableDiskCommandsPreserveUnknownMetricsWithoutUnboxingNull() {
+        SshService ssh = mock(SshService.class);
+        when(ssh.exec(any(HostConfig.class), anyString(), anyInt())).thenReturn("");
+        HostConfig host = new HostConfig(); host.id = 1L;
+        HostResourceMonitorService monitor = new HostResourceMonitorService(mock(HostMapper.class), mock(RocksDbHistoryRepository.class), ssh, new ObjectMapper());
+        assertNull(monitor.collectAndStore(host, 1000).get("disk_device_count"));
+    }
 
     @Test
     void parseDiskMetricsUsesDfTypedByteOutputAndKeepsRealLocalMounts() {

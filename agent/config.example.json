@@ -9,5 +9,7 @@
   "max_cpus": 8,
   "max_memory_mb": 16384,
   "docker_binary": "/usr/bin/docker",
+  "profiles": {},
+  "stack_policy": { "projects": [], "packages": {} },
   "backup_helper_image": "REPLACE_WITH_APPROVED_REGISTRY_REPOSITORY@sha256:VERIFIED_DIGEST"
 }

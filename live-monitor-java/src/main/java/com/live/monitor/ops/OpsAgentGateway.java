@@ -37,6 +37,7 @@ public class OpsAgentGateway {
             session=jsch.getSession(credentials.sshUser,credentials.ip,port);
             String password=crypto.decrypt(credentials.sshPasswordCipher);if(password!=null)session.setPassword(password);
             session.setConfig("StrictHostKeyChecking","yes");session.setConfig("PreferredAuthentications","publickey,password");
+            session.setServerAliveInterval(15000);session.setServerAliveCountMax(80);
             session.setTimeout(15000);session.connect(8000);
             channel=(ChannelExec)session.openChannel("exec");channel.setCommand("python3 /opt/live-monitor-agent/agent.py");
             byte[] input=json(map("protocol",1,"action",action,"payload",payload,"task_id",task,

@@ -91,7 +91,7 @@ public class OpsTaskService {
             Map<String,Object> resource=object(request,"resource"),input=object(request,"input"),result;
             // Re-read desired state and host maintenance immediately before every privileged action.
             Map<String,Object> currentHost=repo.get("host",host);
-            require(!flag(currentHost,"maintenance")||Arrays.asList("probe","images","logs","stop","stack_probe","stack_stop","stack_service_stop","maintenance_off","maintenance_on").contains(action),"Host entered maintenance");
+            require(!flag(currentHost,"maintenance")||Arrays.asList("probe","images","logs","stop","stack_probe","stack_stop","stack_service_stop","maintenance_off","maintenance_on").contains(action)||(StackManagementService.ACTIONS.contains(action)&&!"stack_recover".equals(action)),"Host entered maintenance");
             if(StackManagementService.ACTIONS.contains(action))result=stacks.execute(action,resource,input,id);
             else if(Arrays.asList("deploy","validate","rollback").contains(action))result=deployments.execute(action,resource,input,id);
             else if(Arrays.asList("backup","restore","restore_test").contains(action))result=backups.execute(action,resource,input,id);
@@ -136,7 +136,7 @@ public class OpsTaskService {
         value.put("events",repo.jdbc().queryForList("SELECT progress,message,created_at FROM ops_task_event WHERE task_id=? ORDER BY created_at LIMIT 100",text(task,"id")));return value;}
     public SseEmitter stream(String id,String actor){
         if(subscribers.size()>=100)throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"Too many event streams");
-        SseEmitter s=new SseEmitter(120000L);subscribers.put(s,new String[]{id,actor});s.onCompletion(()->subscribers.remove(s));s.onTimeout(()->subscribers.remove(s));return s;
+        SseEmitter s=new SseEmitter(1500000L);subscribers.put(s,new String[]{id,actor});s.onCompletion(()->subscribers.remove(s));s.onTimeout(()->subscribers.remove(s));return s;
     }
     public void markInterrupted(){
         // Never retry an unknown remote outcome. Agent task journal is the recovery authority.

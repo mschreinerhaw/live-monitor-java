@@ -16,3 +16,6 @@ export function operationKey(provider = globalThis.crypto) {
   const bytes = new Uint8Array(16); provider.getRandomValues(bytes)
   return Array.from(bytes, n => n.toString(16).padStart(2, '0')).join('')
 }
+export function uniqueRuntimeContainers(items) {
+  return [...new Map(items.filter(item => !String(item.container_id || '').startsWith('external:')).map(item => [item.container_id || `${item.host_id || ''}:${item.name || item.app_id}`, item])).values()]
+}

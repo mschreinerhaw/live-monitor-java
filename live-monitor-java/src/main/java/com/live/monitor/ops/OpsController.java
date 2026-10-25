@@ -24,8 +24,8 @@ public class OpsController {
         for(Map<String,Object> h:repo.list("host"))scopes.put(text(h,"id"),ACTIONS.stream().filter(a->auth.allowed(actor,text(h,"id"),text(h,"environment"),a)).collect(Collectors.toList()));
         return ok(map("administrator","admin".equalsIgnoreCase(actor),"ops_only",auth.operationsOnly(actor),"event_codes",AlertEventService.CODES,"host_actions",scopes,"actions",ACTIONS,"restart_policies",Arrays.asList("no","on-failure","unless-stopped"),
             "data_kinds",Arrays.asList("stateless","volume","postgres"),"roles",map(
-                "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image","stack_probe"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack","stack_probe","stack_start","stack_stop","stack_service_start","stack_service_stop","stack_service_restart"),
-                "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup"))));
+                "viewer",Arrays.asList("read","logs","images","registry_catalog","resolve_image","stack_probe","stack_logs"),"operator",Arrays.asList("read","logs","probe","images","start","stop","restart","ack","stack_probe","stack_start","stack_stop","stack_service_start","stack_service_stop","stack_service_restart","stack_logs"),
+                "deployer",Arrays.asList("read","logs","validate","pull","deploy","rollback","stack_plan","stack_probe","stack_deploy","stack_rollback","stack_logs"),"recovery",Arrays.asList("read","backup","restore_test","restore","stack_probe","stack_backup","stack_logs"))));
     }
     @GetMapping("/templates/application")
     public Map<String,Object> applicationTemplate(HttpServletRequest request){auth.actor(request,false);return ok(map("id","","name","","host_id","","environment","","image","",
@@ -108,7 +108,7 @@ public class OpsController {
         boolean hostAction=Arrays.asList("probe","images","registry_catalog","resolve_image","pull","cleanup","maintenance_on","maintenance_off").contains(action);
         Map<String,Object> resource=repo.get(hostAction?"host":StackManagementService.ACTIONS.contains(action)?"stack":"application",id);String host=hostAction?id:text(resource,"host_id"),env=text(resource,"environment");
         auth.check(actor,host,env,action);
-        if(!Arrays.asList("probe","images","logs","validate","registry_catalog","resolve_image","stack_plan","stack_probe").contains(action))auth.confirm(input,action,id,env);
+        if(!Arrays.asList("probe","images","logs","validate","registry_catalog","resolve_image","stack_plan","stack_probe","stack_logs").contains(action))auth.confirm(input,action,id,env);
         Map<String,Object> body=object(input,"parameters");
         if(Arrays.asList("registry_catalog","resolve_image").contains(action)){
             Map<String,Object> registry=repo.get("registry",text(body,"registry_id"));

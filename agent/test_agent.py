@@ -35,6 +35,16 @@ class AgentTests(unittest.TestCase):
         with self.assertRaisesRegex(agent.AgentError, "IMMUTABLE"):
             self.a.validate(self.spec)
 
+    def test_host_snapshot_does_not_leak_other_environment_container_resources(self):
+        def command(args, **kwargs):
+            if args[0] == 'info':
+                return '{}'
+            if args[0] == 'stats':
+                return json.dumps({'Name': 'unrelated-environment-app', 'CPUPerc': '10%'})
+            return ''
+        with patch.object(self.a, 'run', side_effect=command):
+            self.assertEqual([], self.a.snapshot()['resources'])
+
     def test_unapproved_registry_rejected(self):
         self.spec["image"] = self.spec["image"].replace("docker.io", "evil.test")
         with self.assertRaisesRegex(agent.AgentError, "REGISTRY"):

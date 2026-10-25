@@ -173,8 +173,8 @@
     <profiles>
         <profile>
             <id>container-platform</id>
-            <properties><container.ui.dir>${project.basedir}/target/frontend-dist</container.ui.dir></properties>
-            <build><resources>
+            <properties><container.ui.dir>${project.basedir}/target/frontend-dist</container.ui.dir><container.build.dir>${project.basedir}/target</container.build.dir></properties>
+            <build><directory>${container.build.dir}</directory><resources>
                 <resource><directory>src/main/resources</directory></resource>
                 <resource><directory>templates</directory><targetPath>templates</targetPath><includes><include>*.j2</include></includes></resource>
                 <resource><directory>${container.ui.dir}</directory><targetPath>static</targetPath></resource>

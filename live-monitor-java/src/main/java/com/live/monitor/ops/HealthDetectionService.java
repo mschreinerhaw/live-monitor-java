@@ -14,13 +14,14 @@ public class HealthDetectionService {
         long now=System.currentTimeMillis();if(now-started<60000)return;
         for(Map<String,Object> host:repo.list("host"))try {
             String id=text(host,"id");
-            boolean busy=repo.jdbc().queryForObject("SELECT COUNT(*) FROM ops_task WHERE host_id=? AND status IN ('QUEUED','RUNNING')",Integer.class,id)>0;
+            // Read-only log viewers must not starve monitoring; destructive work still fences probes.
+            boolean busy=repo.jdbc().queryForObject("SELECT COUNT(*) FROM ops_task WHERE host_id=? AND status IN ('QUEUED','RUNNING') AND action NOT IN ('logs','stack_logs','probe','stack_probe','images','registry_catalog','resolve_image','stack_plan')",Integer.class,id)>0;
             if(busy)continue;
             for(Map<String,Object> stack:repo.list("stack"))if(id.equals(text(stack,"host_id"))&&!text(stack,"active_version").isEmpty()&&"RUNNING".equals(text(stack,"desired_state"))&&!flag(host,"maintenance")){
                 tasks.submitSystem("stack_probe",stack,map(),"stack-probe:"+id+":"+text(stack,"id")+":"+(now/30000));
                 for(Map<String,Object> sample:repo.list("stack_snapshot"))if(text(stack,"id").equals(text(sample,"stack_id"))){
                     long observed=((Number)sample.get("observed_at")).longValue();
-                    Long changed=repo.jdbc().queryForObject("SELECT COALESCE(MAX(updated_at),0) FROM ops_task WHERE host_id=? AND resource_id=? AND action LIKE 'stack_%' AND action<>'stack_probe' AND status IN ('SUCCEEDED','FAILED','INTERRUPTED')",Long.class,id,text(stack,"id"));
+                    Long changed=repo.jdbc().queryForObject("SELECT COALESCE(MAX(updated_at),0) FROM ops_task WHERE host_id=? AND resource_id=? AND action IN ('stack_deploy','stack_rollback','stack_start','stack_stop','stack_service_start','stack_service_stop','stack_service_restart','stack_recover','stack_backup') AND status IN ('SUCCEEDED','FAILED','INTERRUPTED')",Long.class,id,text(stack,"id"));
                     if(now-observed>90000||(changed!=null&&changed>=observed))continue;
                     Object candidates=object(sample,"data").get("recovery_candidates");
                     if(candidates instanceof List&&!((List<?>)candidates).isEmpty())tasks.submitSystem("stack_recover",stack,map(),"stack-recover:"+id+":"+text(stack,"id")+":"+(now/30000));

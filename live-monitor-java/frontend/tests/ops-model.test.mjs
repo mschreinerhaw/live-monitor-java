@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parsePairs, formatPairs, isTerminal, operationKey } from '../src/ops/model.js'
+import { parsePairs, formatPairs, isTerminal, operationKey, uniqueRuntimeContainers } from '../src/ops/model.js'
 import { createLogFollower } from '../src/ops/liveLogs.js'
 
 test('environment values preserve equals signs, spaces and Unicode', () => {
@@ -24,6 +24,15 @@ test('failed and unknown outcomes terminate streaming without claiming success',
 test('request identity also works on internal HTTP origins without randomUUID', () => {
   assert.equal(operationKey({ getRandomValues: bytes => bytes.fill(255) }), 'ff'.repeat(16))
 })
+
+test('shared dependencies count once while separate hosts remain distinct', () => {
+  assert.equal(uniqueRuntimeContainers([{ container_id: 'shared-db', host_id: 'host-a' }, { container_id: 'shared-db', host_id: 'host-a' }]).length, 1)
+  assert.equal(uniqueRuntimeContainers([{ name: 'database', host_id: 'host-a' }, { name: 'database', host_id: 'host-b' }]).length, 2)
+})
+
+test('external process endpoints do not inflate the running Docker container count', () => {
+  assert.equal(uniqueRuntimeContainers([{ container_id: 'external:license', status: 'running' }, { container_id: 'docker-container', status: 'running' }]).length, 1)
+})
 test('late log responses from another application are discarded', async () => {
   const pending = [], seen = [], timers = { setInterval: () => 1, clearInterval: () => {} }
   const api = { operate: body => new Promise(resolve => pending.push({ id: body.resource_id, resolve })) }
@@ -38,4 +47,11 @@ test('stopping log follow prevents outstanding results from updating the page', 
   const follower = createLogFollower({ operate: () => new Promise(done => { resolve = done }) }, v => seen.push(v), error => { throw error }, timers)
   const pending = follower.start('app'); follower.stop(); resolve({ status: 'SUCCEEDED', result_json: '{"logs":"private"}' }); await pending
   assert.deepEqual(seen, [])
+})
+
+test('stack log following keeps the selected service in every request', async () => {
+  const requests = [], timers = { setInterval: () => 1, clearInterval: () => {} }
+  const follower = createLogFollower({ operate: async request => { requests.push(request); return { status: 'SUCCEEDED', result_json: '{"logs":"service output"}' } } }, () => {}, error => { throw error }, timers)
+  await follower.start('example-stack', { action: 'stack_logs', parameters: { service: 'web' } })
+  assert.equal(requests[0].action, 'stack_logs'); assert.deepEqual(requests[0].parameters, { service: 'web' }); follower.stop()
 })

@@ -446,7 +446,7 @@ class Agent:
                                **{k: local.get(k, False if k == "manual_stop" else 0) for k in ("manual_stop", "failure_since", "recovery_attempts", "next_recovery_at")}})
         return {"docker_version": info.get("ServerVersion"), "containers_running": info.get("ContainersRunning"),
                 "cpu_count": info.get("NCPU"), "memory_bytes": info.get("MemTotal"), "containers": containers,
-                "resources": resources, "observed_at": int(time.time() * 1000)}
+                "resources": [r for r in resources if r.get("Name") in {c["name"] for c in containers}], "observed_at": int(time.time() * 1000)}
 
     def operate(self, action, payload):
         app = identifier(payload["app_id"]); name = self.name(app); data = self.inspect(name)
