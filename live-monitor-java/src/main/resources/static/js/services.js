@@ -301,7 +301,6 @@ const SERVICE_TYPE_FORM_PARTIALS = [
   "/partials/service-forms/process.html",
   "/partials/service-forms/redis.html",
   "/partials/service-forms/zookeeper.html",
-  "/partials/service-forms/data-send.html",
   "/partials/service-forms/database.html",
 ];
 
