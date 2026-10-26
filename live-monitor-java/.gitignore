@@ -41,10 +41,6 @@ OPTIONS-*
 *.sst
 [0-9]*.log
 
-# Frontend Node.js dependencies & build output
-frontend/node_modules/
-frontend/dist/
-
 # OS temporary files
 .DS_Store
 Thumbs.db
