@@ -148,11 +148,12 @@
                 <tr v-for="srv in filteredServices" :key="srv.id" class="cm-table-row">
                   <!-- 健康状态指示灯 (圆形大图标指示状态) -->
                   <td style="text-align: center;">
-                    <span
-                      class="cm-health-dot"
-                      :class="(srv.lastStatus || 'unknown').toLowerCase()"
-                      :title="getStatusTooltip(srv)"
-                    ></span>
+                    <div class="status-indicator-cell" :title="getStatusTooltip(srv)">
+                      <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
+                      <span class="status-badge" :class="getStatusClass(srv.lastStatus)">
+                        {{ getStatusLabel(srv.lastStatus) }}
+                      </span>
+                    </div>
                   </td>
 
                   <!-- 服务名称与说明 -->
@@ -243,11 +244,11 @@
               v-for="srv in filteredServices"
               :key="srv.id"
               class="cm-service-card"
-              :class="(srv.lastStatus || 'unknown').toLowerCase()"
+              :class="getStatusClass(srv.lastStatus)"
             >
               <div class="cm-card-top">
                 <div class="cm-card-header-left">
-                  <span class="cm-health-dot" :class="(srv.lastStatus || 'unknown').toLowerCase()"></span>
+                  <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
                   <div>
                     <router-link :to="`/services/${srv.id}`" class="cm-card-name">
                       {{ srv.service_name }}
@@ -281,8 +282,8 @@
               </div>
 
               <div class="cm-card-footer">
-                <span class="cm-card-status-text" :class="(srv.lastStatus || 'unknown').toLowerCase()">
-                  {{ srv.lastStatus === 'UP' ? '健康运行' : srv.lastStatus === 'DOWN' ? '服务异常' : '待探测' }}
+                <span class="cm-card-status-text" :class="getStatusClass(srv.lastStatus)">
+                  {{ getStatusLabel(srv.lastStatus) }}
                 </span>
                 <div class="cm-card-actions">
                   <button
@@ -330,7 +331,7 @@
                   <tbody>
                     <tr v-for="srv in items" :key="srv.id" class="cm-table-row">
                       <td style="width: 40px; text-align: center;">
-                        <span class="cm-health-dot" :class="(srv.lastStatus || 'unknown').toLowerCase()"></span>
+                        <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
                       </td>
                       <td style="min-width: 180px;">
                         <router-link :to="`/services/${srv.id}`" class="cm-service-title">
@@ -349,8 +350,8 @@
                         </strong>
                       </td>
                       <td style="width: 80px;">
-                        <span :class="['badge', `badge-${(srv.lastStatus || 'unknown').toLowerCase()}`]">
-                          {{ srv.lastStatus || 'UNKNOWN' }}
+                        <span :class="['status-badge', getStatusClass(srv.lastStatus)]">
+                          {{ getStatusLabel(srv.lastStatus) }}
                         </span>
                       </td>
                       <td style="text-align: right; width: 110px;">
@@ -501,10 +502,29 @@ const serviceTypeLabel = (type) => {
   return map[type] || type || '自定义'
 }
 
+const normalizeStatus = (status) => String(status ?? 'UNKNOWN').trim().toUpperCase()
+
+const getStatusClass = (status) => {
+  const st = normalizeStatus(status)
+  if (['UP', 'OK', 'RUNNING', 'NORMAL'].includes(st)) return 'up'
+  if (['DOWN', 'ERROR', 'FAIL', 'FAILED'].includes(st)) return 'down'
+  if (['WARN', 'WARNING', 'ALERT'].includes(st)) return 'alert'
+  return 'unknown'
+}
+
+const getStatusLabel = (status) => {
+  const statusClass = getStatusClass(status)
+  if (statusClass === 'up') return '运行正常'
+  if (statusClass === 'down') return '运行异常'
+  if (statusClass === 'alert') return '告警'
+  return '待探测'
+}
+
 const getStatusTooltip = (srv) => {
-  const st = srv.lastStatus || 'UNKNOWN'
-  if (st === 'UP') return `服务运行良好 (耗时 ${srv.lastResponseTimeMs || 0}ms)`
-  if (st === 'DOWN') return `服务异常告警: ${srv.lastMessage || '连接失败'}`
+  const st = getStatusClass(srv.lastStatus)
+  if (st === 'up') return `服务运行良好 (耗时 ${srv.lastResponseTimeMs || 0}ms)`
+  if (st === 'down') return `服务异常告警: ${srv.lastMessage || '连接失败'}`
+  if (st === 'alert') return `监控告警: ${srv.lastMessage || '请检查服务状态'}`
   return '未检测或状态未知'
 }
 
@@ -901,6 +921,32 @@ onBeforeUnmount(() => {
   width: 240px;
 }
 
+/* 主表格状态：圆点 + 可读文字，避免单纯依靠颜色判断 */
+.status-indicator-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-badge.up { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.status-badge.down { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.status-badge.alert { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+.status-badge.unknown { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+
 /* CM 健康状态指示灯 */
 .cm-health-dot {
   display: inline-block;
@@ -917,6 +963,11 @@ onBeforeUnmount(() => {
 .cm-health-dot.down {
   background: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+  animation: cm-pulse 1.8s infinite;
+}
+.cm-health-dot.alert {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22);
   animation: cm-pulse 1.8s infinite;
 }
 .cm-health-dot.unknown {
@@ -1153,6 +1204,7 @@ onBeforeUnmount(() => {
 }
 .cm-card-status-text.up { color: #10b981; }
 .cm-card-status-text.down { color: #ef4444; }
+.cm-card-status-text.alert { color: #f59e0b; }
 .cm-card-status-text.unknown { color: #94a3b8; }
 .cm-card-actions {
   display: flex;
