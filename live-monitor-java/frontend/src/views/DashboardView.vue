@@ -615,8 +615,7 @@ const exportExcel = () => {
       `"${getAlertGroupName(s).replace(/"/g, '""')}"`
     ])
   })
-  const csvContent = '﻿' + rows.map((e) => e.join(',')).join('
-')
+  const csvContent = '\uFEFF' + rows.map((e) => e.join(',')).join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -660,9 +659,9 @@ const pollSystemMetrics = async () => {
     const m = await api.systemMetrics()
     if (!m) return
     const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-    const cpuVal = Number((m.cpu || m.cpu_usage_percent || 0).toFixed(1))
-    const memVal = Number((m.memory || m.memory_used_percent || 0).toFixed(1))
-    const diskVal = Number((m.disk || m.disk_used_percent || 0).toFixed(1))
+    const cpuVal = Number(Number(m.cpu ?? m.cpu_usage_percent ?? 0).toFixed(1))
+    const memVal = Number(Number(m.memory ?? m.memory_used_percent ?? 0).toFixed(1))
+    const diskVal = Number(Number(m.disk ?? m.disk_used_percent ?? 0).toFixed(1))
 
     latestMetrics.cpu = cpuVal
     latestMetrics.memory = memVal
