@@ -22,7 +22,6 @@ async function initAddService() {
   const databaseConnectionsPromise = loadDatabaseConnectionOptions(form, editId).then((connections) => {
     databaseConnectionOptions = connections;
     renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
-    initDataSendSection(form, databaseConnectionOptions, editId);
   });
   const presetClusterName = params.get("cluster_name");
   if (!editId && presetClusterName && form.elements.cluster_name) {
@@ -41,7 +40,6 @@ async function initAddService() {
     const databaseConnectionSelect = form.elements.database_connection_service_id;
     if (databaseConnectionSelect) {
       renderDatabaseConnectionOptions(form, databaseConnectionOptions, typeSelect.value, editId);
-      initDataSendSection(form, databaseConnectionOptions, editId);
     }
     const usesDatabaseConnectionRef = Boolean(isDatabase && databaseConnectionSelect?.value);
     toggleFieldSet(".web-only", isWeb && !isApi);
