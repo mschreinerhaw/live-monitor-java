@@ -151,10 +151,10 @@
                       <IconSvg name="send" size="12" />
                       <span>测试发送</span>
                     </button>
-                    <button class="btn btn-ghost btn-sm" @click="openEditChannelModal(ch)">
+                    <button class="btn btn-ghost btn-sm" title="编辑渠道" @click="openEditChannelModal(ch)">
                       <IconSvg name="edit" size="12" />
                     </button>
-                    <button class="btn btn-danger btn-sm" @click="handleDeleteChannel(ch)">
+                    <button class="btn btn-danger btn-sm" title="删除渠道" @click="handleDeleteChannel(ch)">
                       <IconSvg name="trash" size="12" />
                     </button>
                   </div>
@@ -204,7 +204,7 @@
                 </td>
                 <td>
                   <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-danger btn-sm" @click="handleDeleteGroup(g)">
+                    <button class="btn btn-ghost btn-sm" @click="openEditGroup(g)">编辑</button><button class="btn btn-ghost btn-sm" @click="testGroup(g)">测试</button><button class="btn btn-danger btn-sm" @click="handleDeleteGroup(g)">
                       <IconSvg name="trash" size="12" />
                     </button>
                   </div>
@@ -238,6 +238,7 @@
                 <option value="sms">短信 (SMS 网关)</option>
                 <option value="email">邮件 (SMTP)</option>
                 <option value="webhook">通用 Webhook</option>
+                <option value="http">自定义 HTTP</option>
                 <option value="dingtalk">钉钉群机器人</option>
                 <option value="wecom">企业微信机器人</option>
               </select>
@@ -285,6 +286,7 @@
               </div>
             </div>
           </div>
+          <ChannelAdvancedFields :form="channelForm" />
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" @click="showChannelModal = false">取消</button>
             <button type="submit" class="btn btn-primary">保存渠道</button>
@@ -297,7 +299,7 @@
     <div v-if="showGroupModal" class="modal-overlay">
       <div class="modal-dialog">
         <div class="modal-header">
-          <h3 class="modal-title">新建告警组</h3>
+          <h3 class="modal-title">{{ editingGroupId ? '编辑告警组' : '新建告警组' }}</h3>
           <button class="btn btn-ghost btn-sm" @click="showGroupModal = false">
             <IconSvg name="x" size="14" />
           </button>
@@ -322,6 +324,8 @@
               </div>
             </div>
           </div>
+          <fieldset><legend>触发策略</legend><label v-for="policy in policiesList" :key="policy.id" style="display:block"><input type="checkbox" v-model="groupForm.policyIds" :value="policy.id">{{ policy.policy_name }} · {{ policy.trigger_type }} · {{ policy.trigger_value }}</label></fieldset>
+          <label><input v-model="groupForm.enabled" type="checkbox">启用告警组</label>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" @click="showGroupModal = false">取消</button>
             <button type="submit" class="btn btn-primary">保存告警组</button>
@@ -336,6 +340,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
+import ChannelAdvancedFields from '../components/ChannelAdvancedFields.vue'
 
 const currentTab = ref('bindings')
 const serviceSearch = ref('')
@@ -346,7 +351,20 @@ const groupsList = ref([])
 const showChannelModal = ref(false)
 const editingChannelId = ref(null)
 const showGroupModal = ref(false)
+const editingGroupId = ref(null)
+const policiesList = ref([])
 
+const channelDefaults = () => ({
+  channelName: '', channelType: 'sms', enabled: true,
+  sms_api_url: '', sms_api_urls: [], sms_username: '', sms_password: '', sms_api_token: '', alert_mobile: '',
+  sms_password_is_md5: true, sms_rstype: 'text', sms_ext_code: '',
+  smtp_host: '', smtp_port: 465, smtp_user: '', smtp_password: '', smtp_from: '', alert_email: '', alert_cc: '',
+  smtp_auth: true, smtp_use_tls: false, smtp_use_ssl: true, smtp_ssl_trust: '',
+  webhook_url: '', http_method: 'POST', http_headers: '', http_body: '',
+  dingtalk_secret: '', dingtalk_at_mobiles: '', dingtalk_at_all: false,
+  wecom_mentioned_list: '', wecom_mentioned_mobiles: '', wecom_at_all: false,
+  proxy_type: 'none', proxy_host: '', proxy_port: null, proxy_username: '', proxy_password: ''
+})
 const channelForm = reactive({
   channelName: '',
   channelType: 'sms',
@@ -363,7 +381,7 @@ const channelForm = reactive({
 const groupForm = reactive({
   groupName: '',
   description: '',
-  channelIds: [],
+  channelIds: [], policyIds: [],
   enabled: true
 })
 
@@ -423,11 +441,12 @@ const handleTestServiceAlert = async (srv) => {
 
 const fetchData = async () => {
   try {
-    const [srvRes, chRes, grRes] = await Promise.all([
-      api.listServices(true).catch(() => []),
-      api.listAlertChannels(true).catch(() => []),
-      api.listAlertGroups(true).catch(() => [])
+    const [srvRes, chRes, grRes, policies] = await Promise.all([
+      api.listServices(true),
+      api.listAlertChannels(true),
+      api.listAlertGroups(true), api.listAlertPolicies(true)
     ])
+    policiesList.value = policies || []
     servicesList.value = srvRes || []
     channelsList.value = chRes || []
     groupsList.value = grRes || []
@@ -438,6 +457,7 @@ const fetchData = async () => {
 
 const openCreateChannelModal = () => {
   editingChannelId.value = null
+  Object.assign(channelForm, channelDefaults())
   Object.assign(channelForm, {
     channelName: '',
     channelType: 'sms',
@@ -455,6 +475,7 @@ const openCreateChannelModal = () => {
 
 const openEditChannelModal = (ch) => {
   editingChannelId.value = ch.id
+  Object.assign(channelForm, channelDefaults(), ch)
   Object.assign(channelForm, {
     channelName: ch.channelName || '',
     channelType: ch.channelType || 'sms',
@@ -508,18 +529,35 @@ const handleDeleteChannel = async (ch) => {
 }
 
 const openCreateGroupModal = () => {
+  editingGroupId.value = null
   Object.assign(groupForm, {
     groupName: '',
     description: '',
-    channelIds: [],
+    channelIds: [], policyIds: [],
     enabled: true
   })
+  groupForm.policyIds = policiesList.value.filter(p => p.enabled).map(p => p.id)
   showGroupModal.value = true
 }
 
+const openEditGroup = async group => {
+  try {
+    const detail = await api.getAlertGroup(group.id)
+    editingGroupId.value = group.id
+    Object.assign(groupForm, { groupName: detail.group_name, description: detail.description || '', channelIds: detail.channel_ids || detail.channels?.map(c => c.id) || [], policyIds: detail.policy_ids || detail.policies?.map(p => p.id) || [], enabled: detail.enabled !== false })
+    showGroupModal.value = true
+  } catch (e) { store.showToast(e.message, 'error') }
+}
+const testGroup = async group => {
+  try {
+    const result = await api.testAlertGroup(group.id)
+    store.showToast(result.success ? '组内启用渠道测试均成功' : '组内有渠道测试失败或没有启用渠道：' + result.results.filter(r => !r.success).map(r => r.message).join('；'), result.success ? 'success' : 'error')
+  } catch (e) { store.showToast(e.message, 'error') }
+}
 const handleSaveGroup = async () => {
   try {
-    await api.createAlertGroup(groupForm)
+    if (editingGroupId.value) await api.updateAlertGroup(editingGroupId.value, groupForm)
+    else await api.createAlertGroup(groupForm)
     store.showToast('告警组已创建', 'success')
     showGroupModal.value = false
     await fetchData()

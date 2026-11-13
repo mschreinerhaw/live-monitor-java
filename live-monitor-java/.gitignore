@@ -44,3 +44,11 @@ OPTIONS-*
 # OS temporary files
 .DS_Store
 Thumbs.db
+
+# Vue build and browser verification outputs
+/frontend/dist/
+/frontend/node_modules/
+/frontend/test-results/
+/frontend/playwright-report/
+/src/main/resources/static/static/
+/src/main/resources/static/index.html

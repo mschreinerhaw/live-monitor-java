@@ -68,7 +68,7 @@
                   >
                     {{ u.status === 1 ? '禁用' : '启用' }}
                   </button>
-                  <button class="btn btn-ghost btn-sm" @click="openResetPwdModal(u)">
+                  <button v-if="(u.user_id || u.userid) !== 'admin'" class="btn btn-ghost btn-sm" @click="removeUser(u)">删除</button><button class="btn btn-ghost btn-sm" @click="openResetPwdModal(u)">
                     重置密码
                   </button>
                 </div>
@@ -116,6 +116,7 @@
       </div>
     </div>
 
+    <section v-if="currentTab === 'logs'" class="card"><form @submit.prevent="auditPage = 1; fetchAuditLogs()"><input v-model="auditQuery" class="form-control" placeholder="搜索登录用户 / IP"><button class="btn btn-ghost">查询登录审计</button></form><button class="btn btn-ghost" :disabled="auditPage <= 1" @click="auditPage--; fetchAuditLogs()">上一页</button><span>第 {{ auditPage }} 页 / {{ auditTotal }} 条</span><button class="btn btn-ghost" :disabled="auditPage * 20 >= auditTotal" @click="auditPage++; fetchAuditLogs()">下一页</button></section>
     <!-- 新建用户模态框 -->
     <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal-dialog">
@@ -185,6 +186,7 @@ import { store } from '../store'
 const currentTab = ref('users')
 const users = ref([])
 const auditLogs = ref([])
+const auditPage = ref(1), auditTotal = ref(0), auditQuery = ref('')
 
 const showCreateModal = ref(false)
 const showResetModal = ref(false)
@@ -208,8 +210,9 @@ const fetchUsers = async () => {
 
 const fetchAuditLogs = async () => {
   try {
-    const res = await api.listLoginAuditLogs({ page: 1, page_size: 50 })
+    const res = await api.listLoginAuditLogs({ page: auditPage.value, page_size: 20, query: auditQuery.value })
     auditLogs.value = res.records || res.items || []
+    auditTotal.value = res.total || 0
   } catch (_) {}
 }
 
@@ -227,11 +230,16 @@ const handleCreateUser = async () => {
   }
 }
 
+const removeUser = async u => {
+  const id = u.user_id || u.userid
+  if (!window.confirm('删除用户“' + id + '”？')) return
+  try { await api.deleteUser(id); await fetchUsers() } catch (e) { store.showToast(e.message, 'error') }
+}
 const toggleStatus = async (u) => {
   const nextStatus = u.status === 1 ? 0 : 1
   const uid = u.user_id || u.userid
   try {
-    await api.updateUserStatus(uid, { status: nextStatus })
+    await api.updateUserStatus(uid, { enabled: nextStatus === 1 })
     store.showToast('状态更新成功', 'success')
     await fetchUsers()
   } catch (err) {
@@ -248,7 +256,7 @@ const openResetPwdModal = (u) => {
 const handleResetPassword = async () => {
   const uid = currentSelectedUser.value?.user_id || currentSelectedUser.value?.userid
   try {
-    await api.resetUserPassword(uid, { password: newPassword.value })
+    await api.resetUserPassword(uid, { new_password: newPassword.value })
     store.showToast('密码重置成功', 'success')
     showResetModal.value = false
   } catch (err) {

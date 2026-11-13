@@ -314,6 +314,24 @@ textarea.form-control {
 .modal-dialog.modal-lg {
   max-width: 860px;
 }
+.modal-dialog > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.modal-dialog > form .modal-body {
+  min-height: 0;
+}
+.modal-dialog > form > section {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 16px 20px;
+}
+.modal-dialog .modal-footer, .modal-dialog .modal-header {
+  flex-shrink: 0;
+}
 .modal-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);

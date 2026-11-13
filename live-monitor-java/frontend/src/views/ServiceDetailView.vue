@@ -34,15 +34,15 @@
               <IconSvg name="activity" size="16" />
               <span>实时探测健康状态</span>
             </div>
-            <span :class="['badge', `badge-${(service.lastStatus || 'unknown').toLowerCase()}`]">
-              {{ service.lastStatus || 'UNKNOWN' }}
+            <span :class="['badge', `badge-${(service.last_status || 'unknown').toLowerCase()}`]">
+              {{ service.last_status || 'UNKNOWN' }}
             </span>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
-            <div><strong>响应耗时：</strong> {{ service.lastResponseTimeMs != null ? `${service.lastResponseTimeMs} ms` : '-' }}</div>
-            <div><strong>最新检测时间：</strong> {{ service.lastCheckedAt || '-' }}</div>
-            <div><strong>检测返回详情：</strong> {{ service.lastMessage || '-' }}</div>
+            <div><strong>响应耗时：</strong> {{ service.last_response_time_ms != null ? `${service.last_response_time_ms} ms` : '-' }}</div>
+            <div><strong>最新检测时间：</strong> {{ service.last_checked_at || '-' }}</div>
+            <div><strong>检测返回详情：</strong> {{ service.last_message || '-' }}</div>
             <div><strong>定时检测：</strong> {{ service.enabled ? '已启用' : '已停用' }}</div>
             <div><strong>检测周期：</strong> {{ service.check_interval }} 秒</div>
           </div>
@@ -118,32 +118,37 @@
         </div>
       </div>
     </div>
+    <AlertHistoryTable :records="alerts" /><AlertTasksPanel v-if="service" :key="service.last_checked_at" :service-id="route.params.id" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
+import AlertTasksPanel from '../components/AlertTasksPanel.vue'
+import AlertHistoryTable from '../components/AlertHistoryTable.vue'
 
 const route = useRoute()
 const service = ref(null)
 const checking = ref(false)
 const historyRecords = ref([])
+const alerts = ref([])
 
 const respChartContainer = ref(null)
 let respChart = null
 
 const fetchServiceDetail = async () => {
   try {
-    const [data, results] = await Promise.all([
+    const [data, results, records] = await Promise.all([
       api.getService(route.params.id),
-      api.serviceResults(route.params.id, 30).catch(() => [])
+      api.serviceResults(route.params.id, 30), api.serviceAlerts(route.params.id, 50)
     ])
     service.value = data
     historyRecords.value = results || []
+    alerts.value = records || []
     updateRespChart()
   } catch (err) {
     store.showToast('加载服务详情失败：' + err.message, 'error')
@@ -200,6 +205,7 @@ onMounted(async () => {
   window.addEventListener('resize', handleResize)
 })
 
+watch(() => route.params.id, fetchServiceDetail)
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   if (respChart) respChart.dispose()

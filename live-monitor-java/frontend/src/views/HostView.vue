@@ -112,8 +112,8 @@
                 </strong>
               </td>
               <td style="font-family: monospace;">{{ h.ip }}</td>
-              <td>{{ h.port || 22 }}</td>
-              <td>{{ h.username || 'root' }}</td>
+              <td>{{ h.ssh_port || 22 }}</td>
+              <td>{{ h.ssh_user || 'root' }}</td>
               <td>
                 <span v-if="getCpu(h) != null" :style="{ color: getCpu(h) > 85 ? '#dc2626' : '#1e293b', fontWeight: '500' }">
                   {{ getCpu(h).toFixed(1) }}%
@@ -141,7 +141,7 @@
                 </span>
               </td>
               <td>
-                <div style="display: flex; gap: 6px;">
+                <div style="display: flex; gap: 6px;"><router-link :to="'/hosts/' + h.id" class="btn btn-ghost btn-sm">指标 / 进程</router-link>
                   <button class="btn btn-ghost btn-sm" @click="handleCheckHost(h)" title="立即探测">
                     <IconSvg name="play" size="12" />
                   </button>
@@ -221,11 +221,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">SSH 端口</label>
-                <input v-model.number="modalForm.port" type="number" class="form-control" placeholder="22" required />
+                <input v-model.number="modalForm.ssh_port" type="number" class="form-control" placeholder="22" required />
               </div>
               <div class="form-group">
                 <label class="form-label">SSH 用户名</label>
-                <input v-model="modalForm.username" type="text" class="form-control" placeholder="root" required />
+                <input v-model="modalForm.ssh_user" type="text" class="form-control" placeholder="root" required />
               </div>
             </div>
 
@@ -239,7 +239,7 @@
 
             <div v-if="modalForm.auth_type === 'password'" class="form-group">
               <label class="form-label">SSH 密码</label>
-              <input v-model="modalForm.password" type="password" class="form-control" placeholder="留空则保持原密码" />
+              <input v-model="modalForm.ssh_password" type="password" class="form-control" placeholder="留空则保持原密码" />
             </div>
 
             <div v-if="modalForm.auth_type === 'key'" class="form-group">
@@ -258,15 +258,11 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">绑定告警组</label>
-              <select v-model="modalForm.alert_group_id" class="form-control">
-                <option :value="null">-- 不绑定告警组 --</option>
-                <option v-for="g in alertGroups" :key="g.id" :value="g.id">
-                  {{ g.group_name }}
-                </option>
-              </select>
-            </div>
+            <div class="form-row"><label v-for="field in resourceFields" :key="field.key" class="form-group">{{ field.label }}<input v-model.number="modalForm[field.key]" type="number" :min="field.min" :max="field.max" class="form-control"></label></div>
+            <div class="form-row"><label v-for="field in resourceToggles" :key="field.key"><input v-model="modalForm[field.key]" type="checkbox">{{ field.label }}</label></div>
+            <label class="form-group">主机分组<input v-model="modalForm.cluster_name" class="form-control"></label><label class="form-group">备注<textarea v-model="modalForm.remark" class="form-control"></textarea></label>
+            <fieldset><legend>多个告警组</legend><label v-for="group in alertGroups" :key="group.id" style="margin-right:16px"><input type="checkbox" v-model="modalForm.alert_group_ids" :value="group.id">{{ group.group_name }}</label><p v-if="!modalForm.alert_group_ids.length">未绑定告警组，资源异常无法向外部渠道通知。</p></fieldset>
+
           </div>
 
           <div class="modal-footer">
@@ -283,16 +279,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
 
+const route = useRoute()
 const loading = ref(false)
 const hostsList = ref([])
 const alertGroups = ref([])
 const keyword = ref('')
 const statusFilter = ref('all')
 const currentPage = ref(1)
+watch([keyword, statusFilter], () => { currentPage.value = 1 })
 const pageSize = 15
 
 const showModal = ref(false)
@@ -300,13 +299,33 @@ const editingHostId = ref(null)
 const testingSsh = ref(false)
 const selectedHost = ref(null)
 
-const modalForm = reactive({
+const resourceFields = [
+  {key:'disk_threshold_percent',label:'磁盘阈值 (%)',min:1,max:100},
+  {key:'check_interval',label:'采集间隔（秒）',min:1,max:31536000},
+  {key:'resource_alert_duration_seconds',label:'异常确认时长（秒）',min:1,max:31536000},
+  {key:'resource_recover_duration_seconds',label:'恢复确认时长（秒）',min:1,max:31536000},
+  {key:'resource_alert_cooldown_seconds',label:'资源冷却设置（秒）',min:0,max:31536000}
+]
+const resourceToggles = [
+  {key:'enabled',label:'启用主机'}, {key:'cpu_alert_enabled',label:'CPU 告警'},
+  {key:'memory_alert_enabled',label:'内存告警'}, {key:'disk_alert_enabled',label:'磁盘告警'},
+  {key:'resource_alert_duration_enabled',label:'异常持续确认'}, {key:'resource_recover_duration_enabled',label:'恢复持续确认'},
+  {key:'resource_alert_cooldown_enabled',label:'资源冷却配置'}
+]
+const resourceDefaults = () => ({
+  disk_threshold_percent:85,check_interval:60,resource_alert_duration_seconds:180,
+  resource_recover_duration_seconds:180,resource_alert_cooldown_seconds:600,
+  enabled:true,cpu_alert_enabled:true,memory_alert_enabled:true,disk_alert_enabled:true,
+  resource_alert_duration_enabled:true,resource_recover_duration_enabled:true,resource_alert_cooldown_enabled:true,
+  alert_group_ids:[],cluster_name:'',remark:''
+})
+const modalForm = reactive({ ...resourceDefaults(),
   host_name: '',
   ip: '',
-  port: 22,
-  username: 'root',
+  ssh_port: 22,
+  ssh_user: 'root',
   auth_type: 'password',
-  password: '',
+  ssh_password: '',
   private_key: '',
   cpu_threshold_percent: 85,
   memory_threshold_percent: 85,
@@ -341,6 +360,7 @@ const pagedHosts = computed(() => {
 const selectedHostPartitions = computed(() => {
   if (!selectedHost.value) return []
   try {
+    if (Array.isArray(selectedHost.value.disk_metrics)) return selectedHost.value.disk_metrics
     const raw = selectedHost.value.disk_metrics_json || selectedHost.value.metrics?.disk_metrics_json
     if (!raw) return []
     return JSON.parse(raw)
@@ -357,6 +377,7 @@ const fetchHosts = async () => {
       api.listAlertGroups(true).catch(() => [])
     ])
     hostsList.value = list || []
+    if (route.query.edit && !showModal.value) { const item = hostsList.value.find(h => String(h.id) === String(route.query.edit)); if (item) openEditModal(item) }
     alertGroups.value = groups || []
   } catch (err) {
     store.showToast('加载主机列表失败：' + err.message, 'error')
@@ -371,13 +392,14 @@ const selectHostDetails = (h) => {
 
 const openCreateModal = () => {
   editingHostId.value = null
+  Object.assign(modalForm, resourceDefaults())
   Object.assign(modalForm, {
     host_name: '',
     ip: '',
-    port: 22,
-    username: 'root',
+    ssh_port: 22,
+    ssh_user: 'root',
     auth_type: 'password',
-    password: '',
+    ssh_password: '',
     private_key: '',
     cpu_threshold_percent: 85,
     memory_threshold_percent: 85,
@@ -388,13 +410,14 @@ const openCreateModal = () => {
 
 const openEditModal = (h) => {
   editingHostId.value = h.id
+  Object.assign(modalForm, resourceDefaults(), h, { alert_group_ids: [...(h.alert_group_ids || (h.alert_group_id ? [h.alert_group_id] : []))] })
   Object.assign(modalForm, {
     host_name: h.host_name || '',
     ip: h.ip || '',
-    port: h.port || 22,
-    username: h.username || 'root',
+    ssh_port: h.ssh_port || 22,
+    ssh_user: h.ssh_user || 'root',
     auth_type: h.private_key ? 'key' : 'password',
-    password: '',
+    ssh_password: '',
     private_key: h.private_key || '',
     cpu_threshold_percent: h.cpu_threshold_percent || 85,
     memory_threshold_percent: h.memory_threshold_percent || 85,
@@ -406,7 +429,7 @@ const openEditModal = (h) => {
 const handleTestSsh = async () => {
   testingSsh.value = true
   try {
-    await api.testHostSsh(modalForm)
+    await api.testHostSsh(modalForm, editingHostId.value)
     store.showToast('SSH 连接测试成功！', 'success')
   } catch (err) {
     store.showToast('SSH 测试失败：' + err.message, 'error')
@@ -418,7 +441,7 @@ const handleTestSsh = async () => {
 const handleSaveHost = async () => {
   try {
     if (editingHostId.value) {
-      await api.updateHost(editingHostId.value, modalForm)
+      await api.updateHost(editingHostId.value, { ...modalForm, check_interval_value: modalForm.check_interval, check_interval_unit: 'seconds' })
       store.showToast('主机配置已更新', 'success')
     } else {
       await api.createHost(modalForm)
@@ -459,8 +482,8 @@ const exportHostsCsv = () => {
     rows.push([
       `"${(h.host_name || '').replace(/"/g, '""')}"`,
       h.ip || '',
-      h.port || 22,
-      h.username || '',
+      h.ssh_port || 22,
+      h.ssh_user || '',
       getCpu(h) != null ? `${getCpu(h).toFixed(1)}%` : '-',
       getMem(h) != null ? `${getMem(h).toFixed(1)}%` : '-',
       getDisk(h) != null ? `${getDisk(h).toFixed(1)}%` : '-',

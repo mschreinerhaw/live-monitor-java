@@ -253,6 +253,10 @@ public class LiveMonitorService {
         Map<String, Integer> yesterdayStatus = statusCountBefore(services, todayStart);
         int todayAlerts = historyRepository.countAlertsBetween(formatTime(todayStart), formatTime(todayStart.plusDays(1)));
         int yesterdayAlerts = historyRepository.countAlertsBetween(formatTime(yesterdayStart), formatTime(todayStart));
+        if (taskAdmin != null) {
+            todayAlerts += taskAdmin.countBetween(formatTime(todayStart), formatTime(todayStart.plusDays(1)));
+            yesterdayAlerts += taskAdmin.countBetween(formatTime(yesterdayStart), formatTime(todayStart));
+        }
         Map<String, Object> trends = new HashMap<String, Object>();
         trends.put("total", serviceTotal - yesterdayServiceTotal);
         trends.put("instances", instanceTotal - yesterdayInstanceTotal);

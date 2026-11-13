@@ -33,6 +33,18 @@ class AlertApplicationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired LiveMonitorService monitors;
     @Autowired RocksDbHistoryRepository history;
+    @org.springframework.boot.web.server.LocalServerPort int port;
+
+    @Test void spaDeepLinksReturnVueEntryAndApiStillRequiresLogin() {
+        org.springframework.web.client.RestTemplate client = new org.springframework.web.client.RestTemplate();
+        for (String path : new String[]{"/hosts/123", "/external-projects", "/account", "/alerts/tasks"}) {
+            String html = client.getForObject("http://127.0.0.1:" + port + path, String.class);
+            assertTrue(html.contains("id=\"app\"") || html.contains("id=app"), path + " should return the Vue entry");
+        }
+        org.springframework.web.client.HttpClientErrorException error = assertThrows(org.springframework.web.client.HttpClientErrorException.class,
+            () -> client.getForObject("http://127.0.0.1:" + port + "/api/alert-tasks", String.class));
+        assertEquals(401, error.getRawStatusCode());
+    }
 
     @Test void realCheckCommitsThenWorkerSendsWebhookAndProjectsHistory() throws Exception {
         AtomicInteger notifications=new AtomicInteger();
@@ -63,6 +75,8 @@ class AlertApplicationTest {
             assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=900 AND delivery_status='SUCCESS'",Integer.class));
             assertEquals("DOWN",history.listMonitorResults(900L,1).get(0).status);
             assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_attempt",Integer.class));
+            java.util.Map<?, ?> summary = (java.util.Map<?, ?>) monitors.dashboard().get("summary");
+            assertEquals(1, ((Number) summary.get("today_alerts")).intValue());
         } finally {gateway.stop(0);}
     }
 }

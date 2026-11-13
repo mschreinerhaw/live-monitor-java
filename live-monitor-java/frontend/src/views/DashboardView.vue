@@ -149,9 +149,9 @@
                   <!-- 健康状态指示灯 (圆形大图标指示状态) -->
                   <td style="text-align: center;">
                     <div class="status-indicator-cell" :title="getStatusTooltip(srv)">
-                      <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
-                      <span class="status-badge" :class="getStatusClass(srv.lastStatus)">
-                        {{ getStatusLabel(srv.lastStatus) }}
+                      <span class="cm-health-dot" :class="getStatusClass(srv.last_status)"></span>
+                      <span class="status-badge" :class="getStatusClass(srv.last_status)">
+                        {{ getStatusLabel(srv.last_status) }}
                       </span>
                     </div>
                   </td>
@@ -164,8 +164,8 @@
                       </router-link>
                       <span v-if="srv.enabled === false" class="cm-disabled-tag">已停用</span>
                     </div>
-                    <div class="cm-service-desc" :title="srv.monitor_reason || srv.lastMessage">
-                      {{ srv.monitor_reason || srv.lastMessage || '运行稳定' }}
+                    <div class="cm-service-desc" :title="srv.monitor_reason || srv.last_message">
+                      {{ srv.monitor_reason || srv.last_message || '运行稳定' }}
                     </div>
                   </td>
 
@@ -201,8 +201,8 @@
                   <!-- 响应延时与健康指标 -->
                   <td>
                     <div class="cm-latency-box">
-                      <strong :style="{ color: getLatencyColor(srv.lastResponseTimeMs) }">
-                        {{ srv.lastResponseTimeMs != null ? `${srv.lastResponseTimeMs} ms` : '-' }}
+                      <strong :style="{ color: getLatencyColor(srv.last_response_time_ms) }">
+                        {{ srv.last_response_time_ms != null ? `${srv.last_response_time_ms} ms` : '-' }}
                       </strong>
                     </div>
                   </td>
@@ -244,11 +244,11 @@
               v-for="srv in filteredServices"
               :key="srv.id"
               class="cm-service-card"
-              :class="getStatusClass(srv.lastStatus)"
+              :class="getStatusClass(srv.last_status)"
             >
               <div class="cm-card-top">
                 <div class="cm-card-header-left">
-                  <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
+                  <span class="cm-health-dot" :class="getStatusClass(srv.last_status)"></span>
                   <div>
                     <router-link :to="`/services/${srv.id}`" class="cm-card-name">
                       {{ srv.service_name }}
@@ -271,8 +271,8 @@
                 </div>
                 <div class="cm-card-metric-row">
                   <span class="cm-meta-label">响应时间</span>
-                  <span class="cm-meta-val" :style="{ color: getLatencyColor(srv.lastResponseTimeMs), fontWeight: '600' }">
-                    {{ srv.lastResponseTimeMs != null ? `${srv.lastResponseTimeMs} ms` : '-' }}
+                  <span class="cm-meta-val" :style="{ color: getLatencyColor(srv.last_response_time_ms), fontWeight: '600' }">
+                    {{ srv.last_response_time_ms != null ? `${srv.last_response_time_ms} ms` : '-' }}
                   </span>
                 </div>
                 <div class="cm-card-metric-row">
@@ -282,8 +282,8 @@
               </div>
 
               <div class="cm-card-footer">
-                <span class="cm-card-status-text" :class="getStatusClass(srv.lastStatus)">
-                  {{ getStatusLabel(srv.lastStatus) }}
+                <span class="cm-card-status-text" :class="getStatusClass(srv.last_status)">
+                  {{ getStatusLabel(srv.last_status) }}
                 </span>
                 <div class="cm-card-actions">
                   <button
@@ -318,10 +318,10 @@
                 </div>
                 <div class="cm-group-stats">
                   <span class="text-success" style="font-size: 12px; font-weight: 600;">
-                    UP: {{ items.filter(i => i.lastStatus === 'UP').length }}
+                    UP: {{ items.filter(i => i.last_status === 'UP').length }}
                   </span>
                   <span class="text-danger" style="font-size: 12px; font-weight: 600; margin-left: 8px;">
-                    DOWN: {{ items.filter(i => i.lastStatus === 'DOWN').length }}
+                    DOWN: {{ items.filter(i => i.last_status === 'DOWN').length }}
                   </span>
                 </div>
               </div>
@@ -331,7 +331,7 @@
                   <tbody>
                     <tr v-for="srv in items" :key="srv.id" class="cm-table-row">
                       <td style="width: 40px; text-align: center;">
-                        <span class="cm-health-dot" :class="getStatusClass(srv.lastStatus)"></span>
+                        <span class="cm-health-dot" :class="getStatusClass(srv.last_status)"></span>
                       </td>
                       <td style="min-width: 180px;">
                         <router-link :to="`/services/${srv.id}`" class="cm-service-title">
@@ -345,13 +345,13 @@
                         <div class="cm-endpoint-text">{{ srv.endpoint || srv.host || '-' }}</div>
                       </td>
                       <td style="width: 100px;">
-                        <strong :style="{ color: getLatencyColor(srv.lastResponseTimeMs) }">
-                          {{ srv.lastResponseTimeMs != null ? `${srv.lastResponseTimeMs} ms` : '-' }}
+                        <strong :style="{ color: getLatencyColor(srv.last_response_time_ms) }">
+                          {{ srv.last_response_time_ms != null ? `${srv.last_response_time_ms} ms` : '-' }}
                         </strong>
                       </td>
                       <td style="width: 80px;">
-                        <span :class="['status-badge', getStatusClass(srv.lastStatus)]">
-                          {{ getStatusLabel(srv.lastStatus) }}
+                        <span :class="['status-badge', getStatusClass(srv.last_status)]">
+                          {{ getStatusLabel(srv.last_status) }}
                         </span>
                       </td>
                       <td style="text-align: right; width: 110px;">
@@ -440,6 +440,7 @@
         </div>
       </div>
     </div>
+    <AlertHistoryTable :records="recentAlerts" />
   </div>
 </template>
 
@@ -448,6 +449,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
+import AlertHistoryTable from '../components/AlertHistoryTable.vue'
 
 const loading = ref(false)
 const refreshing = ref(false)
@@ -468,6 +470,7 @@ const summary = reactive({
 })
 
 const servicesList = ref([])
+const recentAlerts = ref([])
 
 // ECharts 相关
 const chartContainer = ref(null)
@@ -521,10 +524,10 @@ const getStatusLabel = (status) => {
 }
 
 const getStatusTooltip = (srv) => {
-  const st = getStatusClass(srv.lastStatus)
-  if (st === 'up') return `服务运行良好 (耗时 ${srv.lastResponseTimeMs || 0}ms)`
-  if (st === 'down') return `服务异常告警: ${srv.lastMessage || '连接失败'}`
-  if (st === 'alert') return `监控告警: ${srv.lastMessage || '请检查服务状态'}`
+  const st = getStatusClass(srv.last_status)
+  if (st === 'up') return `服务运行良好 (耗时 ${srv.last_response_time_ms || 0}ms)`
+  if (st === 'down') return `服务异常告警: ${srv.last_message || '连接失败'}`
+  if (st === 'alert') return `监控告警: ${srv.last_message || '请检查服务状态'}`
   return '未检测或状态未知'
 }
 
@@ -546,7 +549,7 @@ const getAlertGroupName = (srv) => {
 const filteredServices = computed(() => {
   return servicesList.value.filter((s) => {
     if (statusFilter.value !== 'all') {
-      if ((s.lastStatus || 'UNKNOWN') !== statusFilter.value) {
+      if ((s.last_status || 'UNKNOWN') !== statusFilter.value) {
         return false
       }
     }
@@ -576,12 +579,13 @@ const fetchData = async () => {
   refreshing.value = true
   try {
     const [dashRes, srvRes] = await Promise.all([
-      api.dashboard().catch(() => ({})),
-      api.listServices(true).catch(() => [])
+      api.dashboard(),
+      api.listServices(true)
     ])
 
     Object.assign(summary, dashRes.summary || dashRes || {})
     servicesList.value = srvRes || []
+    recentAlerts.value = dashRes.recent_alerts || []
     lastRefreshTime.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
   } catch (err) {
     store.showToast('加载数据异常：' + err.message, 'error')
@@ -596,9 +600,9 @@ const handleCheckNow = async (srv) => {
   try {
     store.showToast(`正在探测 ${srv.service_name}...`)
     const res = await api.checkAndStoreService(srv.id)
-    srv.lastStatus = res.status
-    srv.lastResponseTimeMs = res.responseTimeMs
-    srv.lastMessage = res.message
+    srv.last_status = res.status
+    srv.last_response_time_ms = res.responseTimeMs
+    srv.last_message = res.message
     store.showToast(`探测完成: ${res.status} (${res.responseTimeMs || 0}ms)`, res.status === 'UP' ? 'success' : 'error')
   } catch (err) {
     store.showToast(`探测失败: ${err.message}`, 'error')
@@ -629,8 +633,8 @@ const exportExcel = () => {
       s.service_type,
       s.cluster_name || '',
       `"${(s.endpoint || s.host || '').replace(/"/g, '""')}"`,
-      s.lastStatus || 'UNKNOWN',
-      s.lastResponseTimeMs != null ? s.lastResponseTimeMs : '',
+      s.last_status || 'UNKNOWN',
+      s.last_response_time_ms != null ? s.last_response_time_ms : '',
       s.check_interval || 60,
       `"${getAlertGroupName(s).replace(/"/g, '""')}"`
     ])

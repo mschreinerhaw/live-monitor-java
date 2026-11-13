@@ -238,3 +238,8 @@ curl -X POST http://127.0.0.1:8000/api/external/messages \
 配置项：live-monitor.alert-max-retries 默认 5（间隔 30/60/120/240/480 秒）；live-monitor.alert-lease-ms 默认 300000；live-monitor.alert-retention-days 默认 90；live-monitor.check-execution-threads 默认 16。检查总超时取服务配置，限制为 0.1～300 秒。超时后保留互斥直到实际检查器退出，避免忽略中断的检查器重入。
 
 升级前停机备份整个 data 目录和密钥配置。发送采用至少一次语义，外部响应丢失时可能重复通知。详见 ALERT_RELIABILITY_REPORT.txt 和 DEPLOY.md。
+
+## Vue3 分支页面对照与构建
+
+feature/vue3-frontend 已合入告警可靠性修复并补齐页面。完整对照与验证说明见 VUE3_FUNCTIONAL_PARITY.txt，前端操作与浏览器回归命令见 frontend/README.md。
+执行 mvn verify 会安装锁定依赖、构建并同步 Vue、运行 Java 验证和打包；运行发布 JAR 不需要 Node。只在已构建前端时使用 -DskipFrontend=true。Vue 入口为生成文件，不能直接用旧 HTML 首页代替。

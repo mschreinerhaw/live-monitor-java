@@ -12,6 +12,10 @@
 
     <files>
         <file>
+            <source>VUE3_FUNCTIONAL_PARITY.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
             <source>DEPLOY.md</source>
             <outputDirectory>/</outputDirectory>
         </file>

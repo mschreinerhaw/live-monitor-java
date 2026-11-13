@@ -39,11 +39,11 @@
             <div v-if="!store.notifications.list.length" class="notify-empty">暂无告警记录</div>
             <div
               v-for="item in store.notifications.list"
-              :key="item.id"
+              :key="item.task_id || item.id"
               class="notify-item"
             >
               <div class="notify-item-title">{{ item.service_name || '服务异常' }}</div>
-              <div class="notify-item-msg">{{ item.message || item.alert_type }}</div>
+              <div class="notify-item-msg">{{ item.alert_content || item.message || item.alert_type }}</div>
               <div class="notify-item-time">{{ item.created_at || item.checked_at }}</div>
             </div>
           </div>
@@ -93,6 +93,7 @@ const currentRouteTitle = computed(() => {
     '/data-send': '数据发送',
     '/alerts/settings': '告警规则配置',
     '/alerts/audit': '通知审计流水',
+    '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/account': '个人密码',
     '/admin': '用户安全管理'
   }
   return map[route.path] || '监控详情'
@@ -104,7 +105,7 @@ const toggleNotifications = () => {
 }
 
 const markAllSeen = () => {
-  store.notifications.unreadCount = 0
+  store.markAllNotificationsSeen()
   store.showToast('已标记所有告警为已读', 'success')
 }
 

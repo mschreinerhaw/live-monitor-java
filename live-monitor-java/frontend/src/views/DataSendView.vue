@@ -210,6 +210,7 @@
         </button>
       </div>
     </div>
+    <DataSendHistory />
   </div>
 </template>
 
@@ -217,6 +218,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
+import DataSendHistory from '../components/DataSendHistory.vue'
 
 const dbConnections = ref([])
 const channels = ref([])

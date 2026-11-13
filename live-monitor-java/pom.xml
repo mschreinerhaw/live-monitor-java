@@ -29,6 +29,8 @@
         <oracle.version>19.22.0.0</oracle.version>
         <antlr4.version>4.9.3</antlr4.version>
         <lucene.version>8.11.2</lucene.version>
+        <npm.executable>npm</npm.executable>
+        <skipFrontend>false</skipFrontend>
     </properties>
 
     <dependencies>
@@ -170,4 +172,33 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>windows-npm</id>
+            <activation><os><family>Windows</family></os></activation>
+            <properties><npm.executable>npm.cmd</npm.executable></properties>
+        </profile>
+        <profile>
+            <id>vue3</id>
+            <activation><file><exists>frontend/package.json</exists></file></activation>
+            <build><plugins><plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <workingDirectory>${project.basedir}/frontend</workingDirectory>
+                    <executable>${npm.executable}</executable>
+                    <skip>${skipFrontend}</skip>
+                </configuration>
+                <executions>
+                    <execution><id>vue-install</id><phase>generate-resources</phase><goals><goal>exec</goal></goals>
+                        <configuration><arguments><argument>ci</argument><argument>--no-audit</argument><argument>--no-fund</argument></arguments></configuration>
+                    </execution>
+                    <execution><id>vue-build</id><phase>generate-resources</phase><goals><goal>exec</goal></goals>
+                        <configuration><arguments><argument>run</argument><argument>build</argument></arguments></configuration>
+                    </execution>
+                </executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

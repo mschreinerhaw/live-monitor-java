@@ -75,10 +75,11 @@
           <span>通知审计流水</span>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <select v-model="statusFilter" class="form-control" style="width: 130px;" @change="fetchLogs">
+<label>开始<input v-model="startTime" type="datetime-local" class="form-control" @change="page = 1; fetchLogs()"></label><label>结束<input v-model="endTime" type="datetime-local" class="form-control" @change="page = 1; fetchLogs()"></label>
+          <select v-model="statusFilter" class="form-control" style="width: 130px;" @change="page = 1; fetchLogs()">
             <option value="">全部状态</option>
             <option value="success">发送成功</option>
-            <option value="failed">发送失败</option>
+            <option value="failed">发送失败</option><option value="pending">排队中</option>
           </select>
           <input
             v-model="keyword"
@@ -115,12 +116,12 @@
               <td>{{ item.clusterName || item.cluster_name || '-' }}</td>
               <td><span class="badge badge-info">{{ item.alertType || item.alert_type || item.alertKey || '-' }}</span></td>
               <td>
-                <span :class="['badge', (item.notifyStatus || item.status) === 'success' ? 'badge-up' : 'badge-down']">
-                  {{ (item.notifyStatus || item.status) === 'success' ? '成功' : '失败' }}
+                <span :class="['badge', (item.notify_status || item.notifyStatus || item.status) === 'success' ? 'badge-up' : (item.notify_status || item.notifyStatus || item.status) === 'pending' ? 'badge-info' : 'badge-down']">
+                  {{ (item.notify_status || item.notifyStatus || item.status) === 'success' ? '成功' : (item.notify_status || item.notifyStatus || item.status) === 'pending' ? '排队中' : '失败' }}
                 </span>
               </td>
-              <td style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.notifyMessage || item.message || item.content">
-                {{ item.notifyMessage || item.message || item.content || '-' }}
+              <td style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="item.notify_message || item.notifyMessage || item.message || item.content">
+                {{ item.notify_message || item.notifyMessage || item.message || item.content || '-' }}
               </td>
             </tr>
           </tbody>
@@ -145,6 +146,7 @@ import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
 
+const startTime = ref(''), endTime = ref('')
 const loading = ref(false)
 const logList = ref([])
 const page = ref(1)
@@ -178,6 +180,7 @@ const fetchLogs = async () => {
       api.alertNotifications({
         page: page.value,
         page_size: pageSize.value,
+        start_time: startTime.value.replace('T', ' ') || undefined, end_time: endTime.value.replace('T', ' ') || undefined,
         status: statusFilter.value || undefined,
         query: keyword.value.trim() || undefined
       }),
@@ -188,7 +191,7 @@ const fetchLogs = async () => {
 
     // 统计更新
     stats.today_total = res?.todayTotal != null ? res.todayTotal : (res?.today_total != null ? res.today_total : total.value)
-    stats.today_success = res?.todaySuccess != null ? res.todaySuccess : (res?.today_success != null ? res.today_success : logList.value.filter(i => (i.notifyStatus || i.status) === 'success').length)
+    stats.today_success = res?.todaySuccess != null ? res.todaySuccess : (res?.today_success != null ? res.today_success : logList.value.filter(i => (i.notify_status || i.notifyStatus || i.status) === 'success').length)
     stats.today_failed = res?.todayFailed != null ? res.todayFailed : (res?.today_failed != null ? res.today_failed : (stats.today_total - stats.today_success))
 
     updateTrendChart(trendRes)
@@ -264,12 +267,13 @@ const handleResize = () => {
 }
 
 onMounted(async () => {
-  await fetchLogs()
   initTrendChart()
+  await fetchLogs()
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(searchTimer)
   window.removeEventListener('resize', handleResize)
   if (trendChart) trendChart.dispose()
 })

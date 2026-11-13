@@ -2,6 +2,10 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { store } from '../store'
 
 const routes = [
+  { path: '/alerts/tasks', component: () => import('../views/AlertTasksView.vue') },
+  { path: '/external-projects', component: () => import('../views/ExternalProjectsView.vue') },
+  { path: '/hosts/:id', component: () => import('../views/HostDetailView.vue') },
+  { path: '/account', component: () => import('../views/AccountView.vue') },
   {
     path: '/',
     redirect: '/dashboard'
@@ -58,8 +62,12 @@ const routes = [
   }
 ]
 
+// Normalize server-forwarded deep links before the hash history captures its base.
+if (!window.location.hash && !['/', '/index.html'].includes(window.location.pathname)) {
+  window.history.replaceState(window.history.state, '', '/' + window.location.search + '#' + window.location.pathname)
+}
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHashHistory('/'),
   routes
 })
 
@@ -67,11 +75,6 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   // 兼容直接从非 hash 地址进入（如 /data-send、/hosts 等）
   if (to.matched.length === 0) {
-    const rawPath = window.location.pathname.replace(/^\//, '')
-    if (rawPath && rawPath !== 'index.html' && rawPath !== '/') {
-      next({ path: '/' + rawPath, replace: true })
-      return
-    }
     next('/dashboard')
     return
   }
@@ -91,6 +94,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  if (to.path === '/admin' && !store.user?.admin) { next('/account'); return }
   next()
 })
 

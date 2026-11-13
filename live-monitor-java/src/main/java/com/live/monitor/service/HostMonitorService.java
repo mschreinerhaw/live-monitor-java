@@ -67,6 +67,21 @@ public class HostMonitorService {
         return hosts;
     }
 
+    public Map<String, Object> testSsh(HostPayload payload, Long existingId) {
+        HostConfig host = fromPayload(payload);
+        if (existingId != null) {
+            HostConfig existing = requireHost(existingId);
+            if (!StringUtils.hasText(payload.sshPassword)) host.sshPasswordCipher = existing.sshPasswordCipher;
+            if (!StringUtils.hasText(payload.privateKey)) host.privateKeyCipher = existing.privateKeyCipher;
+        }
+        SshService.ExecResult result = sshService.execResult(host, "printf live-monitor-ssh-ok", 10000);
+        boolean success = !result.error && Integer.valueOf(0).equals(result.exitStatus);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", success);
+        response.put("message", success ? "SSH connection successful" : MonitorCheckExecution.safe(result.combinedOutput()));
+        return response;
+    }
+
     public HostConfig getHost(Long id) {
         HostConfig host = requireHost(id);
         if (host.monitorServiceId == null) {

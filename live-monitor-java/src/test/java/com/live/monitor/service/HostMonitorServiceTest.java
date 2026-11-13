@@ -20,6 +20,30 @@ import org.mockito.InOrder;
 
 class HostMonitorServiceTest {
     @Test
+    void sshTestUsesEditedConnectionAndRetainsStoredCredentialsWithoutSaving() {
+        HostMapper hosts = mock(HostMapper.class);
+        HostConfig existing = new HostConfig(); existing.id = 7L;
+        existing.sshPasswordCipher = "stored-password"; existing.privateKeyCipher = "stored-key";
+        when(hosts.findHost(7L)).thenReturn(existing);
+        SshService ssh = mock(SshService.class);
+        when(ssh.execResult(any(HostConfig.class), org.mockito.ArgumentMatchers.eq("printf live-monitor-ssh-ok"), org.mockito.ArgumentMatchers.eq(10000)))
+            .thenAnswer(call -> {
+                HostConfig candidate = call.getArgument(0);
+                assertEquals(2222, candidate.sshPort);
+                assertEquals("deploy", candidate.sshUser);
+                assertEquals("stored-password", candidate.sshPasswordCipher);
+                assertEquals("stored-key", candidate.privateKeyCipher);
+                return new SshService.ExecResult("live-monitor-ssh-ok", "", 0, false);
+            });
+        HostMonitorService service = new HostMonitorService(hosts, mock(MonitorServiceMapper.class), mock(CryptoService.class), ssh,
+            mock(HostResourceMonitorService.class), mock(RocksDbHistoryRepository.class), new ObjectMapper());
+        HostPayload payload = new HostPayload(); payload.hostName = "edited"; payload.ip = "127.0.0.1"; payload.sshPort = 2222; payload.sshUser = "deploy";
+        assertEquals(true, service.testSsh(payload, 7L).get("success"));
+        org.mockito.Mockito.verify(hosts, org.mockito.Mockito.never()).insertHost(any());
+        org.mockito.Mockito.verify(hosts, org.mockito.Mockito.never()).updateHost(any());
+    }
+
+    @Test
     void updateHostReplacesAndReturnsAllSelectedAlertGroups() {
         HostMapper hostMapper = mock(HostMapper.class);
         MonitorServiceMapper serviceMapper = mock(MonitorServiceMapper.class);

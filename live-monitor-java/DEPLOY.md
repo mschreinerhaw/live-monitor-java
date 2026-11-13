@@ -106,3 +106,8 @@ bin/restart.sh
 8. 回滚旧程序前先停止新进程并备份新表。旧程序不会消费新 Outbox；必须安排回放或迁移，不能通过删除表完成回滚。
 
 验证命令为 mvn verify。真实 SMTP、短信、钉钉、企业微信需在部署环境配置正式凭据验证接收；本次自动化测试覆盖本地协议模拟、HTTP 网关、H2 持久化和强杀进程恢复，不代表真实第三方始终可达。
+
+## Vue3 分支页面对照与构建
+
+feature/vue3-frontend 已合入告警可靠性修复并补齐页面。完整对照与验证说明见 VUE3_FUNCTIONAL_PARITY.txt，前端操作与浏览器回归命令见 frontend/README.md。
+执行 mvn verify 会安装锁定依赖、构建并同步 Vue、运行 Java 验证和打包；运行发布 JAR 不需要 Node。只在已构建前端时使用 -DskipFrontend=true。Vue 入口为生成文件，不能直接用旧 HTML 首页代替。

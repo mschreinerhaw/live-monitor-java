@@ -99,6 +99,9 @@ const menuGroups = [
     title: '告警与安全',
     items: [
       { label: '告警规则配置', path: '/alerts/settings', icon: 'settings' },
+      { label: '告警任务与重试', path: '/alerts/tasks', icon: 'bell' },
+      { label: '外部项目与消息', path: '/external-projects', icon: 'send' },
+      { label: '个人密码', path: '/account', icon: 'settings' },
       {
         label: '通知审计流水',
         path: '/alerts/audit',

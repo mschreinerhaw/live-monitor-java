@@ -37,6 +37,10 @@ public class AlertTaskAdmin {
         return jdbc.queryForList("SELECT * FROM alert_delivery_attempt WHERE task_id = ? ORDER BY created_at, id", id);
     }
 
+    public int countBetween(String start, String end) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE created_at >= ? AND created_at < ?", Integer.class, start, end);
+    }
+
     public List<com.live.monitor.entity.AlertRecord> recentAlerts(Long service, int limit) {
         String filter = service == null ? "" : " AND t.service_id = ?";
         List<Object> args = new ArrayList<>();

@@ -6,7 +6,7 @@
 
 1. **完全本地离线部署**：
    - 所有依赖、样式、SVG 矢量图标均为本地静态资源，零外部 CDN 网络依赖；
-   - `publicPath: './'` 相对路径打包，可直接通过文件协议、任意 Nginx 二级路径或 Spring Boot 内置容器部署。
+   - 当前使用根路径 publicPath 和 hash 路由，通过 Spring Boot 或 HTTP 服务提供页面与 API；不支持直接双击 HTML 文件运行。
 2. **工业级编码规范**：
    - 采用 Vue 3 官方推荐的 Composition API (`<script setup>`)；
    - 模块化设计：`src/api/`、`src/router/`、`src/store/`、`src/views/`、`src/components/`；
@@ -43,3 +43,21 @@ npm run build
 npm run deploy
 ```
 打包并自动将产物复制至 `src/main/resources/static`，后端重新打包或启动即可直接访问 Vue 3 界面。
+
+## 告警修复合并与功能补齐（1.0.1）
+
+feature/vue3-frontend 已合并持久化告警修复。新增告警任务与重试、外部项目与消息审计、主机指标历史和进程维护、个人密码页面；补齐服务告警阈值、UNKNOWN、多组绑定、认证与断言、跨库查询与映射、渠道与组编辑、审计时间筛选和用户删除。
+
+修复请求字段与后端不一致、发送业务失败被显示为成功、主机探测和密码接口错误、长弹窗无法点击保存等问题。完整对照见 ../VUE3_FUNCTIONAL_PARITY.txt。
+
+从 Java 工程目录执行 mvn verify，会自动 npm ci、构建 Vue、同步静态资源，再运行 Java 验证和打包。构建环境需要 Node/npm 与 JDK/Maven；运行 JAR 不需要 Node。仅在已构建前端且只调试后端时使用 -DskipFrontend=true。
+
+npm run build 先输出 dist，再同步至 Spring Boot 静态目录；不会清空旧版参考页面。npm run deploy 是相同行为。不要只复制 Vue 源文件而跳过构建。
+
+浏览器回归：
+npm ci
+npx playwright install chromium
+npm run build
+npm run test:e2e
+
+可通过 PLAYWRIGHT_CHROMIUM_EXECUTABLE 指定已安装的 Chromium。测试只访问本地服务，若系统代理劫持 localhost，请在运行测试的终端为 localhost/127.0.0.1 配置 NO_PROXY。浏览器用例拦截 API 来验证页面流程和真实请求形状；后端 H2/HTTP/强杀恢复由 Maven 集成测试验证，真实 SSH/第三方消息网关仍需部署环境验证。

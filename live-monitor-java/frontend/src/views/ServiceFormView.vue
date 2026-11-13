@@ -11,6 +11,7 @@
       </div>
     </div>
 
+    <p v-if="loadError" role="alert">{{ loadError }}</p>
     <form @submit.prevent="handleSubmit">
       <!-- 1. 基础配置 -->
       <div class="card">
@@ -25,7 +26,7 @@
           <div class="form-group">
             <label class="form-label">服务类型</label>
             <select v-model="form.service_type" class="form-control" required @change="handleTypeChange">
-              <option value="web">Web 应用 (HTTP/HTTPS)</option>
+              <option value="nginx">Nginx</option><option value="web">Web 应用 (HTTP/HTTPS)</option>
               <option value="api">API 接口请求</option>
               <option value="process">进程检测</option>
               <option value="port">端口检测 (TCP/UDP)</option>
@@ -104,7 +105,7 @@
       <!-- 2. 服务类型专属配置 -->
 
       <!-- 2.1 Web应用 -->
-      <div v-if="form.service_type === 'web'" class="card">
+      <div v-if="['web', 'nginx'].includes(form.service_type)" class="card">
         <div class="card-header">
           <div class="card-title">
             <IconSvg name="activity" size="16" />
@@ -493,32 +494,10 @@
         </div>
       </div>
 
-      <!-- 3. 告警策略与告警组配置 -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <IconSvg name="bell" size="16" />
-            <span>告警策略与目标配置</span>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">绑定告警组 (包含短信 SMS 渠道)</label>
-            <select v-model="form.alert_group_id" class="form-control">
-              <option :value="null">-- 不绑定告警组 --</option>
-              <option v-for="g in alertGroups" :key="g.id" :value="g.id">
-                {{ g.group_name }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">连续失败告警阈值 (次)</label>
-            <input v-model.number="form.service_consecutive_failures" type="number" min="1" max="100" class="form-control" />
-          </div>
-        </div>
-      </div>
-
+      <section v-if="form.service_type === 'process'" class="card"><h2>进程匹配规则</h2><label>匹配方式<select v-model="form.process_match_mode" class="form-control"><option value="fuzzy">模糊匹配</option><option value="exact">精确匹配</option></select></label><label>最少实例数<input v-model.number="form.process_min_instances" type="number" min="1" required class="form-control"></label></section>
+      <section v-if="form.service_type === 'zookeeper'" class="card"><h2>ZooKeeper 高级检查</h2><label>四字检查命令<input v-model="form.zookeeper_check_command" class="form-control"></label><label>预期节点数<input v-model.number="form.zookeeper_expected_nodes" type="number" min="1" class="form-control"></label></section>
+      <ServiceAdvancedFields :form="form" :connections="dbConnections" :service-id="serviceId" />
+      <ServiceAlertFields :form="form" :groups="alertGroups" />
       <!-- 4. 测试连接反馈 -->
       <div v-if="testResult" class="card" :class="[testResult.status === 'UP' ? 'test-ok' : 'test-bad']">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -532,11 +511,11 @@
       <!-- 底部操作按钮 -->
       <div class="form-actions">
         <router-link to="/dashboard" class="btn btn-ghost">取消</router-link>
-        <button type="button" class="btn btn-ghost" :disabled="testing" @click="handleTestConnection">
+        <button type="button" class="btn btn-ghost" :disabled="testing || loadingForm || !!loadError" @click="handleTestConnection">
           <IconSvg name="play" size="14" />
           <span>{{ testing ? '正在测试...' : '测试连接 / 发送' }}</span>
         </button>
-        <button type="submit" class="btn btn-primary" :disabled="saving">
+        <button type="submit" class="btn btn-primary" :disabled="saving || loadingForm || !!loadError">
           <IconSvg name="check" size="14" />
           <span>{{ saving ? '保存中...' : '保存监控服务' }}</span>
         </button>
@@ -546,16 +525,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
+import ServiceAlertFields from '../components/ServiceAlertFields.vue'
+import ServiceAdvancedFields from '../components/ServiceAdvancedFields.vue'
 
 const route = useRoute()
 const router = useRouter()
 const isEdit = computed(() => Boolean(route.params.id))
 const serviceId = computed(() => route.params.id)
 
+const loadingForm = ref(true), loadError = ref('')
 const testing = ref(false)
 const saving = ref(false)
 const testResult = ref(null)
@@ -567,6 +549,13 @@ const alertGroups = ref([])
 const hostsList = ref([])
 
 const form = reactive({
+  process_match_mode: 'fuzzy', process_min_instances: 1, zookeeper_check_command: 'ruok', zookeeper_expected_nodes: null,
+  enabled: true, service_alert_enabled: true, service_recover_successes: 2,
+  unknown_alert_enabled: true, unknown_consecutive_failures: 1, alert_repeat_interval_seconds: 0, alert_group_ids: [],
+  api_auth_type: 'none', api_basic_username: '', api_basic_password: '', api_bearer_token: '',
+  api_content_type: 'application/json', api_response_time_ms: null, api_text_assertion_mode: 'contains',
+  api_text_assertion_value: '', api_json_assertions: '', api_assertion_expression: '',
+  database_result_operator: 'fuzzy', expected_result: '', database_assertion_fields: [], cross_database_queries: [],
   service_type: 'web',
   service_name: '',
   cluster_name: '',
@@ -736,7 +725,7 @@ const handleTestConnection = async () => {
   testing.value = true
   testResult.value = null
   try {
-    const payload = { ...form }
+    const payload = { ...form, check_interval_value: Number(form.check_interval), check_interval_unit: 'seconds' }
     if (form.service_type === 'data_send') {
       if (form.data_send_selected_columns.length > 4) {
         throw new Error('适合手机短信显示的限制：最多只能选择 4 列！')
@@ -759,7 +748,7 @@ const handleTestConnection = async () => {
 const handleSubmit = async () => {
   saving.value = true
   try {
-    const payload = { ...form }
+    const payload = { ...form, check_interval_value: Number(form.check_interval), check_interval_unit: 'seconds' }
     if (form.service_type === 'data_send') {
       if (!form.database_connection_service_id) {
         throw new Error('请选择已维护好的数据库监控')
@@ -787,12 +776,16 @@ const handleSubmit = async () => {
   }
 }
 
-onMounted(async () => {
+const initialForm = JSON.parse(JSON.stringify(form))
+const loadService = async () => {
+  loadingForm.value = true; loadError.value = ''
+  Object.keys(form).forEach(key => delete form[key])
+  Object.assign(form, JSON.parse(JSON.stringify(initialForm)))
   try {
     const [dbList, groupList, hList] = await Promise.all([
-      api.databaseConnections(true).catch(() => []),
-      api.listAlertGroups(true).catch(() => []),
-      api.listHosts(true).catch(() => [])
+      api.databaseConnections(true),
+      api.listAlertGroups(true),
+      api.listHosts(true)
     ])
     dbConnections.value = dbList || []
     alertGroups.value = groupList || []
@@ -800,7 +793,10 @@ onMounted(async () => {
 
     if (isEdit.value) {
       const srv = await api.getService(serviceId.value)
+      if (srv.service_type === 'host' && srv.host_id) { router.replace({ path: '/hosts', query: { edit: srv.host_id } }); return }
+      if (srv.service_type === 'external_message') { router.replace('/external-projects'); return }
       Object.assign(form, srv)
+      form.alert_group_ids = srv.alert_group_ids?.length ? [...srv.alert_group_ids] : (srv.alert_group_id ? [srv.alert_group_id] : [])
       if (srv.api_headers) form.api_headers = srv.api_headers
       if (srv.service_type === 'data_send') {
         form.data_send_selected_columns = srv.data_send_selected_columns || []
@@ -809,9 +805,13 @@ onMounted(async () => {
       }
     }
   } catch (err) {
-    store.showToast('加载服务信息失败：' + err.message, 'error')
-  }
-})
+    loadError.value = '加载服务信息失败：' + err.message
+    store.showToast(loadError.value, 'error')
+  } finally { loadingForm.value = false }
+}
+onMounted(loadService)
+watch(() => route.params.id, loadService)
+onBeforeUnmount(() => clearTimeout(refreshTimer))
 </script>
 
 <style scoped>

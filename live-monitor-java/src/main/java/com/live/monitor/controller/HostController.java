@@ -33,6 +33,12 @@ public class HostController {
         return hostMonitorService.listHosts(includeDisabled);
     }
 
+    @PostMapping("/api/hosts/test-ssh")
+    public Map<String, Object> testSsh(@Valid @RequestBody HostPayload payload,
+        @RequestParam(name = "host_id", required = false) Long hostId) {
+        return hostMonitorService.testSsh(payload, hostId);
+    }
+
     @GetMapping("/api/hosts/summary")
     public Map<String, Object> summary() {
         return hostMonitorService.summary();

@@ -28,8 +28,8 @@ export const store = reactive({
   async fetchCurrentUser() {
     try {
       const user = await api.currentUser()
-      this.user = user
-      return user
+      this.user = user && user.authenticated !== false ? user : null
+      return this.user
     } catch (_) {
       this.user = null
       return null
@@ -40,7 +40,19 @@ export const store = reactive({
     try {
       const alerts = await api.allAlerts(20)
       this.notifications.list = alerts || []
-      this.notifications.unreadCount = (alerts || []).filter(a => !a.seen).length
+      let seen = []
+      try { seen = JSON.parse(localStorage.getItem('lm_seen_notifications:' + this.user?.user_id) || '[]') } catch (_) {}
+      const keys = new Set(Array.isArray(seen) ? seen : [])
+      this.notifications.unreadCount = (alerts || []).filter(a => !keys.has(String(a.task_id || a.id))).length
     } catch (_) {}
+  },
+
+  markAllNotificationsSeen() {
+    const storageKey = 'lm_seen_notifications:' + this.user?.user_id
+    let previous = []
+    try { previous = JSON.parse(localStorage.getItem(storageKey) || '[]') } catch (_) {}
+    const ids = [...new Set([...(Array.isArray(previous) ? previous : []), ...this.notifications.list.map(item => String(item.task_id || item.id))])].slice(-1000)
+    try { localStorage.setItem(storageKey, JSON.stringify(ids)) } catch (_) {}
+    this.notifications.unreadCount = 0
   }
 })
