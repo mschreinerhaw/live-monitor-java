@@ -440,7 +440,7 @@
         </div>
       </div>
     </div>
-    <AlertHistoryTable :records="recentAlerts" />
+
   </div>
 </template>
 
@@ -449,7 +449,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
-import AlertHistoryTable from '../components/AlertHistoryTable.vue'
+
 
 const loading = ref(false)
 const refreshing = ref(false)
@@ -470,7 +470,7 @@ const summary = reactive({
 })
 
 const servicesList = ref([])
-const recentAlerts = ref([])
+
 
 // ECharts 相关
 const chartContainer = ref(null)
@@ -585,7 +585,7 @@ const fetchData = async () => {
 
     Object.assign(summary, dashRes.summary || dashRes || {})
     servicesList.value = srvRes || []
-    recentAlerts.value = dashRes.recent_alerts || []
+
     lastRefreshTime.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
   } catch (err) {
     store.showToast('加载数据异常：' + err.message, 'error')

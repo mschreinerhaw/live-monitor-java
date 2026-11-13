@@ -174,14 +174,15 @@ test('all page routes render without runtime errors and direct links keep the pa
   expect(errors).toEqual([])
 })
 
-test('dashboard renders snake case service status and recent alert content', async ({ page }) => {
+test('dashboard renders service status and keeps history in a separate menu', async ({ page }) => {
   const errors = await backend(page, (_, path) => {
     if (path === '/api/services') return [{ id: 1, service_name: '支付接口', service_type: 'web', last_status: 'DOWN', last_response_time_ms: 123, last_message: 'HTTP 503', enabled: true }]
     if (path === '/api/dashboard') return { summary: { total: 1, instances: 1, down: 1, today_alerts: 1 }, recent_alerts: [{ id: 1, service_name: '支付接口', alert_type: 'email', alert_status: 'failed', alert_content: '邮件网关暂时不可用', created_at: '2026-11-13' }] }
   })
   await page.goto('/#/dashboard')
   await expect(page.getByText('运行异常', { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('cell', { name: '邮件网关暂时不可用', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '告警消息列表', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: '最近告警记录', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
 
@@ -203,5 +204,53 @@ test('user administration sends enabled and new_password and supports deletion',
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: '删除', exact: true }).click()
   await expect.poll(() => removed).toBe(true)
+  expect(errors).toEqual([])
+})
+
+test('wide task filters keep a normal button height', async ({ page }) => {
+  await page.setViewportSize({ width: 1884, height: 960 })
+  await backend(page, (_, path) => path === '/api/alert-tasks' ? { items: [], total: 0, counts: [{ delivery_status: 'SUCCESS', total: 11 }] } : undefined)
+  await page.goto('/#/alerts/tasks')
+  const button = page.getByRole('button', { name: '查询 / 刷新', exact: true })
+  await expect(button).toBeVisible()
+  const size = await button.boundingBox()
+  expect(size.height).toBeLessThanOrEqual(44)
+  expect(size.width).toBeLessThanOrEqual(180)
+  await page.screenshot({ path: 'test-results/task-filter-layout.png', fullPage: true })
+})
+
+test('alert rules have separated groups and aligned fields at desktop and narrow widths', async ({ page }) => {
+  await backend(page)
+  await page.goto('/#/services/new')
+  const card = page.locator('.alert-policy-card')
+  await card.scrollIntoViewIfNeeded()
+  await expect(card.getByLabel('邮件组', { exact: true })).toBeVisible()
+  await card.getByLabel('邮件组', { exact: true }).check()
+  const down = await card.getByLabel('DOWN 连续失败次数').boundingBox()
+  const recover = await card.getByLabel('恢复 UP 连续成功次数').boundingBox()
+  expect(Math.abs(down.y - recover.y)).toBeLessThan(2)
+  const unknown = await card.locator('.unknown-policy').boundingBox()
+  expect(unknown.y - down.y - down.height).toBeGreaterThanOrEqual(18)
+  await card.screenshot({ path: 'test-results/alert-rule-layout.png' })
+  await page.setViewportSize({ width: 640, height: 900 })
+  const overflow = await card.evaluate(node => node.scrollWidth > node.clientWidth)
+  expect(overflow).toBe(false)
+})
+
+test('recent alerts has an independent page with safe HTML and expandable content', async ({ page }) => {
+  const errors = await backend(page, (_, path) => {
+    if (path === '/api/alerts') return [{ id: 1, service_name: '应用主机', alert_type: 'email', alert_status: 'success', created_at: '2026-11-13 14:15:01', alert_content: '<div style="position:fixed">主机资源告警</div><script>window.alertExecuted=true</script><img src="https://invalid.example/tracker" onerror="window.alertExecuted=true"><div>' + 'CPU：0.9%，内存：82.0%<br>'.repeat(15) + '</div>' }]
+  })
+  await page.goto('/#/dashboard')
+  await page.getByRole('link', { name: '最近告警记录', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '最近告警记录', exact: true })).toBeVisible()
+  const content = page.locator('.message-html')
+  await expect(content).toContainText('主机资源告警')
+  await expect(content.locator('script,img,iframe,style,[style],[onerror]')).toHaveCount(0)
+  expect(await page.evaluate(() => window.alertExecuted)).toBeUndefined()
+  expect(await content.innerText()).not.toContain('<div')
+  await page.getByRole('button', { name: '展开消息' }).click()
+  await expect(page.getByRole('button', { name: '收起消息' })).toBeVisible()
+  await page.screenshot({ path: 'test-results/recent-alerts-html.png', fullPage: true })
   expect(errors).toEqual([])
 })

@@ -2,9 +2,9 @@
   <section class="card" aria-label="告警发送任务">
     <h2>告警发送任务</h2>
     <p>生产消息按渠道持久化处理。FAILED 会自动重试，FINAL_FAILED 可由管理员手动重试。</p>
-    <div class="form-row"><span v-for="count in counts" :key="count.delivery_status" class="badge badge-info">{{ count.delivery_status }}：{{ count.total }}</span></div>
+    <div class="task-counts"><span v-for="count in counts" :key="count.delivery_status" class="badge badge-info">{{ count.delivery_status }}：{{ count.total }}</span></div>
     <p v-if="oldest">最早未完成时间：{{ oldest }}</p>
-    <form class="form-row" @submit.prevent="page = 1; load()">
+    <form class="task-filters" @submit.prevent="page = 1; load()">
       <label v-if="!serviceId" class="form-group">服务 ID<input v-model="filters.service_id" type="number" min="1" class="form-control"></label>
       <label class="form-group">渠道 ID<input v-model="filters.channel_id" type="number" min="1" class="form-control"></label>
       <label class="form-group">状态<select v-model="filters.status" class="form-control"><option value="">全部</option><option v-for="status in statuses" :key="status">{{ status }}</option></select></label>
@@ -20,14 +20,15 @@
           <button v-if="task.delivery_status === 'FINAL_FAILED' && store.user?.admin" type="button" class="btn btn-ghost btn-sm" :disabled="busy === task.id" @click="retry(task)">手动重试</button>
         </td></tr>
       </tbody></table></div>
-    <div class="form-row"><button type="button" class="btn btn-ghost" :disabled="page <= 1 || loading" @click="page--; load()">上一页</button><span>第 {{ page }} 页 / 共 {{ total }} 条</span><button type="button" class="btn btn-ghost" :disabled="page * 50 >= total || loading" @click="page++; load()">下一页</button></div>
-    <div v-if="selected" class="card"><h3>任务 {{ selected.id }} 的发送历史</h3><p>{{ selected.alert_content }}</p><p v-if="!attempts.length">尚无发送尝试</p><ol><li v-for="attempt in attempts" :key="attempt.id">{{ attempt.created_at }} · {{ attempt.delivery_status }} · {{ attempt.error_message || '成功' }}</li></ol><button class="btn btn-ghost" @click="selected = null">关闭详情</button></div>
+    <div class="task-pagination"><button type="button" class="btn btn-ghost" :disabled="page <= 1 || loading" @click="page--; load()">上一页</button><span>第 {{ page }} 页 / 共 {{ total }} 条</span><button type="button" class="btn btn-ghost" :disabled="page * 50 >= total || loading" @click="page++; load()">下一页</button></div>
+    <div v-if="selected" class="card"><h3>任务 {{ selected.id }} 的发送历史</h3><AlertMessage :content="selected.alert_content" /><p v-if="!attempts.length">尚无发送尝试</p><ol><li v-for="attempt in attempts" :key="attempt.id">{{ attempt.created_at }} · {{ attempt.delivery_status }} · {{ attempt.error_message || '成功' }}</li></ol><button class="btn btn-ghost" @click="selected = null">关闭详情</button></div>
   </section>
 </template>
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
+import AlertMessage from './AlertMessage.vue'
 const props = defineProps({ serviceId: { type: [String, Number], default: null } })
 const filters = reactive({ service_id: '', channel_id: '', status: '', start_time: '', end_time: '' })
 const statuses = ['PENDING', 'SENDING', 'FAILED', 'SUCCESS', 'FINAL_FAILED']
@@ -55,3 +56,13 @@ async function retry(task) {
 }
 watch(() => props.serviceId, () => { page.value = 1; load() }, { immediate: true })
 </script>
+<style scoped>
+h2 { margin-bottom: 8px; }
+.task-counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+.task-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); align-items: end; gap: 16px; margin: 16px 0 20px; }
+.task-filters .form-group { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 13px; font-weight: 500; min-width: 0; }
+.task-filters .form-control { height: 40px; min-width: 0; }
+.task-filters > .btn { height: 40px; align-self: end; justify-self: start; width: auto; min-width: 120px; padding: 0 20px; }
+.task-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+@media (max-width: 600px) { .task-filters { grid-template-columns: minmax(0, 1fr); } }
+</style>

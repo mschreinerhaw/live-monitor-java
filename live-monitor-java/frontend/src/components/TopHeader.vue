@@ -93,6 +93,7 @@ const currentRouteTitle = computed(() => {
     '/data-send': '数据发送',
     '/alerts/settings': '告警规则配置',
     '/alerts/audit': '通知审计流水',
+    '/alerts/recent': '最近告警记录',
     '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/account': '个人密码',
     '/admin': '用户安全管理'
   }

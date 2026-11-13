@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { store } from '../store'
 
 const routes = [
+  { path: '/alerts/recent', component: () => import('../views/RecentAlertsView.vue') },
   { path: '/alerts/tasks', component: () => import('../views/AlertTasksView.vue') },
   { path: '/external-projects', component: () => import('../views/ExternalProjectsView.vue') },
   { path: '/hosts/:id', component: () => import('../views/HostDetailView.vue') },

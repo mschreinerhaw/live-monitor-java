@@ -118,7 +118,7 @@
         </div>
       </div>
     </div>
-    <AlertHistoryTable :records="alerts" /><AlertTasksPanel v-if="service" :key="service.last_checked_at" :service-id="route.params.id" />
+    <AlertTasksPanel v-if="service" :key="service.last_checked_at" :service-id="route.params.id" />
   </div>
 </template>
 
@@ -129,26 +129,26 @@ import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
 import AlertTasksPanel from '../components/AlertTasksPanel.vue'
-import AlertHistoryTable from '../components/AlertHistoryTable.vue'
+
 
 const route = useRoute()
 const service = ref(null)
 const checking = ref(false)
 const historyRecords = ref([])
-const alerts = ref([])
+
 
 const respChartContainer = ref(null)
 let respChart = null
 
 const fetchServiceDetail = async () => {
   try {
-    const [data, results, records] = await Promise.all([
+    const [data, results] = await Promise.all([
       api.getService(route.params.id),
-      api.serviceResults(route.params.id, 30), api.serviceAlerts(route.params.id, 50)
+      api.serviceResults(route.params.id, 30)
     ])
     service.value = data
     historyRecords.value = results || []
-    alerts.value = records || []
+
     updateRespChart()
   } catch (err) {
     store.showToast('加载服务详情失败：' + err.message, 'error')

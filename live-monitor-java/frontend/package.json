@@ -9,6 +9,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "dompurify": "^3.4.17",
     "echarts": "^6.1.0",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
