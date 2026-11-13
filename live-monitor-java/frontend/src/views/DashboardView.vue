@@ -145,7 +145,7 @@
                     暂无符合条件的监控服务
                   </td>
                 </tr>
-                <tr v-for="srv in filteredServices" :key="srv.id" class="cm-table-row">
+                <tr v-for="srv in pagedServices" :key="srv.id" class="cm-table-row">
                   <!-- 健康状态指示灯 (圆形大图标指示状态) -->
                   <td style="text-align: center;">
                     <div class="status-indicator-cell" :title="getStatusTooltip(srv)">
@@ -236,6 +236,17 @@
                 </tr>
               </tbody>
             </table>
+            <nav class="service-pagination" aria-label="服务表格分页">
+              <div class="pagination-summary" role="status">共 {{ filteredServices.length }} 条，显示 {{ rangeStart }}–{{ rangeEnd }} 条 · 第 {{ currentPage }} / {{ totalPages }} 页</div>
+              <div class="pagination-controls">
+                <label>每页条数<select v-model.number="pageSize" class="form-control"><option v-for="size in [10,20,50,100]" :key="size" :value="size">{{ size }} 条</option></select></label>
+                <button type="button" class="btn btn-ghost btn-sm" :disabled="currentPage === 1" @click="currentPage = 1">首页</button>
+                <button type="button" class="btn btn-ghost btn-sm" :disabled="currentPage === 1" @click="currentPage--">上一页</button>
+                <button v-for="page in pageNumbers" :key="page" type="button" :class="['btn', 'btn-sm', page === currentPage ? 'btn-primary' : 'btn-ghost']" :aria-label="'第 ' + page + ' 页'" :aria-current="page === currentPage ? 'page' : undefined" @click="currentPage = page">{{ page }}</button>
+                <button type="button" class="btn btn-ghost btn-sm" :disabled="currentPage >= totalPages" @click="currentPage++">下一页</button>
+                <button type="button" class="btn btn-ghost btn-sm" :disabled="currentPage >= totalPages" @click="currentPage = totalPages">末页</button>
+              </div>
+            </nav>
           </div>
 
           <!-- 模式 2：Cloudera Manager 服务卡片网格视图 -->
@@ -445,7 +456,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
@@ -457,6 +468,8 @@ const lastRefreshTime = ref('--:--:--')
 const statusFilter = ref('all')
 const keyword = ref('')
 const viewLayout = ref('cm-table') // 'cm-table' | 'cm-cards' | 'cm-grouped'
+const currentPage = ref(1)
+const pageSize = ref(10)
 const checkingMap = reactive({})
 
 const summary = reactive({
@@ -563,6 +576,17 @@ const filteredServices = computed(() => {
     return true
   })
 })
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredServices.value.length / pageSize.value)))
+const pagedServices = computed(() => filteredServices.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value))
+const rangeStart = computed(() => filteredServices.value.length ? (currentPage.value - 1) * pageSize.value + 1 : 0)
+const rangeEnd = computed(() => Math.min(currentPage.value * pageSize.value, filteredServices.value.length))
+const pageNumbers = computed(() => {
+  const start = Math.max(1, Math.min(currentPage.value - 2, totalPages.value - 4))
+  return Array.from({ length: Math.min(5, totalPages.value) }, (_, index) => start + index)
+})
+watch([keyword, statusFilter, pageSize], () => { currentPage.value = 1 })
+watch(totalPages, pages => { currentPage.value = Math.min(currentPage.value, pages) })
 
 const groupedServices = computed(() => {
   const groups = {}
@@ -741,6 +765,24 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.service-pagination {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: #fff;
+  font-size: 13px;
+}
+.pagination-summary { color: var(--text-muted, #64748b); }
+.pagination-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pagination-controls label { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; white-space: nowrap; }
+.pagination-controls select { width: 86px; height: 32px; padding: 4px 8px; }
+.pagination-controls .btn { min-height: 32px; min-width: 32px; }
 .header-refresh-box {
   display: flex;
   align-items: center;
