@@ -10,11 +10,14 @@
       <div class="table-wrap"><table class="table"><thead><tr><th>进程</th><th>匹配关键字</th><th>检查命令</th><th>启用</th><th>检测结果</th><th>操作</th></tr></thead><tbody><tr v-for="process in processPager.items" :key="process.id"><td>{{ process.process_name }}</td><td>{{ process.match_keyword }}</td><td>{{ process.check_command }}</td><td>{{ process.enabled ? '是' : '否' }}</td><td>{{ states[process.id]?.running === true ? '运行中' : states[process.id]?.running === false ? '未运行' : '未检测' }}<pre style="white-space:pre-wrap">{{ states[process.id]?.output }}</pre></td><td><button class="btn btn-ghost btn-sm" @click="editProcess(process)">编辑</button><button class="btn btn-ghost btn-sm" @click="removeProcess(process)">删除</button></td></tr></tbody></table></div>
 <PaginationControls v-model:page="processPager.page" v-model:page-size="processPager.pageSize" :total="processPager.total" label="主机进程" />
 
-      <h3>{{ processForm.id ? '编辑进程' : '新增进程' }}</h3><form @submit.prevent="saveProcess"><div class="form-row"><label class="form-group">进程名称<input v-model="processForm.process_name" required class="form-control"></label><label class="form-group">匹配关键字<input v-model="processForm.match_keyword" class="form-control"></label><label class="form-group">检查命令<input v-model="processForm.check_command" required class="form-control" placeholder="pgrep -f application"></label></div><label><input v-model="processForm.enabled" type="checkbox">启用</label><button class="btn btn-primary" :disabled="busy">保存进程</button><button type="button" class="btn btn-ghost" @click="editProcess()">重置</button></form>
+      <h3>{{ processForm.id ? '编辑进程' : '新增进程' }}</h3><form @submit.prevent="saveProcess"><div class="form-row"><label class="form-group">进程名称<input v-model="processForm.process_name" required class="form-control"></label><label class="form-group">匹配关键字<input v-model="processForm.match_keyword" class="form-control"></label><label class="form-group">检查命令<input v-model="processForm.check_command" required class="form-control" placeholder="pgrep -f application"></label></div><div class="process-form-actions"><label class="process-enabled"><input v-model="processForm.enabled" type="checkbox">启用</label><button class="btn btn-primary btn-sm" :disabled="busy">保存进程</button><button type="button" class="btn btn-ghost btn-sm" @click="editProcess()">重置</button></div></form>
     </section>
   </div>
 </template>
 <style scoped>
+.process-form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.process-enabled { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; font-size: 13px; }
+.process-form-actions .btn { flex: 0 0 auto; width: auto; min-height: 32px; height: 32px; padding: 4px 12px; font-size: 13px; }
 .resource-summary { margin-bottom: 24px; }
 .resource-summary > div { padding: 14px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; }
 .resource-summary span { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
