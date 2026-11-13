@@ -1,5 +1,36 @@
 const { test, expect } = require('@playwright/test')
 const groups = [{ id: 1, group_name: '邮件组', enabled: true }, { id: 2, group_name: '短信组', enabled: true }]
+test('DolphinScheduler overview paginates projects, workflows and tasks and preserves connection secrets', async ({ page }) => {
+  let saved,fail=false,overviewParams
+  const config={base_url:'http://scheduler:12345/dolphinscheduler',project_codes:'',window_hours:24,alert_states:'FAILURE,STOP,KILL',running_timeout_minutes:180}
+  const connection={id:50,service_name:'DS production',service_type:'dolphinscheduler',enabled:true,check_interval:60,service_alert_enabled:true,service_consecutive_failures:1,service_recover_successes:1,unknown_alert_enabled:true,unknown_consecutive_failures:1,alert_repeat_interval_seconds:300,alert_group_ids:[1],config_json:JSON.stringify(config)}
+  const projects=Array.from({length:23},(_,i)=>({code:String(i+1),name:'project_'+i,total:1,success:0,running:0,abnormal:1}))
+  const instances=Array.from({length:25},(_,i)=>({id:String(i+1),project_code:'1',project_name:'project_0',name:'workflow_'+i,state:i===0?'FAILURE':'SUCCESS',abnormal:i===0}))
+  const errors=await backend(page,(request,path,url)=>{
+    if(path==='/api/dolphinscheduler/connections')return[connection]
+    if(path==='/api/dolphinscheduler/connections/50'){saved=request.postDataJSON();return connection}
+    if(path.endsWith('/projects'))return projects
+    if(path.endsWith('/overview')){overviewParams=url.searchParams;return fail?{status:502,body:{detail:'DolphinScheduler HTTP 401'}}:{projects,instances,total:25,success:24,running:0,abnormal:1,other:1,start:'2026-11-13 00:00:00',end:'2026-11-13 23:59:59'}}
+    if(path.endsWith('/tasks'))return Array.from({length:21},(_,i)=>({id:String(i+1),name:'task_'+i,state:'SUCCESS'}))
+  })
+  await page.goto('/#/dolphinscheduler')
+  await expect(page.getByRole('heading',{name:'DolphinScheduler 执行总览',exact:true})).toBeVisible()
+  const projectNav=page.getByRole('navigation',{name:'DolphinScheduler 项目分页'}),instanceNav=page.getByRole('navigation',{name:'工作流实例分页'})
+  await expect(projectNav.locator('..').locator('tbody tr')).toHaveCount(10)
+  await projectNav.getByRole('button',{name:'末页',exact:true}).click();await expect(projectNav.locator('..').locator('tbody tr')).toHaveCount(3)
+  await instanceNav.getByRole('button',{name:'末页',exact:true}).click();await expect(instanceNav.locator('..').locator('tbody tr')).toHaveCount(5)
+  await page.getByLabel('筛选执行状态',{exact:true}).selectOption('abnormal');await expect(instanceNav.locator('..').locator('tbody tr')).toHaveCount(1)
+  await page.getByRole('button',{name:'任务节点',exact:true}).click()
+  const taskNav=page.getByRole('navigation',{name:'任务节点分页'});await expect(taskNav.locator('..').locator('tbody tr')).toHaveCount(10)
+  await page.getByRole('dialog').getByRole('button',{name:'关闭详情',exact:true}).last().click()
+  await page.getByRole('button',{name:'连接与告警配置',exact:true}).click()
+  await page.getByRole('button',{name:'保存连接与规则',exact:true}).click();await expect.poll(()=>saved).toBeTruthy()
+  expect(saved.secret_config).toBeUndefined();expect(saved.config.base_url).toBe(config.base_url);expect(saved.alert_group_ids).toEqual([1])
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  fail=true;await page.getByRole('button',{name:'查询 / 刷新',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('401');await expect(instanceNav).toHaveCount(0)
+  expect(overviewParams.get('start')).toBeNull();expect(errors).toEqual([])
+})
 async function backend(page, override = () => undefined) {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))

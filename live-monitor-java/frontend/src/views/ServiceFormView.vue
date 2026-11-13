@@ -799,6 +799,7 @@ const loadService = async () => {
 
     if (isEdit.value) {
       const srv = await api.getService(serviceId.value)
+      if (srv.service_type === 'dolphinscheduler') { router.replace({ path: '/dolphinscheduler', query: { edit: srv.id } }); return }
       if (srv.service_type === 'host' && srv.host_id) { router.replace({ path: '/hosts', query: { edit: srv.host_id } }); return }
       if (srv.service_type === 'external_message') { router.replace('/external-projects'); return }
       Object.assign(form, srv)

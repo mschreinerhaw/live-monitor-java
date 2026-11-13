@@ -12,6 +12,10 @@
 
     <files>
         <file>
+            <source>DOLPHINSCHEDULER_MONITOR.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
             <source>PRODUCT_UX_REVIEW.txt</source>
             <outputDirectory>/</outputDirectory>
         </file>

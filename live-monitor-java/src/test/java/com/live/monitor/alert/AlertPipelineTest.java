@@ -91,6 +91,18 @@ class AlertPipelineTest {
         assertEquals(400,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task",Integer.class));
     }
 
+    @Test void dolphinSchedulerFailuresUseDurableTasksAndPreserveInstanceDetails() {
+        MonitorService service=service(901);service.serviceType="dolphinscheduler";service.serviceConsecutiveFailures=1;
+        MonitorResult result=new MonitorResult();result.serviceId=service.id;result.status="DOWN";result.checkedAt="2026-11-13 10:00:00";
+        result.message="DolphinScheduler project-123 workflow-101 FAILURE start 2026-11-13 09:00:00";
+        tx.execute(transaction->{alerts.publishCheckEvent(service,result);return null;});
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=901 AND delivery_status='PENDING'",Integer.class));
+        String content=jdbc.queryForList("SELECT alert_content FROM alert_delivery_task WHERE service_id=901",String.class).get(0);
+        assertTrue(content.contains("workflow-101"));assertTrue(content.contains("FAILURE"));
+        check(service,"DOWN","2026-11-13 10:01:00");
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=901",Integer.class));
+    }
+
     @Test void rollbackRemovesEventStateProjectionAndTasksTogether() {
         MonitorService service=service(1);
         service.serviceConsecutiveFailures=1;

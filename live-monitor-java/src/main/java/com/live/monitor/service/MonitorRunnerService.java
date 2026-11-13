@@ -12,6 +12,8 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class MonitorRunnerService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private DolphinSchedulerService dolphinSchedulerService;
     private final LiveMonitorProperties properties;
     private final WebMonitorService webMonitorService;
     private final RedisMonitorService redisMonitorService;
@@ -52,6 +54,7 @@ public class MonitorRunnerService {
     public CheckResult run(MonitorService service) {
         double timeout = service.checkTimeoutSeconds == null ? properties.getDefaultTimeoutSeconds() : service.checkTimeoutSeconds;
         String type = service.serviceType == null ? "" : service.serviceType;
+        if ("dolphinscheduler".equals(type)) return dolphinSchedulerService.check(service);
         if ("api".equals(type)) {
             WebMonitorService.RequestOptions options = WebMonitorService.RequestOptions.api();
             options.headers = requestHeaders(service);

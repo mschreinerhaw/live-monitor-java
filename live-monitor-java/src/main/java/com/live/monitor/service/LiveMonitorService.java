@@ -571,6 +571,10 @@ public class LiveMonitorService {
 
     private void validatePayload(Long currentServiceId, ServicePayload payload) {
         String type = normalizeType(payload.serviceType);
+        if ("dolphinscheduler".equals(type)) {
+            try { DolphinSchedulerService.validate(payload.config); }
+            catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage()); }
+        }
         if (!StringUtils.hasText(type) || !type.matches("[a-z0-9_.-]+")) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service_type must contain only letters, numbers, dot, dash, or underscore");
         }

@@ -504,6 +504,7 @@ const latestMetrics = reactive({
 
 const serviceTypeLabel = (type) => {
   const map = {
+    dolphinscheduler: 'DolphinScheduler',
     web: 'Web 应用',
     api: 'API 接口',
     process: '进程检测',

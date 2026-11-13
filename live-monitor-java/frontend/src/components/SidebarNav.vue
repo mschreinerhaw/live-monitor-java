@@ -121,6 +121,7 @@ const menuGroups = [
     title: '监控中心',
     items: [
       { label: '监控总览', path: '/dashboard', icon: 'activity' },
+      { label: 'DolphinScheduler 监控', path: '/dolphinscheduler', icon: 'activity' },
       { label: '服务接入', path: '/services/new', icon: 'plus' },
       { label: '数据发送', path: '/data-send', icon: 'send' }
     ]

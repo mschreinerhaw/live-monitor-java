@@ -11,6 +11,7 @@ public class PageController {
         "/hosts",
         "/hosts/**",
         "/databases",
+        "/dolphinscheduler",
         "/external-projects",
         "/external-requests",
         "/account",
