@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="page-header-title">
         <h1>服务器主机维护</h1>
-        <p>维护 SSH / SFTP 目标主机，配置 CPU、挂载点阈值和自动检测探测策略</p>
+        <p>按配置间隔自动采集 SSH 主机资源，查看最近检查结果与资源阈值状态。页面每 15 秒更新。</p>
       </div>
       <div style="display: flex; gap: 8px;">
         <button class="btn btn-ghost btn-sm" @click="fetchHosts" :disabled="loading" title="刷新主机列表">
@@ -22,7 +22,7 @@
     </div>
 
     <!-- 主机统计指标卡片 -->
-    <div class="grid-3" style="margin-bottom: 20px;">
+    <div class="grid-4" style="margin-bottom: 20px;">
       <div class="card" style="margin: 0; display: flex; align-items: center; gap: 16px;">
         <div class="stat-icon blue">
           <IconSvg name="server" size="24" />
@@ -38,9 +38,9 @@
           <IconSvg name="check" size="24" />
         </div>
         <div>
-          <span class="text-muted" style="font-size: 13px;">在线主机</span>
+          <span class="text-muted" style="font-size: 13px;">采集正常</span>
           <div style="font-size: 24px; font-weight: 700; color: #16a34a;">
-            {{ hostsList.filter(h => (h.status || h.last_status || 'UNKNOWN') === 'UP').length }}
+            {{ hostsList.filter(h => ['UP','WARNING'].includes(hostState(h).key)).length }}
           </div>
         </div>
       </div>
@@ -50,12 +50,13 @@
           <IconSvg name="bell" size="24" />
         </div>
         <div>
-          <span class="text-muted" style="font-size: 13px;">告警主机</span>
+          <span class="text-muted" style="font-size: 13px;">资源超阈</span>
           <div style="font-size: 24px; font-weight: 700; color: #dc2626;">
-            {{ hostsList.filter(h => (h.status || h.last_status) === 'DOWN').length }}
+            {{ hostsList.filter(h => resourceWarnings(h).length).length }}
           </div>
         </div>
       </div>
+      <div class="card host-check-summary"><div class="stat-icon red"><IconSvg name="activity" size="24" /></div><div><span class="text-muted">采集异常 / 过期</span><strong>{{ hostsList.filter(h => ['ERROR','STALE'].includes(hostState(h).key)).length }}</strong></div></div>
     </div>
 
     <!-- 主机表格列表 -->
@@ -67,11 +68,10 @@
           <span class="badge badge-info" style="margin-left: 6px;">{{ filteredHosts.length }}</span>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <select v-model="statusFilter" class="form-control" style="width: 120px;">
+          <select v-model="statusFilter" aria-label="主机采集状态" class="form-control" style="width: 150px;">
             <option value="all">全部状态</option>
-            <option value="UP">正常在线</option>
-            <option value="DOWN">异常告警</option>
-            <option value="UNKNOWN">未知状态</option>
+            <option value="UP">采集正常</option><option value="WARNING">资源超阈</option>
+            <option value="ERROR">采集异常</option><option value="STALE">数据过期</option><option value="PENDING">等待采集</option><option value="DISABLED">已停用</option>
           </select>
           <input
             v-model="keyword"
@@ -94,8 +94,8 @@
               <th>CPU 利用率</th>
               <th>内存利用率</th>
               <th>磁盘利用率</th>
-              <th>最新探测时间</th>
-              <th>状态</th>
+              <th>最近检查 / 采集周期</th>
+              <th>采集状态</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -115,34 +115,33 @@
               <td>{{ h.ssh_port || 22 }}</td>
               <td>{{ h.ssh_user || 'root' }}</td>
               <td>
-                <span v-if="getCpu(h) != null" :style="{ color: getCpu(h) > 85 ? '#dc2626' : '#1e293b', fontWeight: '500' }">
+                <span v-if="getCpu(h) != null" :style="{ color: h.cpu_alert_enabled !== false && getCpu(h) > (h.cpu_threshold_percent ?? 85) ? '#dc2626' : '#1e293b', fontWeight: '500' }">
                   {{ getCpu(h).toFixed(1) }}%
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
               <td>
-                <span v-if="getMem(h) != null" :style="{ color: getMem(h) > 85 ? '#dc2626' : '#1e293b', fontWeight: '500' }">
+                <span v-if="getMem(h) != null" :style="{ color: h.memory_alert_enabled !== false && getMem(h) > (h.memory_threshold_percent ?? 85) ? '#dc2626' : '#1e293b', fontWeight: '500' }">
                   {{ getMem(h).toFixed(1) }}%
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
               <td>
-                <span v-if="getDisk(h) != null" :style="{ color: getDisk(h) > 85 ? '#dc2626' : '#1e293b', fontWeight: '500' }">
+                <span v-if="getDisk(h) != null" :style="{ color: h.disk_alert_enabled !== false && getDisk(h) > (h.disk_threshold_percent ?? 85) ? '#dc2626' : '#1e293b', fontWeight: '500' }">
                   {{ getDisk(h).toFixed(1) }}%
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
               <td style="font-size: 12px; color: #64748b;">
-                {{ h.metric_checked_at || h.checked_at || '-' }}
+                {{ h.last_checked_at || h.metric_checked_at || h.checked_at || '尚未检查' }}<div class="form-hint">每 {{ h.check_interval || 60 }} 秒</div>
               </td>
               <td>
-                <span :class="['badge', `badge-${(h.status || h.last_status || 'unknown').toLowerCase()}`]">
-                  {{ h.status || h.last_status || 'UNKNOWN' }}
-                </span>
+                <span :class="['badge', hostState(h).tone]" :title="hostState(h).reason">{{ hostState(h).label }}</span>
+                <details v-if="['ERROR','STALE','WARNING'].includes(hostState(h).key)" class="host-check-reason"><summary>查看原因</summary><p>{{ hostState(h).reason }}</p></details>
               </td>
               <td>
                 <div style="display: flex; gap: 6px;"><router-link :to="'/hosts/' + h.id" class="btn btn-ghost btn-sm">指标 / 进程</router-link>
-                  <button class="btn btn-ghost btn-sm" @click="handleCheckHost(h)" title="立即探测">
+                  <button class="btn btn-ghost btn-sm" :disabled="checkingHostId === h.id || h.enabled === false || h.monitor_enabled === false" @click="handleCheckHost(h)" title="立即探测">
                     <IconSvg name="play" size="12" />
                   </button>
                   <button class="btn btn-ghost btn-sm" @click="openEditModal(h)" title="编辑主机">
@@ -279,13 +278,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
+import { hostState, resourceWarnings } from '../utils/assets'
 
 const route = useRoute()
 const loading = ref(false)
+const checkingHostId = ref(null)
 const hostsList = ref([])
 const alertGroups = ref([])
 const keyword = ref('')
@@ -339,8 +340,7 @@ const getDisk = (h) => h.disk_used_percent ?? h.metrics?.disk_used_percent
 const filteredHosts = computed(() => {
   return hostsList.value.filter((h) => {
     if (statusFilter.value !== 'all') {
-      const st = h.status || h.last_status || 'UNKNOWN'
-      if (st !== statusFilter.value) return false
+      if (hostState(h).key !== statusFilter.value) return false
     }
     if (keyword.value.trim()) {
       const q = keyword.value.trim().toLowerCase()
@@ -351,6 +351,7 @@ const filteredHosts = computed(() => {
 })
 
 const totalPages = computed(() => Math.ceil(filteredHosts.value.length / pageSize))
+watch(totalPages, value => { currentPage.value = Math.min(currentPage.value, Math.max(1, value)) })
 
 const pagedHosts = computed(() => {
   const start = (currentPage.value - 1) * pageSize
@@ -369,12 +370,15 @@ const selectedHostPartitions = computed(() => {
   }
 })
 
-const fetchHosts = async () => {
+const fetchHosts = async (silent = false) => {
+  // Event handlers pass a click event; only a literal true denotes background refresh.
+  silent = silent === true
+  if (loading.value) return
   loading.value = true
   try {
     const [list, groups] = await Promise.all([
       api.listHosts(true),
-      api.listAlertGroups(true).catch(() => [])
+      silent ? Promise.resolve(alertGroups.value) : api.listAlertGroups(true).catch(() => [])
     ])
     hostsList.value = list || []
     if (route.query.edit && !showModal.value) { const item = hostsList.value.find(h => String(h.id) === String(route.query.edit)); if (item) openEditModal(item) }
@@ -455,14 +459,16 @@ const handleSaveHost = async () => {
 }
 
 const handleCheckHost = async (h) => {
+  checkingHostId.value = h.id
   try {
     store.showToast(`正在探测主机 ${h.host_name}...`)
-    await api.checkHost(h.id)
+    if (h.monitor_service_id) await api.checkAndStoreService(h.monitor_service_id)
+    else await api.checkHost(h.id)
     store.showToast('主机探测完成', 'success')
     await fetchHosts()
   } catch (err) {
     store.showToast('主机探测异常：' + err.message, 'error')
-  }
+  } finally { checkingHostId.value = null }
 }
 
 const handleDeleteHost = async (h) => {
@@ -487,8 +493,8 @@ const exportHostsCsv = () => {
       getCpu(h) != null ? `${getCpu(h).toFixed(1)}%` : '-',
       getMem(h) != null ? `${getMem(h).toFixed(1)}%` : '-',
       getDisk(h) != null ? `${getDisk(h).toFixed(1)}%` : '-',
-      h.status || h.last_status || 'UNKNOWN',
-      h.metric_checked_at || h.checked_at || '-'
+      hostState(h).label,
+      h.last_checked_at || h.metric_checked_at || h.checked_at || '-'
     ])
   })
   const csvContent = '\uFEFF' + rows.map((e) => e.join(',')).join('\n')
@@ -502,12 +508,20 @@ const exportHostsCsv = () => {
   store.showToast('已导出主机列表 CSV', 'success')
 }
 
+let hostRefreshTimer
 onMounted(() => {
   fetchHosts()
+  hostRefreshTimer = setInterval(() => { if (document.visibilityState === 'visible' && !showModal.value && checkingHostId.value == null) fetchHosts(true) }, 15000)
 })
+onBeforeUnmount(() => clearInterval(hostRefreshTimer))
 </script>
 
 <style scoped>
+.host-check-summary { margin: 0; display: flex; align-items: center; gap: 16px; }
+.host-check-summary strong { display: block; font-size: 24px; color: #b91c1c; }
+.host-check-reason { margin-top: 6px; min-width: 110px; max-width: 280px; font-size: 12px; }
+.host-check-reason summary { cursor: pointer; color: #0284c7; }
+.host-check-reason p { white-space: normal; overflow-wrap: anywhere; margin-top: 6px; }
 .stat-icon {
   width: 44px;
   height: 44px;

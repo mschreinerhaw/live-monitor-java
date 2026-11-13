@@ -19,8 +19,11 @@ public interface HostMapper {
         ") AS alert_group_id, " +
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
         "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, hm.physical_disk_metrics_json, " +
-        "hm.checked_at AS metric_checked_at FROM host_config h " +
-        "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
+        "hm.checked_at AS metric_checked_at, ls.status AS last_status, ls.message AS last_message, " +
+        "ls.checked_at AS last_checked_at, ms.enabled AS monitor_enabled FROM host_config h " +
+        "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id " +
+        "LEFT JOIN monitor_service ms ON ms.id = h.monitor_service_id " +
+        "LEFT JOIN service_latest_status ls ON ls.service_id = h.monitor_service_id ";
 
     @Select(HOST_SELECT + "WHERE (#{includeDisabled} = 1 OR h.enabled = 1) ORDER BY h.enabled DESC, h.cluster_name, h.host_name")
     List<HostConfig> listHosts(@Param("includeDisabled") int includeDisabled);

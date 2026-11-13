@@ -26,6 +26,12 @@ class HostResourceMonitorServiceTest {
     private final HostResourceMonitorService service = new HostResourceMonitorService(null, null, null, null);
 
     @Test
+    void longRunningHostCpuCountersRetainTheirSamplingDelta() {
+        assertEquals(1.0D, service.parseCpuUsage("123456789000 123456790000\n123456789990 123456791000"));
+        assertNull(service.parseCpuUsage("1.23457e+11 1.23457e+11\n1.23457e+11 1.23457e+11"));
+    }
+
+    @Test
     void parseDiskMetricsUsesDfTypedByteOutputAndKeepsRealLocalMounts() {
         String output = "Filesystem              Type 1B-blocks    Used Available Capacity Mounted on\n" +
             "/dev/mapper/ao-root     xfs  53660876800 12878610432 40782266368 24% /\n" +

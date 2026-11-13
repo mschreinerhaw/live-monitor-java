@@ -288,8 +288,11 @@ public class HostResourceMonitorService {
     }
 
     private String cpuCommand() {
-        return "awk 'NR==1 {idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total}' /proc/stat; " +
-            "sleep 1; awk 'NR==1 {idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total}' /proc/stat";
+        // awk's default print precision rounds long-running hosts' tick counters to
+        // the same scientific-notation value, producing a zero sampling delta.
+        String snapshot = "LC_ALL=C awk 'NR==1 {idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; " +
+            "printf \"%.0f %.0f\\n\", idle,total; exit}' /proc/stat";
+        return snapshot + "; sleep 1; " + snapshot;
     }
 
     private String memoryCommand() {

@@ -335,7 +335,7 @@ test('all workspace pages retain usable content width on a phone', async ({ page
     if (path === '/api/hosts/1/metrics') return {}
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
     const main = await page.locator('main').boundingBox()
@@ -372,6 +372,7 @@ test('mobile navigation traps focus, dismisses with Escape and closes after navi
 test('notification previews remove HTML and menus dismiss without losing focus', async ({ page }) => {
   await backend(page, (_, path) => path === '/api/alerts' ? [{ id: 7, service_id: 11, service_name: '应用主机', alert_status: 'success', alert_content: '<div>主机资源告警</div><script>window.productXss=true</script><img src="https://invalid.example/image" onerror="window.productXss=true">' }] : undefined)
   await page.goto('/#/dashboard')
+  await expect(page.getByRole('heading', { name: '监控服务总览', exact: true })).toBeVisible()
   const bell = page.getByRole('button', { name: '告警通知', exact: true })
   await bell.click()
   await expect(page.locator('.notify-item-msg')).toHaveText('主机资源告警')
@@ -457,4 +458,53 @@ test('external guide copies on HTTP without Clipboard API and never sends a mess
   expect(await page.evaluate(() => window.guideCopies[1])).toContain('curl --request POST')
   await expect(page.getByText('调用示例已复制', { exact: true })).toBeVisible()
   expect(writes).toEqual([])
+})
+
+test('host state follows scheduled check results and distinguishes partial, stale and disabled samples', async ({ page }) => {
+  const now = Date.parse('2026-11-13T08:00:00Z')
+  await page.clock.install({ time: now })
+  let fetches = 0
+  const common = { enabled: true, monitor_enabled: true, check_interval: 60, last_checked_at_epoch_ms: now, last_checked_at: '2026-11-13 16:00:00', cpu_usage_percent: 20, memory_used_percent: 30, disk_used_percent: 40 }
+  await backend(page, (_, path) => path === '/api/hosts' ? (++fetches, [
+    { ...common, id: 1, host_name: 'normal-host', last_status: 'UP' },
+    { ...common, id: 2, host_name: 'partial-host', last_status: 'UNKNOWN', cpu_usage_percent: null, last_message: 'Unable to parse host CPU usage' },
+    { ...common, id: 3, host_name: 'stale-host', last_status: 'UP', last_checked_at_epoch_ms: now - 600000 },
+    { ...common, id: 4, host_name: 'disabled-host', enabled: false, last_status: 'UP' },
+    { ...common, id: 5, host_name: 'uncollected-host' },
+    { ...common, id: 6, host_name: 'threshold-host', last_status: 'UP', disk_used_percent: 96, disk_threshold_percent: 90 }
+  ]) : undefined)
+  await page.goto('/#/hosts')
+  const rows = page.locator('tbody tr')
+  await expect(rows).toHaveCount(6)
+  for (const [name,status] of [['normal-host','采集正常'],['partial-host','采集异常'],['stale-host','数据过期'],['disabled-host','已停用'],['uncollected-host','等待采集'],['threshold-host','资源超阈']]) await expect(rows.filter({ hasText: name })).toContainText(status)
+  await rows.filter({ hasText: 'partial-host' }).getByText('查看原因', { exact: true }).click()
+  await expect(page.getByText('Unable to parse host CPU usage', { exact: true })).toBeVisible()
+  await page.getByLabel('主机采集状态').selectOption('ERROR')
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('partial-host')
+  await page.clock.fastForward(15000)
+  await expect.poll(() => fetches).toBeGreaterThan(1)
+})
+
+test('database assets use monitor types instead of host names and keep a dedicated creation flow', async ({ page }) => {
+  await backend(page, (_, path) => path === '/api/services' ? [
+    { id: 1, service_type: 'host', service_name: 'MySQL服务器', last_status: 'UP', enabled: true },
+    { id: 2, service_type: 'mysql', service_name: '交易数据库', host: 'db.example', port: 3306, last_status: 'UP', enabled: true },
+    { id: 3, service_type: 'web', service_name: '数据库入口页面', enabled: true },
+    { id: 4, service_type: 'jdbc', service_name: '业务SQL监控', last_status: 'DOWN', enabled: true, database_connection_service_id: 2 }
+  ] : undefined)
+  await page.goto('/#/databases')
+  await expect(page.getByRole('heading', { name: '数据库监控维护', exact: true })).toBeVisible()
+  await expect(page.locator('tbody tr')).toHaveCount(2)
+  await expect(page.locator('tbody')).not.toContainText('MySQL服务器')
+  await expect(page.locator('tbody')).not.toContainText('数据库入口页面')
+  await page.getByLabel('数据库类型').selectOption('mysql')
+  await expect(page.locator('tbody tr')).toHaveCount(1)
+  await page.getByRole('link', { name: '新增数据库监控', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '添加数据库监控', exact: true })).toBeVisible()
+  await expect(page.getByLabel('服务类型', { exact: true })).toHaveValue('mysql')
+  await expect(page.getByLabel('服务类型', { exact: true }).locator('option')).toHaveCount(4)
+  await expect(page.getByRole('link', { name: '数据库监控', exact: true })).toHaveAttribute('aria-current','page')
+  await page.getByRole('link', { name: '取消', exact: true }).click()
+  await expect(page).toHaveURL(/#\/databases/)
 })

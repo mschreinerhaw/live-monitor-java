@@ -47,6 +47,11 @@ public class HostConfig {
     public String physicalDiskMetricsJson;
     public List<Map<String, Object>> physicalDiskMetrics;
     public String metricCheckedAt;
+    public String lastStatus;
+    public String lastMessage;
+    public String lastCheckedAt;
+    public Long lastCheckedAtEpochMs;
+    public Boolean monitorEnabled;
     public Boolean enabled;
     public String createdAt;
 }

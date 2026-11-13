@@ -2,9 +2,9 @@
   <div class="page-container service-detail-page">
     <div class="page-header">
       <div class="page-header-title">
-        <router-link to="/dashboard" class="back-link">
+        <router-link :to="route.query.from === 'databases' ? '/databases' : '/dashboard'" class="back-link">
           <IconSvg name="arrow-left" size="14" />
-          <span>返回监控总览</span>
+          <span>{{ route.query.from === 'databases' ? '返回数据库监控' : '返回监控总览' }}</span>
         </router-link>
         <h1 style="margin-top: 6px;">{{ service?.service_name || '服务详情' }}</h1>
         <p>{{ service?.monitor_reason || '轻量监控服务实例运行状态与历史探测轨迹' }}</p>
@@ -18,7 +18,7 @@
           <IconSvg name="play" size="14" />
           <span>{{ checking ? '正在探测...' : '立即探测' }}</span>
         </button>
-        <router-link v-if="service" :to="`/services/${service.id}/edit`" class="btn btn-ghost">
+        <router-link v-if="service" :to="{ path: `/services/${service.id}/edit`, query: route.query.from === 'databases' ? { from: 'databases' } : {} }" class="btn btn-ghost">
           <IconSvg name="edit" size="14" />
           <span>编辑</span>
         </router-link>

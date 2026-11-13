@@ -103,7 +103,8 @@ watch(() => route.fullPath, () => { showNotificationPanel.value = false; showUse
 const currentRouteTitle = computed(() => {
   const map = {
     '/dashboard': '监控总览',
-    '/hosts': '主机维护',
+    '/hosts': '服务器主机',
+    '/databases': '数据库监控',
     '/services/new': '添加服务',
     '/data-send': '数据发送',
     '/alerts/settings': '告警规则配置',
@@ -112,6 +113,7 @@ const currentRouteTitle = computed(() => {
     '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/account': '个人密码',
     '/admin': '用户安全管理'
   }
+  if (route.query.from === 'databases') return route.path.endsWith('/edit') ? '编辑数据库监控' : route.path === '/services/new' ? '添加数据库监控' : '数据库详情'
   if (/^\/services\/[^/]+\/edit$/.test(route.path)) return '编辑监控服务'
   if (/^\/services\/[^/]+$/.test(route.path)) return '服务详情'
   if (/^\/hosts\/[^/]+$/.test(route.path)) return '主机详情'

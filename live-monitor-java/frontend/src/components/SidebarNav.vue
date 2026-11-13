@@ -104,8 +104,9 @@ const isRouteActive = (item) => {
     return route.path === '/dashboard' || route.path === '/'
   }
   if (item.path === '/services/new') {
-    return route.path === '/services/new'
+    return route.path === '/services/new' && route.query.from !== 'databases'
   }
+  if (item.path === '/databases') return route.path === '/databases' || route.query.from === 'databases'
   if (item.path === '/alerts/settings') {
     return route.path.startsWith('/alerts/settings')
   }
@@ -124,7 +125,8 @@ const menuGroups = [
   {
     title: '资产基础设施',
     items: [
-      { label: '主机维护', path: '/hosts', icon: 'server' }
+      { label: '服务器主机', path: '/hosts', icon: 'server' },
+      { label: '数据库监控', path: '/databases', icon: 'database' }
     ]
   },
   {

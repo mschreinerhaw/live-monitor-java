@@ -2,11 +2,11 @@
   <div class="page-container service-form-page">
     <div class="page-header">
       <div class="page-header-title">
-        <router-link to="/dashboard" class="back-nav-link">
+        <router-link :to="backPath" class="back-nav-link">
           <IconSvg name="arrow-left" size="14" />
-          <span>返回监控总览</span>
+          <span>{{ databaseMode ? '返回数据库监控' : '返回监控总览' }}</span>
         </router-link>
-        <h1 style="margin-top: 6px;">{{ isEdit ? '编辑监控服务' : '添加监控服务' }}</h1>
+        <h1 style="margin-top: 6px;">{{ databaseMode ? (isEdit ? '编辑数据库监控' : '添加数据库监控') : (isEdit ? '编辑监控服务' : '添加监控服务') }}</h1>
         <p>配置探测目标、检测策略、报警阈值与数据发送规则</p>
       </div>
     </div>
@@ -25,7 +25,9 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">服务类型</label>
-            <select v-model="form.service_type" class="form-control" required @change="handleTypeChange">
+            <select v-model="form.service_type" aria-label="服务类型" class="form-control" required @change="handleTypeChange">
+              <template v-if="databaseMode"><option value="mysql">MySQL</option><option value="oracle">Oracle</option><option value="postgresql">PostgreSQL</option><option value="jdbc">通用 JDBC</option></template>
+              <template v-else>
               <option value="nginx">Nginx</option><option value="web">Web 应用 (HTTP/HTTPS)</option>
               <option value="api">API 接口请求</option>
               <option value="process">进程检测</option>
@@ -37,6 +39,7 @@
               <option value="postgresql">PostgreSQL</option>
               <option value="jdbc">通用 JDBC</option>
               <option value="data_send">数据发送</option>
+              </template>
             </select>
           </div>
 
@@ -510,7 +513,7 @@
 
       <!-- 底部操作按钮 -->
       <div class="form-actions">
-        <router-link to="/dashboard" class="btn btn-ghost">取消</router-link>
+        <router-link :to="backPath" class="btn btn-ghost">取消</router-link>
         <button type="button" class="btn btn-ghost" :disabled="testing || loadingForm || !!loadError" @click="handleTestConnection">
           <IconSvg name="play" size="14" />
           <span>{{ testing ? '正在测试...' : '测试连接 / 发送' }}</span>
@@ -536,6 +539,8 @@ const route = useRoute()
 const router = useRouter()
 const isEdit = computed(() => Boolean(route.params.id))
 const serviceId = computed(() => route.params.id)
+const databaseMode = computed(() => route.query.from === 'databases')
+const backPath = computed(() => databaseMode.value ? '/databases' : '/dashboard')
 
 const loadingForm = ref(true), loadError = ref('')
 const testing = ref(false)
@@ -768,7 +773,7 @@ const handleSubmit = async () => {
       await api.createService(payload)
       store.showToast('监控服务已创建', 'success')
     }
-    router.push('/dashboard')
+    router.push(backPath.value)
   } catch (err) {
     store.showToast('保存失败：' + err.message, 'error')
   } finally {
@@ -781,6 +786,7 @@ const loadService = async () => {
   loadingForm.value = true; loadError.value = ''
   Object.keys(form).forEach(key => delete form[key])
   Object.assign(form, JSON.parse(JSON.stringify(initialForm)))
+  if (!isEdit.value && databaseMode.value) { form.service_type = ['mysql','oracle','postgresql','jdbc'].includes(route.query.type) ? route.query.type : 'mysql'; handleTypeChange() }
   try {
     const [dbList, groupList, hList] = await Promise.all([
       api.databaseConnections(true),
@@ -796,6 +802,7 @@ const loadService = async () => {
       if (srv.service_type === 'host' && srv.host_id) { router.replace({ path: '/hosts', query: { edit: srv.host_id } }); return }
       if (srv.service_type === 'external_message') { router.replace('/external-projects'); return }
       Object.assign(form, srv)
+        if (databaseMode.value && form.service_type === 'postgres') form.service_type = 'postgresql'
       form.alert_group_ids = srv.alert_group_ids?.length ? [...srv.alert_group_ids] : (srv.alert_group_id ? [srv.alert_group_id] : [])
       if (srv.api_headers) form.api_headers = srv.api_headers
       if (srv.service_type === 'data_send') {
@@ -810,7 +817,7 @@ const loadService = async () => {
   } finally { loadingForm.value = false }
 }
 onMounted(loadService)
-watch(() => route.params.id, loadService)
+watch(() => [route.params.id, route.query.type, route.query.from], loadService)
 onBeforeUnmount(() => clearTimeout(refreshTimer))
 </script>
 

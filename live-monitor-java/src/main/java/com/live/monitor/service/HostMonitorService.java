@@ -233,12 +233,11 @@ public class HostMonitorService {
         double memoryTotal = 0D;
         int memoryCount = 0;
         for (HostConfig host : hosts) {
-            if (!Boolean.TRUE.equals(host.enabled)) {
+            if (!Boolean.TRUE.equals(host.enabled) || Boolean.FALSE.equals(host.monitorEnabled)) {
                 disabled++;
                 continue;
             }
-            boolean hasMetric = host.cpuUsagePercent != null || host.memoryUsedPercent != null || host.diskUsedPercent != null;
-            if (hasMetric) {
+            if ("UP".equals(host.lastStatus)) {
                 online++;
             }
             if (host.cpuUsagePercent != null) {
@@ -490,6 +489,12 @@ public class HostMonitorService {
         }
         host.checkIntervalValue = CheckIntervals.displayValue(host.checkInterval);
         host.checkIntervalUnit = CheckIntervals.displayUnit(host.checkInterval);
+        if (StringUtils.hasText(host.lastCheckedAt)) {
+            try {
+                host.lastCheckedAtEpochMs = java.time.LocalDateTime.parse(host.lastCheckedAt.replace(' ', 'T'))
+                    .atZone(com.live.monitor.util.MonitorTime.ZONE).toInstant().toEpochMilli();
+            } catch (java.time.format.DateTimeParseException ignored) { host.lastCheckedAtEpochMs = null; }
+        }
     }
 
 }

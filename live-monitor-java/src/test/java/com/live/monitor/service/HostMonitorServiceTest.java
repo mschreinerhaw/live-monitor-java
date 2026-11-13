@@ -20,6 +20,19 @@ import org.mockito.InOrder;
 
 class HostMonitorServiceTest {
     @Test
+    void hostApiKeepsActualCheckStatusAndExposesAnUnambiguousTimestamp() {
+        HostMapper hosts = mock(HostMapper.class);
+        HostConfig host = new HostConfig(); host.id=1L; host.monitorServiceId=99L; host.enabled=true;
+        host.lastStatus="UNKNOWN"; host.lastMessage="CPU sample unavailable"; host.lastCheckedAt="2026-11-13 16:00:00.0";
+        host.cpuUsagePercent=20D;
+        when(hosts.findHost(1L)).thenReturn(host);
+        HostMonitorService service = new HostMonitorService(hosts, mock(MonitorServiceMapper.class), mock(CryptoService.class), mock(SshService.class), mock(HostResourceMonitorService.class), mock(RocksDbHistoryRepository.class), new ObjectMapper());
+        HostConfig result=service.getHost(1L);
+        assertEquals("UNKNOWN",result.lastStatus);
+        assertEquals("CPU sample unavailable",result.lastMessage);
+        assertEquals(java.time.Instant.parse("2026-11-13T08:00:00Z").toEpochMilli(),result.lastCheckedAtEpochMs);
+    }
+    @Test
     void sshTestUsesEditedConnectionAndRetainsStoredCredentialsWithoutSaving() {
         HostMapper hosts = mock(HostMapper.class);
         HostConfig existing = new HostConfig(); existing.id = 7L;
