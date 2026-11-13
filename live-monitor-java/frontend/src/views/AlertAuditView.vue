@@ -142,14 +142,7 @@
         </table>
       </div>
 
-      <!-- 分页控制 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-        <span class="text-muted" style="font-size: 12px;">第 {{ page }} / {{ totalPages || 1 }} 页，共 {{ total }} 条记录</span>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="page--; fetchLogs()">上一页</button>
-          <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="page++; fetchLogs()">下一页</button>
-        </div>
-      </div>
+      <PaginationControls v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" label="通知审计" @change="fetchLogs" />
     </div>
   </div>
 </template>
@@ -157,6 +150,7 @@
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
+import PaginationControls from '../components/PaginationControls.vue'
 import { api } from '../api'
 import { store } from '../store'
 
@@ -164,7 +158,7 @@ const startTime = ref(''), endTime = ref('')
 const loading = ref(false)
 const logList = ref([])
 const page = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(10)
 const total = ref(0)
 const statusFilter = ref('')
 const keyword = ref('')
@@ -217,6 +211,7 @@ const fetchLogs = async () => {
       }),
       api.alertNotificationsTrend(trendDays.value).catch(() => { trendFailed.value = true; return [] })
     ])
+    page.value = res?.page || page.value
     logList.value = res?.items || res?.records || []
     total.value = res?.total != null ? res.total : logList.value.length
 

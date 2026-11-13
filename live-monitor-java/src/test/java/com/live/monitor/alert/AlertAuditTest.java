@@ -50,6 +50,7 @@ class AlertAuditTest {
         assertEquals(1L,service.dailyTrend(1).get(0).get("total"));
     }
     @Test void configurationBlockIsNotASendFailureAndLegacyRecordsRemainVisible() {
+        assertEquals(1,service.listPage(99,10,null,null,null,null).page);
         jdbc.update("INSERT INTO alert_notify_record(service_id,alert_key,alert_type,notify_status,notify_message) VALUES(1,'availability','consecutive_unknown','failed','UNKNOWN Delivery skipped: no alert group bound.')");
         jdbc.update("INSERT INTO alert_notify_record(service_id,alert_key,alert_type,notify_status,notify_message) VALUES(1,'test','email','success','legacy test accepted')");
         assertEquals(2,audit.count(null,null,null,null));

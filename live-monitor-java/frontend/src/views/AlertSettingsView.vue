@@ -66,7 +66,7 @@
             <tr v-if="!filteredBindingServices.length">
               <td colspan="6" class="text-center text-muted" style="padding: 32px;">暂无服务数据</td>
             </tr>
-            <tr v-for="srv in filteredBindingServices" :key="srv.id">
+            <tr v-for="srv in bindingPager.items" :key="srv.id">
               <td><strong>{{ srv.service_name }}</strong></td>
               <td><span class="type-tag">{{ srv.service_type }}</span></td>
               <td>{{ srv.cluster_name || '-' }}</td>
@@ -104,6 +104,9 @@
           </tbody>
         </table>
       </div>
+
+<PaginationControls v-model:page="bindingPager.page" v-model:page-size="bindingPager.pageSize" :total="bindingPager.total" label="服务告警绑定" />
+
     </div>
 
     <!-- 2. 告警渠道与告警组 Tab -->
@@ -136,7 +139,7 @@
               <tr v-if="!channelsList.length">
                 <td colspan="5" class="text-center text-muted" style="padding: 24px;">暂无通知渠道配置</td>
               </tr>
-              <tr v-for="ch in channelsList" :key="ch.id">
+              <tr v-for="ch in channelPager.items" :key="ch.id">
                 <td><strong>{{ ch.channelName }}</strong></td>
                 <td><span class="badge badge-info">{{ (ch.channelType || '').toUpperCase() }}</span></td>
                 <td>
@@ -163,6 +166,8 @@
             </tbody>
           </table>
         </div>
+<PaginationControls v-model:page="channelPager.page" v-model:page-size="channelPager.pageSize" :total="channelPager.total" label="告警渠道" />
+
       </div>
 
       <!-- 2.2 告警组管理 -->
@@ -193,7 +198,7 @@
               <tr v-if="!groupsList.length">
                 <td colspan="5" class="text-center text-muted" style="padding: 24px;">暂无告警组配置</td>
               </tr>
-              <tr v-for="g in groupsList" :key="g.id">
+              <tr v-for="g in groupPager.items" :key="g.id">
                 <td><strong>{{ g.group_name }}</strong></td>
                 <td>{{ g.description || '-' }}</td>
                 <td>{{ g.channels?.length || 0 }} 个通知渠道</td>
@@ -213,6 +218,7 @@
             </tbody>
           </table>
         </div>
+        <PaginationControls v-model:page="groupPager.page" v-model:page-size="groupPager.pageSize" :total="groupPager.total" label="告警组" />
       </div>
     </div>
 
@@ -337,6 +343,8 @@
 </template>
 
 <script setup>
+import PaginationControls from '../components/PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
@@ -393,6 +401,10 @@ const filteredBindingServices = computed(() => {
   const q = serviceSearch.value.trim().toLowerCase()
   return servicesList.value.filter(s => (s.service_name || '').toLowerCase().includes(q) || (s.cluster_name || '').toLowerCase().includes(q))
 })
+
+const bindingPager = usePagination(filteredBindingServices, [serviceSearch])
+const channelPager = usePagination(channelsList)
+const groupPager = usePagination(groupsList)
 
 const isServiceGroupChecked = (srv, groupId) => {
   if (serviceGroupChanges[srv.id] !== undefined) {

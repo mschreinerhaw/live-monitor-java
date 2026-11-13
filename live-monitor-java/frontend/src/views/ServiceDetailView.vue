@@ -85,6 +85,7 @@
             <IconSvg name="table" size="16" />
             <span>最近探测记录流水</span>
           </div>
+          <label class="filter-label">查询范围<select v-model.number="historyLimit" class="form-control" @change="resultPager.page = 1; fetchServiceDetail()"><option v-for="count in [50,100,200,500]" :key="count" :value="count">最近 {{ count }} 次</option></select></label>
         </div>
 
         <div class="table-wrap">
@@ -101,7 +102,7 @@
               <tr v-if="!historyRecords.length">
                 <td colspan="4" class="text-center text-muted" style="padding: 24px;">暂无探测流水记录</td>
               </tr>
-              <tr v-for="(rec, i) in historyRecords" :key="i">
+              <tr v-for="(rec, i) in resultPager.items" :key="i">
                 <td style="font-family: monospace; font-size: 12px;">{{ rec.checkedAt || rec.checked_at || '-' }}</td>
                 <td>
                   <span :class="['badge', `badge-${(rec.status || 'unknown').toLowerCase()}`]">
@@ -116,6 +117,8 @@
             </tbody>
           </table>
         </div>
+<PaginationControls v-model:page="resultPager.page" v-model:page-size="resultPager.pageSize" :total="resultPager.total" label="最近探测记录" />
+
       </div>
     </div>
     <AlertTasksPanel v-if="service" :key="service.last_checked_at" :service-id="route.params.id" />
@@ -123,6 +126,8 @@
 </template>
 
 <script setup>
+import PaginationControls from '../components/PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
@@ -134,7 +139,9 @@ import AlertTasksPanel from '../components/AlertTasksPanel.vue'
 const route = useRoute()
 const service = ref(null)
 const checking = ref(false)
+const historyLimit = ref(100)
 const historyRecords = ref([])
+const resultPager = usePagination(historyRecords, [() => route.params.id])
 
 
 const respChartContainer = ref(null)
@@ -144,7 +151,7 @@ const fetchServiceDetail = async () => {
   try {
     const [data, results] = await Promise.all([
       api.getService(route.params.id),
-      api.serviceResults(route.params.id, 30)
+      api.serviceResults(route.params.id, historyLimit.value)
     ])
     service.value = data
     historyRecords.value = results || []

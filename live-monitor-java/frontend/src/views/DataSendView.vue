@@ -101,13 +101,13 @@
                 (无查询结果)
               </td>
             </tr>
-            <tr v-for="(r, idx) in previewResult.rows" :key="idx">
+            <tr v-for="(r, idx) in previewPager.items" :key="idx">
               <td style="color: #94a3b8; font-size: 11px;">{{ idx + 1 }}</td>
               <td v-for="c in previewResult.allColumns" :key="c">{{ r[c] ?? '-' }}</td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </div><PaginationControls v-model:page="previewPager.page" v-model:page-size="previewPager.pageSize" :total="previewPager.total" label="查询预览" />
 
       <!-- 3. 手机短信发送列配置 (适合手机短信显示的限制) -->
       <div style="margin-top: 16px;">
@@ -215,6 +215,8 @@
 </template>
 
 <script setup>
+import PaginationControls from '../components/PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import { ref, reactive, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
@@ -232,6 +234,7 @@ const querySql = ref('SELECT FUND_CODE, FUND_NAME, NAV FROM T_FUND WHERE STATUS 
 const previewing = ref(false)
 const sending = ref(false)
 const previewResult = ref(null)
+const previewPager = usePagination(() => previewResult.value?.rows || [])
 
 const selectedColumns = ref([])
 const columnAliases = reactive({})

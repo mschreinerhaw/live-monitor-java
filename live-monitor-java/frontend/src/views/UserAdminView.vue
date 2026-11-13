@@ -45,7 +45,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="u in users" :key="u.id">
+            <tr v-for="u in userPager.items" :key="u.id">
               <td>{{ u.id }}</td>
               <td><strong>{{ u.user_id || u.userid }}</strong></td>
               <td>{{ u.name || '-' }}</td>
@@ -77,6 +77,8 @@
           </tbody>
         </table>
       </div>
+<PaginationControls v-model:page="userPager.page" v-model:page-size="userPager.pageSize" :total="userPager.total" label="用户账号" />
+
     </div>
 
     <!-- 2. 登录审计日志 Tab -->
@@ -116,7 +118,7 @@
       </div>
     </div>
 
-    <section v-if="currentTab === 'logs'" class="card"><form @submit.prevent="auditPage = 1; fetchAuditLogs()"><input v-model="auditQuery" class="form-control" placeholder="搜索登录用户 / IP"><button class="btn btn-ghost">查询登录审计</button></form><button class="btn btn-ghost" :disabled="auditPage <= 1" @click="auditPage--; fetchAuditLogs()">上一页</button><span>第 {{ auditPage }} 页 / {{ auditTotal }} 条</span><button class="btn btn-ghost" :disabled="auditPage * 20 >= auditTotal" @click="auditPage++; fetchAuditLogs()">下一页</button></section>
+    <section v-if="currentTab === 'logs'" class="card"><form class="toolbar" @submit.prevent="auditPage = 1; fetchAuditLogs()"><input v-model="auditQuery" class="form-control" placeholder="搜索登录用户 / IP"><button class="btn btn-ghost">查询登录审计</button></form><PaginationControls v-model:page="auditPage" v-model:page-size="auditPageSize" :total="auditTotal" label="登录审计" @change="fetchAuditLogs" /></section>
     <!-- 新建用户模态框 -->
     <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal-dialog">
@@ -179,13 +181,17 @@
 </template>
 
 <script setup>
+import PaginationControls from '../components/PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import { ref, reactive, onMounted } from 'vue'
 import { api } from '../api'
 import { store } from '../store'
 
 const currentTab = ref('users')
 const users = ref([])
+const userPager = usePagination(users)
 const auditLogs = ref([])
+const auditPageSize = ref(10)
 const auditPage = ref(1), auditTotal = ref(0), auditQuery = ref('')
 
 const showCreateModal = ref(false)
@@ -210,9 +216,10 @@ const fetchUsers = async () => {
 
 const fetchAuditLogs = async () => {
   try {
-    const res = await api.listLoginAuditLogs({ page: auditPage.value, page_size: 20, query: auditQuery.value })
+    const res = await api.listLoginAuditLogs({ page: auditPage.value, page_size: auditPageSize.value, query: auditQuery.value })
     auditLogs.value = res.records || res.items || []
     auditTotal.value = res.total || 0
+    auditPage.value = res.page || auditPage.value
   } catch (_) {}
 }
 

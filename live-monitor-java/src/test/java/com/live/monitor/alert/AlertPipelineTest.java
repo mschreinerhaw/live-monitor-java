@@ -114,6 +114,21 @@ class AlertPipelineTest {
         assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task",Integer.class));
     }
 
+    @Test void taskPagesUseRequestedSizeAndClampAfterResultsShrink() {
+        for (int i=1; i<=12; i++) { MonitorService service=service(i); service.serviceConsecutiveFailures=1; check(service,"DOWN","2026-11-13 10:00:00"); }
+        AlertTaskAdmin admin=new AlertTaskAdmin(jdbc,mapper,delivery);
+        Map<String,Object> first=admin.list(null,7L,null,null,null,1,10);
+        Map<String,Object> second=admin.list(null,7L,null,null,null,2,10);
+        assertEquals(12L,first.get("total"));
+        assertEquals(10,((List<?>)first.get("items")).size());
+        assertEquals(2,((List<?>)second.get("items")).size());
+        assertEquals(2,admin.list(null,7L,null,null,null,99,10).get("page"));
+        jdbc.update("DELETE FROM alert_delivery_task");
+        Map<String,Object> empty=admin.list(null,7L,null,null,null,99,10);
+        assertEquals(1,empty.get("page"));
+        assertTrue(((List<?>)empty.get("items")).isEmpty());
+    }
+
     @Test void manualRetryPreservesOriginalAndActorAndRevalidatesChannel() {
         MonitorService service=service(1); service.serviceConsecutiveFailures=1;
         check(service,"DOWN","2026-11-13 10:00:00");

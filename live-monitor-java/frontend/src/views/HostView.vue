@@ -157,14 +157,7 @@
         </table>
       </div>
 
-      <!-- 分页控制 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
-        <span class="text-muted" style="font-size: 12px;">共 {{ filteredHosts.length }} 台主机，当前第 {{ currentPage }} / {{ totalPages || 1 }} 页</span>
-        <div style="display: flex; gap: 6px;">
-          <button class="btn btn-ghost btn-sm" :disabled="currentPage <= 1" @click="currentPage--">上一页</button>
-          <button class="btn btn-ghost btn-sm" :disabled="currentPage >= totalPages" @click="currentPage++">下一页</button>
-        </div>
-      </div>
+      <PaginationControls v-model:page="currentPage" v-model:page-size="pageSize" :total="filteredHosts.length" label="服务器主机" />
     </div>
 
     <!-- 选定主机详细指标卡片抽屉 -->
@@ -181,7 +174,7 @@
       <div v-if="selectedHostPartitions.length" style="margin-bottom: 16px;">
         <strong style="font-size: 13px; color: #334155; display: block; margin-bottom: 8px;">已挂载磁盘分区利用率</strong>
         <div class="grid-3">
-          <div v-for="part in selectedHostPartitions" :key="part.mount || part.filesystem" class="part-card">
+          <div v-for="part in partitionPager.items" :key="part.mount || part.filesystem" class="part-card">
             <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
               <strong>{{ part.mount || part.filesystem }}</strong>
               <span :style="{ color: part.percent > 85 ? '#dc2626' : '#16a34a' }">{{ part.percent }}%</span>
@@ -192,6 +185,7 @@
             </div>
           </div>
         </div>
+<PaginationControls v-model:page="partitionPager.page" v-model:page-size="partitionPager.pageSize" :total="partitionPager.total" label="主机挂载分区" />
       </div>
     </div>
 
@@ -282,6 +276,8 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
+import PaginationControls from '../components/PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import { hostState, resourceWarnings } from '../utils/assets'
 
 const route = useRoute()
@@ -292,8 +288,8 @@ const alertGroups = ref([])
 const keyword = ref('')
 const statusFilter = ref('all')
 const currentPage = ref(1)
-watch([keyword, statusFilter], () => { currentPage.value = 1 })
-const pageSize = 15
+const pageSize = ref(10)
+watch([keyword, statusFilter, pageSize], () => { currentPage.value = 1 })
 
 const showModal = ref(false)
 const editingHostId = ref(null)
@@ -350,12 +346,12 @@ const filteredHosts = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.ceil(filteredHosts.value.length / pageSize))
+const totalPages = computed(() => Math.ceil(filteredHosts.value.length / pageSize.value))
 watch(totalPages, value => { currentPage.value = Math.min(currentPage.value, Math.max(1, value)) })
 
 const pagedHosts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredHosts.value.slice(start, start + pageSize)
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredHosts.value.slice(start, start + pageSize.value)
 })
 
 const selectedHostPartitions = computed(() => {
@@ -370,6 +366,7 @@ const selectedHostPartitions = computed(() => {
   }
 })
 
+const partitionPager = usePagination(selectedHostPartitions, [selectedHost])
 const fetchHosts = async (silent = false) => {
   // Event handlers pass a click event; only a literal true denotes background refresh.
   silent = silent === true

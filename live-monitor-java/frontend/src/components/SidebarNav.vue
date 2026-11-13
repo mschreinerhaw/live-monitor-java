@@ -17,9 +17,7 @@
     <div class="sidebar-menu-wrapper">
       <div v-for="group in visibleGroups" :key="group.title" class="menu-group">
         <div v-show="!isCollapsed || isMobile" class="group-title">{{ group.title }}</div>
-        <router-link
-          v-for="item in group.items"
-          :key="item.path"
+        <template v-for="item in group.items" :key="item.path"><router-link
           :to="item.path"
           class="menu-item"
           :class="{ active: isRouteActive(item) }"
@@ -38,6 +36,7 @@
             {{ item.badge() }}
           </span>
         </router-link>
+        <router-link v-for="child in item.children || []" :key="child.path" :to="child.path" class="menu-item submenu-item" :class="{ active: route.path === child.path }" :aria-label="child.label" :aria-current="route.path === child.path ? 'page' : undefined" :title="isCollapsed && !isMobile ? child.label : ''"><span class="menu-icon"><IconSvg :name="child.icon" size="16" /></span><span v-show="!isCollapsed || isMobile" class="menu-label">{{ child.label }}</span></router-link></template>
       </div>
     </div>
 
@@ -135,7 +134,7 @@ const menuGroups = [
       { label: '告警规则配置', path: '/alerts/settings', icon: 'settings' },
       { label: '最近告警记录', path: '/alerts/recent', icon: 'bell' },
       { label: '告警任务与重试', path: '/alerts/tasks', icon: 'bell' },
-      { label: '外部项目与消息', path: '/external-projects', icon: 'send' },
+      { label: '外部项目与消息', path: '/external-projects', icon: 'send', children: [{ label: '外部消息请求', path: '/external-requests', icon: 'file' }] },
       { label: '通知审计流水', path: '/alerts/audit', icon: 'file' }
     ]
   },
@@ -317,6 +316,8 @@ const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items:
   color: #f8fafc;
 }
 .mobile-close { margin-left: auto; padding: 8px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; }
+.submenu-item { padding-left: 34px; font-size: 12.5px; }
+.sidebar-nav.collapsed .submenu-item { padding-left: 12px; }
 @media (max-width: 900px) {
   .sidebar-nav { position: fixed; inset: 0 auto 0 0; width: 260px; height: 100dvh; transform: translateX(-100%); transition: transform .2s ease; z-index: 200; visibility: hidden; }
   .sidebar-nav.mobile-open { transform: translateX(0); visibility: visible; }

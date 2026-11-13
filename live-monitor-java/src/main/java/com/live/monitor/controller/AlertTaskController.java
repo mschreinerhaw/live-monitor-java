@@ -17,8 +17,9 @@ public class AlertTaskController {
     public Map<String, Object> list(@RequestParam(name="service_id", required=false) Long service,
         @RequestParam(name="channel_id", required=false) Long channel,
         @RequestParam(required=false) String status, @RequestParam(name="start_time", required=false) String start,
-        @RequestParam(name="end_time", required=false) String end, @RequestParam(defaultValue="1") int page) {
-        return admin.list(service, channel, status, start, end, page);
+        @RequestParam(name="end_time", required=false) String end, @RequestParam(defaultValue="1") int page,
+        @RequestParam(name="page_size", defaultValue="50") int pageSize) {
+        return admin.list(service, channel, status, start, end, page, pageSize);
     }
 
     @GetMapping("/api/alert-tasks/{id}/attempts")

@@ -42,6 +42,7 @@ public class AlertNotifyAuditService {
 
         long total = audit.count(normalizedStatus, normalizedQuery, normalizedStart, normalizedEnd);
         int totalPages = total == 0 ? 0 : (int) ((total + size - 1) / size);
+        if (total == 0) currentPage = 1;
         if (totalPages > 0 && currentPage > totalPages) {
             currentPage = totalPages;
         }

@@ -39,7 +39,7 @@
           <div class="notify-list">
             <div v-if="!store.notifications.list.length" class="notify-empty">暂无告警记录</div>
             <router-link
-              v-for="item in store.notifications.list"
+              v-for="item in notificationPager.items"
               :key="item.task_id || item.id"
               class="notify-item"
               :to="{ path: '/alerts/recent', query: { service_id: item.service_id } }"
@@ -49,6 +49,7 @@
               <div class="notify-item-time">{{ item.created_at || item.checked_at }}</div>
             </router-link>
           </div>
+          <PaginationControls v-model:page="notificationPager.page" v-model:page-size="notificationPager.pageSize" :total="notificationPager.total" label="通知动态" class="notification-pagination" />
           <router-link to="/alerts/recent" class="notify-footer">查看全部告警记录</router-link>
         </section>
       </div>
@@ -84,11 +85,14 @@ import { store } from '../store'
 import { api } from '../api'
 import IconSvg from './IconSvg.vue'
 import { plainMessage, deliveryLabel, deliveryTone } from '../utils/presentation'
+import PaginationControls from './PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 
 const router = useRouter()
 const route = useRoute()
 const showNotificationPanel = ref(false)
 const showUserMenu = ref(false)
+const notificationPager = usePagination(() => store.notifications.list)
 const notificationButton = ref(null), userButton = ref(null)
 function dismiss(event) {
   if (event.type === 'keydown') {
@@ -110,7 +114,7 @@ const currentRouteTitle = computed(() => {
     '/alerts/settings': '告警规则配置',
     '/alerts/audit': '通知审计流水',
     '/alerts/recent': '最近告警记录',
-    '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/account': '个人密码',
+    '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/external-requests': '外部消息请求', '/account': '个人密码',
     '/admin': '用户安全管理'
   }
   if (route.query.from === 'databases') return route.path.endsWith('/edit') ? '编辑数据库监控' : route.path === '/services/new' ? '添加数据库监控' : '数据库详情'
@@ -390,6 +394,8 @@ onBeforeUnmount(() => {
 .notify-item-title .badge { flex-shrink: 0; font-size: 10px; }
 .notify-item:hover { background: #f8fafc; }
 .notify-footer { display: block; text-align: center; padding: 12px; border-top: 1px solid var(--border-color); font-size: 12px; }
+.notification-pagination { padding: 10px 12px; margin: 0; }
+.notify-dropdown { max-height: calc(100dvh - 76px); overflow-y: auto; }
 @media (max-width: 900px) {
   .mobile-menu-toggle { display: inline-flex; flex-shrink: 0; }
   .top-navbar { padding: 0 12px; }

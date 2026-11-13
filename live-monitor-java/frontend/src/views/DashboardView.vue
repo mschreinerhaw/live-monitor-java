@@ -252,7 +252,7 @@
           <!-- 模式 2：Cloudera Manager 服务卡片网格视图 -->
           <div v-else-if="viewLayout === 'cm-cards'" class="cm-cards-grid">
             <div
-              v-for="srv in filteredServices"
+              v-for="srv in pagedServices"
               :key="srv.id"
               class="cm-service-card"
               :class="getStatusClass(srv.last_status)"
@@ -381,6 +381,7 @@
               </div>
             </div>
           </div>
+          <PaginationControls v-if="viewLayout !== 'cm-table'" v-model:page="currentPage" v-model:page-size="pageSize" :total="filteredServices.length" label="服务视图" />
         </div>
       </div>
 
@@ -456,6 +457,7 @@
 </template>
 
 <script setup>
+import PaginationControls from '../components/PaginationControls.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
 import { api } from '../api'
@@ -590,7 +592,7 @@ watch(totalPages, pages => { currentPage.value = Math.min(currentPage.value, pag
 
 const groupedServices = computed(() => {
   const groups = {}
-  filteredServices.value.forEach((srv) => {
+  pagedServices.value.forEach((srv) => {
     const key = srv.cluster_name || '默认集群 (default)'
     if (!groups[key]) groups[key] = []
     groups[key].push(srv)

@@ -154,7 +154,7 @@ test('audit displays backend status and message and sends date filters', async (
   await page.getByLabel('结束', { exact: true }).fill('2026-11-14T00:00')
   await page.getByLabel('结束', { exact: true }).press('Tab')
   await expect.poll(() => parameters.get('end_time')).toBe('2026-11-14 00:00')
-  expect(parameters.get('start_time')).toBe('2026-11-12 00:00'); expect(parameters.get('page_size')).toBe('20')
+  expect(parameters.get('start_time')).toBe('2026-11-12 00:00'); expect(parameters.get('page_size')).toBe('10')
   expect(errors).toEqual([])
 })
 
@@ -165,7 +165,7 @@ test('all page routes render without runtime errors and direct links keep the pa
     if (path === '/api/hosts/1/metrics') return { cpu_usage_percent: 10 }
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户账号与安全审计'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/alerts/tasks','告警任务与重试管理']]) {
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户账号与安全审计'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/alerts/tasks','告警任务与重试管理']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
   }
@@ -319,6 +319,14 @@ test('service table paginates filtered results and keeps a valid page across ref
   let csv = ''
   for await (const chunk of stream) csv += chunk.toString()
   expect(csv).toContain('service_01'); expect(csv).toContain('service_29')
+  await page.getByRole('button', { name: '服务卡片', exact: true }).click()
+  await expect(page.locator('.cm-service-card')).toHaveCount(10)
+  const viewPagination = page.getByRole('navigation', { name: '服务视图分页' })
+  await viewPagination.getByRole('button', { name: '末页', exact: true }).click()
+  await expect(page.locator('.cm-service-card')).toHaveCount(9)
+  await page.getByRole('button', { name: '集群分组', exact: true }).click()
+  await expect(page.locator('.cm-table tbody .cm-table-row')).toHaveCount(9)
+  await page.getByRole('button', { name: '服务表格', exact: true }).click()
   services = services.slice(0, 6)
   await page.getByTitle('手动刷新', { exact: true }).click()
   await expect(rows).toHaveCount(6)
@@ -335,7 +343,7 @@ test('all workspace pages retain usable content width on a phone', async ({ page
     if (path === '/api/hosts/1/metrics') return {}
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
     const main = await page.locator('main').boundingBox()
@@ -354,6 +362,7 @@ test('mobile navigation traps focus, dismisses with Escape and closes after navi
   await page.setViewportSize({ width: 390, height: 844 })
   await backend(page)
   await page.goto('/#/dashboard')
+  await expect(page.getByRole('heading', { name: '监控服务总览', exact: true })).toBeVisible()
   const toggle = page.getByRole('button', { name: '打开导航菜单' })
   await toggle.click()
   const navigation = page.getByRole('dialog', { name: '主导航' })
@@ -507,4 +516,102 @@ test('database assets use monitor types instead of host names and keep a dedicat
   await expect(page.getByRole('link', { name: '数据库监控', exact: true })).toHaveAttribute('aria-current','page')
   await page.getByRole('link', { name: '取消', exact: true }).click()
   await expect(page).toHaveURL(/#\/databases/)
+})
+
+test('external request audit lives in its submenu and paginates server results with filters', async ({ page }) => {
+  let auditCalls = 0, parameters
+  const projects = Array.from({ length: 25 }, (_,i) => ({ id:i+1, project_name:`project_${i+1}`, match_keyword:`key_${i+1}`, enabled:true }))
+  const requests = Array.from({ length: 35 }, (_,i) => ({ id:i+1, request_status:i<30?'SUCCESS':'FAILED', message_summary:`request_${i+1}` }))
+  await backend(page, (_,path,url) => {
+    if(path==='/api/external-projects') return projects
+    if(path==='/api/external/messages/audit') {
+      auditCalls++; parameters=url.searchParams
+      const size=Number(parameters.get('page_size')),pageNumber=Number(parameters.get('page'))
+      const filtered=requests.filter(item=>(!parameters.get('status')||item.request_status===parameters.get('status'))&&(!parameters.get('query')||item.message_summary.includes(parameters.get('query'))))
+      return {items:filtered.slice((pageNumber-1)*size,pageNumber*size),total:filtered.length,page:Math.max(1,Math.min(pageNumber,Math.ceil(filtered.length/size)||1))}
+    }
+  })
+  await page.goto('/#/external-projects')
+  await expect(page.locator('.external-projects-page > section').first().locator('tbody tr')).toHaveCount(10)
+  await expect(page.getByRole('heading',{name:'外部消息请求审计',exact:true})).toHaveCount(0)
+  expect(auditCalls).toBe(0)
+  await page.getByRole('navigation',{name:'外部项目分页'}).getByRole('button',{name:'末页',exact:true}).click()
+  await expect(page.locator('.external-projects-page > section').first().locator('tbody tr')).toHaveCount(5)
+  await page.locator('.submenu-item').filter({hasText:'外部消息请求'}).click()
+  await expect(page.getByRole('heading',{name:'外部消息请求',exact:true})).toBeVisible()
+  const nav=page.getByRole('navigation',{name:'外部消息请求分页'}),rows=page.locator('tbody tr')
+  await expect(rows).toHaveCount(10)
+  await nav.getByRole('button',{name:'下一页',exact:true}).click()
+  await expect(rows.first()).toContainText('request_11')
+  await nav.getByLabel('外部消息请求每页条数').selectOption('20')
+  await expect(rows).toHaveCount(20)
+  expect(parameters.get('page')).toBe('1');expect(parameters.get('page_size')).toBe('20')
+  await page.getByLabel('请求状态',{exact:true}).selectOption('FAILED')
+  await page.getByRole('button',{name:'查询请求',exact:true}).click()
+  await expect(rows).toHaveCount(5)
+  await expect(nav.getByRole('button',{name:'下一页',exact:true})).toBeDisabled()
+  await page.getByPlaceholder('项目 / 来源 / 消息 / 错误').fill('no-results')
+  await page.getByRole('button',{name:'查询请求',exact:true}).click()
+  await expect(nav).toContainText('0–0')
+})
+
+test('alert configuration pages preserve all group choices while lists paginate', async ({ page }) => {
+  const services=Array.from({length:23},(_,i)=>({id:i+1,service_name:`service_${i+1}`,service_type:'web',alert_group_ids:[],service_alert_enabled:true}))
+  await backend(page,(_,path)=>{
+    if(path==='/api/services')return services
+    if(path==='/api/alert-groups')return Array.from({length:12},(_,i)=>({id:i+1,group_name:`group_${i+1}`,enabled:true}))
+    if(path==='/api/alert-channels')return Array.from({length:13},(_,i)=>({id:i+1,channel_name:`channel_${i+1}`,channel_type:'email',enabled:true}))
+  })
+  await page.goto('/#/alerts/settings')
+  const nav=page.getByRole('navigation',{name:'服务告警绑定分页'})
+  await expect(page.locator('tbody tr')).toHaveCount(10)
+  await page.locator('tbody tr').first().getByLabel('group_12',{exact:true}).check()
+  await nav.getByRole('button',{name:'末页',exact:true}).click()
+  await expect(page.locator('tbody tr')).toHaveCount(3)
+  await nav.getByRole('button',{name:'首页',exact:true}).click()
+  await expect(page.locator('tbody tr').first().getByLabel('group_12',{exact:true})).toBeChecked()
+  await page.getByRole('button',{name:'告警渠道与告警组',exact:true}).click()
+  await page.getByRole('navigation',{name:'告警渠道分页'}).getByRole('button',{name:'末页',exact:true}).click()
+  await expect(page.locator('table').first().locator('tbody tr')).toHaveCount(3)
+  await page.getByRole('navigation',{name:'告警组分页'}).getByRole('button',{name:'末页',exact:true}).click()
+  await expect(page.locator('table').nth(1).locator('tbody tr')).toHaveCount(2)
+  await page.getByRole('button',{name:'新建告警组',exact:true}).click()
+  await expect(page.getByLabel('channel_13 (EMAIL)',{exact:true})).toBeVisible()
+})
+
+test('deleting the only user on the last page clamps to an existing page', async ({ page }) => {
+  let users=Array.from({length:21},(_,i)=>({id:i+1,user_id:`test_${i+1}`,status:1,grade:2}))
+  await backend(page,(request,path)=>{
+    if(request.method()==='DELETE'){users=users.filter(user=>!path.endsWith('/'+user.user_id));return {success:true}}
+    if(path==='/api/admin/users')return users
+  })
+  page.on('dialog',dialog=>dialog.accept())
+  await page.goto('/#/admin')
+  const nav=page.getByRole('navigation',{name:'用户账号分页'})
+  await expect(page.locator('tbody tr')).toHaveCount(10)
+  await nav.getByRole('button',{name:'末页',exact:true}).click()
+  await expect(page.locator('tbody tr')).toHaveCount(1)
+  await page.getByRole('button',{name:'删除',exact:true}).click()
+  await expect(page.locator('tbody tr')).toHaveCount(10)
+  await expect(nav).toContainText('第 2 / 2 页')
+})
+
+test('detail and history lists expose bounded pages rather than expanded records', async ({ page }) => {
+  await backend(page,(_,path)=>{
+    if(path==='/api/hosts/1')return{id:1,host_name:'host'}
+    if(path==='/api/hosts/1/metrics')return{disk_metrics:Array.from({length:25},(_,i)=>({mount:`/disk_${i}`,used_percent:10}))}
+    if(path==='/api/hosts/1/processes')return Array.from({length:25},(_,i)=>({id:i+1,process_name:`process_${i+1}`}))
+    if(path==='/api/data-send/history')return Array.from({length:25},(_,i)=>({id:i+1,success:true,message:`sent_${i+1}`}))
+    if(path==='/api/services/1')return{id:1,service_name:'service',service_type:'web'}
+    if(path==='/api/services/1/results')return Array.from({length:25},(_,i)=>({id:i+1,status:'UP',message:`check_${i+1}`}))
+    if(path==='/api/alerts')return Array.from({length:25},(_,i)=>({id:i+1,alert_status:'success',alert_content:`alert_${i+1}`}))
+    if(path==='/api/alert-tasks')return{items:[],total:0}
+  })
+  for(const [route,label] of [['/hosts/1','磁盘分区'],['/hosts/1','主机进程'],['/data-send','数据发送历史'],['/services/1','最近探测记录'],['/alerts/recent','告警消息']]){
+    await page.goto('/#'+route)
+    const nav=page.getByRole('navigation',{name:label+'分页'}),panel=nav.locator('..')
+    await expect(panel.locator('tbody tr')).toHaveCount(10)
+    await nav.getByRole('button',{name:'末页',exact:true}).click()
+    await expect(panel.locator('tbody tr')).toHaveCount(5)
+  }
 })

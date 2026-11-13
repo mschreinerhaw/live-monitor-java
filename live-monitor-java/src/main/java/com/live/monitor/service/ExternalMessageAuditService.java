@@ -70,6 +70,7 @@ public class ExternalMessageAuditService {
         String normalizedQuery = hasText(query) ? query.trim() : null;
         long total = mapper.count(normalizedStatus, normalizedQuery);
         int totalPages = total == 0 ? 0 : (int) ((total + size - 1) / size);
+        if (total == 0) currentPage = 1;
         if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
         List<ExternalMessageAuditRecord> items = mapper.listPage(
             normalizedStatus, normalizedQuery, size, (currentPage - 1) * size

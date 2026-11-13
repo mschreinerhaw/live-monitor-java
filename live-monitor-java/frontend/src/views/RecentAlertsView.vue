@@ -6,7 +6,7 @@
       <label>最近记录数量<select v-model="limit" class="form-control"><option v-for="count in [20,50,100,200]" :key="count" :value="count">{{ count }} 条</option></select></label>
       <button class="btn btn-primary" :disabled="loading">查询 / 刷新</button><button type="button" class="btn btn-ghost" :disabled="loading" @click="serviceId = ''; limit = 50; load()">重置筛选</button>
     </form><p v-if="error" role="alert">{{ error }}</p></section>
-    <AlertHistoryTable :records="records" :loading="loading" />
+    <AlertHistoryTable :key="String(serviceId) + ':' + limit" :records="records" :loading="loading" />
   </div>
 </template>
 <script setup>

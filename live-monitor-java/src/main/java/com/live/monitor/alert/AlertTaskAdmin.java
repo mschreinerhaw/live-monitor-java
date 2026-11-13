@@ -17,6 +17,10 @@ public class AlertTaskAdmin {
     public AlertTaskAdmin(JdbcTemplate jdbc, AlertMapper mapper, AlertDeliveryService delivery) { this.jdbc = jdbc; this.mapper = mapper; this.delivery = delivery; }
 
     public Map<String, Object> list(Long service, Long channel, String status, String start, String end, int page) {
+        return list(service, channel, status, start, end, page, 50);
+    }
+
+    public Map<String, Object> list(Long service, Long channel, String status, String start, String end, int page, int pageSize) {
         StringBuilder where = new StringBuilder(" WHERE 1=1");
         List<Object> args = new ArrayList<>();
         if (service != null) { where.append(" AND t.service_id = ?"); args.add(service); }
@@ -26,7 +30,12 @@ public class AlertTaskAdmin {
         if (end != null && !end.isEmpty()) { where.append(" AND t.created_at < ?"); args.add(end); }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("total", jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task t" + where, Long.class, args.toArray()));
-        args.add(50); args.add((Math.max(1, Math.min(1000000, page)) - 1) * 50);
+        int size = pageSize < 1 ? 50 : Math.min(pageSize, 100);
+        long total = ((Number) result.get("total")).longValue();
+        int pages = (int) Math.min(1000000L, Math.max(1L, (total + size - 1) / size));
+        int currentPage = Math.max(1, Math.min(pages, page));
+        result.put("page", currentPage); result.put("page_size", size);
+        args.add(size); args.add((currentPage - 1) * size);
         result.put("items", jdbc.queryForList("SELECT t.*, s.service_name, c.channel_name, (SELECT COUNT(*) FROM alert_delivery_attempt a WHERE a.task_id=t.id) AS attempt_count, (SELECT MAX(a.created_at) FROM alert_delivery_attempt a WHERE a.task_id=t.id) AS last_attempt_at FROM alert_delivery_task t LEFT JOIN monitor_service s ON s.id=t.service_id LEFT JOIN alert_channel c ON c.id=t.channel_id" + where + " ORDER BY t.created_at DESC, t.id LIMIT ? OFFSET ?", args.toArray()));
         result.put("counts", jdbc.queryForList("SELECT delivery_status, COUNT(*) AS total FROM alert_delivery_task GROUP BY delivery_status"));
         result.put("oldest_pending_at", jdbc.queryForObject("SELECT MIN(created_at) FROM alert_delivery_task WHERE delivery_status IN ('PENDING','FAILED','SENDING')", java.sql.Timestamp.class));

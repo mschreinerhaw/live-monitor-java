@@ -19,8 +19,8 @@
           <button v-if="task.delivery_status === 'FINAL_FAILED' && store.user?.admin" type="button" class="btn btn-ghost btn-sm" :disabled="busy === task.id" @click="retry(task)">手动重试</button>
         </td></tr>
       </tbody></table></div>
-    <div class="task-pagination"><button type="button" class="btn btn-ghost" :disabled="page <= 1 || loading" @click="page--; load()">上一页</button><span>第 {{ page }} 页 / 共 {{ total }} 条</span><button type="button" class="btn btn-ghost" :disabled="page * 50 >= total || loading" @click="page++; load()">下一页</button></div>
-    <DetailDrawer :open="!!selected" title="发送任务详情" @close="selected = null"><template v-if="selected"><div class="detail-metadata"><strong>{{ selected.service_name }} / {{ selected.channel_name }}</strong><span :class="['badge', deliveryTone(selected.delivery_status)]">{{ deliveryLabel(selected.delivery_status) }}</span><p class="text-muted">任务 {{ selected.id }}</p></div><h3>告警消息</h3><AlertMessage :content="selected.alert_content" /><h3 class="detail-section-title">发送历史</h3><p v-if="!attempts.length" class="empty-state">尚无发送尝试，任务正在等待处理。</p><ol class="attempt-timeline"><li v-for="attempt in attempts" :key="attempt.id"><time>{{ attempt.created_at }}</time><strong>{{ deliveryLabel(attempt.delivery_status) }}</strong><p>{{ attempt.error_message || '渠道已受理请求' }}</p></li></ol></template></DetailDrawer>
+    <PaginationControls v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" label="发送任务" @change="load" />
+    <DetailDrawer :open="!!selected" title="发送任务详情" @close="selected = null"><template v-if="selected"><div class="detail-metadata"><strong>{{ selected.service_name }} / {{ selected.channel_name }}</strong><span :class="['badge', deliveryTone(selected.delivery_status)]">{{ deliveryLabel(selected.delivery_status) }}</span><p class="text-muted">任务 {{ selected.id }}</p></div><h3>告警消息</h3><AlertMessage :content="selected.alert_content" /><h3 class="detail-section-title">发送历史</h3><p v-if="!attempts.length" class="empty-state">尚无发送尝试，任务正在等待处理。</p><ol class="attempt-timeline"><li v-for="attempt in attemptPager.items" :key="attempt.id"><time>{{ attempt.created_at }}</time><strong>{{ deliveryLabel(attempt.delivery_status) }}</strong><p>{{ attempt.error_message || '渠道已受理请求' }}</p></li></ol><PaginationControls v-model:page="attemptPager.page" v-model:page-size="attemptPager.pageSize" :total="attemptPager.total" label="发送尝试" /></template></DetailDrawer>
   </section>
 </template>
 <script setup>
@@ -29,6 +29,8 @@ import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
 import AlertMessage from './AlertMessage.vue'
+import PaginationControls from './PaginationControls.vue'
+import { usePagination } from '../composables/usePagination'
 import DetailDrawer from './DetailDrawer.vue'
 import { deliveryLabel, deliveryTone } from '../utils/presentation'
 const props = defineProps({ serviceId: { type: [String, Number], default: null } })
@@ -42,15 +44,17 @@ onMounted(async () => {
   if (options[1].status === 'fulfilled') channels.value = options[1].value
 })
 function reset() { Object.assign(filters, { service_id: '', channel_id: '', status: '', start_time: '', end_time: '' }); page.value = 1; load() }
-const items = ref([]), counts = ref([]), oldest = ref(null), total = ref(0), page = ref(1), error = ref(''), loading = ref(false), busy = ref(null), selected = ref(null), attempts = ref([])
+const items = ref([]), counts = ref([]), oldest = ref(null), total = ref(0), page = ref(1), pageSize = ref(10), error = ref(''), loading = ref(false), busy = ref(null), selected = ref(null), attempts = ref([])
 let generation = 0
+const attemptPager = usePagination(attempts, [selected])
 const time = value => value ? new Date(Number(value)).toLocaleString() : '立即执行'
 async function load() {
   const token = ++generation
   loading.value = true; error.value = ''
   try {
-    const result = await api.alertTasks({ ...filters, service_id: props.serviceId || filters.service_id, start_time: filters.start_time.replace('T', ' '), end_time: filters.end_time.replace('T', ' '), page: page.value })
+    const result = await api.alertTasks({ ...filters, service_id: props.serviceId || filters.service_id, start_time: filters.start_time.replace('T', ' '), end_time: filters.end_time.replace('T', ' '), page: page.value, page_size: pageSize.value })
     if (token !== generation) return
+    page.value = result.page || page.value
     items.value = result.items || []; total.value = result.total || 0; counts.value = result.counts || []; oldest.value = result.oldest_pending_at
   } catch (e) { if (token === generation) error.value = e.message }
   finally { if (token === generation) loading.value = false }
