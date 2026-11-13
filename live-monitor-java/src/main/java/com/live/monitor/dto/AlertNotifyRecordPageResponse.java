@@ -12,6 +12,8 @@ public class AlertNotifyRecordPageResponse {
     public long todayTotal;
     public long todaySuccess;
     public long todayFailed;
+    public long todayPending;
+    public long todayBlocked;
 
     public AlertNotifyRecordPageResponse(
         List<AlertNotifyRecord> items,

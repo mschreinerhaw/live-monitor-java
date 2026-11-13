@@ -26,10 +26,12 @@
 </template>
 <script setup>
 import { ref, reactive, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
 import AlertMessage from './AlertMessage.vue'
 const props = defineProps({ serviceId: { type: [String, Number], default: null } })
+const route = useRoute()
 const filters = reactive({ service_id: '', channel_id: '', status: '', start_time: '', end_time: '' })
 const statuses = ['PENDING', 'SENDING', 'FAILED', 'SUCCESS', 'FINAL_FAILED']
 const items = ref([]), counts = ref([]), oldest = ref(null), total = ref(0), page = ref(1), error = ref(''), loading = ref(false), busy = ref(null), selected = ref(null), attempts = ref([])
@@ -54,7 +56,11 @@ async function retry(task) {
   try { await api.retryAlertTask(task.id); store.showToast('已创建新的重试任务，原失败记录已保留', 'success'); await load() }
   catch (e) { error.value = e.message } finally { busy.value = null }
 }
-watch(() => props.serviceId, () => { page.value = 1; load() }, { immediate: true })
+watch(() => [props.serviceId, route.query.service_id, route.query.channel_id], () => {
+  filters.service_id = route.query.service_id || ''
+  filters.channel_id = route.query.channel_id || ''
+  page.value = 1; load()
+}, { immediate: true })
 </script>
 <style scoped>
 h2 { margin-bottom: 8px; }

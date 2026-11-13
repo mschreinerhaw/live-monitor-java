@@ -146,8 +146,9 @@ test('audit displays backend status and message and sends date filters', async (
     if (path === '/api/alert-notifications') { parameters = url.searchParams; return { items: [{ id: 1, notify_status: 'success', notify_message: '已投递到邮件网关', service_name: '支付接口', created_at: '2026-11-13T10:00:00' }], total: 1, today_total: 1, today_success: 1, today_failed: 0 } }
   })
   await page.goto('/#/alerts/audit')
-  await expect(page.getByRole('cell', { name: '成功', exact: true })).toBeVisible()
-  await expect(page.getByRole('cell', { name: '已投递到邮件网关', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '渠道已受理', exact: true })).toBeVisible()
+  await page.getByText('查看完整消息与处理说明', { exact: true }).click()
+  await expect(page.locator('.audit-details pre')).toHaveText('已投递到邮件网关')
   await page.getByLabel('开始', { exact: true }).fill('2026-11-12T00:00')
   await page.getByLabel('结束', { exact: true }).fill('2026-11-14T00:00')
   await page.getByLabel('结束', { exact: true }).press('Tab')
@@ -252,6 +253,28 @@ test('recent alerts has an independent page with safe HTML and expandable conten
   await page.getByRole('button', { name: '展开消息' }).click()
   await expect(page.getByRole('button', { name: '收起消息' })).toBeVisible()
   await page.screenshot({ path: 'test-results/recent-alerts-html.png', fullPage: true })
+  expect(errors).toEqual([])
+})
+
+test('audit separates configuration blocks from retries and exposes complete failure reasons', async ({ page }) => {
+  let taskParameters
+  const errors = await backend(page, (_, path, url) => {
+    if (path === '/api/alert-notifications') return { items: [
+      { id: 21, service_id: 11, service_name: 'unbound-host', notify_status: 'blocked', notify_message: 'Service UNKNOWN Delivery skipped: no alert group bound.' },
+      { task_id: 'task-smtp', service_id: 12, channel_id: 2, channel_name: 'production-email', current_recipients: 'ops@example.com', notify_status: 'retrying', last_error: 'SMTP gateway timeout: full diagnostic detail', attempt_count: 2, next_retry_at: Date.now() + 30000, notify_message: 'host memory high' }
+    ], total: 2, today_total: 2, today_success: 0, today_failed: 0, today_pending: 1, today_blocked: 1 }
+    if (path === '/api/alert-tasks') { taskParameters = url.searchParams; return { items: [], total: 0 } }
+  })
+  await page.goto('/#/alerts/audit')
+  await expect(page.getByRole('cell', { name: '未发送（配置阻塞）', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '重试中', exact: true })).toBeVisible()
+  await expect(page.getByText('SMTP gateway timeout: full diagnostic detail', { exact: true })).toBeVisible()
+  await expect(page.getByText('未绑定告警组：没有接收渠道，消息未发送。', { exact: true })).toBeVisible()
+  await expect(page.getByText('ops@example.com', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: '检查服务告警配置' })).toHaveAttribute('href', '#/services/11/edit')
+  await page.getByRole('link', { name: '查看发送任务与重试' }).click()
+  await expect.poll(() => taskParameters?.get('service_id')).toBe('12')
+  expect(taskParameters.get('channel_id')).toBe('2')
   expect(errors).toEqual([])
 })
 

@@ -142,6 +142,8 @@ class AlertPipelineTest {
         jdbc.update("UPDATE alert_channel SET enabled=0");
         check(service,"DOWN","2026-11-13 10:00:00");
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM alert_notify_record WHERE notify_status='failed'",Integer.class));
+        check(service,"DOWN","2026-11-13 10:00:00");
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM alert_notify_record WHERE notify_status='failed'",Integer.class));
         jdbc.update("UPDATE alert_channel SET enabled=1");
         check(service,"DOWN","2026-11-13 10:00:01");
         check(service,"DOWN","2026-11-13 10:00:30");

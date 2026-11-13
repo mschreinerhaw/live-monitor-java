@@ -26,6 +26,39 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class AlertDeliveryServiceTest {
+    @Test
+    void smtpFinalDataAcknowledgementDeterminesSuccessEvenWhenQuitDisconnects() throws Exception {
+        for (int acknowledgement : new int[]{250, 550}) {
+            try (java.net.ServerSocket server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+                server.setSoTimeout(10000);
+                java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+                try {
+                    java.util.concurrent.Future<?> gateway = executor.submit(() -> {
+                        try (java.net.Socket socket = server.accept()) {
+                            socket.setSoTimeout(10000);
+                            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                            java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+                            writer.write("220 test SMTP\r\n"); writer.flush();
+                            boolean data = false;
+                            for (String line; (line = reader.readLine()) != null;) {
+                                if (data) {
+                                    if (line.equals(".")) { writer.write(acknowledgement + " final DATA result\r\n"); writer.flush(); return; }
+                                } else {
+                                    if (line.equals("DATA")) { data = true; writer.write("354 send message\r\n"); }
+                                    else writer.write("250 OK\r\n");
+                                    writer.flush();
+                                }
+                            }
+                        } catch (java.io.IOException ex) { throw new RuntimeException(ex); }
+                    });
+                    AlertChannel channel = new AlertChannel(); channel.channelType = "email";
+                    channel.configJson = "{\"smtp_host\":\"127.0.0.1\",\"smtp_port\":" + server.getLocalPort() + ",\"smtp_auth\":false,\"alert_email\":\"ops@example.com\"}";
+                    assertEquals(acknowledgement == 250, new AlertDeliveryService(new ObjectMapper()).send(channel, "test message").success);
+                    gateway.get(12, java.util.concurrent.TimeUnit.SECONDS);
+                } finally { executor.shutdownNow(); }
+            }
+        }
+    }
     @org.junit.jupiter.api.Test
     void robotBusinessErrorsAndMalformedAcknowledgementsAreNeverSuccess() throws Exception {
         HttpServer gateway = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

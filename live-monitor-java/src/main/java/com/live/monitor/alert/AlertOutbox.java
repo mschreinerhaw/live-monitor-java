@@ -32,6 +32,13 @@ public class AlertOutbox {
         jdbc.update("INSERT INTO monitor_history_projection(event_id) VALUES (?)", eventId);
     }
 
+    public void recordBlocked(Long serviceId, String alertKey, String type, String content) {
+        // Re-evaluate configuration every check, but do not flood the audit with the
+        // same unsent incident. A later queued/sent record opens a new audit episode.
+        jdbc.update("INSERT INTO alert_notify_record(service_id,alert_key,alert_type,notify_status,notify_message) SELECT ?,?,?,'failed',? WHERE NOT EXISTS (SELECT 1 FROM alert_notify_record r WHERE r.id=(SELECT MAX(n.id) FROM alert_notify_record n WHERE n.service_id=? AND n.alert_key=?) AND r.notify_message=?)",
+            serviceId, alertKey, type, content, serviceId, alertKey, content);
+    }
+
     public List<Map<String, Object>> historyDue() {
         return jdbc.queryForList("SELECT e.* FROM monitor_history_projection p JOIN monitor_check_event e ON e.id = p.event_id ORDER BY e.id LIMIT 32");
     }

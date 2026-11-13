@@ -16,5 +16,13 @@ public class AlertNotifyRecord {
     public String alertType;
     public String notifyStatus;
     public String notifyMessage;
+    public String taskId;
+    public Long channelId;
+    public String channelName;
+    public String currentRecipients;
+    public String lastError;
+    public String deliveryStatus;
+    public int attemptCount;
+    public Long nextRetryAt;
     public LocalDateTime createdAt;
 }

@@ -581,7 +581,9 @@ public class AlertDeliveryService {
             String contentType = emailContentType(config, content);
             writeData(writer, buildEmailMessage(from, recipients, ccRecipients, "Live Monitor Alert", content, contentType));
             expect(reader, 250);
-            command(reader, writer, "QUIT", 221);
+            // DATA's final 250 is the SMTP acceptance boundary. A server closing during
+            // QUIT must not turn an accepted message into a failure and duplicate it.
+            try { command(reader, writer, "QUIT", 221); } catch (IOException ignored) { }
         } finally {
             deadline.cancel(false);
             socket.close();

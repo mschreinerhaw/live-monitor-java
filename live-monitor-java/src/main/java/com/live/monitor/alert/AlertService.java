@@ -849,7 +849,8 @@ public class AlertService {
         record.serviceType = service.serviceType;
         record.clusterName = service.clusterName;
         if (outbox != null && checkEventId.get() != null) {
-            alertMapper.insertNotifyRecord(service.id, alertKey, null, type, status, content);
+            if (content != null && content.contains("Delivery skipped:")) outbox.recordBlocked(service.id, alertKey, type, content);
+            else alertMapper.insertNotifyRecord(service.id, alertKey, null, type, status, content);
             return record;
         }
         AlertRecord saved = historyRepository.saveAlertRecord(record);
