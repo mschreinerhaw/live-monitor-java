@@ -2,12 +2,16 @@ package com.live.monitor.controller;
 
 import com.live.monitor.alert.AlertService;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.dto.DatabasePreviewPayload;
+import com.live.monitor.dto.RuleTestPayload;
 import com.live.monitor.dto.ServiceAlertGroupPayload;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.AlertRecord;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.rule.ApiRuleEvaluator;
+import com.live.monitor.service.DatabaseMonitorService;
 import com.live.monitor.service.LiveMonitorService;
 import com.live.monitor.util.CheckIntervals;
 import java.time.OffsetDateTime;
@@ -32,15 +36,21 @@ public class MonitorController {
     private final LiveMonitorService liveMonitorService;
     private final MonitorServiceMapper serviceMapper;
     private final AlertService alertService;
+    private final ApiRuleEvaluator apiRuleEvaluator;
+    private final DatabaseMonitorService databaseMonitorService;
 
     public MonitorController(
         LiveMonitorService liveMonitorService,
         MonitorServiceMapper serviceMapper,
-        AlertService alertService
+        AlertService alertService,
+        ApiRuleEvaluator apiRuleEvaluator,
+        DatabaseMonitorService databaseMonitorService
     ) {
         this.liveMonitorService = liveMonitorService;
         this.serviceMapper = serviceMapper;
         this.alertService = alertService;
+        this.apiRuleEvaluator = apiRuleEvaluator;
+        this.databaseMonitorService = databaseMonitorService;
     }
 
     @GetMapping("/api/health")
@@ -61,6 +71,11 @@ public class MonitorController {
         return liveMonitorService.listServices(includeDisabled);
     }
 
+    @GetMapping("/api/database/connections")
+    public List<MonitorService> databaseConnections(@RequestParam(name = "include_disabled", defaultValue = "true") boolean includeDisabled) {
+        return liveMonitorService.databaseConnections(includeDisabled);
+    }
+
     @PostMapping("/api/services")
     @ResponseStatus(HttpStatus.CREATED)
     public MonitorService createService(@Valid @RequestBody ServicePayload payload) {
@@ -70,6 +85,71 @@ public class MonitorController {
     @PostMapping("/api/services/test")
     public CheckResult testService(@Valid @RequestBody ServicePayload payload) {
         return liveMonitorService.test(payload);
+    }
+
+    @PostMapping("/api/services/{serviceId}/test")
+    public CheckResult testExistingService(@PathVariable Long serviceId, @Valid @RequestBody ServicePayload payload) {
+        return liveMonitorService.test(serviceId, payload);
+    }
+
+    @PostMapping("/api/rules/test")
+    public ApiRuleEvaluator.Evaluation testRule(@Valid @RequestBody RuleTestPayload payload) {
+        return apiRuleEvaluator.evaluate(
+            payload.expression,
+            new ApiRuleEvaluator.ResponseContext(
+                payload.statusCode == null ? 200 : payload.statusCode,
+                payload.responseTimeMs == null ? 0 : payload.responseTimeMs,
+                payload.body
+            )
+        );
+    }
+
+    @PostMapping("/api/database/preview")
+    public DatabaseMonitorService.PreviewResult databasePreview(@Valid @RequestBody DatabasePreviewPayload payload) {
+        return databasePreview(payload, payload.databasePassword);
+    }
+
+    @PostMapping("/api/services/{serviceId}/database/preview")
+    public DatabaseMonitorService.PreviewResult existingServiceDatabasePreview(
+        @PathVariable Long serviceId,
+        @Valid @RequestBody DatabasePreviewPayload payload
+    ) {
+        String password = liveMonitorService.databasePasswordForPreview(
+            serviceId,
+            payload.serviceType,
+            payload.databaseConnectionServiceId,
+            payload.databasePassword
+        );
+        return databasePreview(payload, password);
+    }
+
+    private DatabaseMonitorService.PreviewResult databasePreview(DatabasePreviewPayload payload, String databasePassword) {
+        MonitorService connection = payload.databaseConnectionServiceId == null
+            ? null
+            : liveMonitorService.databaseConnectionForUse(payload.serviceType, payload.databaseConnectionServiceId);
+        String host = connection == null ? payload.host : connection.host;
+        Integer port = connection == null ? payload.port : connection.port;
+        String databaseName = connection == null ? payload.databaseName : connection.databaseName;
+        String databaseUsername = connection == null ? payload.databaseUsername : connection.databaseUsername;
+        String password = connection == null ? databasePassword : connection.databasePassword;
+        String jdbcDriverClass = connection == null ? payload.jdbcDriverClass : connection.jdbcDriverClass;
+        String jdbcUrl = connection == null ? payload.jdbcUrl : connection.jdbcUrl;
+        try {
+            return databaseMonitorService.preview(
+                payload.serviceType,
+                host,
+                port,
+                databaseName,
+                databaseUsername,
+                password,
+                payload.databaseQuery,
+                jdbcDriverClass,
+                jdbcUrl,
+                payload.checkTimeoutSeconds == null ? 3D : payload.checkTimeoutSeconds
+            );
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        }
     }
 
     @GetMapping("/api/services/{serviceId}")
@@ -127,15 +207,13 @@ public class MonitorController {
 
     @PutMapping("/api/services/{serviceId}/alert-group")
     public MonitorService bindAlertGroup(@PathVariable Long serviceId, @RequestBody ServiceAlertGroupPayload payload) {
-        if (serviceMapper.findById(serviceId) == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "service not found");
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<>();
+        if (payload.alertGroupIds != null) {
+            for (Long id : payload.alertGroupIds) if (id != null) desired.add(id);
+        } else if (payload.alertGroupId != null) {
+            desired.add(payload.alertGroupId);
         }
-        if (payload.alertGroupId == null) {
-            serviceMapper.unbindAlertGroup(serviceId);
-        } else {
-            serviceMapper.bindAlertGroup(serviceId, payload.alertGroupId);
-        }
-        return liveMonitorService.getService(serviceId);
+        return liveMonitorService.bindAlertGroups(serviceId, new java.util.ArrayList<Long>(desired));
     }
 
     @PutMapping("/api/services/{serviceId}/alert-config")
@@ -175,16 +253,26 @@ public class MonitorController {
     @PostMapping("/api/services/{serviceId}/alert-test")
     public Map<String, Object> alertTest(@PathVariable Long serviceId) {
         MonitorService service = liveMonitorService.getService(serviceId);
-        AlertRecord record = alertService.testAlert(service);
+        List<AlertRecord> records = alertService.testAlerts(service);
+        AlertRecord record = records.isEmpty() ? null : records.get(0);
+        int succeeded = 0;
+        for (AlertRecord item : records) {
+            if (item != null && "success".equalsIgnoreCase(item.alertStatus)) succeeded++;
+        }
         Map<String, Object> result = new HashMap<String, Object>();
-        boolean success = "success".equals(record.alertStatus);
+        boolean success = !records.isEmpty() && succeeded == records.size();
         result.put("service_id", service.id);
         result.put("service_name", service.serviceName);
         result.put("alert_group_id", service.alertGroupId);
+        result.put("alert_group_ids", service.alertGroupIds);
         result.put("record", record);
+        result.put("records", records);
+        result.put("delivery_count", records.size());
+        result.put("success_count", succeeded);
+        result.put("failed_count", records.size() - succeeded);
         result.put("success", success);
         if (!success) {
-            result.put("error", record.alertContent);
+            result.put("error", record == null ? "no alert record generated" : record.alertContent);
         }
         return result;
     }

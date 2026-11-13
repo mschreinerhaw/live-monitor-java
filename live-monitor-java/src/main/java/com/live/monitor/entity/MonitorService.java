@@ -1,11 +1,15 @@
 package com.live.monitor.entity;
 
+import java.util.List;
+import java.util.Map;
+
 public class MonitorService {
     public Long id;
     public String serviceName;
     public String serviceCategory;
     public String serviceType;
     public String clusterName;
+    public String monitorReason;
     public String endpoint;
     public String host;
     public Integer port;
@@ -14,7 +18,15 @@ public class MonitorService {
     public String expectedResult;
     public Long hostId;
     public Double cpuThresholdPercent;
+    public Double memoryThresholdPercent;
     public Double diskThresholdPercent;
+    public Boolean cpuAlertEnabled;
+    public Boolean memoryAlertEnabled;
+    public Boolean diskAlertEnabled;
+    public Boolean serviceAlertEnabled;
+    public Integer serviceConsecutiveFailures;
+    public Integer serviceRecoverSuccesses;
+    public Integer serviceAlertCooldownSeconds;
     public String processName;
     public String processMatchKeyword;
     public String processMatchMode;
@@ -26,6 +38,20 @@ public class MonitorService {
     public String httpMethod;
     public Integer expectedStatusCode;
     public String responseKeyword;
+    public String apiAssertionExpression;
+    public List<Map<String, String>> apiHeaders;
+    public String apiContentType;
+    public String apiRequestBody;
+    public String apiAuthType;
+    public String apiBasicUsername;
+    public String apiBasicPassword;
+    public String apiBearerToken;
+    public String apiAuthAppId;
+    public String apiAuthAppSecret;
+    public Integer apiResponseTimeMs;
+    public String apiJsonAssertions;
+    public String apiTextAssertionMode;
+    public String apiTextAssertionValue;
     public Boolean ignoreSslVerification;
     public Double checkTimeoutSeconds;
     public String redisUsername;
@@ -37,18 +63,54 @@ public class MonitorService {
     public String databaseName;
     public String databaseUsername;
     public String databasePassword;
+    public Long databaseConnectionServiceId;
     public String databaseQuery;
+    public String databaseResultOperator;
+    public List<String> databaseAssertionFields;
+    public List<CrossDatabaseQuery> crossDatabaseQueries;
+    public String jdbcDriverClass;
+    public String jdbcUrl;
+    public List<String> dataSendSelectedColumns;
+    public Map<String, String> dataSendColumnAliases;
+    public String dataSendTitle;
+    public Integer dataSendMaxRows;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;
+    public Boolean unknownAlertEnabled = true;
+    @javax.validation.constraints.Min(1)
+    @javax.validation.constraints.Max(1000)
+    public Integer unknownConsecutiveFailures = 1;
+    @javax.validation.constraints.Min(0)
+    @javax.validation.constraints.Max(31536000)
+    public Integer alertRepeatIntervalSeconds = 0;
     public Long alertConfigId;
     public Long alertGroupId;
     public String alertGroupName;
     public Boolean alertGroupEnabled;
+    /** All alert groups bound to this service. Populated by the service layer. */
+    public List<Long> alertGroupIds;
+    public List<String> alertGroupNames;
     public Boolean enabled;
     public String createdAt;
     public String lastStatus;
     public Integer lastResponseTimeMs;
     public String lastMessage;
     public String lastCheckedAt;
+
+    public static class CrossDatabaseQuery {
+        public Long sourceServiceId;
+        public String alias;
+        public String serviceType;
+        public String host;
+        public Integer port;
+        public String databaseName;
+        public String databaseUsername;
+        public String databasePassword;
+        public String jdbcDriverClass;
+        public String jdbcUrl;
+        public String databaseQuery;
+        public List<String> assertionFields;
+        public Map<String, String> fieldMapping;
+    }
 }

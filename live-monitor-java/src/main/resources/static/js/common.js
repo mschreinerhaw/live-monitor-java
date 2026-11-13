@@ -5,6 +5,7 @@ function statusLabel(status) {
 function serviceTypeLabel(type) {
   return {
     web: "Web 应用 (HTTP/HTTPS)",
+    api: "API 接口请求",
     http: "HTTP 应用",
     https: "HTTPS 应用",
     nginx: "Nginx",
@@ -18,12 +19,17 @@ function serviceTypeLabel(type) {
     oracle: "Oracle",
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
+    jdbc: "通用 JDBC",
+    cross_database: "跨库比对",
+    data_send: "数据发送 (短信)",
+    external_message: "外部消息转发",
   }[type] || type;
 }
 
 function serviceTypeIcon(type) {
   return {
     web: "globe",
+    api: "braces",
     http: "globe",
     https: "lock",
     nginx: "network",
@@ -37,6 +43,10 @@ function serviceTypeIcon(type) {
     oracle: "database",
     postgresql: "database",
     postgres: "database",
+    jdbc: "database",
+    cross_database: "git-compare-arrows",
+    data_send: "send",
+    external_message: "send",
   }[type] || "server";
 }
 
@@ -141,10 +151,17 @@ function initServiceTypePicker(select) {
 
 function formatTime(value) {
   if (!value) return "-";
-  const normalized = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
+  const text = String(value).trim();
+  const localMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  if (localMatch && !hasExplicitZone) {
+    const [, year, month, day, hour, minute, second = "00"] = localMatch;
+    return `${Number(year)}/${Number(month)}/${Number(day)} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+  }
+  const normalized = text.includes("T") ? text : text.replace(" ", "T");
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
 }
 
 function endpointText(service) {
@@ -153,13 +170,21 @@ function endpointText(service) {
     return `${service.host || "-"} / ${service.process_name || service.process_match_keyword || "-"} / ${service.check_command || "-"}`;
   }
   if (service.service_type === "host") {
-    return `${service.host || service.endpoint || "-"} / CPU ${service.cpu_threshold_percent ?? "-"}% / 磁盘 ${service.disk_threshold_percent ?? "-"}%`;
+    return `${service.host || service.endpoint || "-"} / CPU ${alertThresholdText(service.cpu_threshold_percent, service.cpu_alert_enabled)} / 内存 ${alertThresholdText(service.memory_threshold_percent, service.memory_alert_enabled)} / 磁盘 ${alertThresholdText(service.disk_threshold_percent, service.disk_alert_enabled)}`;
+  }
+  if (service.service_type === "jdbc") {
+    return service.jdbc_url || service.endpoint || "-";
   }
   if (["mysql", "oracle", "postgresql", "postgres"].includes(service.service_type)) {
     const endpoint = `${service.host || "-"}:${service.port || "-"}`;
     return service.database_name ? `${endpoint}/${service.database_name}` : endpoint;
   }
   return `${service.host || "-"}:${service.port || "-"}`;
+}
+
+function alertThresholdText(value, enabled = true) {
+  if (enabled === false) return "关闭";
+  return value === null || value === undefined || value === "" ? "-%" : `${value}%`;
 }
 
 function serviceDetailHref(id) {
@@ -175,7 +200,7 @@ function isHttpService(service) {
 }
 
 function isWebUrlServiceType(type) {
-  return ["web", "http", "https", "nginx"].includes(type);
+  return ["web", "api", "http", "https", "nginx"].includes(type);
 }
 
 function serviceOpenButton(service) {
@@ -207,6 +232,73 @@ function showToast(message) {
   }, 2600);
 }
 
+function showConfirmDialog(options = {}) {
+  const {
+    title = "确认操作",
+    message = "确定继续吗？",
+    detail = "",
+    confirmText = "确定",
+    cancelText = "取消",
+    danger = false,
+  } = typeof options === "string" ? { message: options } : options;
+
+  if (typeof document === "undefined") return Promise.resolve(window.confirm(message));
+
+  let dialog = document.getElementById("confirmDialog");
+  if (!dialog) {
+    dialog = document.createElement("div");
+    dialog.id = "confirmDialog";
+    dialog.className = "confirm-backdrop";
+    dialog.hidden = true;
+    dialog.innerHTML = `
+      <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+        <div class="confirm-dialog-icon"><i data-lucide="triangle-alert"></i></div>
+        <div class="confirm-dialog-body">
+          <h2 id="confirmDialogTitle"></h2>
+          <p class="confirm-dialog-message"></p>
+          <p class="confirm-dialog-detail"></p>
+          <div class="confirm-dialog-actions">
+            <button class="ghost-button confirm-cancel" type="button"></button>
+            <button class="primary-button confirm-submit" type="button"></button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+  }
+
+  return new Promise((resolve) => {
+    const submit = dialog.querySelector(".confirm-submit");
+    const cancel = dialog.querySelector(".confirm-cancel");
+    const titleNode = dialog.querySelector("#confirmDialogTitle");
+    const messageNode = dialog.querySelector(".confirm-dialog-message");
+    const detailNode = dialog.querySelector(".confirm-dialog-detail");
+
+    titleNode.textContent = title;
+    messageNode.textContent = message;
+    detailNode.textContent = detail;
+    detailNode.hidden = !detail;
+    submit.textContent = confirmText;
+    cancel.textContent = cancelText;
+    dialog.classList.toggle("is-danger", danger);
+    dialog.hidden = false;
+
+    const close = (value) => {
+      dialog.hidden = true;
+      submit.removeEventListener("click", confirm);
+      cancel.removeEventListener("click", dismiss);
+      resolve(value);
+    };
+    const confirm = () => close(true);
+    const dismiss = () => close(false);
+
+    submit.addEventListener("click", confirm);
+    cancel.addEventListener("click", dismiss);
+    submit.focus();
+    if (window.lucide) window.lucide.createIcons();
+  });
+}
+
 function renderStatus(status) {
   const value = statusLabel(status);
   return `<span class="status-pill status-${value}"><span class="status-dot"></span>${value}</span>`;
@@ -222,9 +314,78 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function alertContentText(content) {
+  const raw = String(content || "").trim();
+  if (!raw) return "-";
+  const htmlLike = /<\/?[a-z][\s\S]*>/i.test(raw) || raw.includes("&lt;");
+  if (!htmlLike || typeof document === "undefined") {
+    return raw.replace(/\s+/g, " ").trim();
+  }
+  const decoded = decodeHtmlEntities(raw);
+  const blockAware = decoded
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(div|p|li|tr|section|article|h[1-6])\s*>/gi, "\n");
+  const template = document.createElement("template");
+  template.innerHTML = blockAware;
+  return (template.content.textContent || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim() || raw.replace(/\s+/g, " ").trim();
+}
+
+function decodeHtmlEntities(value) {
+  if (typeof document === "undefined") return String(value || "");
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = String(value || "");
+  return textarea.value;
+}
+
+function alertContentSummary(content) {
+  const lines = alertContentText(content).split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const reason = alertSectionValue(lines, "\u544a\u8b66\u539f\u56e0");
+  const host = alertFieldValue(lines, "\u4e3b\u673aIP");
+  const level = alertFieldValue(lines, "\u544a\u8b66\u7ea7\u522b");
+  const time = alertFieldValue(lines, "\u544a\u8b66\u65f6\u95f4");
+  const metrics = lines.filter((line) => /^(CPU|\u5185\u5b58|\u78c1\u76d8)[\uff1a:]/.test(line)).slice(0, 3);
+  const fallback = lines.find((line) => !line.includes("style=") && !line.startsWith("<")) || "-";
+  return {
+    title: lines[0] || "\u544a\u8b66",
+    reason: reason || fallback,
+    host,
+    level,
+    time,
+    metrics,
+    text: lines.join("\n"),
+  };
+}
+
+function alertFieldValue(lines, label) {
+  const prefix = `${label}\uff1a`;
+  const asciiPrefix = `${label}:`;
+  for (const line of lines) {
+    if (line.startsWith(prefix)) return line.slice(prefix.length).trim();
+    if (line.startsWith(asciiPrefix)) return line.slice(asciiPrefix.length).trim();
+  }
+  return "";
+}
+
+function alertSectionValue(lines, label) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const direct = alertFieldValue([line], label);
+    if (direct) return direct;
+    if (line === label && lines[index + 1]) return lines[index + 1];
+  }
+  return "";
+}
+
 function serviceTypeLabel(type) {
   return {
     web: "\u0057\u0065\u0062 \u5e94\u7528 (HTTP/HTTPS)",
+    api: "API \u63a5\u53e3\u8bf7\u6c42",
     http: "HTTP \u5e94\u7528",
     https: "HTTPS \u5e94\u7528",
     nginx: "Nginx",
@@ -238,6 +399,9 @@ function serviceTypeLabel(type) {
     oracle: "Oracle",
     postgresql: "PostgreSQL",
     postgres: "PostgreSQL",
+    jdbc: "\u901a\u7528 JDBC",
+    cross_database: "\u8de8\u5e93\u6bd4\u5bf9",
+    external_message: "\u5916\u90e8\u6d88\u606f\u8f6c\u53d1",
   }[type] || type || "\u81ea\u5b9a\u4e49\u670d\u52a1";
 }
 
@@ -270,5 +434,4 @@ function formatCheckInterval(seconds) {
   };
   return `${parts.value} ${labels[parts.unit] || "\u79d2"}`;
 }
-
 

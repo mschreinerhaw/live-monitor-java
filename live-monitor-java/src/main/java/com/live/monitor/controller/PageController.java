@@ -26,8 +26,23 @@ public class PageController {
         return "forward:/alert_settings.html";
     }
 
+    @GetMapping("/alerts/audit")
+    public String alertAudit() {
+        return "forward:/alert_audit.html";
+    }
+
     @GetMapping("/hosts")
     public String hosts() {
         return "forward:/hosts.html";
+    }
+
+    @GetMapping("/data-send")
+    public String dataSend() {
+        return "forward:/data_send.html";
+    }
+
+    @GetMapping("/admin")
+    public String admin() {
+        return "forward:/admin.html";
     }
 }

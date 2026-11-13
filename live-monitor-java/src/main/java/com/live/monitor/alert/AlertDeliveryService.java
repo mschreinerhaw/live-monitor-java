@@ -3,6 +3,7 @@ package com.live.monitor.alert;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.live.monitor.entity.AlertChannel;
+import com.live.monitor.service.CryptoService;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +43,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import okhttp3.MediaType;
+import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -73,23 +77,41 @@ public class AlertDeliveryService {
         }
     };
 
+    private static final java.util.concurrent.ScheduledExecutorService SMTP_DEADLINE =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "smtp-deadline");
+            thread.setDaemon(true);
+            return thread;
+        });
     private final ObjectMapper objectMapper;
+    private CryptoService cryptoService;
     private final OkHttpClient httpClient;
     private Path templateDirectory;
 
     @Autowired
     public AlertDeliveryService(ObjectMapper objectMapper) {
-        this(objectMapper, Paths.get("./templates"));
+        this(objectMapper, null, Paths.get("./templates"));
     }
 
     AlertDeliveryService(ObjectMapper objectMapper, Path templateDirectory) {
+        this(objectMapper, null, templateDirectory);
+    }
+
+    AlertDeliveryService(ObjectMapper objectMapper, CryptoService cryptoService, Path templateDirectory) {
         this.objectMapper = objectMapper;
+        this.cryptoService = cryptoService;
         this.templateDirectory = templateDirectory;
         this.httpClient = new OkHttpClient.Builder()
+            .callTimeout(60, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
             .build();
+    }
+
+    @Autowired(required = false)
+    public void setCryptoService(CryptoService cryptoService) {
+        this.cryptoService = cryptoService;
     }
 
     @Value("${live-monitor.template-dir:./templates}")
@@ -108,6 +130,8 @@ public class AlertDeliveryService {
     }
 
     public DeliveryResult send(AlertChannel channel, String content) {
+        if (content == null || content.getBytes(StandardCharsets.UTF_8).length > 1024 * 1024)
+            return DeliveryResult.failed("Alert message is empty or exceeds 1 MiB");
         String type = normalize(channel.channelType);
         Map<String, Object> config = parseJson(channel.configJson);
         try {
@@ -123,15 +147,43 @@ public class AlertDeliveryService {
                 sendWebhook(type, config, content);
                 return DeliveryResult.success();
             }
+            if ("http".equals(type)) {
+                sendHttpAlert(config, content);
+                return DeliveryResult.success();
+            }
             return DeliveryResult.failed("Unsupported alert channel type: " + channel.channelType);
         } catch (Exception ex) {
             return DeliveryResult.failed(ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
     }
 
+    public String configurationError(AlertChannel channel) {
+        if (channel == null || !Boolean.TRUE.equals(channel.enabled)) return "Channel missing or disabled";
+        Map<String, Object> config = parseJson(channel.configJson);
+        String type = normalize(channel.channelType);
+        if ("email".equals(type)) {
+            if (!StringUtils.hasText(stringValue(config, "smtp_host"))) return "SMTP host is empty";
+            if (splitRecipients(stringValue(config, "alert_email")).isEmpty()) return "Email recipient is empty";
+            return null;
+        }
+        if ("sms".equals(type)) {
+            if (!StringUtils.hasText(stringValue(config, "alert_mobile"))) return "SMS recipient is empty";
+            if (smsApiUrls(config).isEmpty()) return "SMS gateway URL is empty";
+            return null;
+        }
+        String url = "http".equals(type) ? firstText(config, "http_url", "webhook_url") : stringValue(config, "webhook_url");
+        if (!("http".equals(type) || "webhook".equals(type) || "dingtalk".equals(type) || "wecom".equals(type))) return "Unsupported alert channel type";
+        try {
+            java.net.URI uri = java.net.URI.create(url == null ? "" : url);
+            if (uri.getHost() == null || !("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))) return "Invalid channel URL";
+        } catch (IllegalArgumentException ex) { return "Invalid channel URL"; }
+        return null;
+    }
+
     private void sendSms(Map<String, Object> config, String content) throws IOException {
-        String apiUrl = stringValue(config, "sms_api_url");
-        if (!StringUtils.hasText(apiUrl)) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120);
+        List<String> apiUrls = smsApiUrls(config);
+        if (apiUrls.isEmpty()) {
             throw new IOException("SMS API URL is empty");
         }
         List<String> mobiles = splitRecipients(stringValue(config, "alert_mobile"));
@@ -142,14 +194,58 @@ public class AlertDeliveryService {
         if (StringUtils.hasText(username)) {
             for (int index = 0; index < mobiles.size(); index += 100) {
                 String batch = String.join(",", mobiles.subList(index, Math.min(index + 100, mobiles.size())));
-                sendSmsGateway(config, apiUrl, username, batch, content);
+                sendSmsWithFailover(apiUrls, apiUrl -> sendSmsGateway(config, apiUrl, username, batch, content), deadline);
             }
             return;
         }
         String token = stringValue(config, "sms_api_token");
         for (String mobile : mobiles) {
-            sendSmsJsonApi(apiUrl, token, mobile, content);
+            sendSmsWithFailover(apiUrls, apiUrl -> sendSmsJsonApi(config, apiUrl, token, mobile, content), deadline);
         }
+    }
+
+    private List<String> smsApiUrls(Map<String, Object> config) {
+        List<String> urls = new ArrayList<String>();
+        Object configured = config.get("sms_api_urls");
+        if (configured instanceof Iterable) {
+            for (Object value : (Iterable<?>) configured) {
+                addSmsApiUrl(urls, value);
+            }
+        } else if (configured != null) {
+            for (String value : String.valueOf(configured).split("[\\r\\n]+")) {
+                addSmsApiUrl(urls, value);
+            }
+        }
+        addSmsApiUrl(urls, config.get("sms_api_url"));
+        return urls;
+    }
+
+    private void addSmsApiUrl(List<String> urls, Object value) {
+        String url = value == null ? "" : String.valueOf(value).trim();
+        if (StringUtils.hasText(url) && !urls.contains(url)) {
+            urls.add(url);
+        }
+    }
+
+    private void sendSmsWithFailover(List<String> apiUrls, SmsGatewayAttempt attempt, long deadline) throws IOException {
+        List<String> errors = new ArrayList<String>();
+        Exception lastError = null;
+        for (int index = 0; index < apiUrls.size(); index++) {
+            if (System.nanoTime() >= deadline) throw new IOException("SMS delivery exceeded total time budget");
+            try {
+                attempt.send(apiUrls.get(index));
+                return;
+            } catch (Exception ex) {
+                lastError = ex;
+                errors.add("gateway #" + (index + 1) + ": " + ex.getMessage());
+            }
+        }
+        throw new IOException("All SMS gateways failed: " + String.join("; ", errors), lastError);
+    }
+
+    @FunctionalInterface
+    private interface SmsGatewayAttempt {
+        void send(String apiUrl) throws Exception;
     }
 
     private void sendSmsGateway(
@@ -184,8 +280,8 @@ public class AlertDeliveryService {
             .url(apiUrl + separator + String.join("&", query))
             .get()
             .build();
-        try (Response response = httpClient.newCall(request).execute()) {
-            String body = response.body() == null ? "" : new String(response.body().bytes(), GBK);
+        try (Response response = httpClient(config).newCall(request).execute()) {
+            String body = response.body() == null ? "" : new String(readLimitedBody(response), GBK);
             if (!response.isSuccessful()) {
                 throw new IOException("SMS gateway HTTP " + response.code());
             }
@@ -196,7 +292,13 @@ public class AlertDeliveryService {
         }
     }
 
-    private void sendSmsJsonApi(String apiUrl, String token, String mobile, String content) throws IOException {
+    private void sendSmsJsonApi(
+        Map<String, Object> config,
+        String apiUrl,
+        String token,
+        String mobile,
+        String content
+    ) throws IOException {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("mobile", mobile);
         payload.put("content", content);
@@ -206,9 +308,21 @@ public class AlertDeliveryService {
         if (StringUtils.hasText(token)) {
             builder.header("Authorization", "Bearer " + token.trim());
         }
-        try (Response response = httpClient.newCall(builder.build()).execute()) {
+        try (Response response = httpClient(config).newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("SMS API HTTP " + response.code());
+            }
+            if (response.body() != null) {
+                String body = new String(readLimitedBody(response), StandardCharsets.UTF_8).trim();
+                if (body.startsWith("{")) {
+                    Map<String, Object> acknowledgement;
+                    try { acknowledgement = objectMapper.readValue(body, STRING_OBJECT_MAP); }
+                    catch (Exception ex) { throw new IOException("Invalid SMS API acknowledgement"); }
+                    Object code = acknowledgement.containsKey("errcode") ? acknowledgement.get("errcode") : acknowledgement.get("code");
+                    if (Boolean.FALSE.equals(acknowledgement.get("success")) || (code != null
+                        && !"0".equals(String.valueOf(code)) && !"200".equals(String.valueOf(code))))
+                        throw new IOException("SMS API rejected message: " + com.live.monitor.service.MonitorCheckExecution.safe(body));
+                }
             }
         }
     }
@@ -249,13 +363,98 @@ public class AlertDeliveryService {
             .url(webhookUrl)
             .post(RequestBody.create(objectMapper.writeValueAsString(payload), JSON))
             .build();
-        try (Response response = httpClient.newCall(request).execute()) {
-            String body = response.body() == null ? "" : response.body().string();
+        try (Response response = httpClient(config).newCall(request).execute()) {
+            String body = response.body() == null ? "" : new String(readLimitedBody(response), StandardCharsets.UTF_8);
             if (!response.isSuccessful()) {
                 throw new IOException("Webhook HTTP " + response.code());
             }
             validateWebhookResponse(type, body);
         }
+    }
+
+    private void sendHttpAlert(Map<String, Object> config, String content) throws IOException {
+        String url = firstText(config, "webhook_url", "http_url", "sms_api_url");
+        if (!StringUtils.hasText(url)) {
+            throw new IOException("HTTP alert URL is empty");
+        }
+        String method = defaultString(stringValue(config, "http_method"), "POST").toUpperCase(Locale.ROOT);
+        if (!"GET".equals(method) && !"POST".equals(method)) {
+            throw new IOException("Unsupported HTTP alert method: " + method);
+        }
+
+        Request.Builder builder = new Request.Builder().url(url);
+        Map<String, String> headers = httpHeaders(config);
+        for (Map.Entry<String, String> header : headers.entrySet()) {
+            builder.header(header.getKey(), header.getValue());
+        }
+        if ("GET".equals(method)) {
+            builder.get();
+        } else {
+            String body = renderHttpBody(defaultString(stringValue(config, "http_body"), "{\"message\":\"${message}\"}"), content);
+            MediaType mediaType = MediaType.parse(defaultString(headerValue(headers, "Content-Type"), "application/json; charset=utf-8"));
+            builder.post(RequestBody.create(body, mediaType));
+        }
+        try (Response response = httpClient(config).newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("HTTP alert returned " + response.code());
+            }
+        }
+    }
+
+    private Map<String, String> httpHeaders(Map<String, Object> config) throws IOException {
+        String raw = stringValue(config, "http_headers");
+        Map<String, String> headers = new LinkedHashMap<String, String>();
+        if (!StringUtils.hasText(raw)) {
+            headers.put("Content-Type", "application/json");
+            return headers;
+        }
+        try {
+            Map<String, Object> parsed = objectMapper.readValue(raw, STRING_OBJECT_MAP);
+            for (Map.Entry<String, Object> entry : parsed.entrySet()) {
+                if (StringUtils.hasText(entry.getKey()) && entry.getValue() != null) {
+                    headers.put(entry.getKey().trim(), String.valueOf(entry.getValue()));
+                }
+            }
+            return headers;
+        } catch (Exception ex) {
+            for (String line : raw.split("\\r?\\n")) {
+                int index = line.indexOf(':');
+                if (index <= 0) {
+                    continue;
+                }
+                String name = line.substring(0, index).trim();
+                String value = line.substring(index + 1).trim();
+                if (StringUtils.hasText(name)) {
+                    headers.put(name, value);
+                }
+            }
+            if (headers.isEmpty()) {
+                throw new IOException("HTTP alert headers must be a JSON object or Name: Value lines");
+            }
+            return headers;
+        }
+    }
+
+    private String renderHttpBody(String template, String content) throws IOException {
+        String jsonString = objectMapper.writeValueAsString(content == null ? "" : content);
+        return template
+            .replace("\"${message}\"", jsonString)
+            .replace("\"${content}\"", jsonString)
+            .replace("\"{{message}}\"", jsonString)
+            .replace("\"{{content}}\"", jsonString)
+            .replace("${message}", content == null ? "" : content)
+            .replace("${content}", content == null ? "" : content)
+            .replace("{{message}}", content == null ? "" : content)
+            .replace("{{content}}", content == null ? "" : content);
+    }
+
+    private String headerValue(Map<String, String> headers, String name) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) {
+                return entry.getValue();
+            }
+        }
+        return "";
     }
 
     private String signedDingtalkWebhookUrl(String webhookUrl, String secret) throws IOException {
@@ -278,19 +477,32 @@ public class AlertDeliveryService {
         }
     }
 
+    private byte[] readLimitedBody(Response response) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        InputStream input = response.body().byteStream();
+        byte[] chunk = new byte[8192];
+        int count;
+        while ((count = input.read(chunk)) != -1) {
+            if (buffer.size() + count > 1024 * 1024) throw new IOException("Gateway response exceeds 1 MiB");
+            buffer.write(chunk, 0, count);
+        }
+        byte[] body = buffer.toByteArray();
+        if (body.length > 1024 * 1024) throw new IOException("Gateway response exceeds 1 MiB");
+        return body;
+    }
+
     private void validateWebhookResponse(String type, String body) throws IOException {
-        if (!StringUtils.hasText(body) || !("dingtalk".equals(type) || "wecom".equals(type))) {
+        if (!("dingtalk".equals(type) || "wecom".equals(type))) {
             return;
         }
         Map<String, Object> result;
         try {
             result = objectMapper.readValue(body, STRING_OBJECT_MAP);
         } catch (Exception ignored) {
-            // Some custom webhook gateways return plain text. Keep HTTP success as success for those.
-            return;
+            throw new IOException("Invalid robot gateway acknowledgement");
         }
         Object errCode = result.get("errcode");
-        if (errCode == null || intValue(errCode, 0) == 0) {
+        if (errCode != null && "0".equals(String.valueOf(errCode))) {
             return;
         }
         String message = stringValue(result, "errmsg");
@@ -335,10 +547,12 @@ public class AlertDeliveryService {
         }
 
         SSLSocketFactory sslSocketFactory = smtpSslSocketFactory(config, host);
-        Socket socket = sslOnConnect
-            ? sslSocketFactory.createSocket(host, port)
-            : new Socket(host, port);
+        Socket socket = createSmtpSocket(config, sslSocketFactory, host, port, sslOnConnect);
         socket.setSoTimeout(10000);
+        final Socket deadlineSocket = socket;
+        java.util.concurrent.ScheduledFuture<?> deadline = SMTP_DEADLINE.schedule(() -> {
+            try { deadlineSocket.close(); } catch (IOException ignored) { }
+        }, 60, TimeUnit.SECONDS);
         BufferedReader reader = null;
         BufferedWriter writer = null;
         try {
@@ -369,8 +583,70 @@ public class AlertDeliveryService {
             expect(reader, 250);
             command(reader, writer, "QUIT", 221);
         } finally {
+            deadline.cancel(false);
             socket.close();
         }
+    }
+
+    private OkHttpClient httpClient(Map<String, Object> config) throws IOException {
+        Proxy proxy = configuredProxy(config, false);
+        if (proxy == Proxy.NO_PROXY) {
+            return httpClient;
+        }
+        OkHttpClient.Builder builder = httpClient.newBuilder().proxy(proxy);
+        String username = stringValue(config, "proxy_username");
+        if (proxy.type() == Proxy.Type.HTTP && StringUtils.hasText(username)) {
+            String password = defaultString(stringValue(config, "proxy_password"), "");
+            builder.proxyAuthenticator((route, response) -> {
+                if (response.request().header("Proxy-Authorization") != null) {
+                    return null;
+                }
+                return response.request().newBuilder()
+                    .header("Proxy-Authorization", Credentials.basic(username.trim(), password))
+                    .build();
+            });
+        }
+        return builder.build();
+    }
+
+    private Socket createSmtpSocket(
+        Map<String, Object> config,
+        SSLSocketFactory sslSocketFactory,
+        String host,
+        int port,
+        boolean sslOnConnect
+    ) throws IOException {
+        Proxy proxy = configuredProxy(config, true);
+        Socket socket = new Socket(proxy);
+        socket.connect(new InetSocketAddress(host, port), 10000);
+        return sslOnConnect ? sslSocketFactory.createSocket(socket, host, port, true) : socket;
+    }
+
+    private Proxy configuredProxy(Map<String, Object> config, boolean smtp) throws IOException {
+        String type = normalize(stringValue(config, "proxy_type"));
+        String host = stringValue(config, "proxy_host");
+        if (!StringUtils.hasText(type) || "none".equals(type)) {
+            return Proxy.NO_PROXY;
+        }
+        if (!StringUtils.hasText(host)) {
+            throw new IOException("Alert proxy host is empty");
+        }
+        int port = intValue(config.get("proxy_port"), 0);
+        if (port < 1 || port > 65535) {
+            throw new IOException("Alert proxy port must be between 1 and 65535");
+        }
+        if (smtp && !"socks5".equals(type) && !"socks".equals(type)) {
+            throw new IOException("Email delivery requires a SOCKS5 proxy");
+        }
+        Proxy.Type proxyType;
+        if ("http".equals(type)) {
+            proxyType = Proxy.Type.HTTP;
+        } else if ("socks5".equals(type) || "socks".equals(type)) {
+            proxyType = Proxy.Type.SOCKS;
+        } else {
+            throw new IOException("Unsupported alert proxy type: " + type);
+        }
+        return new Proxy(proxyType, new InetSocketAddress(host.trim(), port));
     }
 
     private String buildEmailMessage(
@@ -585,7 +861,8 @@ public class AlertDeliveryService {
             return new HashMap<String, Object>();
         }
         try {
-            return objectMapper.readValue(json, STRING_OBJECT_MAP);
+            String normalized = cryptoService == null ? json : cryptoService.decryptIfEncrypted(json);
+            return objectMapper.readValue(normalized, STRING_OBJECT_MAP);
         } catch (Exception ex) {
             return new HashMap<String, Object>();
         }

@@ -2,7 +2,10 @@ package com.live.monitor.mapper;
 
 import com.live.monitor.entity.AlertChannel;
 import com.live.monitor.entity.AlertGroup;
+import com.live.monitor.entity.AlertNotifyRecord;
 import com.live.monitor.entity.AlertPolicy;
+import com.live.monitor.entity.AlertState;
+import com.live.monitor.entity.CheckEvent;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -24,10 +27,6 @@ public interface AlertMapper {
 
     @Select("SELECT * FROM alert_channel WHERE id = #{id}")
     AlertChannel findChannel(@Param("id") Long id);
-
-    @Select("SELECT COUNT(*) FROM alert_channel WHERE channel_type = #{channelType} " +
-        "AND (#{excludeId} IS NULL OR id <> #{excludeId})")
-    int countChannelsByType(@Param("channelType") String channelType, @Param("excludeId") Long excludeId);
 
     @Select("SELECT c.* FROM alert_channel c JOIN group_channel_rel rel ON rel.channel_id = c.id " +
         "WHERE rel.group_id = #{groupId} ORDER BY c.channel_name")
@@ -75,13 +74,155 @@ public interface AlertMapper {
     @Delete("DELETE FROM group_channel_rel WHERE group_id = #{groupId}")
     int deleteGroupChannels(@Param("groupId") Long groupId);
 
-    @Insert("MERGE INTO group_policy_rel KEY(group_id, policy_id) VALUES (#{groupId}, #{policyId})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO group_policy_rel (group_id, policy_id) VALUES (#{groupId}, #{policyId}) " +
+        "ON DUPLICATE KEY UPDATE policy_id = policy_id" +
+        "</when>" +
+        "<otherwise>MERGE INTO group_policy_rel KEY(group_id, policy_id) VALUES (#{groupId}, #{policyId})</otherwise>" +
+        "</choose>" +
+        "</script>")
     int insertGroupPolicy(@Param("groupId") Long groupId, @Param("policyId") Long policyId);
 
-    @Insert("MERGE INTO group_channel_rel KEY(group_id, channel_id) VALUES (#{groupId}, #{channelId})")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO group_channel_rel (group_id, channel_id) VALUES (#{groupId}, #{channelId}) " +
+        "ON DUPLICATE KEY UPDATE channel_id = channel_id" +
+        "</when>" +
+        "<otherwise>MERGE INTO group_channel_rel KEY(group_id, channel_id) VALUES (#{groupId}, #{channelId})</otherwise>" +
+        "</choose>" +
+        "</script>")
     int insertGroupChannel(@Param("groupId") Long groupId, @Param("channelId") Long channelId);
 
     @Select("SELECT COUNT(*) FROM service_alert_group WHERE group_id = #{groupId}")
     int countServicesByGroup(@Param("groupId") Long groupId);
 
+    @Select("SELECT COUNT(*) FROM external_project_alert_group WHERE group_id = #{groupId}")
+    int countExternalProjectsByGroup(@Param("groupId") Long groupId);
+
+    @Insert("INSERT INTO monitor_check_event (" +
+        "service_id, status, response_time_ms, message, event_type, alert_type, checked_at, consumed" +
+        ") VALUES (" +
+        "#{serviceId}, #{status}, #{responseTimeMs}, #{message}, #{eventType}, #{alertType}, #{checkedAt}, 0)")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertCheckEvent(CheckEvent event);
+
+    @Update("UPDATE monitor_check_event SET consumed = 1, consumed_at = CURRENT_TIMESTAMP WHERE id = #{id}")
+    int markCheckEventConsumed(@Param("id") Long id);
+
+    @Select("SELECT * FROM alert_state WHERE service_id = #{serviceId} AND alert_key = #{alertKey}")
+    AlertState findAlertState(@Param("serviceId") Long serviceId, @Param("alertKey") String alertKey);
+
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO alert_state (" +
+        "service_id, alert_key, state, fail_count, recover_count, active_policy_id, active_trigger_type, " +
+        "last_status, last_message, last_event_at, last_alert_at, updated_at" +
+        ") VALUES (" +
+        "#{serviceId}, #{alertKey}, #{state}, #{failCount}, #{recoverCount}, #{activePolicyId}, #{activeTriggerType}, " +
+        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP) " +
+        "ON DUPLICATE KEY UPDATE " +
+        "state = VALUES(state), fail_count = VALUES(fail_count), recover_count = VALUES(recover_count), " +
+        "active_policy_id = VALUES(active_policy_id), active_trigger_type = VALUES(active_trigger_type), " +
+        "last_status = VALUES(last_status), last_message = VALUES(last_message), " +
+        "last_event_at = VALUES(last_event_at), last_alert_at = VALUES(last_alert_at), updated_at = CURRENT_TIMESTAMP" +
+        "</when>" +
+        "<otherwise>" +
+        "MERGE INTO alert_state (" +
+        "service_id, alert_key, state, fail_count, recover_count, active_policy_id, active_trigger_type, " +
+        "last_status, last_message, last_event_at, last_alert_at, updated_at" +
+        ") KEY(service_id, alert_key) VALUES (" +
+        "#{serviceId}, #{alertKey}, #{state}, #{failCount}, #{recoverCount}, #{activePolicyId}, #{activeTriggerType}, " +
+        "#{lastStatus}, #{lastMessage}, #{lastEventAt}, #{lastAlertAt}, CURRENT_TIMESTAMP)" +
+        "</otherwise>" +
+        "</choose>" +
+        "</script>")
+    int upsertAlertState(AlertState state);
+
+    @Insert("INSERT INTO alert_notify_record (" +
+        "service_id, alert_key, alert_record_id, alert_type, notify_status, notify_message" +
+        ") VALUES (" +
+        "#{serviceId}, #{alertKey}, #{alertRecordId}, #{alertType}, #{notifyStatus}, #{notifyMessage})")
+    int insertNotifyRecord(
+        @Param("serviceId") Long serviceId,
+        @Param("alertKey") String alertKey,
+        @Param("alertRecordId") Long alertRecordId,
+        @Param("alertType") String alertType,
+        @Param("notifyStatus") String notifyStatus,
+        @Param("notifyMessage") String notifyMessage
+    );
+
+    @Select("<script>" +
+        "SELECT r.id, r.service_id, r.alert_key, r.alert_record_id, r.alert_type, " +
+        "r.notify_status, r.notify_message, r.created_at, " +
+        "s.service_name, s.service_type, s.cluster_name " +
+        "FROM alert_notify_record r " +
+        "LEFT JOIN monitor_service s ON s.id = r.service_id " +
+        "<where>" +
+        "<if test='status != null and status != \"\"'> AND r.notify_status = #{status} </if>" +
+        "<if test='startTime != null and startTime != \"\"'> AND r.created_at &gt;= #{startTime} </if>" +
+        "<if test='endTime != null and endTime != \"\"'> AND r.created_at &lt; #{endTime} </if>" +
+        "<if test='query != null and query != \"\"'>" +
+        " AND (" +
+        "LOWER(COALESCE(s.service_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(s.cluster_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.alert_type, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.notify_message, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        ") </if>" +
+        "</where>" +
+        " ORDER BY r.id DESC LIMIT #{limit} OFFSET #{offset}" +
+        "</script>")
+    List<AlertNotifyRecord> listNotifyRecords(
+        @Param("status") String status,
+        @Param("query") String query,
+        @Param("startTime") String startTime,
+        @Param("endTime") String endTime,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
+
+    @Select("<script>" +
+        "SELECT COUNT(*) FROM alert_notify_record r " +
+        "LEFT JOIN monitor_service s ON s.id = r.service_id " +
+        "<where>" +
+        "<if test='status != null and status != \"\"'> AND r.notify_status = #{status} </if>" +
+        "<if test='startTime != null and startTime != \"\"'> AND r.created_at &gt;= #{startTime} </if>" +
+        "<if test='endTime != null and endTime != \"\"'> AND r.created_at &lt; #{endTime} </if>" +
+        "<if test='query != null and query != \"\"'>" +
+        " AND (" +
+        "LOWER(COALESCE(s.service_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(s.cluster_name, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.alert_type, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        " OR LOWER(COALESCE(r.notify_message, '')) LIKE CONCAT('%', LOWER(#{query}), '%')" +
+        ") </if>" +
+        "</where>" +
+        "</script>")
+    long countNotifyRecords(
+        @Param("status") String status,
+        @Param("query") String query,
+        @Param("startTime") String startTime,
+        @Param("endTime") String endTime
+    );
+
+    @Select("SELECT COUNT(*) FROM alert_notify_record " +
+        "WHERE created_at >= #{startInclusive} AND created_at < #{endExclusive}")
+    long countNotifyRecordsBetween(
+        @Param("startInclusive") String startInclusive,
+        @Param("endExclusive") String endExclusive
+    );
+
+    @Select("SELECT COUNT(*) FROM alert_notify_record " +
+        "WHERE notify_status = #{status} " +
+        "AND created_at >= #{startInclusive} AND created_at < #{endExclusive}")
+    long countNotifyRecordsBetweenByStatus(
+        @Param("status") String status,
+        @Param("startInclusive") String startInclusive,
+        @Param("endExclusive") String endExclusive
+    );
+
+    @Delete("DELETE FROM alert_notify_record WHERE created_at < #{cutoff}")
+    int deleteNotifyRecordsBefore(@Param("cutoff") String cutoff);
 }

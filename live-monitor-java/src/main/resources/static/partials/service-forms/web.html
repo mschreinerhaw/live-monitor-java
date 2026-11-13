@@ -1,0 +1,36 @@
+        <label class="web-only web-monitor-only">
+          <span data-web-label="应用协议" data-api-label="接口协议">应用协议</span>
+          <select name="web_scheme">
+            <option value="https">HTTPS 应用</option>
+            <option value="http">HTTP 应用</option>
+          </select>
+        </label>
+
+        <label class="web-only web-monitor-only">
+          <span data-web-label="URL" data-api-label="接口地址">URL</span>
+          <input name="url" type="text" inputmode="url" placeholder="example.com/health 或 https://example.com/health" data-web-placeholder="example.com/health 或 https://example.com/health" data-api-placeholder="api.example.com/v1/health 或 https://api.example.com/v1/health">
+        </label>
+
+        <label class="web-only web-monitor-only">
+          <span data-web-label="HTTP 方法" data-api-label="请求方法">HTTP 方法</span>
+          <select name="http_method">
+            <option value="GET">GET</option>
+            <option value="HEAD">HEAD</option>
+            <option value="POST">POST</option>
+          </select>
+        </label>
+
+        <label class="web-only web-monitor-only">
+          <span data-web-label="状态码校验" data-api-label="接口状态码校验">状态码校验</span>
+          <input name="expected_status_code" type="number" min="100" max="599" placeholder="默认 2xx/3xx">
+        </label>
+
+        <label class="web-only web-monitor-only span-2">
+          <span data-web-label="关键字检测" data-api-label="响应关键字检测">关键字检测</span>
+          <input name="response_keyword" placeholder="例如：login success" data-web-placeholder="例如：login success" data-api-placeholder="例如：success、token、业务字段值">
+        </label>
+
+        <label class="switch-row web-only web-monitor-only span-2">
+          <input name="ignore_ssl_verification" type="checkbox">
+          <span>忽略 HTTPS 证书验证（自签名）</span>
+        </label>

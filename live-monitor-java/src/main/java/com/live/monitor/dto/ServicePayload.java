@@ -1,9 +1,11 @@
 package com.live.monitor.dto;
 
+import java.util.List;
 import java.util.Map;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 
 public class ServicePayload {
     @NotBlank
@@ -12,6 +14,8 @@ public class ServicePayload {
     @NotBlank
     public String serviceType;
     public String clusterName;
+    @Size(max = 1000)
+    public String monitorReason;
     public String endpoint;
     public String host;
     @Min(1)
@@ -23,6 +27,20 @@ public class ServicePayload {
     @Max(599)
     public Integer expectedStatusCode;
     public String responseKeyword;
+    public String apiAssertionExpression;
+    public List<Map<String, String>> apiHeaders;
+    public String apiContentType;
+    public String apiRequestBody;
+    public String apiAuthType = "none";
+    public String apiBasicUsername;
+    public String apiBasicPassword;
+    public String apiBearerToken;
+    public String apiAuthAppId;
+    public String apiAuthAppSecret;
+    public Integer apiResponseTimeMs;
+    public String apiJsonAssertions;
+    public String apiTextAssertionMode = "contains";
+    public String apiTextAssertionValue;
     public Boolean ignoreSslVerification = false;
     public String checkMode;
     public String checkCommand;
@@ -48,14 +66,55 @@ public class ServicePayload {
     public String databaseName;
     public String databaseUsername;
     public String databasePassword;
+    public Long databaseConnectionServiceId;
     public String databaseQuery;
+    public String databaseResultOperator = "fuzzy";
+    public List<String> databaseAssertionFields;
+    public List<CrossDatabaseQueryPayload> crossDatabaseQueries;
+    public String jdbcDriverClass;
+    public String jdbcUrl;
+    public List<String> dataSendSelectedColumns;
+    public Map<String, String> dataSendColumnAliases;
+    public String dataSendTitle;
+    public Integer dataSendMaxRows;
     @Min(1)
     @Max(31536000)
     public Integer checkInterval = 60;
     @Min(1)
     public Integer checkIntervalValue;
     public String checkIntervalUnit = "seconds";
+    public Boolean serviceAlertEnabled = true;
+    @Min(1)
+    @Max(1000)
+    public Integer serviceConsecutiveFailures = 3;
+    @Min(1)
+    @Max(1000)
+    public Integer serviceRecoverSuccesses = 2;
+    @Min(0)
+    @Max(31536000)
+    public Integer serviceAlertCooldownSeconds = 600;
+    public Boolean unknownAlertEnabled = true;
+    @javax.validation.constraints.Min(1)
+    @javax.validation.constraints.Max(1000)
+    public Integer unknownConsecutiveFailures = 1;
+    @javax.validation.constraints.Min(0)
+    @javax.validation.constraints.Max(31536000)
+    public Integer alertRepeatIntervalSeconds = 0;
     public Long alertConfigId;
     public Long alertGroupId;
+    /**
+     * All alert groups the service should be bound to. When present, this is the
+     * source of truth; {@link #alertGroupId} is kept for backward compatibility with
+     * older clients and is treated as the primary group.
+     */
+    public List<Long> alertGroupIds;
     public Boolean enabled = true;
+
+    public static class CrossDatabaseQueryPayload {
+        public Long sourceServiceId;
+        public String alias;
+        public String databaseQuery;
+        public List<String> assertionFields;
+        public Map<String, String> fieldMapping;
+    }
 }

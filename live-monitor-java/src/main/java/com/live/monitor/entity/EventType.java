@@ -1,0 +1,16 @@
+package com.live.monitor.entity;
+
+public enum EventType {
+    SERVICE_DOWN,
+    SERVICE_RECOVERED,
+    HOST_CPU_HIGH,
+    HOST_MEMORY_HIGH,
+    HOST_DISK_HIGH,
+    API_TIMEOUT,
+    API_STATUS_ERROR,
+    DB_CONNECT_FAIL,
+    DB_ASSERT_FAIL,
+    METRIC_FLUCTUATION,
+    MANUAL_CONFIRM,
+    ALERT_SENT
+}

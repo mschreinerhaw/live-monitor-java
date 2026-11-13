@@ -1,29 +1,49 @@
+const externalMessageAuditState = { page: 1, pageSize: 20, totalPages: 0 };
+const externalProjectState = { items: [], editingId: null, query: "" };
+
 async function initAlertSettings() {
   const layout = document.getElementById('alertSettingsLayout');
   const bindingBtn = document.getElementById('showBindingTestBtn');
   const configBtn = document.getElementById('showAlertConfigBtn');
+  const projectBtn = document.getElementById('showExternalProjectBtn');
   const newAlertBtn = document.getElementById('newAlertGroupBtn');
-  const modal = document.getElementById("alertConfigModal");
-  const bindingModal = document.getElementById("alertBindingModal");
 
   function switchAlertPage(mode) {
     const isConfig = mode === 'config';
+    const isProject = mode === 'project';
+    const isBinding = !isConfig && !isProject;
     if (layout) {
       layout.classList.toggle('config-mode', isConfig);
-      layout.classList.toggle('binding-mode', !isConfig);
+      layout.classList.toggle('project-mode', isProject);
+      layout.classList.toggle('binding-mode', isBinding);
     }
     if (bindingBtn) {
-      bindingBtn.classList.toggle('active', !isConfig);
-      bindingBtn.setAttribute('aria-selected', String(!isConfig));
+      bindingBtn.classList.toggle('active', isBinding);
+      bindingBtn.setAttribute('aria-selected', String(isBinding));
     }
     if (configBtn) {
       configBtn.classList.toggle('active', isConfig);
       configBtn.setAttribute('aria-selected', String(isConfig));
     }
+    if (projectBtn) {
+      projectBtn.classList.toggle('active', isProject);
+      projectBtn.setAttribute('aria-selected', String(isProject));
+    }
+    const title = document.getElementById("alertSettingsHeroTitle");
+    const subtitle = document.getElementById("alertSettingsHeroSubtitle");
+    const copy = isProject
+      ? ["外部项目通道", "通过项目关键字匹配外部消息，并绑定对应的告警组和发送对象"]
+      : isConfig
+        ? ["告警配置", "维护告警通道、接收对象和触发策略"]
+        : ["服务绑定与测试", "管理监控服务与告警规则的绑定关系，并进行告警测试"];
+    if (title) title.textContent = copy[0];
+    if (subtitle) subtitle.textContent = copy[1];
+    if (isProject) loadExternalProjects();
   }
 
   bindingBtn?.addEventListener('click', () => switchAlertPage('binding'));
   configBtn?.addEventListener('click', () => switchAlertPage('config'));
+  projectBtn?.addEventListener('click', () => switchAlertPage('project'));
   newAlertBtn?.addEventListener('click', () => {
     switchAlertPage('config');
     openAlertConfigModal(null);
@@ -66,12 +86,36 @@ async function initAlertSettings() {
   document.getElementById("alertGroupList")?.addEventListener("click", handleAlertGroupListClick);
   document.getElementById("alertSettingsTable")?.addEventListener("click", handleAlertSettingsTableClick);
   document.getElementById("alertSettingsTable")?.addEventListener("change", handleAlertSettingsTableChange);
-  modal?.addEventListener("click", (event) => {
-    if (event.target === modal) closeAlertConfigModal();
+  document.getElementById("closeExternalMessageModalBtn")?.addEventListener("click", closeExternalMessageModal);
+  document.getElementById("externalMessageToggleBtn")?.addEventListener("click", () => toggleExternalMessageService());
+  document.getElementById("copyExternalMessageExampleBtn")?.addEventListener("click", copyExternalMessageExample);
+  document.getElementById("reloadExternalMessageAuditBtn")?.addEventListener("click", () => loadExternalMessageAudit());
+  document.getElementById("externalMessageAuditPrevBtn")?.addEventListener("click", () => {
+    if (externalMessageAuditState.page <= 1) return;
+    externalMessageAuditState.page -= 1;
+    loadExternalMessageAudit();
   });
-  bindingModal?.addEventListener("click", (event) => {
-    if (event.target === bindingModal) closeServiceBindingModal();
+  document.getElementById("externalMessageAuditNextBtn")?.addEventListener("click", () => {
+    if (externalMessageAuditState.page >= externalMessageAuditState.totalPages) return;
+    externalMessageAuditState.page += 1;
+    loadExternalMessageAudit();
   });
+  document.getElementById("externalMessageAuditPageSize")?.addEventListener("change", (event) => {
+    externalMessageAuditState.pageSize = Number(event.target.value) || 20;
+    externalMessageAuditState.page = 1;
+    loadExternalMessageAudit();
+  });
+  document.getElementById("newExternalProjectBtn")?.addEventListener("click", () => openExternalProjectModal());
+  document.getElementById("closeExternalProjectModalBtn")?.addEventListener("click", closeExternalProjectModal);
+  document.getElementById("cancelExternalProjectBtn")?.addEventListener("click", closeExternalProjectModal);
+  document.getElementById("externalProjectForm")?.addEventListener("submit", submitExternalProject);
+  document.getElementById("externalProjectTableBody")?.addEventListener("click", handleExternalProjectTableClick);
+  document.getElementById("externalProjectSearchInput")?.addEventListener("input", (event) => {
+    externalProjectState.query = event.target.value.trim().toLowerCase();
+    renderExternalProjects();
+  });
+  document.getElementById("externalProjectGroupOptions")?.addEventListener("change", updateExternalProjectGroupSummary);
+  // Modals intentionally do NOT close on backdrop click — only close/cancel buttons close them.
   document.getElementById("closeAlertBindingModalBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("cancelAlertBindingBtn")?.addEventListener("click", closeServiceBindingModal);
   document.getElementById("alertBindingServiceSelect")?.addEventListener("change", () => {
@@ -79,11 +123,21 @@ async function initAlertSettings() {
     syncServiceBindingScheduleFromService();
     renderServiceBindingPreview();
   });
-  document.getElementById("alertBindingGroupSelect")?.addEventListener("change", renderServiceBindingPreview);
+  document.getElementById("alertBindingGroupOptions")?.addEventListener("change", () => {
+    updateAlertBindingGroupSummary();
+    renderServiceBindingPreview();
+  });
+  document.addEventListener("click", (event) => {
+    const picker = document.getElementById("alertBindingGroupPicker");
+    if (picker?.open && !event.target.closest("#alertBindingGroupPicker")) picker.open = false;
+    const projectPicker = document.getElementById("externalProjectGroupPicker");
+    if (projectPicker?.open && !event.target.closest("#externalProjectGroupPicker")) projectPicker.open = false;
+  });
   document.getElementById("alertBindingIntervalValue")?.addEventListener("input", renderServiceBindingPreview);
   document.getElementById("alertBindingIntervalUnit")?.addEventListener("change", renderServiceBindingPreview);
   document.getElementById("alertBindingForm")?.addEventListener("submit", submitServiceBindingForm);
   document.getElementById("alertChannelTypeSelect")?.addEventListener("change", syncChannelInputs);
+  document.getElementById("alertProxyTypeInput")?.addEventListener("change", syncAlertProxyInputs);
   setupRecipientList({
     hiddenId: "alertMobileInput",
     inputId: "alertMobileRecipientInput",
@@ -171,8 +225,8 @@ async function initAlertSettings() {
       emptyText: "暂无 @ 手机号",
     });
     const channelPayload = buildAlertChannelPayload();
-    if (findAlertConfigByType(channelPayload.channel_type, alertSettingsState.selectedGroupId)) {
-      showToast("相同类型的告警配置已存在，请直接修改已有记录");
+    if (findAlertConfigByName(groupName, alertSettingsState.selectedGroupId)) {
+      showToast("告警配置名称已存在，请使用其他名称");
       return;
     }
     if (channelPayload.channel_type === "email" && !channelPayload.alert_email) {
@@ -199,8 +253,16 @@ async function initAlertSettings() {
       showToast("请输入手机号接收");
       return;
     }
-    if (["wecom", "dingtalk"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
-      showToast("请输入机器人 Webhook 地址");
+    if (["wecom", "dingtalk", "http"].includes(channelPayload.channel_type) && !channelPayload.webhook_url) {
+      showToast(channelPayload.channel_type === "http" ? "请输入 HTTP 告警 URL" : "请输入机器人 Webhook 地址");
+      return;
+    }
+    if (channelPayload.proxy_type !== "none" && (!channelPayload.proxy_host || !channelPayload.proxy_port)) {
+      showToast("请输入代理 IP 和端口");
+      return;
+    }
+    if (channelPayload.channel_type === "email" && channelPayload.proxy_type === "http") {
+      showToast("邮件发送仅支持 SOCKS5 代理");
       return;
     }
 
@@ -278,13 +340,17 @@ function renderAlertGroups() {
   list.innerHTML = alertSettingsState.groups.map((group) => {
     const channel = groupPrimaryChannel(group);
     const testBusy = isAlertConfigTestBusy(group.id);
+    const relationCount = Number(group.service_count || 0) + Number(group.external_project_count || 0);
+    const relationText = group.external_project_count
+      ? `${group.service_count || 0} 个服务 / ${group.external_project_count} 个项目`
+      : `${group.service_count || 0} 个服务`;
     return `
     <tr class="clickable-row" data-alert-group-id="${group.id}">
       <td>${renderChannelTypePill(groupAlertType(group))}</td>
       <td><strong>${escapeHtml(group.group_name)}</strong></td>
       <td class="wrap-cell">${escapeHtml(channelRecipientText(groupPrimaryChannel(group) || {}))}</td>
       <td class="wrap-cell">${escapeHtml(groupPolicyText(group))}</td>
-      <td>${group.service_count || 0} 个服务</td>
+      <td>${relationText}</td>
       <td>${group.enabled ? '<span class="state-pill enabled">启用</span>' : '<span class="state-pill disabled">停用</span>'}</td>
       <td class="actions-column">
         <div class="row-actions compact">
@@ -292,7 +358,7 @@ function renderAlertGroups() {
             <i data-lucide="${testBusy ? "loader-circle" : "send"}"></i>
           </button>
           <button class="icon-button" type="button" title="编辑" data-alert-edit-id="${group.id}"><i data-lucide="pencil"></i></button>
-          <button class="icon-button" type="button" title="${group.service_count ? "有关联服务，不允许删" : "删除"}" ${group.service_count ? "disabled" : ""} data-alert-delete-id="${group.id}"><i data-lucide="trash-2"></i></button>
+          <button class="icon-button" type="button" title="${relationCount ? "有关联服务或项目，不允许删除" : "删除"}" ${relationCount ? "disabled" : ""} data-alert-delete-id="${group.id}"><i data-lucide="trash-2"></i></button>
         </div>
       </td>
     </tr>
@@ -372,9 +438,10 @@ function openServiceBindingModal(serviceIds = []) {
 }
 
 function closeServiceBindingModal() {
-  const modal = document.getElementById("alertBindingModal");
-  if (modal) modal.hidden = true;
-  alertSettingsState.bindingServiceIds = [];
+    const modal = document.getElementById("alertBindingModal");
+    if (modal) modal.hidden = true;
+    document.getElementById("alertBindingGroupPicker")?.removeAttribute("open");
+    alertSettingsState.bindingServiceIds = [];
 }
 
 function renderServiceBindingServiceOptions(selectedIds = []) {
@@ -413,16 +480,70 @@ function renderServiceBindingServiceOptions(selectedIds = []) {
 }
 
 function renderServiceBindingGroupOptions(selectedIds = []) {
-  const select = document.getElementById("alertBindingGroupSelect");
-  if (!select) return;
+  const options = document.getElementById("alertBindingGroupOptions");
+  if (!options) return;
   const selectedServices = selectedIds.length
     ? selectedIds.map((id) => alertSettingsState.services.find((service) => Number(service.id) === Number(id))).filter(Boolean)
     : [];
-  const commonGroupId = selectedServices.length
-    && selectedServices.every((service) => Number(service.alert_group_id || 0) === Number(selectedServices[0].alert_group_id || 0))
-      ? selectedServices[0].alert_group_id || ""
-      : "";
-  select.innerHTML = renderAlertGroupSelectOptions(commonGroupId);
+  const firstGroupIds = selectedServices.length ? serviceAlertGroupIds(selectedServices[0]) : [];
+  const commonGroupIds = selectedServices.length
+    && selectedServices.every((service) => sameIds(serviceAlertGroupIds(service), firstGroupIds))
+      ? firstGroupIds
+      : [];
+  const selected = new Set(commonGroupIds.map(Number));
+  options.innerHTML = alertSettingsState.groups.length
+    ? alertSettingsState.groups.map((group) => `
+      <label class="alert-binding-group-option">
+        <input type="checkbox" value="${group.id}" ${selected.has(Number(group.id)) ? "checked" : ""}>
+        <span>${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停用"}</span>
+      </label>
+    `).join("")
+    : '<p class="alert-binding-group-empty">暂无告警组</p>';
+  updateAlertBindingGroupSummary();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function serviceAlertGroupIds(service) {
+  if (Array.isArray(service?.alert_group_ids)) {
+    return service.alert_group_ids.map(Number).filter(Boolean);
+  }
+  return service?.alert_group_id ? [Number(service.alert_group_id)] : [];
+}
+
+function sameIds(left, right) {
+  const leftIds = [...left].sort((a, b) => a - b);
+  const rightIds = [...right].sort((a, b) => a - b);
+  return leftIds.length === rightIds.length && leftIds.every((id, index) => id === rightIds[index]);
+}
+
+function setSelectedAlertGroups(container, groupIds) {
+  const selected = new Set(groupIds.map(Number));
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = selected.has(Number(input.value));
+  });
+  updateAlertBindingGroupSummary();
+}
+
+function selectedAlertGroupIds() {
+  return Array.from(document.querySelectorAll('#alertBindingGroupOptions input[type="checkbox"]:checked'))
+    .map((input) => Number(input.value))
+    .filter(Boolean);
+}
+
+function updateAlertBindingGroupSummary() {
+  const summary = document.getElementById("alertBindingGroupSummary");
+  if (!summary) return;
+  const ids = selectedAlertGroupIds();
+  if (!ids.length) {
+    summary.textContent = "不绑定告警";
+    return;
+  }
+  const groups = ids
+    .map((id) => alertSettingsState.groups.find((group) => Number(group.id) === id))
+    .filter(Boolean);
+  summary.textContent = ids.length === 1
+    ? (groups[0]?.group_name || "已选 1 个告警组")
+    : `已选 ${ids.length} 个告警组`;
 }
 
 function selectedBindingServices() {
@@ -438,9 +559,9 @@ function selectedBindingServices() {
 
 function syncServiceBindingGroupFromService() {
   if (alertSettingsState.bindingServiceIds.length) return;
-  const groupSelect = document.getElementById("alertBindingGroupSelect");
+  const groupSelect = document.getElementById("alertBindingGroupOptions");
   const service = selectedBindingServices()[0];
-  if (groupSelect && service) groupSelect.value = service.alert_group_id || "";
+  if (groupSelect && service) setSelectedAlertGroups(groupSelect, serviceAlertGroupIds(service));
 }
 
 function syncServiceBindingScheduleFromService() {
@@ -472,8 +593,10 @@ function renderServiceBindingPreview() {
   const preview = document.getElementById("alertBindingPreview");
   if (!preview) return;
   const services = selectedBindingServices();
-  const groupId = document.getElementById("alertBindingGroupSelect")?.value || "";
-  const group = groupId ? alertSettingsState.groups.find((item) => Number(item.id) === Number(groupId)) : null;
+  const groupIds = selectedAlertGroupIds();
+  const groups = groupIds
+    .map((id) => alertSettingsState.groups.find((item) => Number(item.id) === id))
+    .filter(Boolean);
   const intervalValue = document.getElementById("alertBindingIntervalValue")?.value || 1;
   const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
   const intervalText = formatCheckInterval(intervalToSeconds(intervalValue, intervalUnit));
@@ -481,10 +604,10 @@ function renderServiceBindingPreview() {
     ? services[0].service_name
     : (services.length ? `${services.length} 个服务` : "未选择服务");
   preview.innerHTML = `
-    <span class="recipient-icon"><i data-lucide="${group ? channelIcon(groupAlertType(group)) : "bell-off"}"></i></span>
+    <span class="recipient-icon"><i data-lucide="${groups.length ? channelIcon(groupAlertType(groups[0])) : "bell-off"}"></i></span>
     <span>
       <strong>${escapeHtml(serviceText)}</strong>
-      <small>${group ? `${escapeHtml(group.group_name)} / ${escapeHtml(groupPolicyText(group))}` : "保存后将取消告警绑定"} / ${escapeHtml(intervalText)}</small>
+      <small>${groups.length ? escapeHtml(groups.map((group) => group.group_name).join("、")) : "保存后将取消告警绑定"} / ${escapeHtml(intervalText)}</small>
     </span>
   `;
   if (window.lucide) window.lucide.createIcons();
@@ -497,24 +620,24 @@ async function submitServiceBindingForm(event) {
     showToast("请选择服务");
     return;
   }
-  const groupValue = document.getElementById("alertBindingGroupSelect")?.value || "";
+  const groupIds = selectedAlertGroupIds();
   const intervalValue = Number(document.getElementById("alertBindingIntervalValue")?.value || 1);
   const intervalUnit = document.getElementById("alertBindingIntervalUnit")?.value || "minutes";
   try {
-    const updatedServices = await Promise.all(services.map((service) =>
-      LiveMonitorApi.updateAlertSettings(service.id, {
-        alert_group_id: groupValue ? Number(groupValue) : null,
+    const updatedServices = await Promise.all(services.map(async (service) => {
+      await LiveMonitorApi.updateServiceAlertGroup(service.id, { alert_group_ids: groupIds });
+      return LiveMonitorApi.updateAlertSettings(service.id, {
         check_interval_value: intervalValue,
         check_interval_unit: intervalUnit,
         check_interval: intervalToSeconds(intervalValue, intervalUnit),
-      })
-    ));
+      });
+    }));
     alertSettingsState.services = alertSettingsState.services.map((service) =>
       updatedServices.find((item) => Number(item.id) === Number(service.id)) || service
     );
     await loadAlertSettings();
     closeServiceBindingModal();
-    showToast(groupValue ? "服务告警绑定已保" : "服务告警绑定已取");
+    showToast(groupIds.length ? "服务告警绑定已保存" : "服务告警绑定已取消");
   } catch (error) {
     showToast(error.message);
   }
@@ -552,27 +675,23 @@ function groupAlertType(group) {
   return groupPrimaryChannel(group)?.channel_type || "";
 }
 
-function findAlertConfigByType(type, exceptGroupId) {
+function findAlertConfigByName(name, exceptGroupId) {
+  const normalizedName = String(name || "").trim().toLowerCase();
+  if (!normalizedName) return null;
   return alertSettingsState.groups.find((group) =>
-    groupAlertType(group) === type && Number(group.id) !== Number(exceptGroupId || 0)
+    String(group.group_name || "").trim().toLowerCase() === normalizedName
+      && Number(group.id) !== Number(exceptGroupId || 0)
   );
 }
 
 function updateAlertTypeOptions(currentType) {
   const select = document.getElementById("alertChannelTypeSelect");
   if (!select) return;
-  const usedTypes = new Set(
-    alertSettingsState.groups
-      .filter((group) => Number(group.id) !== Number(alertSettingsState.selectedGroupId || 0))
-      .map(groupAlertType)
-      .filter(Boolean)
-  );
   Array.from(select.options).forEach((option) => {
-    option.disabled = usedTypes.has(option.value) && option.value !== currentType;
+    option.disabled = false;
   });
-  if (select.selectedOptions[0]?.disabled) {
-    const nextOption = Array.from(select.options).find((option) => !option.disabled);
-    if (nextOption) select.value = nextOption.value;
+  if (currentType) {
+    select.value = currentType;
   }
   syncChannelInputs();
 }
@@ -677,11 +796,11 @@ function policyDisplayName(policy) {
 }
 
 function channelTypeLabel(type) {
-  return { email: "邮件", sms: "短信", webhook: "Webhook", wecom: "企业微信", dingtalk: "钉钉" }[type] || type || "渠道";
+  return { email: "邮件", sms: "短信", webhook: "Webhook", wecom: "企业微信", dingtalk: "钉钉", http: "HTTP 告警" }[type] || type || "渠道";
 }
 
 function channelIcon(type) {
-  return { email: "mail", sms: "message-square", webhook: "webhook", wecom: "messages-square", dingtalk: "bot" }[type] || "send";
+  return { email: "mail", sms: "message-square", webhook: "webhook", wecom: "messages-square", dingtalk: "bot", http: "cloud-cog" }[type] || "send";
 }
 
 function channelRecipientText(channel) {
@@ -867,7 +986,10 @@ function fillAlertChannelForm(channel) {
   setCheckedIfExists("smtpTlsInput", Boolean(channel?.smtp_use_tls));
   setCheckedIfExists("smtpSslInput", Boolean(channel?.smtp_use_ssl) || Number(channel?.smtp_port || 0) === 465);
   setValueIfExists("smtpSslTrustInput", channel?.smtp_ssl_trust || "");
-  setValueIfExists("smsApiUrlInput", channel?.webhook_url || channel?.sms_api_url || "");
+  const smsApiUrls = Array.isArray(channel?.sms_api_urls) && channel.sms_api_urls.length
+    ? channel.sms_api_urls
+    : [channel?.sms_api_url].filter(Boolean);
+  setValueIfExists("smsApiUrlInput", smsApiUrls.join("\n"));
   setValueIfExists("smsApiTokenInput", "");
   setValueIfExists("smsUsernameInput", channel?.sms_username || "");
   setValueIfExists("smsPasswordInput", "");
@@ -883,7 +1005,41 @@ function fillAlertChannelForm(channel) {
   setValueIfExists("dingtalkSecretInput", "");
   setRecipientListValue("dingtalkAtMobileInput", "dingtalkAtMobileList", "dingtalkAtMobileRecipientInput", channel?.dingtalk_at_mobiles || "");
   setCheckedIfExists("dingtalkAtAllInput", Boolean(channel?.dingtalk_at_all));
+  setValueIfExists("httpWebhookUrlInput", channel?.webhook_url || "");
+  setValueIfExists("httpMethodInput", channel?.http_method || "POST");
+  setValueIfExists("httpHeadersInput", channel?.http_headers || '{"Content-Type":"application/json"}');
+  setValueIfExists("httpBodyInput", channel?.http_body || '{\n  "msgtype": "text",\n  "text": {\n    "content": "${message}"\n  }\n}');
+  setValueIfExists("alertProxyTypeInput", channel?.proxy_type || "none");
+  setValueIfExists("alertProxyHostInput", channel?.proxy_host || "");
+  setValueIfExists("alertProxyPortInput", channel?.proxy_port || "");
+  setValueIfExists("alertProxyUsernameInput", channel?.proxy_username || "");
+  setValueIfExists("alertProxyPasswordInput", "");
+  document.getElementById("alertProxySection")?.removeAttribute("open");
+  syncAlertProxyInputs();
   syncChannelInputs();
+}
+
+function syncAlertProxyInputs() {
+  const type = document.getElementById("alertProxyTypeInput")?.value || "none";
+  const fields = document.getElementById("alertProxyFields");
+  const authFields = document.getElementById("alertHttpProxyAuthFields");
+  const hint = document.getElementById("alertProxyHint");
+  const summary = document.getElementById("alertProxySummaryText");
+  if (fields) fields.hidden = type === "none";
+  if (authFields) authFields.hidden = type !== "http";
+  if (summary) {
+    const host = document.getElementById("alertProxyHostInput")?.value.trim();
+    const port = document.getElementById("alertProxyPortInput")?.value;
+    const endpoint = host ? ` · ${host}${port ? `:${port}` : ""}` : "";
+    summary.textContent = type === "http"
+      ? `HTTP 代理${endpoint}`
+      : type === "socks5" ? `SOCKS5 代理${endpoint}` : "不使用代理";
+  }
+  if (hint) {
+    hint.textContent = type === "socks5"
+      ? "SOCKS5 可用于短信、机器人、HTTP 和邮件告警；当前仅支持无需认证的 SOCKS5 代理。"
+      : "HTTP 代理适用于短信、企业微信、钉钉和 HTTP 告警；邮件请使用 SOCKS5。";
+  }
 }
 
 function syncChannelInputs() {
@@ -913,7 +1069,12 @@ function buildAlertChannelPayload() {
 
   const channelType = channelTypeSelect.value;
   const smtpPort = getValueIfExists("smtpPortInput");
+  const proxyType = getValueIfExists("alertProxyTypeInput") || "none";
+  const proxyPort = getValueIfExists("alertProxyPortInput");
   const apiUrl = getWebhookUrlForType(channelType, getValueIfExists);
+  const smsApiUrls = channelType === "sms"
+    ? Array.from(new Set(apiUrl.split(/\r?\n/).map((url) => url.trim()).filter(Boolean)))
+    : [];
   const groupName = getValueIfExists("alertGroupNameInput");
   return {
     channel_name: groupName ? `${groupName}通知` : `${channelTypeLabel(channelType)}通知`,
@@ -930,7 +1091,8 @@ function buildAlertChannelPayload() {
     smtp_use_tls: channelType === "email" ? getCheckedIfExists("smtpTlsInput") : false,
     smtp_use_ssl: channelType === "email" ? getCheckedIfExists("smtpSslInput") : false,
     smtp_ssl_trust: channelType === "email" ? getValueIfExists("smtpSslTrustInput") || null : null,
-    sms_api_url: channelType === "sms" ? apiUrl || null : null,
+    sms_api_url: channelType === "sms" ? smsApiUrls[0] || null : null,
+    sms_api_urls: channelType === "sms" ? smsApiUrls : null,
     sms_api_token: channelType === "sms" ? getValueIfExists("smsApiTokenInput") || null : null,
     sms_username: channelType === "sms" ? getValueIfExists("smsUsernameInput") || null : null,
     sms_password: channelType === "sms" ? getValueIfExists("smsPasswordInput") || null : null,
@@ -938,13 +1100,21 @@ function buildAlertChannelPayload() {
     sms_password_md5: channelType === "sms" ? getValueIfExists("smsPasswordMd5Input") || null : null,
     sms_rstype: channelType === "sms" ? getValueIfExists("smsRstypeInput") || "text" : "text",
     sms_ext_code: channelType === "sms" ? getValueIfExists("smsExtCodeInput") || null : null,
-    webhook_url: ["webhook", "wecom", "dingtalk"].includes(channelType) ? apiUrl || null : null,
+    webhook_url: ["webhook", "wecom", "dingtalk", "http"].includes(channelType) ? apiUrl || null : null,
+    http_method: channelType === "http" ? getValueIfExists("httpMethodInput") || "POST" : "POST",
+    http_headers: channelType === "http" ? getValueIfExists("httpHeadersInput") || null : null,
+    http_body: channelType === "http" ? getValueIfExists("httpBodyInput") || null : null,
     dingtalk_secret: channelType === "dingtalk" ? getValueIfExists("dingtalkSecretInput") || null : null,
     dingtalk_at_mobiles: channelType === "dingtalk" ? getValueIfExists("dingtalkAtMobileInput") || null : null,
     dingtalk_at_all: channelType === "dingtalk" ? getCheckedIfExists("dingtalkAtAllInput") : false,
     wecom_mentioned_list: channelType === "wecom" ? getValueIfExists("wecomMentionedListInput") || null : null,
     wecom_mentioned_mobiles: channelType === "wecom" ? getValueIfExists("wecomMentionedMobileInput") || null : null,
     wecom_at_all: channelType === "wecom" ? getCheckedIfExists("wecomAtAllInput") : false,
+    proxy_type: proxyType,
+    proxy_host: proxyType !== "none" ? getValueIfExists("alertProxyHostInput") || null : null,
+    proxy_port: proxyType !== "none" && proxyPort ? Number(proxyPort) : null,
+    proxy_username: proxyType === "http" ? getValueIfExists("alertProxyUsernameInput") || null : null,
+    proxy_password: proxyType === "http" ? getValueIfExists("alertProxyPasswordInput") || null : null,
     enabled: getCheckedIfExists("alertGroupEnabledInput"),
   };
 }
@@ -952,6 +1122,7 @@ function buildAlertChannelPayload() {
 function getWebhookUrlForType(channelType, getValue) {
   if (channelType === "wecom") return getValue("wecomWebhookUrlInput");
   if (channelType === "dingtalk") return getValue("dingtalkWebhookUrlInput");
+  if (channelType === "http") return getValue("httpWebhookUrlInput");
   return getValue("smsApiUrlInput");
 }
 
@@ -1037,6 +1208,7 @@ function renderAlertServiceTypeFilter() {
   const current = alertSettingsState.filters.serviceType || "all";
   const types = Array.from(new Set(alertSettingsState.services.map((service) => serviceTypeGroup(service.service_type))));
   const labels = {
+    api: "API 接口",
     interface: "接口服务",
     database: "数据",
     middleware: "中间",
@@ -1070,10 +1242,14 @@ function renderAlertSettingsTable() {
 
   tbody.innerHTML = filteredServices.map((service) => {
     const testBusy = isAlertActionBusy(service.id, "test");
-    const group = alertGroupForService(service);
+    const groups = alertGroupsForService(service);
     const lastAlert = lastServiceAlert(service);
     const notifyState = alertDeliveryState(lastAlert);
-    const bindingStatus = alertBindingStatus(service, group);
+    const bindingStatus = alertBindingStatus(service, groups);
+    const isExternalMessage = service.service_type === "external_message";
+    const displayedStatus = isExternalMessage
+      ? { text: service.enabled ? "接口启用" : "接口禁用", className: service.enabled ? "enabled" : "danger" }
+      : bindingStatus;
     return `
     <tr>
       <td class="select-column"><input type="checkbox" data-alert-row-check="${service.id}" aria-label="选择 ${escapeHtml(service.service_name)}"></td>
@@ -1084,13 +1260,11 @@ function renderAlertSettingsTable() {
         </span>
       </td>
       <td>${renderAlertServiceTypeTag(service.service_type)}</td>
-      <td><span class="state-pill ${bindingStatus.className}">${bindingStatus.text}</span></td>
+      <td><span class="state-pill ${displayedStatus.className}">${displayedStatus.text}</span></td>
       <td>
         <div class="alert-binding-rule-cell">
-          <select class="alert-binding-select ${service.alert_group_id ? "bound" : ""}" data-service-alert-group-id="${service.id}" aria-label="设置 ${escapeHtml(service.service_name)} 的告警绑">
-            ${renderAlertGroupSelectOptions(service.alert_group_id)}
-          </select>
-          <small>${alertRuleText(group)}</small>
+          ${renderServiceAlertGroupPicker(service, groups)}
+          <small>${alertRuleText(groups)}</small>
         </div>
       </td>
       <td>${formatCheckInterval(service.check_interval)}</td>
@@ -1106,6 +1280,10 @@ function renderAlertSettingsTable() {
             <i data-lucide="bell"></i>
             <span>告警记录</span>
           </button>
+          ${isExternalMessage ? `
+          <button class="icon-button alert-row-button alert-more-button" type="button" title="更多操作" data-external-message-more="${service.id}">
+            <i data-lucide="ellipsis"></i><span>更多</span>
+          </button>` : ""}
           <button class="icon-button alert-row-menu" type="button" title="编辑绑定" data-alert-bind="${service.id}">
             <i data-lucide="link"></i>
           </button>
@@ -1120,14 +1298,15 @@ function renderAlertSettingsTable() {
 
 function filteredAlertServices() {
   return alertSettingsState.services.filter((service) => {
-    const group = alertGroupForService(service);
+    const groups = alertGroupsForService(service);
+    const hasGroups = serviceAlertGroupIds(service).length > 0;
     const status = alertSettingsState.filters.status || "all";
     const type = alertSettingsState.filters.serviceType || "all";
     const query = alertSettingsState.filters.query || "";
-    if (status === "bound" && !service.alert_group_id) return false;
-    if (status === "unbound" && service.alert_group_id) return false;
-    if (status === "enabled" && !group?.enabled) return false;
-    if (status === "disabled" && (!group || group.enabled)) return false;
+    if (status === "bound" && !hasGroups) return false;
+    if (status === "unbound" && hasGroups) return false;
+    if (status === "enabled" && !groups.some((group) => group.enabled)) return false;
+    if (status === "disabled" && (!hasGroups || groups.some((group) => group.enabled))) return false;
     if (type !== "all" && serviceTypeGroup(service.service_type) !== type) return false;
     if (query) {
       const haystack = [
@@ -1144,24 +1323,26 @@ function filteredAlertServices() {
   });
 }
 
-function alertGroupForService(service) {
-  return alertSettingsState.groups.find((group) => Number(group.id) === Number(service.alert_group_id)) || null;
+function alertGroupsForService(service) {
+  const ids = new Set(serviceAlertGroupIds(service));
+  return alertSettingsState.groups.filter((group) => ids.has(Number(group.id)));
 }
 
-function alertBindingStatus(service, group) {
-  if (!service.alert_group_id) return { text: "未绑", className: "disabled" };
-  if (!group) return { text: "配置缺失", className: "danger" };
-  return group.enabled
+function alertBindingStatus(service, groups) {
+  const ids = serviceAlertGroupIds(service);
+  if (!ids.length) return { text: "未绑", className: "disabled" };
+  if (groups.length !== ids.length) return { text: "配置缺失", className: "danger" };
+  return groups.some((group) => group.enabled)
     ? { text: "告警启用", className: "enabled" }
     : { text: "告警停用", className: "warning" };
 }
 
-function alertRuleText(group) {
-  if (!group) return "未绑";
-  const count = Array.isArray(group.policies) && group.policies.length
+function alertRuleText(groups) {
+  if (!groups.length) return "未绑";
+  const count = groups.reduce((total, group) => total + (Array.isArray(group.policies) && group.policies.length
     ? group.policies.length
-    : (group.policy_ids || []).length;
-  return count ? `${count} 条规则` : "未设置规";
+    : (group.policy_ids || []).length), 0);
+  return `${groups.length} 个告警组 · ${count} 条规则`;
 }
 
 function renderAlertServiceTypeTag(type) {
@@ -1177,7 +1358,9 @@ function renderAlertServiceTypeTag(type) {
 }
 
 function serviceTypeGroup(type) {
-  if (["mysql", "oracle", "postgresql", "postgres"].includes(type)) return "database";
+  if (type === "external_message") return "interface";
+  if (type === "api") return "api";
+  if (["mysql", "oracle", "postgresql", "postgres", "jdbc"].includes(type)) return "database";
   if (["redis", "zookeeper"].includes(type)) return "middleware";
   if (["host", "process"].includes(type)) return "host";
   if (["web", "http", "https", "nginx", "port", "tcp"].includes(type)) return "interface";
@@ -1320,6 +1503,54 @@ async function bindServiceAlertGroup(serviceId, value) {
   }
 }
 
+function renderServiceAlertGroupPicker(service, groups) {
+  const selectedIds = new Set(serviceAlertGroupIds(service));
+  const label = selectedIds.size === 0
+    ? "不绑定"
+    : selectedIds.size === 1
+      ? (groups[0]?.group_name || service.alert_group_names?.[0] || service.alert_group_name || "已选 1 个告警组")
+      : `已选 ${selectedIds.size} 个告警组`;
+  return `
+    <details class="alert-group-picker ${selectedIds.size ? "bound" : ""}">
+      <summary aria-label="设置 ${escapeHtml(service.service_name)} 的告警绑定">
+        <span>${escapeHtml(label)}</span>
+        <i data-lucide="chevron-down"></i>
+      </summary>
+      <div class="alert-group-picker-menu">
+        <div class="alert-group-picker-options">
+          ${alertSettingsState.groups.map((group) => `
+            <label>
+              <input type="checkbox" value="${group.id}" ${selectedIds.has(Number(group.id)) ? "checked" : ""}>
+              <span>${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停用"}</span>
+            </label>
+          `).join("") || '<p class="empty">暂无告警组</p>'}
+        </div>
+        <button type="button" data-save-alert-groups="${service.id}">保存</button>
+      </div>
+    </details>
+  `;
+}
+
+async function bindServiceAlertGroups(serviceId, groupIds) {
+  const saveButton = document.querySelector(`[data-save-alert-groups="${serviceId}"]`);
+  if (saveButton) saveButton.disabled = true;
+  try {
+    const updated = await LiveMonitorApi.updateServiceAlertGroup(serviceId, {
+      alert_group_ids: groupIds,
+    });
+    alertSettingsState.services = alertSettingsState.services.map((service) =>
+      Number(service.id) === Number(updated.id) ? updated : service
+    );
+    await loadAlertSettings();
+    showToast(groupIds.length ? "服务告警组已更新" : "服务告警绑定已取消");
+  } catch (error) {
+    showToast(error.message);
+    renderAlertSettingsTable();
+  } finally {
+    if (saveButton?.isConnected) saveButton.disabled = false;
+  }
+}
+
 async function testServiceAlert(serviceId) {
   setAlertActionBusy(serviceId, "check", true);
   setAlertActionResult(serviceId, {
@@ -1389,11 +1620,15 @@ async function sendTestAlert(serviceId) {
     const alertType = normalizeApiValue(record, "alert_type", "alertType") || "-";
     const alertContent = normalizeApiValue(record, "alert_content", "alertContent") || result?.error || "-";
     const createdAt = normalizeApiValue(record, "created_at", "createdAt");
+    const deliveryCount = Number(result?.delivery_count ?? result?.records?.length ?? (record ? 1 : 0));
+    const successCount = Number(result?.success_count ?? (result?.success ? deliveryCount : 0));
+    const failedCount = Number(result?.failed_count ?? Math.max(0, deliveryCount - successCount));
     setAlertActionResult(serviceId, {
       ok: Boolean(result?.success),
       title: result?.success ? "告警测试已发送" : "告警测试发送失败",
       details: [
         `发送状态：${alertStatus}`,
+        `投递汇总：成功 ${successCount}，失败 ${failedCount}，共 ${deliveryCount} 个通道`,
         `告警类型：${alertType}`,
         `内容：${alertContent}`,
         createdAt ? `时间：${formatTime(createdAt)}` : "",
@@ -1484,6 +1719,40 @@ function handleAlertGroupListClick(event) {
 
 function handleAlertSettingsTableClick(event) {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const externalMoreButton = target?.closest("[data-external-message-more]");
+  if (externalMoreButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalMoreButton.dataset.externalMessageMore));
+    return;
+  }
+  const externalExampleButton = target?.closest("[data-external-message-example]");
+  if (externalExampleButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalExampleButton.dataset.externalMessageExample));
+    return;
+  }
+  const externalAuditButton = target?.closest("[data-external-message-audit]");
+  if (externalAuditButton) {
+    event.preventDefault();
+    openExternalMessageModal(Number(externalAuditButton.dataset.externalMessageAudit));
+    return;
+  }
+  const externalToggleButton = target?.closest("[data-external-message-toggle]");
+  if (externalToggleButton) {
+    event.preventDefault();
+    toggleExternalMessageService(Number(externalToggleButton.dataset.externalMessageToggle));
+    return;
+  }
+  const saveGroupsButton = target?.closest("[data-save-alert-groups]");
+  if (saveGroupsButton) {
+    event.preventDefault();
+    const picker = saveGroupsButton.closest(".alert-group-picker");
+    const groupIds = Array.from(picker?.querySelectorAll('input[type="checkbox"]:checked') || [])
+      .map((input) => Number(input.value))
+      .filter(Boolean);
+    bindServiceAlertGroups(Number(saveGroupsButton.dataset.saveAlertGroups), groupIds);
+    return;
+  }
   const recordsButton = target?.closest("[data-alert-records]");
   if (recordsButton) {
     event.preventDefault();
@@ -1507,7 +1776,336 @@ function handleAlertSettingsTableClick(event) {
   }
 }
 
+function externalMessageService(serviceId) {
+  if (serviceId) {
+    return alertSettingsState.services.find((service) => Number(service.id) === Number(serviceId));
+  }
+  return alertSettingsState.services.find((service) => service.service_type === "external_message");
+}
+
+async function loadExternalProjects() {
+  const tbody = document.getElementById("externalProjectTableBody");
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+  try {
+    externalProjectState.items = await LiveMonitorApi.externalProjects();
+    renderExternalProjects();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderExternalProjects() {
+  const tbody = document.getElementById("externalProjectTableBody");
+  if (!tbody) return;
+  const query = externalProjectState.query;
+  const rows = externalProjectState.items.filter((item) => {
+    if (!query) return true;
+    return [item.project_name, item.match_keyword, item.description, ...(item.alert_group_names || [])]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  });
+  tbody.innerHTML = rows.length ? rows.map((item) => {
+    const groups = (item.alert_group_names || []).map((name) =>
+      `<span class="external-project-group-tag">${escapeHtml(name)}</span>`
+    ).join("");
+    return `<tr>
+      <td>${escapeHtml(item.project_name)}</td>
+      <td>${escapeHtml(item.match_keyword)}</td>
+      <td><div class="external-project-group-tags">${groups || "-"}</div></td>
+      <td class="project-description" title="${escapeHtml(item.description || "")}">${escapeHtml(item.description || "-")}</td>
+      <td><span class="state-pill ${item.enabled ? "enabled" : "disabled"}">${item.enabled ? "启用" : "停用"}</span></td>
+      <td class="actions-column"><div class="row-actions compact">
+        <button class="icon-button" type="button" title="编辑项目" data-external-project-edit="${item.id}"><i data-lucide="pencil"></i></button>
+        <button class="icon-button" type="button" title="${item.enabled ? "停用项目" : "启用项目"}" data-external-project-toggle="${item.id}"><i data-lucide="${item.enabled ? "circle-pause" : "circle-play"}"></i></button>
+        <button class="icon-button" type="button" title="删除项目" data-external-project-delete="${item.id}"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="6" class="empty">暂无外部项目</td></tr>';
+  const total = document.getElementById("externalProjectTotalText");
+  if (total) total.textContent = query
+    ? `筛选到 ${rows.length} 个项目，共 ${externalProjectState.items.length} 个`
+    : `共 ${externalProjectState.items.length} 个项目`;
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function openExternalProjectModal(project = null) {
+  externalProjectState.editingId = project?.id || null;
+  const modal = document.getElementById("externalProjectModal");
+  if (!modal) return;
+  document.getElementById("externalProjectFormTitle").textContent = project ? "编辑外部项目" : "新增外部项目";
+  document.getElementById("externalProjectNameInput").value = project?.project_name || "";
+  document.getElementById("externalProjectKeywordInput").value = project?.match_keyword || "";
+  document.getElementById("externalProjectDescriptionInput").value = project?.description || "";
+  document.getElementById("externalProjectEnabledInput").checked = project ? Boolean(project.enabled) : true;
+  renderExternalProjectGroupOptions(project?.alert_group_ids || []);
+  const picker = document.getElementById("externalProjectGroupPicker");
+  if (picker) picker.open = false;
+  modal.hidden = false;
+  const body = modal.querySelector(".external-project-form-body");
+  if (body) body.scrollTop = 0;
+  document.getElementById("externalProjectNameInput")?.focus();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeExternalProjectModal() {
+  const modal = document.getElementById("externalProjectModal");
+  if (modal) modal.hidden = true;
+  const picker = document.getElementById("externalProjectGroupPicker");
+  if (picker) picker.open = false;
+  externalProjectState.editingId = null;
+}
+
+function renderExternalProjectGroupOptions(selectedIds) {
+  const selected = new Set((selectedIds || []).map(Number));
+  const container = document.getElementById("externalProjectGroupOptions");
+  if (!container) return;
+  container.innerHTML = alertSettingsState.groups.length
+    ? alertSettingsState.groups.map((group) => {
+      const id = Number(group.id);
+      const name = group.group_name || group.groupName || `告警组 ${id}`;
+      return `<label class="external-project-group-option"><input type="checkbox" value="${id}" ${selected.has(id) ? "checked" : ""}><span>${escapeHtml(name)}</span>${group.enabled ? "" : '<small class="field-note">已停用</small>'}</label>`;
+    }).join("")
+    : '<p class="empty external-project-group-empty">暂无告警组，请先在“告警配置”中新增</p>';
+  updateExternalProjectGroupSummary();
+}
+
+function updateExternalProjectGroupSummary() {
+  const selected = Array.from(document.querySelectorAll('#externalProjectGroupOptions input[type="checkbox"]:checked'));
+  const summary = document.getElementById("externalProjectGroupSummary");
+  if (!summary) return;
+  summary.textContent = selected.length === 0
+    ? "请选择告警组"
+    : selected.length === 1
+      ? selected[0].closest("label")?.querySelector("span")?.textContent || "已选 1 个告警组"
+      : `已选 ${selected.length} 个告警组`;
+}
+
+async function submitExternalProject(event) {
+  event.preventDefault();
+  const projectName = document.getElementById("externalProjectNameInput").value.trim();
+  const keyword = document.getElementById("externalProjectKeywordInput").value.trim() || projectName;
+  const groupIds = Array.from(document.querySelectorAll('#externalProjectGroupOptions input[type="checkbox"]:checked'))
+    .map((input) => Number(input.value)).filter(Boolean);
+  if (!projectName) return showToast("请输入项目名称");
+  if (!keyword) return showToast("请输入匹配关键字");
+  if (!groupIds.length) return showToast("请至少选择一个告警组");
+  const payload = {
+    project_name: projectName,
+    match_keyword: keyword,
+    description: document.getElementById("externalProjectDescriptionInput").value.trim() || null,
+    enabled: document.getElementById("externalProjectEnabledInput").checked,
+    alert_group_ids: groupIds,
+  };
+  try {
+    if (externalProjectState.editingId) {
+      await LiveMonitorApi.updateExternalProject(externalProjectState.editingId, payload);
+    } else {
+      await LiveMonitorApi.createExternalProject(payload);
+    }
+    closeExternalProjectModal();
+    await loadExternalProjects();
+    showToast("项目通道已保存");
+  } catch (error) {
+    showToast(`保存失败：${error.message}`);
+  }
+}
+
+async function handleExternalProjectTableClick(event) {
+  const edit = event.target.closest("[data-external-project-edit]");
+  const toggle = event.target.closest("[data-external-project-toggle]");
+  const remove = event.target.closest("[data-external-project-delete]");
+  const id = Number(edit?.dataset.externalProjectEdit || toggle?.dataset.externalProjectToggle || remove?.dataset.externalProjectDelete);
+  if (!id) return;
+  const project = externalProjectState.items.find((item) => Number(item.id) === id);
+  if (!project) return;
+  if (edit) return openExternalProjectModal(project);
+  if (toggle) {
+    try {
+      await LiveMonitorApi.updateExternalProject(id, {
+        project_name: project.project_name,
+        match_keyword: project.match_keyword,
+        description: project.description,
+        enabled: !project.enabled,
+        alert_group_ids: project.alert_group_ids,
+      });
+      await loadExternalProjects();
+      showToast(project.enabled ? "项目路由已停用" : "项目路由已启用");
+    } catch (error) {
+      showToast(`更新失败：${error.message}`);
+    }
+    return;
+  }
+  const confirmed = await showConfirmDialog({
+    title: "删除外部项目",
+    message: `确定删除项目“${project.project_name}”吗？`,
+    detail: "删除后，包含该项目关键字的外部消息将无法投递。",
+    confirmText: "删除",
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await LiveMonitorApi.deleteExternalProject(id);
+    await loadExternalProjects();
+    showToast("项目已删除");
+  } catch (error) {
+    showToast(`删除失败：${error.message}`);
+  }
+}
+
+function openExternalMessageModal(serviceId) {
+  const service = externalMessageService(serviceId);
+  if (!service) return;
+  const modal = document.getElementById("externalMessageModal");
+  if (!modal) return;
+  modal.dataset.serviceId = service.id;
+  modal.hidden = false;
+  renderExternalMessageStatus(service);
+  const endpoint = `${window.location.origin}/api/external/messages`;
+  const example = `curl -X POST ${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"content":"项目名称:IDS3.0-ZYZQ,流程名称:告警测试,任务名称:,执行状态:success,状态类型:成功,流程开始时间:2026-09-04 14:41:40,流程结束时间:2026-09-04 14:41:40"}'`;
+  document.getElementById("externalMessageCurlExample").textContent = example;
+  externalMessageAuditState.page = 1;
+  loadExternalMessageAudit();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeExternalMessageModal() {
+  const modal = document.getElementById("externalMessageModal");
+  if (modal) modal.hidden = true;
+}
+
+function renderExternalMessageStatus(service) {
+  const status = document.getElementById("externalMessageStatusText");
+  const toggle = document.getElementById("externalMessageToggleBtn");
+  if (status) {
+    status.textContent = service?.enabled ? "已启用" : "已禁用";
+    status.className = service?.enabled ? "enabled" : "disabled";
+  }
+  if (toggle) toggle.textContent = service?.enabled ? "禁用接口" : "启用接口";
+}
+
+async function toggleExternalMessageService(serviceId) {
+  const modal = document.getElementById("externalMessageModal");
+  const service = externalMessageService(serviceId || Number(modal?.dataset.serviceId || 0));
+  if (!service) return;
+  try {
+    const result = await LiveMonitorApi.updateExternalMessageStatus(!Boolean(service.enabled));
+    service.enabled = Boolean(result.enabled);
+    renderExternalMessageStatus(service);
+    renderAlertSettingsTable();
+    showToast(service.enabled ? "外部消息接口已启用" : "外部消息接口已禁用");
+    if (!document.getElementById("externalMessageModal")?.hidden) loadExternalMessageAudit();
+  } catch (error) {
+    showToast(`更新接口状态失败：${error.message}`);
+  }
+}
+
+async function copyExternalMessageExample() {
+  const example = document.getElementById("externalMessageCurlExample")?.textContent || "";
+  try {
+    await copyAlertSettingsText(example);
+    showToast("请求示例已复制");
+  } catch (_) {
+    showToast("复制失败，请手动选择示例文本");
+  }
+}
+
+async function copyAlertSettingsText(value) {
+  if (!value) throw new Error("copy content is empty");
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch (_) {
+      // Permission policies can reject Clipboard API even on HTTPS; use the legacy fallback.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.readOnly = true;
+  textarea.setAttribute("aria-hidden", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  try {
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    if (!document.execCommand("copy")) throw new Error("copy command was rejected");
+  } finally {
+    textarea.remove();
+  }
+}
+
+async function loadExternalMessageAudit() {
+  const tbody = document.getElementById("externalMessageAuditBody");
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">加载中...</td></tr>';
+  try {
+    const result = await LiveMonitorApi.externalMessageAudit({
+      page: externalMessageAuditState.page,
+      pageSize: externalMessageAuditState.pageSize,
+    });
+    externalMessageAuditState.page = Number(result?.page) || 1;
+    externalMessageAuditState.totalPages = Number(result?.total_pages ?? result?.totalPages) || 0;
+    renderExternalMessageAuditPagination(Number(result?.total) || 0);
+    const rows = result?.items || [];
+    tbody.innerHTML = rows.length ? rows.map((row) => {
+      const status = row.request_status || row.requestStatus || "-";
+      const statusText = {
+        SUCCESS: "成功",
+        FAILED: "失败",
+        REJECTED: "已拒绝",
+        CONFIG_ENABLED: "启用操作",
+        CONFIG_DISABLED: "禁用操作",
+      }[status] || status;
+      const deliveries = row.delivery_count ?? row.deliveryCount ?? 0;
+      const succeeded = row.success_count ?? row.successCount ?? 0;
+      return `<tr>
+        <td>${escapeHtml(formatTime(row.created_at || row.createdAt))}</td>
+        <td>${escapeHtml(row.client_ip || row.clientIp || "-")}</td>
+        <td>${escapeHtml(row.project_name || row.projectName || "-")}</td>
+        <td><span class="state-pill ${status === "SUCCESS" || status === "CONFIG_ENABLED" ? "enabled" : "danger"}">${escapeHtml(statusText)}</span></td>
+        <td title="${escapeHtml(row.message_summary || row.messageSummary || "")}">${escapeHtml(row.message_summary || row.messageSummary || "-")}</td>
+        <td>${succeeded}/${deliveries}</td>
+        <td>${escapeHtml(row.detail || "-")}</td>
+      </tr>`;
+    }).join("") : '<tr><td colspan="7" class="empty">暂无外部请求记录</td></tr>';
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">加载失败：${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderExternalMessageAuditPagination(total) {
+  const displayPages = Math.max(1, externalMessageAuditState.totalPages);
+  const totalText = document.getElementById("externalMessageAuditTotal");
+  const pageInfo = document.getElementById("externalMessageAuditPageInfo");
+  const prev = document.getElementById("externalMessageAuditPrevBtn");
+  const next = document.getElementById("externalMessageAuditNextBtn");
+  if (totalText) totalText.textContent = `共 ${total} 条`;
+  if (pageInfo) pageInfo.textContent = `第 ${externalMessageAuditState.page} / ${displayPages} 页`;
+  if (prev) prev.disabled = externalMessageAuditState.page <= 1;
+  if (next) next.disabled = externalMessageAuditState.totalPages === 0
+    || externalMessageAuditState.page >= externalMessageAuditState.totalPages;
+}
+
 function handleAlertSettingsTableChange(event) {
+  const pickerCheckbox = event.target.closest('.alert-group-picker input[type="checkbox"]');
+  if (pickerCheckbox) {
+    const picker = pickerCheckbox.closest(".alert-group-picker");
+    const selected = Array.from(picker?.querySelectorAll('input[type="checkbox"]:checked') || []);
+    const summary = picker?.querySelector("summary span");
+    if (summary) {
+      summary.textContent = selected.length === 0
+        ? "不绑定"
+        : selected.length === 1
+          ? selected[0].closest("label")?.querySelector("span")?.textContent || "已选 1 个告警组"
+          : `已选 ${selected.length} 个告警组`;
+    }
+    return;
+  }
   const select = event.target.closest("[data-service-alert-group-id]");
   if (!select) return;
   bindServiceAlertGroup(Number(select.dataset.serviceAlertGroupId), select.value);
@@ -1520,14 +2118,18 @@ function renderResultTable(results) {
     tbody.innerHTML = '<tr><td colspan="4" class="empty">暂无检测历史</td></tr>';
     return;
   }
-  tbody.innerHTML = results.map((item) => `
+  tbody.innerHTML = results.map((item) => {
+    const severity = typeof responseSeverity === "function" ? responseSeverity(item.response_time_ms) : "unknown";
+    const responseText = item.response_time_ms ?? "-";
+    return `
     <tr>
       <td>${renderStatus(item.status)}</td>
-      <td>${item.response_time_ms ?? "-"} ms</td>
+      <td><span class="latency-value latency-${severity}">${responseText} ms</span></td>
       <td>${escapeHtml(item.message || "-")}</td>
       <td>${formatTime(item.checked_at)}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderAlerts(container, alerts, options = {}) {
@@ -1537,13 +2139,17 @@ function renderAlerts(container, alerts, options = {}) {
     container.innerHTML = '<p class="empty">暂无告警</p>';
     return;
   }
-  container.innerHTML = rows.map((alert) => `
+  container.innerHTML = rows.map((alert) => {
+    const summary = alertContentSummary(alert.alert_content || "");
+    const content = summary.reason || "-";
+    return `
     <article class="alert-item">
       <strong>${escapeHtml(alert.service_name || alert.alert_type || "告警")}</strong>
-      <p>${escapeHtml(alert.alert_content || "-")}</p>
+      <p class="alert-content" title="${escapeHtml(content)}">${escapeHtml(content)}</p>
       <small>${alert.alert_type || "-"} · ${alert.alert_status || "-"} · ${formatTime(alert.created_at)}</small>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderDashboardActivity(container, alerts, results) {

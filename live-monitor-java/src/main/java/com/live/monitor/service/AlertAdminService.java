@@ -22,17 +22,24 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AlertAdminService {
     private static final String[] SECRET_FIELDS = {
-        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret"
+        "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret", "proxy_password"
     };
 
     private final AlertMapper alertMapper;
     private final ObjectMapper objectMapper;
     private final AlertDeliveryService alertDeliveryService;
+    private final CryptoService cryptoService;
 
-    public AlertAdminService(AlertMapper alertMapper, ObjectMapper objectMapper, AlertDeliveryService alertDeliveryService) {
+    public AlertAdminService(
+        AlertMapper alertMapper,
+        ObjectMapper objectMapper,
+        AlertDeliveryService alertDeliveryService,
+        CryptoService cryptoService
+    ) {
         this.alertMapper = alertMapper;
         this.objectMapper = objectMapper;
         this.alertDeliveryService = alertDeliveryService;
+        this.cryptoService = cryptoService;
     }
 
     public List<Map<String, Object>> listChannels(boolean includeDisabled) {
@@ -45,12 +52,11 @@ public class AlertAdminService {
 
     @Transactional
     public Map<String, Object> createChannel(AlertChannelPayload payload) {
-        assertUniqueChannelType(payload.channelType, null);
         AlertChannel channel = new AlertChannel();
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
         channel.enabled = payload.enabled == null || payload.enabled;
-        channel.configJson = toJson(channelConfig(payload, null));
+        channel.configJson = toEncryptedJson(channelConfig(payload, null));
         alertMapper.insertChannel(channel);
         return channelToMap(alertMapper.findChannel(channel.id), false);
     }
@@ -61,13 +67,12 @@ public class AlertAdminService {
         if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "alert channel not found");
         }
-        assertUniqueChannelType(payload.channelType, id);
         AlertChannel channel = new AlertChannel();
         channel.id = id;
         channel.channelName = payload.channelName;
         channel.channelType = payload.channelType;
         channel.enabled = payload.enabled == null || payload.enabled;
-        channel.configJson = toJson(channelConfig(payload, parseJson(existing.configJson)));
+        channel.configJson = toEncryptedJson(channelConfig(payload, parseJson(existing.configJson)));
         alertMapper.updateChannel(channel);
         return channelToMap(alertMapper.findChannel(id), false);
     }
@@ -152,8 +157,8 @@ public class AlertAdminService {
         if (existing == null) {
             return false;
         }
-        if (alertMapper.countServicesByGroup(id) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务的告警配置不允许删除，仅能修改");
+        if (alertMapper.countServicesByGroup(id) > 0 || alertMapper.countExternalProjectsByGroup(id) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "有关联服务或外部项目的告警配置不允许删除，仅能修改");
         }
         List<AlertChannel> channels = alertMapper.listChannelsByGroup(id);
         alertMapper.deleteGroupPolicies(id);
@@ -165,15 +170,6 @@ public class AlertAdminService {
             }
         }
         return deleted;
-    }
-
-    private void assertUniqueChannelType(String channelType, Long currentId) {
-        if (channelType == null || channelType.trim().isEmpty()) {
-            return;
-        }
-        if (alertMapper.countChannelsByType(channelType, currentId) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "相同类型的告警配置已存在");
-        }
     }
 
     private void syncGroupRelations(Long groupId, AlertGroupPayload payload) {
@@ -216,6 +212,7 @@ public class AlertAdminService {
         item.put("policies", policies);
         item.put("channels", channels);
         item.put("service_count", alertMapper.countServicesByGroup(group.id));
+        item.put("external_project_count", alertMapper.countExternalProjectsByGroup(group.id));
         return item;
     }
 
@@ -252,6 +249,7 @@ public class AlertAdminService {
         config.put("smtp_use_ssl", payload.smtpUseSsl == null ? false : payload.smtpUseSsl);
         config.put("smtp_ssl_trust", payload.smtpSslTrust);
         config.put("sms_api_url", payload.smsApiUrl);
+        config.put("sms_api_urls", payload.smsApiUrls);
         config.put("sms_api_token", payload.smsApiToken);
         config.put("sms_username", payload.smsUsername);
         config.put("sms_password", payload.smsPassword);
@@ -260,12 +258,20 @@ public class AlertAdminService {
         config.put("sms_rstype", payload.smsRstype);
         config.put("sms_ext_code", payload.smsExtCode);
         config.put("webhook_url", payload.webhookUrl);
+        config.put("http_method", payload.httpMethod);
+        config.put("http_headers", payload.httpHeaders);
+        config.put("http_body", payload.httpBody);
         config.put("dingtalk_secret", payload.dingtalkSecret);
         config.put("dingtalk_at_mobiles", payload.dingtalkAtMobiles);
         config.put("dingtalk_at_all", payload.dingtalkAtAll == null ? false : payload.dingtalkAtAll);
         config.put("wecom_mentioned_list", payload.wecomMentionedList);
         config.put("wecom_mentioned_mobiles", payload.wecomMentionedMobiles);
         config.put("wecom_at_all", payload.wecomAtAll == null ? false : payload.wecomAtAll);
+        config.put("proxy_type", payload.proxyType);
+        config.put("proxy_host", payload.proxyHost);
+        config.put("proxy_port", payload.proxyPort);
+        config.put("proxy_username", payload.proxyUsername);
+        config.put("proxy_password", payload.proxyPassword);
         if (existing != null) {
             for (String field : SECRET_FIELDS) {
                 if (config.get(field) == null && existing.containsKey(field)) {
@@ -281,7 +287,7 @@ public class AlertAdminService {
             return new HashMap<String, Object>();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(cryptoService.decryptIfEncrypted(json), new TypeReference<Map<String, Object>>() {});
         } catch (Exception ex) {
             return new HashMap<String, Object>();
         }
@@ -293,5 +299,9 @@ public class AlertAdminService {
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to serialize channel config", ex);
         }
+    }
+
+    private String toEncryptedJson(Map<String, Object> value) {
+        return cryptoService.encrypt(toJson(value));
     }
 }

@@ -1,5 +1,9 @@
 package com.live.monitor.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.util.List;
+import java.util.Map;
+
 public class HostConfig {
     public Long id;
     public String hostName;
@@ -10,16 +14,38 @@ public class HostConfig {
     public String privateKeyCipher;
     public Long monitorServiceId;
     public String clusterName;
+    public String remark;
     public Double cpuThresholdPercent;
+    public Double memoryThresholdPercent;
     public Double diskThresholdPercent;
+    public Boolean cpuAlertEnabled;
+    public Boolean memoryAlertEnabled;
+    public Boolean diskAlertEnabled;
+    public Boolean resourceAlertDurationEnabled;
+    public Boolean resourceRecoverDurationEnabled;
+    public Boolean resourceAlertCooldownEnabled;
+    public Integer resourceAlertDurationSeconds;
+    public Integer resourceRecoverDurationSeconds;
+    public Integer resourceAlertCooldownSeconds;
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;
     public Long alertGroupId;
+    public List<Long> alertGroupIds;
+    public List<String> alertGroupNames;
     public Double cpuUsagePercent;
     public Double loadAverage;
     public Double memoryUsedPercent;
     public Double diskUsedPercent;
+    public Integer cpuCoreCount;
+    public Double memoryTotalMb;
+    public Integer diskMountCount;
+    @JsonIgnore
+    public String diskMetricsJson;
+    public List<Map<String, Object>> diskMetrics;
+    @JsonIgnore
+    public String physicalDiskMetricsJson;
+    public List<Map<String, Object>> physicalDiskMetrics;
     public String metricCheckedAt;
     public Boolean enabled;
     public String createdAt;

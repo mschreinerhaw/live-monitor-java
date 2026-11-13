@@ -11,10 +11,15 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface HostMapper {
-    String HOST_SELECT = "SELECT h.*, sag.group_id AS alert_group_id, " +
+    String HOST_SELECT = "SELECT h.*, (" +
+        "SELECT sag.group_id FROM service_alert_group sag " +
+        "LEFT JOIN alert_group ag ON ag.id = sag.group_id " +
+        "WHERE sag.service_id = h.monitor_service_id " +
+        "ORDER BY ag.enabled DESC, sag.group_id LIMIT 1" +
+        ") AS alert_group_id, " +
         "hm.cpu_usage_percent, hm.load_average, hm.memory_used_percent, hm.disk_used_percent, " +
+        "hm.cpu_core_count, hm.memory_total_mb, hm.disk_mount_count, hm.disk_metrics_json, hm.physical_disk_metrics_json, " +
         "hm.checked_at AS metric_checked_at FROM host_config h " +
-        "LEFT JOIN service_alert_group sag ON sag.service_id = h.monitor_service_id " +
         "LEFT JOIN host_latest_metric hm ON hm.host_id = h.id ";
 
     @Select(HOST_SELECT + "WHERE (#{includeDisabled} = 1 OR h.enabled = 1) ORDER BY h.enabled DESC, h.cluster_name, h.host_name")
@@ -27,17 +32,31 @@ public interface HostMapper {
     HostConfig findEnabledByAddress(@Param("address") String address);
 
     @Insert("INSERT INTO host_config (host_name, ip, ssh_port, ssh_user, ssh_password_cipher, private_key_cipher, " +
-        "monitor_service_id, cluster_name, cpu_threshold_percent, disk_threshold_percent, check_interval, enabled) " +
+        "monitor_service_id, cluster_name, remark, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
+        "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, resource_alert_duration_seconds, " +
+        "resource_alert_duration_enabled, resource_recover_duration_enabled, resource_alert_cooldown_enabled, " +
+        "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
-        "#{monitorServiceId}, #{clusterName}, #{cpuThresholdPercent}, #{diskThresholdPercent}, #{checkInterval}, #{enabled})")
+        "#{monitorServiceId}, #{clusterName}, #{remark}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
+        "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{resourceAlertDurationSeconds}, " +
+        "#{resourceAlertDurationEnabled}, #{resourceRecoverDurationEnabled}, #{resourceAlertCooldownEnabled}, " +
+        "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertHost(HostConfig host);
 
     @Update("UPDATE host_config SET host_name = #{hostName}, ip = #{ip}, ssh_port = #{sshPort}, ssh_user = #{sshUser}, " +
         "ssh_password_cipher = COALESCE(#{sshPasswordCipher}, ssh_password_cipher), " +
         "private_key_cipher = COALESCE(#{privateKeyCipher}, private_key_cipher), monitor_service_id = #{monitorServiceId}, " +
-        "cluster_name = #{clusterName}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
-        "disk_threshold_percent = #{diskThresholdPercent}, check_interval = #{checkInterval}, enabled = #{enabled} WHERE id = #{id}")
+        "cluster_name = #{clusterName}, remark = #{remark}, cpu_threshold_percent = #{cpuThresholdPercent}, " +
+        "memory_threshold_percent = #{memoryThresholdPercent}, disk_threshold_percent = #{diskThresholdPercent}, " +
+        "cpu_alert_enabled = #{cpuAlertEnabled}, memory_alert_enabled = #{memoryAlertEnabled}, " +
+        "disk_alert_enabled = #{diskAlertEnabled}, resource_alert_duration_seconds = #{resourceAlertDurationSeconds}, " +
+        "resource_alert_duration_enabled = #{resourceAlertDurationEnabled}, " +
+        "resource_recover_duration_enabled = #{resourceRecoverDurationEnabled}, " +
+        "resource_alert_cooldown_enabled = #{resourceAlertCooldownEnabled}, " +
+        "resource_recover_duration_seconds = #{resourceRecoverDurationSeconds}, " +
+        "resource_alert_cooldown_seconds = #{resourceAlertCooldownSeconds}, check_interval = #{checkInterval}, " +
+        "enabled = #{enabled} WHERE id = #{id}")
     int updateHost(HostConfig host);
 
     @Update("UPDATE host_config SET monitor_service_id = #{monitorServiceId} WHERE id = #{id}")
@@ -64,13 +83,41 @@ public interface HostMapper {
         "check_command = #{checkCommand}, enabled = #{enabled} WHERE id = #{id}")
     int updateProcess(HostProcessConfig process);
 
-    @Insert("MERGE INTO host_latest_metric KEY(host_id) " +
-        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, CURRENT_TIMESTAMP)")
+    @Insert("<script>" +
+        "<choose>" +
+        "<when test=\"_databaseId == 'mysql'\">" +
+        "INSERT INTO host_latest_metric " +
+        "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
+        "VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, #{checkedAt}) " +
+        "ON DUPLICATE KEY UPDATE " +
+        "cpu_usage_percent = VALUES(cpu_usage_percent), load_average = VALUES(load_average), " +
+        "memory_used_percent = VALUES(memory_used_percent), disk_used_percent = VALUES(disk_used_percent), " +
+        "cpu_core_count = VALUES(cpu_core_count), memory_total_mb = VALUES(memory_total_mb), " +
+        "disk_mount_count = VALUES(disk_mount_count), disk_metrics_json = VALUES(disk_metrics_json), " +
+        "physical_disk_metrics_json = VALUES(physical_disk_metrics_json), checked_at = VALUES(checked_at)" +
+        "</when>" +
+        "<otherwise>" +
+        "MERGE INTO host_latest_metric " +
+        "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+        "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
+        "KEY(host_id) VALUES (#{hostId}, #{cpuUsagePercent}, #{loadAverage}, #{memoryUsedPercent}, #{diskUsedPercent}, " +
+        "#{cpuCoreCount}, #{memoryTotalMb}, #{diskMountCount}, #{diskMetricsJson}, #{physicalDiskMetricsJson}, #{checkedAt})" +
+        "</otherwise>" +
+        "</choose>" +
+        "</script>")
     int upsertLatestMetric(
         @Param("hostId") Long hostId,
         @Param("cpuUsagePercent") Double cpuUsagePercent,
         @Param("loadAverage") Double loadAverage,
         @Param("memoryUsedPercent") Double memoryUsedPercent,
-        @Param("diskUsedPercent") Double diskUsedPercent
+        @Param("diskUsedPercent") Double diskUsedPercent,
+        @Param("cpuCoreCount") Integer cpuCoreCount,
+        @Param("memoryTotalMb") Double memoryTotalMb,
+        @Param("diskMountCount") Integer diskMountCount,
+        @Param("diskMetricsJson") String diskMetricsJson,
+        @Param("physicalDiskMetricsJson") String physicalDiskMetricsJson,
+        @Param("checkedAt") String checkedAt
     );
 }

@@ -1,13 +1,16 @@
 package com.live.monitor.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.live.monitor.dto.HostPayload;
 import com.live.monitor.dto.HostProcessPayload;
 import com.live.monitor.entity.HostConfig;
 import com.live.monitor.entity.HostProcessConfig;
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import com.live.monitor.mapper.HostMapper;
 import com.live.monitor.mapper.MonitorServiceMapper;
+import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,10 +24,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class HostMonitorService {
+    private static final TypeReference<List<Map<String, Object>>> DISK_METRICS_TYPE =
+        new TypeReference<List<Map<String, Object>>>() {};
+
     private final HostMapper hostMapper;
     private final MonitorServiceMapper serviceMapper;
     private final CryptoService cryptoService;
     private final SshService sshService;
+    private final HostResourceMonitorService hostResourceMonitorService;
+    private final RocksDbHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
 
     public HostMonitorService(
@@ -32,12 +40,16 @@ public class HostMonitorService {
         MonitorServiceMapper serviceMapper,
         CryptoService cryptoService,
         SshService sshService,
+        HostResourceMonitorService hostResourceMonitorService,
+        RocksDbHistoryRepository historyRepository,
         ObjectMapper objectMapper
     ) {
         this.hostMapper = hostMapper;
         this.serviceMapper = serviceMapper;
         this.cryptoService = cryptoService;
         this.sshService = sshService;
+        this.hostResourceMonitorService = hostResourceMonitorService;
+        this.historyRepository = historyRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -45,20 +57,24 @@ public class HostMonitorService {
         List<HostConfig> hosts = hostMapper.listHosts(includeDisabled ? 1 : 0);
         for (HostConfig host : hosts) {
             if (host.monitorServiceId == null) {
-                syncMonitorService(host, host.alertGroupId);
+                syncMonitorService(host, singletonGroupId(host.alertGroupId));
             }
             applyCheckIntervalDisplay(host);
+            attachDiskMetrics(host);
             mask(host);
         }
+        populateAlertGroupBindings(hosts);
         return hosts;
     }
 
     public HostConfig getHost(Long id) {
         HostConfig host = requireHost(id);
         if (host.monitorServiceId == null) {
-            syncMonitorService(host, host.alertGroupId);
+            syncMonitorService(host, singletonGroupId(host.alertGroupId));
         }
+        populateAlertGroupBindings(java.util.Collections.singletonList(host));
         applyCheckIntervalDisplay(host);
+        attachDiskMetrics(host);
         mask(host);
         return host;
     }
@@ -67,7 +83,7 @@ public class HostMonitorService {
     public HostConfig createHost(HostPayload payload) {
         HostConfig host = fromPayload(payload);
         hostMapper.insertHost(host);
-        syncMonitorService(host, payload.alertGroupId);
+        syncMonitorService(host, resolveGroupIds(payload));
         return getHost(host.id);
     }
 
@@ -80,7 +96,7 @@ public class HostMonitorService {
         if (hostMapper.updateHost(host) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "host not found");
         }
-        syncMonitorService(host, payload.alertGroupId);
+        syncMonitorService(host, resolveGroupIds(payload));
         return getHost(id);
     }
 
@@ -138,8 +154,120 @@ public class HostMonitorService {
         metrics.put("load_average", host.loadAverage);
         metrics.put("memory_used_percent", host.memoryUsedPercent);
         metrics.put("disk_used_percent", host.diskUsedPercent);
+        metrics.put("cpu_core_count", host.cpuCoreCount);
+        metrics.put("memory_total_mb", host.memoryTotalMb);
+        metrics.put("disk_mount_count", host.diskMountCount);
+        metrics.put("disk_metrics", parseDiskMetrics(host.diskMetricsJson));
+        metrics.put("physical_disk_metrics", parseDiskMetrics(host.physicalDiskMetricsJson));
         metrics.put("checked_at", host.metricCheckedAt);
         return metrics;
+    }
+
+    public Map<String, Object> refreshMetrics(Long hostId) {
+        HostConfig host = requireHost(hostId);
+        if (!Boolean.TRUE.equals(host.enabled)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "host is disabled");
+        }
+        Map<String, Object> metrics = hostResourceMonitorService.collectAndStore(host, 10000);
+        metrics.put("host_id", host.id);
+        return metrics;
+    }
+
+    public Map<String, Object> refreshAllMetrics() {
+        List<HostConfig> hosts = hostMapper.listHosts(0);
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        int success = 0;
+        int failed = 0;
+        for (HostConfig host : hosts) {
+            try {
+                Map<String, Object> metrics = hostResourceMonitorService.collectAndStore(host, 10000);
+                if (metrics.get("cpu_usage_percent") == null && metrics.get("disk_used_percent") == null) {
+                    failed++;
+                } else {
+                    success++;
+                }
+            } catch (Exception ex) {
+                failed++;
+            }
+        }
+        result.put("success", success);
+        result.put("failed", failed);
+        result.put("total", hosts.size());
+        return result;
+    }
+
+    public List<Map<String, Object>> metricHistory(Long hostId, Integer days, Integer limit) {
+        requireHost(hostId);
+        int safeDays = Math.max(1, Math.min(days == null ? 7 : days, 30));
+        int safeLimit = Math.max(1, Math.min(limit == null ? 10000 : limit, 10000));
+        List<Map<String, Object>> rows = historyRepository.listHostMetrics(hostId, safeDays, safeLimit);
+        for (Map<String, Object> row : rows) {
+            row.put("disk_metrics", parseDiskMetrics(String.valueOf(row.get("disk_metrics_json"))));
+        }
+        return rows;
+    }
+
+    public Map<String, Object> summary() {
+        List<HostConfig> hosts = hostMapper.listHosts(1);
+        int total = hosts.size();
+        int online = 0;
+        int warning = 0;
+        int disabled = 0;
+        double cpuTotal = 0D;
+        int cpuCount = 0;
+        double memoryTotal = 0D;
+        int memoryCount = 0;
+        for (HostConfig host : hosts) {
+            if (!Boolean.TRUE.equals(host.enabled)) {
+                disabled++;
+                continue;
+            }
+            boolean hasMetric = host.cpuUsagePercent != null || host.memoryUsedPercent != null || host.diskUsedPercent != null;
+            if (hasMetric) {
+                online++;
+            }
+            if (host.cpuUsagePercent != null) {
+                cpuTotal += host.cpuUsagePercent;
+                cpuCount++;
+            }
+            if (host.memoryUsedPercent != null) {
+                memoryTotal += host.memoryUsedPercent;
+                memoryCount++;
+            }
+            double cpuThreshold = host.cpuThresholdPercent == null ? 85D : host.cpuThresholdPercent;
+            double memoryThreshold = host.memoryThresholdPercent == null ? 85D : host.memoryThresholdPercent;
+            double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
+            if ((alertEnabled(host.cpuAlertEnabled) && host.cpuUsagePercent != null && host.cpuUsagePercent > cpuThreshold)
+                || (alertEnabled(host.memoryAlertEnabled) && host.memoryUsedPercent != null && host.memoryUsedPercent > memoryThreshold)
+                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent > diskThreshold)) {
+                warning++;
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("total", total);
+        result.put("online", online);
+        result.put("warning", warning);
+        result.put("offline", Math.max(0, total - online - disabled));
+        result.put("disabled", disabled);
+        result.put("avg_cpu_usage_percent", cpuCount == 0 ? null : Math.round((cpuTotal / cpuCount) * 10D) / 10D);
+        result.put("avg_memory_used_percent", memoryCount == 0 ? null : Math.round((memoryTotal / memoryCount) * 10D) / 10D);
+        return result;
+    }
+
+    private void attachDiskMetrics(HostConfig host) {
+        host.diskMetrics = parseDiskMetrics(host.diskMetricsJson);
+        host.physicalDiskMetrics = parseDiskMetrics(host.physicalDiskMetricsJson);
+    }
+
+    private List<Map<String, Object>> parseDiskMetrics(String diskMetricsJson) {
+        if (!StringUtils.hasText(diskMetricsJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(diskMetricsJson, DISK_METRICS_TYPE);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     public Map<String, Object> processStatus(Long hostId) {
@@ -180,21 +308,34 @@ public class HostMonitorService {
         host.sshPasswordCipher = cryptoService.encrypt(payload.sshPassword);
         host.privateKeyCipher = cryptoService.encrypt(payload.privateKey);
         host.clusterName = StringUtils.hasText(payload.clusterName) ? payload.clusterName.trim() : "服务器主机";
+        host.remark = StringUtils.hasText(payload.remark) ? payload.remark.trim() : null;
         host.cpuThresholdPercent = payload.cpuThresholdPercent == null ? 85D : payload.cpuThresholdPercent;
+        host.memoryThresholdPercent = payload.memoryThresholdPercent == null ? 85D : payload.memoryThresholdPercent;
         host.diskThresholdPercent = payload.diskThresholdPercent == null ? 85D : payload.diskThresholdPercent;
+        host.cpuAlertEnabled = payload.cpuAlertEnabled == null || payload.cpuAlertEnabled;
+        host.memoryAlertEnabled = payload.memoryAlertEnabled == null || payload.memoryAlertEnabled;
+        host.diskAlertEnabled = payload.diskAlertEnabled == null || payload.diskAlertEnabled;
+        host.resourceAlertDurationEnabled = payload.resourceAlertDurationEnabled == null || payload.resourceAlertDurationEnabled;
+        host.resourceRecoverDurationEnabled = payload.resourceRecoverDurationEnabled == null || payload.resourceRecoverDurationEnabled;
+        host.resourceAlertCooldownEnabled = payload.resourceAlertCooldownEnabled == null || payload.resourceAlertCooldownEnabled;
+        host.resourceAlertDurationSeconds = positiveOrDefault(payload.resourceAlertDurationSeconds, 180);
+        host.resourceRecoverDurationSeconds = positiveOrDefault(payload.resourceRecoverDurationSeconds, 180);
+        host.resourceAlertCooldownSeconds = nonNegativeOrDefault(payload.resourceAlertCooldownSeconds, 600);
         host.checkInterval = resolveCheckInterval(payload.checkIntervalValue, payload.checkIntervalUnit, payload.checkInterval);
         host.alertGroupId = payload.alertGroupId;
+        host.alertGroupIds = resolveGroupIds(payload);
         host.enabled = payload.enabled == null || payload.enabled;
         return host;
     }
 
-    private void syncMonitorService(HostConfig host, Long alertGroupId) {
+    private void syncMonitorService(HostConfig host, List<Long> alertGroupIds) {
         MonitorService service = new MonitorService();
         service.id = host.monitorServiceId;
         service.serviceName = host.hostName;
         service.serviceCategory = "host";
         service.serviceType = "host";
         service.clusterName = StringUtils.hasText(host.clusterName) ? host.clusterName : "服务器主机";
+        service.monitorReason = host.remark;
         service.endpoint = host.ip;
         service.host = host.ip;
         service.port = host.sshPort;
@@ -202,7 +343,9 @@ public class HostMonitorService {
         service.cpuThresholdPercent = host.cpuThresholdPercent;
         service.diskThresholdPercent = host.diskThresholdPercent;
         service.checkMode = "host_resource";
-        service.expectedResult = "CPU<" + host.cpuThresholdPercent + ",DISK<" + host.diskThresholdPercent;
+        service.expectedResult = "CPU<" + host.cpuThresholdPercent
+            + ",MEMORY<" + host.memoryThresholdPercent
+            + ",DISK<" + host.diskThresholdPercent;
         service.checkTimeoutSeconds = 10D;
         service.checkInterval = host.checkInterval == null ? 60 : host.checkInterval;
         service.enabled = host.enabled;
@@ -217,10 +360,61 @@ public class HostMonitorService {
             serviceMapper.update(service);
         }
 
-        if (alertGroupId == null) {
-            serviceMapper.unbindAlertGroup(service.id);
-        } else {
-            serviceMapper.bindAlertGroup(service.id, alertGroupId);
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<Long>();
+        if (alertGroupIds != null) {
+            for (Long groupId : alertGroupIds) {
+                if (groupId != null) desired.add(groupId);
+            }
+        }
+        serviceMapper.unbindAlertGroup(service.id);
+        for (Long groupId : desired) {
+            serviceMapper.bindAlertGroup(service.id, groupId);
+        }
+        java.util.LinkedHashSet<Long> persisted = new java.util.LinkedHashSet<Long>();
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(
+            java.util.Collections.singletonList(service.id)
+        )) {
+            if (binding.groupId != null) persisted.add(binding.groupId);
+        }
+        if (!persisted.equals(desired)) {
+            throw new IllegalStateException(
+                "host alert group binding was not persisted; verify service_alert_group primary key"
+            );
+        }
+    }
+
+    private List<Long> resolveGroupIds(HostPayload payload) {
+        if (payload.alertGroupIds != null) return payload.alertGroupIds;
+        return singletonGroupId(payload.alertGroupId);
+    }
+
+    private List<Long> singletonGroupId(Long groupId) {
+        return groupId == null
+            ? java.util.Collections.<Long>emptyList()
+            : java.util.Collections.singletonList(groupId);
+    }
+
+    private void populateAlertGroupBindings(List<HostConfig> hosts) {
+        if (hosts == null || hosts.isEmpty()) return;
+        List<Long> serviceIds = new java.util.ArrayList<Long>();
+        Map<Long, HostConfig> byServiceId = new java.util.HashMap<Long, HostConfig>();
+        for (HostConfig host : hosts) {
+            host.alertGroupIds = new java.util.ArrayList<Long>();
+            host.alertGroupNames = new java.util.ArrayList<String>();
+            if (host.monitorServiceId != null) {
+                serviceIds.add(host.monitorServiceId);
+                byServiceId.put(host.monitorServiceId, host);
+            }
+        }
+        if (serviceIds.isEmpty()) return;
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(serviceIds)) {
+            HostConfig host = byServiceId.get(binding.serviceId);
+            if (host == null || binding.groupId == null) continue;
+            host.alertGroupIds.add(binding.groupId);
+            host.alertGroupNames.add(binding.groupName);
+        }
+        for (HostConfig host : hosts) {
+            host.alertGroupId = host.alertGroupIds.isEmpty() ? null : host.alertGroupIds.get(0);
         }
     }
 
@@ -231,7 +425,17 @@ public class HostMonitorService {
             config.put("host", host.ip);
             config.put("port", host.sshPort);
             config.put("cpu_threshold_percent", host.cpuThresholdPercent);
+            config.put("memory_threshold_percent", host.memoryThresholdPercent);
             config.put("disk_threshold_percent", host.diskThresholdPercent);
+            config.put("cpu_alert_enabled", alertEnabled(host.cpuAlertEnabled));
+            config.put("memory_alert_enabled", alertEnabled(host.memoryAlertEnabled));
+            config.put("disk_alert_enabled", alertEnabled(host.diskAlertEnabled));
+            config.put("resource_alert_duration_enabled", alertEnabled(host.resourceAlertDurationEnabled));
+            config.put("resource_recover_duration_enabled", alertEnabled(host.resourceRecoverDurationEnabled));
+            config.put("resource_alert_cooldown_enabled", alertEnabled(host.resourceAlertCooldownEnabled));
+            config.put("resource_alert_duration_seconds", positiveOrDefault(host.resourceAlertDurationSeconds, 180));
+            config.put("resource_recover_duration_seconds", positiveOrDefault(host.resourceRecoverDurationSeconds, 180));
+            config.put("resource_alert_cooldown_seconds", nonNegativeOrDefault(host.resourceAlertCooldownSeconds, 600));
             return objectMapper.writeValueAsString(config);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid host monitor config");
@@ -241,6 +445,18 @@ public class HostMonitorService {
     private void mask(HostConfig host) {
         host.sshPasswordCipher = null;
         host.privateKeyCipher = null;
+    }
+
+    private boolean alertEnabled(Boolean value) {
+        return value == null || value;
+    }
+
+    private int positiveOrDefault(Integer value, int fallback) {
+        return value == null || value < 1 ? fallback : value;
+    }
+
+    private int nonNegativeOrDefault(Integer value, int fallback) {
+        return value == null || value < 0 ? fallback : value;
     }
 
     private int resolveCheckInterval(Integer value, String unit, Integer fallbackSeconds) {
