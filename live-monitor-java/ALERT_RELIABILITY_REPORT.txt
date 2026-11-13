@@ -1,0 +1,73 @@
+Live Monitor Java 告警可靠性整改报告
+日期：2026-11-13（Asia/Shanghai）
+版本：1.0.1
+目标远端分支：fix/live-monitor-alert-reliability-20261113
+
+本地自动化验收：mvn verify 通过，135 项测试，0 失败，0 错误。
+新增前端脚本通过 node --check。
+
+一、问题与结果
+- 原监控事务同步发送外部消息：改为事务内只写检查事件、状态、审计、每渠道任务；独立 Worker 处理发送。
+- H2 与 RocksDB 假事务边界：改为 H2 检查快照为权威来源，提交投影任务后补写 RocksDB；失败保留记录并恢复。
+- 实际检查入口未加载告警组：检查前加载全部绑定；多组分别计算状态和策略，同一事件共享渠道去重。
+- 未绑定告警组被记录为成功：改为 failed 配置审计；配置修复后继续判断并产生发送任务。
+- UNKNOWN 无策略：独立开关、阈值、错误分类，DOWN/UNKNOWN 分开连续计数。
+- 冷却吞掉恢复后的新事件：新事件重新触发；持续事件按可配置间隔提醒；短暂 UP 不足恢复阈值时不关闭原事件。
+- 单检查阻塞和并发重复：手动/自动入口共享互斥，总超时受控；忽略中断的检查器退出前不允许重入。
+- 发送失败不可恢复：持久化重试计划、独占领取、持有者 token、成功终态排除、过期租约恢复、消费者异常退出监督重启。
+- 告警只可查看旧 RocksDB 列表：H2 任务与旧历史合并查询；设置页新增状态、筛选、尝试明细、管理员重试。
+- 手动重试覆盖原记录：新建任务，保留原失败任务、每次尝试、操作人员与时间，并重新校验渠道配置。
+
+二、架构与数据
+H2（或配置的 MySQL）：
+monitor_check_event：检查快照；
+alert_state：每服务/每组状态；
+alert_delivery_task：事件、渠道、内容、状态、重试数、上限、下一执行时间、错误、领取 token；
+monitor_history_projection：待补写历史；
+alert_delivery_attempt：逐次发送结果；
+alert_manual_retry：原任务、新任务、操作人员、时间；
+alert_notify_record：配置失败、排队和发送审计。
+RocksDB：保留原监控历史、主机指标与旧告警历史。
+发送 Worker 与 Spring 监控调度分开，发送不在监控数据库事务内。
+原测试告警、外部消息转发、数据发送接口保留原语义。
+
+三、规则与默认值
+- DOWN：服务配置的连续失败次数；设为 1 即首次通知，默认 3。
+- UNKNOWN：unknown_alert_enabled 默认 true，unknown_consecutive_failures 默认 1。禁用 UNKNOWN 仍会断开 DOWN 的连续计数。
+- 恢复：service_recover_successes，默认 2；DOWN/UNKNOWN 均可恢复。
+- 多组：组内策略独立计算；可用性采用服务级确认阈值，组内响应时间策略使用各组阈值。
+- 持续异常：alert_repeat_interval_seconds，默认 0（只首次），大于 0 按秒提醒；新事件不受旧事件冷却抑制。
+- 重试：live-monitor.alert-max-retries 默认 5；首次失败后 30/60/120/240/480 秒，最终 FINAL_FAILED。
+- 租约：live-monitor.alert-lease-ms 默认 300000 毫秒；崩溃时 SENDING 在租约到期后恢复。
+- 检查线程：live-monitor.check-execution-threads 默认 16，直接交接、有界线程数。检查总超时按服务设置，0.1～300 秒。
+- 保留：live-monitor.alert-retention-days 默认 90 天，最少 7 天。只清理终态及不再关联的旧事件；未完成任务及待投影快照保留。
+- HTTP 总超时 60 秒；SMTP 总时限 60 秒；短信批量/故障切换有总预算；HTTP 响应和告警消息上限 1 MiB。
+- 钉钉、企微必须有有效 JSON 业务确认；非零错误或格式错误不能记为成功；短信 JSON API 识别已知失败字段。
+- 秘密字段与 URL 认证信息在错误记录中脱敏。任务积压或投影超过 1000 条产生警告。
+
+四、测试证据
+AlertApplicationTest：完整 Spring Boot 上下文，真实本地 HTTP 检查 503 -> H2 事务提交 -> 独立 Worker 调本地钉钉协议网关 -> SUCCESS -> RocksDB 历史可查询。
+AlertPipelineTest：真实 H2/MyBatis，100 个服务由 16 个线程并发确认异常、阈值前不发、持续异常去重、恢复、各渠道成功失败隔离；事务回滚删除全部关联状态/事件/任务；多组延迟策略隔离；提醒间隔；配置修复恢复；历史写入失败补写；保留清理保护未完成数据。
+AlertOutboxTest：重试耗尽、退避时间、成功不重扫、实例重建、并发唯一领取、过期持有者不能覆盖、消费者异常重启。
+AlertCrashRecoveryTest：真实子 Java 进程写 H2 文件后被强制结束；未提交任务消失，已提交任务恢复，已成功任务不重复发送。
+MonitorCheckExecutionTest：忽略中断检查器的总超时及互斥、错误分类、100 个后续服务继续检查。
+MonitorConnectionFailureTest：真实闭合端口的 Redis/ZooKeeper/端口失败；真实 H2 认证错误保留原因。
+AlertMigrationTest：H2/MySQL 兼容 SQL 的源/目标复制，保留双告警组、检查事件、任务与状态。此项不等价于真实 MySQL 服务验收。
+既有数据库、主机、外部消息、模板和渠道协议测试继续通过。
+
+五、升级与回滚
+停机离线备份 data/、外置配置与原加密密钥；替换程序保留数据。
+三个 schema 文件使用非破坏性 CREATE TABLE IF NOT EXISTS，SchemaMigrationService 补索引。
+H2 切 MySQL 的复制列表增加检查事件、状态、发送任务、投影、尝试和手动重试；恢复自增序列，Worker 等迁移完成才启动。
+回滚旧版本前必须停止 Worker 并保存新任务数据，安排任务回放；旧版本不能消费新任务，不得直接删表。
+所有 SQL 初始化、备份和运行步骤见 DEPLOY.md；发布压缩包内包含本报告与部署文档。
+
+六、交付与环境限制
+Maven 生成 1.0.1 可执行 JAR、release.zip 和 release.tar.gz。
+Dockerfile 提供镜像构建：docker build -t live-monitor-java:1.0.1 .
+当前环境无 Docker，未构建/推送镜像；没有自动发布生产环境或覆盖现有数据。
+没有正式 SMTP/短信/钉钉/企业微信凭据，真实第三方到达验证需在部署环境执行；本地协议成功不代表真实网关始终可达。
+没有真实 MySQL 服务，因此真实版本兼容和切库演练列为部署环境验证项。
+没有执行真实物理磁盘故障，历史补写故障以写入异常注入验证。
+前端完成脚本语法检查与后端集成测试；当前未提供浏览器自动化，未进行截图级视觉验收。
+外部投递采用至少一次语义。网络响应丢失、成功后本地确认前崩溃、极端租约超时均可能重复；不承诺第三方端到端 exactly-once。

@@ -292,6 +292,10 @@ public class SchemaMigrationService {
         createIndexIfMissing("monitor_service", "idx_monitor_service_category_enabled", "service_category, enabled");
         createIndexIfMissing("service_latest_status", "idx_service_latest_status_time", "checked_at DESC");
         createIndexIfMissing("service_alert_group", "idx_service_alert_group_group", "group_id");
+        createIndexIfMissing("alert_delivery_task", "idx_alert_delivery_due", "delivery_status, next_retry_at");
+        createIndexIfMissing("alert_delivery_task", "idx_alert_delivery_event", "event_id, channel_id, alert_key");
+        createIndexIfMissing("alert_delivery_attempt", "idx_alert_attempt_task", "task_id, created_at");
+        createIndexIfMissing("monitor_check_event", "idx_monitor_check_event_time", "checked_at");
     }
 
     private boolean tableExists(String tableName) {

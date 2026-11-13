@@ -38,8 +38,10 @@ public class MonitorScheduler {
         try {
             List<MonitorService> services = liveMonitorService.listServices(false);
             for (MonitorService service : services) {
-                if (isDue(service)) {
-                    submitCheck(service);
+                try {
+                    if (isDue(service)) submitCheck(service);
+                } catch (Exception ex) {
+                    log.warn("monitor submission failed for service {} ({})", service.id, service.serviceName, ex);
                 }
             }
         } catch (Exception ex) {

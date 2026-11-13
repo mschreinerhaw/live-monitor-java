@@ -41,9 +41,8 @@ public class H2ToMysqlMigrationService {
     private static final DateTimeFormatter BACKUP_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
-    // Only configuration tables are migrated. Monitoring / runtime data (service_latest_status,
-    // monitor_check_event, alert_state, alert_notify_record, host_latest_metric, login_audit_log)
-    // is intentionally NOT copied from the legacy H2 database.
+    // Preserve configuration, check snapshots and durable alert runtime state together.
+    // Host metric history remains in RocksDB; login audit is outside this migration.
     // Parent tables before child tables so foreign keys resolve during insert.
     private static final String[][] TABLES = {
         {"tuser", "id"},
@@ -53,16 +52,24 @@ public class H2ToMysqlMigrationService {
         {"alert_group", "id"},
         {"group_policy_rel", "group_id,policy_id"},
         {"group_channel_rel", "group_id,channel_id"},
-        {"service_alert_group", "service_id"},
+        {"service_alert_group", "service_id,group_id"},
         {"external_project", "id"},
         {"external_project_alert_group", "project_id,group_id"},
         {"host_config", "id"},
-        {"host_process_config", "id"}
+        {"host_process_config", "id"},
+        {"service_latest_status", "service_id"},
+        {"monitor_check_event", "id"},
+        {"alert_state", "service_id,alert_key"},
+        {"alert_notify_record", "id"},
+        {"alert_delivery_task", "id"},
+        {"monitor_history_projection", "event_id"},
+        {"alert_delivery_attempt", "id"},
+        {"alert_manual_retry", "new_task_id"}
     };
 
     private static final String[] AUTO_INCREMENT_TABLES = {
         "monitor_service", "alert_policy", "alert_channel", "alert_group",
-        "external_project", "host_config", "host_process_config"
+        "external_project", "host_config", "host_process_config", "monitor_check_event", "alert_notify_record"
     };
 
     private final LiveMonitorProperties properties;

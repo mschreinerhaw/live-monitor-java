@@ -279,3 +279,38 @@ ON DUPLICATE KEY UPDATE
     trigger_type = VALUES(trigger_type),
     trigger_value = VALUES(trigger_value),
     enabled = VALUES(enabled);
+
+CREATE TABLE IF NOT EXISTS alert_delivery_task (
+    id VARCHAR(36) PRIMARY KEY,
+    event_id BIGINT NOT NULL,
+    service_id BIGINT NOT NULL,
+    channel_id BIGINT NOT NULL,
+    alert_content TEXT NOT NULL,
+    alert_key VARCHAR(100),
+    delivery_status VARCHAR(20) NOT NULL,
+    retry_count INT NOT NULL DEFAULT 0,
+    max_retries INT NOT NULL DEFAULT 5,
+    next_retry_at BIGINT NOT NULL,
+    last_error TEXT,
+    claim_token VARCHAR(36),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS monitor_history_projection (
+    event_id BIGINT PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS alert_delivery_attempt (
+    id VARCHAR(36) PRIMARY KEY,
+    task_id VARCHAR(36) NOT NULL,
+    delivery_status VARCHAR(20) NOT NULL,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS alert_manual_retry (
+    original_task_id VARCHAR(36) NOT NULL,
+    new_task_id VARCHAR(36) PRIMARY KEY,
+    actor VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

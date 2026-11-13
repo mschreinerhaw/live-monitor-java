@@ -93,6 +93,13 @@ public class ServicePayload {
     @Min(0)
     @Max(31536000)
     public Integer serviceAlertCooldownSeconds = 600;
+    public Boolean unknownAlertEnabled = true;
+    @javax.validation.constraints.Min(1)
+    @javax.validation.constraints.Max(1000)
+    public Integer unknownConsecutiveFailures = 1;
+    @javax.validation.constraints.Min(0)
+    @javax.validation.constraints.Max(31536000)
+    public Integer alertRepeatIntervalSeconds = 0;
     public Long alertConfigId;
     public Long alertGroupId;
     /**

@@ -77,6 +77,13 @@ public class MonitorService {
     public Integer checkInterval;
     public Integer checkIntervalValue;
     public String checkIntervalUnit;
+    public Boolean unknownAlertEnabled = true;
+    @javax.validation.constraints.Min(1)
+    @javax.validation.constraints.Max(1000)
+    public Integer unknownConsecutiveFailures = 1;
+    @javax.validation.constraints.Min(0)
+    @javax.validation.constraints.Max(31536000)
+    public Integer alertRepeatIntervalSeconds = 0;
     public Long alertConfigId;
     public Long alertGroupId;
     public String alertGroupName;

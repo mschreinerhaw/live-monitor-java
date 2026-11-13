@@ -26,6 +26,30 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class AlertDeliveryServiceTest {
+    @org.junit.jupiter.api.Test
+    void robotBusinessErrorsAndMalformedAcknowledgementsAreNeverSuccess() throws Exception {
+        HttpServer gateway = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        gateway.createContext("/rejected", exchange -> {
+            byte[] body = "{\"errcode\":40014,\"errmsg\":\"invalid credential\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length); exchange.getResponseBody().write(body); exchange.close();
+        });
+        gateway.createContext("/malformed", exchange -> {
+            byte[] body = "not a robot acknowledgement".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length); exchange.getResponseBody().write(body); exchange.close();
+        });
+        gateway.start();
+        try {
+            AlertDeliveryService delivery = new AlertDeliveryService(new ObjectMapper());
+            for (String type : new String[]{"dingtalk", "wecom"}) {
+                for (String path : new String[]{"rejected", "malformed"}) {
+                    AlertChannel channel = new AlertChannel(); channel.channelType = type;
+                    channel.configJson = "{\"webhook_url\":\"http://127.0.0.1:" + gateway.getAddress().getPort() + "/" + path + "\"}";
+                    org.junit.jupiter.api.Assertions.assertFalse(delivery.send(channel, "DOWN").success);
+                }
+            }
+        } finally { gateway.stop(0); }
+    }
+
     private static final Charset GBK = Charset.forName("GBK");
     private static HttpServer server;
     private static URI requestUri;

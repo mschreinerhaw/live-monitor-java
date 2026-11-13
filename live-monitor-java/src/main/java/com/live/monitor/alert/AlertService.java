@@ -53,6 +53,15 @@ public class AlertService {
     private static final Pattern DB_HIT_PATTERN = Pattern.compile("(?:^|,\\s)hit:\\s(.*?)(?=,\\sreason:|$)", Pattern.CASE_INSENSITIVE);
     private static final Pattern DB_REASON_PATTERN = Pattern.compile("(?:^|,\\s)reason:\\s(.*)$", Pattern.CASE_INSENSITIVE);
 
+    private final ThreadLocal<Long> checkEventId = new ThreadLocal<Long>();
+    private final ThreadLocal<Long> groupScope = new ThreadLocal<Long>();
+    private AlertOutbox outbox;
+
+    @Autowired
+    public void setOutbox(AlertOutbox outbox) {
+        this.outbox = outbox;
+    }
+
     private final AlertMapper alertMapper;
     private final RocksDbHistoryRepository historyRepository;
     private final AlertDeliveryService deliveryService;
@@ -79,10 +88,17 @@ public class AlertService {
         this.objectMapper = objectMapper;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void publishCheckEvent(MonitorService service, MonitorResult result) {
         CheckEvent event = checkEvent(service, result);
         alertMapper.insertCheckEvent(event);
-        consumeCheckEvent(service, event);
+        if (outbox != null) outbox.enqueueHistory(event.id);
+        checkEventId.set(event.id);
+        try {
+            consumeCheckEvent(service, event);
+        } finally {
+            checkEventId.remove();
+        }
     }
 
     public void evaluate(MonitorService service, MonitorResult result, String previousStatus) {
@@ -135,6 +151,7 @@ public class AlertService {
     }
 
     private AlertState state(Long serviceId, String alertKey) {
+        if (groupScope.get() != null) alertKey = "g" + groupScope.get() + ":" + alertKey;
         AlertState existing = alertMapper.findAlertState(serviceId, alertKey);
         if (existing != null) {
             return existing;
@@ -207,6 +224,22 @@ public class AlertService {
     }
 
     private void consumeCheckEvent(MonitorService service, CheckEvent event) {
+        if (service.alertGroupIds != null && service.alertGroupIds.size() > 1) {
+            for (Long groupId : service.alertGroupIds) {
+                com.live.monitor.entity.AlertGroup group = alertMapper.findGroup(groupId);
+                MonitorService scoped = objectMapper.convertValue(service, MonitorService.class);
+                scoped.alertGroupId = groupId;
+                scoped.alertGroupIds = java.util.Collections.singletonList(groupId);
+                scoped.alertGroupEnabled = group != null && Boolean.TRUE.equals(group.enabled);
+                groupScope.set(groupId);
+                try { consumeGroupEvent(scoped, event); } finally { groupScope.remove(); }
+            }
+        } else {
+            consumeGroupEvent(service, event);
+        }
+    }
+
+    private void consumeGroupEvent(MonitorService service, CheckEvent event) {
         MonitorResult result = monitorResult(event);
         if (isHostResourceThresholdAlert(service, result)) {
             confirmHostResource(service, result, event, new ArrayList<AlertPolicy>());
@@ -219,8 +252,6 @@ public class AlertService {
 
         if (isHostResourceEvent(service, event)) {
             confirmHostResource(service, result, event, policies);
-            alertMapper.markCheckEventConsumed(event.id);
-            return;
         }
 
         confirmAvailability(service, result, event, policies);
@@ -320,32 +351,54 @@ public class AlertService {
         }
         AlertPolicy downPolicy = availabilityDownPolicy(service, policies);
         AlertPolicy recoverPolicy = availabilityRecoverPolicy(policies);
-        boolean canNotify = service.alertGroupId != null && !Boolean.FALSE.equals(service.alertGroupEnabled);
+        boolean canNotify = hasAnyEnabledGroup(service);
 
         AlertState state = state(service.id, AVAILABILITY_ALERT_KEY);
-        if ("DOWN".equals(result.status)) {
-            int failCount = intValue(state.failCount, 0) + 1;
-            int threshold = availabilityFailureThreshold(service);
+        boolean unknown = "UNKNOWN".equals(result.status);
+        if (unknown && !booleanConfig(service, "unknown_alert_enabled", true)) {
+            state.lastStatus = result.status;
+            state.failCount = 0;
+            state.recoverCount = 0;
+            alertMapper.upsertAlertState(state);
+            return;
+        }
+        if (unknown) {
+            downPolicy = new AlertPolicy();
+            downPolicy.triggerType = "consecutive_unknown";
+            downPolicy.policyName = "UNKNOWN consecutive " + Math.max(1, intConfig(service, "unknown_consecutive_failures", 1)) + " times";
+            downPolicy.enabled = true;
+        }
+        if ("DOWN".equals(result.status) || unknown) {
+            int failCount = (state.lastStatus == null || result.status.equals(state.lastStatus)) ? intValue(state.failCount, 0) + 1 : 1;
+            int threshold = unknown ? Math.max(1, intConfig(service, "unknown_consecutive_failures", 1)) : availabilityFailureThreshold(service);
             if (failCount >= threshold) {
-                boolean enteringAlert = !STATE_ALERTING.equals(state.state);
-                boolean inCooldown = enteringAlert && availabilityInCooldown(service, state, event);
+                boolean enteringAlert = !STATE_ALERTING.equals(state.state) || !downPolicy.triggerType.equals(state.activeTriggerType);
+                boolean inCooldown = false; // A new incident must never be suppressed by an older incident.
                 applyState(state, STATE_ALERTING, failCount, 0, downPolicy, result, event, !enteringAlert || inCooldown);
-                if (enteringAlert) {
-                    if (!inCooldown && canNotify) {
-                        dispatch(service, result, downPolicy, AVAILABILITY_ALERT_KEY);
-                    } else if (!inCooldown && service.alertGroupId == null) {
-                        record(
-                            service,
-                            "Service confirmed DOWN after " + threshold + " checks: " + safe(result.message),
-                            "record",
-                            "success",
-                            AVAILABILITY_ALERT_KEY
-                        );
+                if (enteringAlert || reminderDue(service, state, event)) {
+                    if (!inCooldown) {
+                        List<AlertRecord> delivery = dispatch(service, result, downPolicy, AVAILABILITY_ALERT_KEY);
+                        if (outbox != null && delivery.stream().noneMatch(r -> "pending".equals(r.alertStatus))) {
+                            // Keep evaluating until broken group/channel configuration is repaired.
+                            state.state = STATE_PENDING;
+                            alertMapper.upsertAlertState(state);
+                        }
+                        if (!enteringAlert) {
+                            state.lastAlertAt = event.checkedAt;
+                            alertMapper.upsertAlertState(state);
+                        }
                     }
                 }
                 return;
             }
-            applyState(state, STATE_PENDING, failCount, 0, downPolicy, result, event);
+            if (STATE_ALERTING.equals(state.state)) {
+                state.failCount = failCount;
+                state.recoverCount = 0;
+                state.lastStatus = result.status;
+                alertMapper.upsertAlertState(state);
+            } else {
+                applyState(state, STATE_PENDING, failCount, 0, downPolicy, result, event);
+            }
             return;
         }
 
@@ -359,11 +412,22 @@ public class AlertService {
                     applyState(state, STATE_RECOVERED, 0, recoverCount, null, result, event);
                     return;
                 }
-                applyState(state, STATE_ALERTING, 0, recoverCount, downPolicy, result, event, true);
+                state.failCount = 0;
+                state.recoverCount = recoverCount;
+                state.lastStatus = result.status;
+                alertMapper.upsertAlertState(state);
                 return;
             }
             applyState(state, STATE_RECOVERED.equals(state.state) ? STATE_NORMAL : STATE_NORMAL, 0, 0, null, result, event);
         }
+    }
+
+    private boolean reminderDue(MonitorService service, AlertState state, CheckEvent event) {
+        int interval = intConfig(service, "alert_repeat_interval_seconds", 0);
+        if (interval <= 0) return false;
+        LocalDateTime last = parseDateTime(state.lastAlertAt);
+        LocalDateTime current = parseDateTime(event.checkedAt);
+        return last != null && current != null && !current.isBefore(last.plusSeconds(interval));
     }
 
     private boolean availabilityAlertEnabled(MonitorService service) {
@@ -447,11 +511,16 @@ public class AlertService {
                 && result.responseTimeMs != null
                 && result.responseTimeMs > intValue(policy.triggerValue, 3000);
             if (slow) {
-                int failCount = intValue(state.failCount, 0) + 1;
-                boolean enteringAlert = !STATE_ALERTING.equals(state.state);
-                applyState(state, STATE_ALERTING, failCount, 0, policy, result, event);
-                if (enteringAlert) {
+                int failCount = (state.lastStatus == null || result.status.equals(state.lastStatus)) ? intValue(state.failCount, 0) + 1 : 1;
+                boolean enteringAlert = !STATE_ALERTING.equals(state.state) || !result.status.equals(state.lastStatus);
+                boolean remind = reminderDue(service, state, event);
+                applyState(state, STATE_ALERTING, failCount, 0, policy, result, event, !enteringAlert);
+                if (enteringAlert || remind) {
                     dispatch(service, result, policy, alertKey);
+                    if (!enteringAlert) {
+                        state.lastAlertAt = event.checkedAt;
+                        alertMapper.upsertAlertState(state);
+                    }
                 }
             } else if (STATE_ALERTING.equals(state.state) || STATE_PENDING.equals(state.state)) {
                 applyState(state, STATE_NORMAL, 0, 0, null, result, event);
@@ -472,13 +541,15 @@ public class AlertService {
         boolean thresholdExceeded = isHostResourceThresholdAlert(service, result);
         AlertPolicy thresholdPolicy = hostResourceThresholdPolicy();
         if (thresholdExceeded) {
-            int failCount = intValue(state.failCount, 0) + 1;
+            int failCount = (state.lastStatus == null || result.status.equals(state.lastStatus)) ? intValue(state.failCount, 0) + 1 : 1;
             boolean enteringAlert = !STATE_ALERTING.equals(state.state);
-            boolean inCooldown = enteringAlert && hostResourceInCooldown(service, state, event);
-            applyState(state, STATE_ALERTING, failCount, 0, thresholdPolicy, result, event, !enteringAlert || inCooldown);
-            if (enteringAlert && service.alertGroupId != null && !Boolean.FALSE.equals(service.alertGroupEnabled)) {
-                if (!inCooldown) {
-                    dispatch(service, result, thresholdPolicy, HOST_RESOURCE_THRESHOLD_ALERT, state);
+            boolean remind = reminderDue(service, state, event);
+            applyState(state, STATE_ALERTING, failCount, 0, thresholdPolicy, result, event, !enteringAlert);
+            if (enteringAlert || remind) {
+                dispatch(service, result, thresholdPolicy, HOST_RESOURCE_THRESHOLD_ALERT, state);
+                if (!enteringAlert) {
+                    state.lastAlertAt = event.checkedAt;
+                    alertMapper.upsertAlertState(state);
                 }
             }
             return;
@@ -604,6 +675,11 @@ public class AlertService {
             }
             enabledChannels++;
             String content = content(service, result, policy, channel, fallbackContent, activeState);
+            if (outbox != null) {
+                outbox.enqueue(checkEventId.get(), service.id, channel, content, alertKey);
+                records.add(record(service, content, channel.channelType, "pending", alertKey));
+                continue;
+            }
             AlertDeliveryService.DeliveryResult delivery = deliveryService.send(channel, content);
             String recordContent = delivery.success || !StringUtils.hasText(delivery.message)
                 ? content
@@ -772,6 +848,10 @@ public class AlertService {
         record.serviceName = service.serviceName;
         record.serviceType = service.serviceType;
         record.clusterName = service.clusterName;
+        if (outbox != null && checkEventId.get() != null) {
+            alertMapper.insertNotifyRecord(service.id, alertKey, null, type, status, content);
+            return record;
+        }
         AlertRecord saved = historyRepository.saveAlertRecord(record);
         alertMapper.insertNotifyRecord(service.id, alertKey, saved.id, type, status, content);
         return saved;

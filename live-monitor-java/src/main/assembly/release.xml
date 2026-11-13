@@ -12,6 +12,14 @@
 
     <files>
         <file>
+            <source>DEPLOY.md</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
+            <source>ALERT_RELIABILITY_REPORT.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
             <source>${project.build.directory}/${project.build.finalName}.jar</source>
             <outputDirectory>lib</outputDirectory>
             <destName>${project.artifactId}.jar</destName>

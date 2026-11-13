@@ -29,6 +29,29 @@ import org.junit.jupiter.api.Test;
 
 class AlertServiceTest {
     @Test
+    void productionUnknownCreatesDurableTaskWithoutSendingInMonitorTransaction() {
+        AlertMapper mapper = mock(AlertMapper.class);
+        RocksDbHistoryRepository history = mock(RocksDbHistoryRepository.class);
+        AlertDeliveryService delivery = mock(AlertDeliveryService.class);
+        AlertOutbox outbox = mock(AlertOutbox.class);
+        AlertService alerts = new AlertService(mapper, history, delivery);
+        alerts.setOutbox(outbox);
+        MonitorService monitored = monitorService();
+        AlertChannel channel = alertChannel("http");
+        channel.id = 19L;
+        when(mapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(channel));
+        org.mockito.Mockito.doAnswer(call -> {
+            ((com.live.monitor.entity.CheckEvent) call.getArgument(0)).id = 42L;
+            return 1;
+        }).when(mapper).insertCheckEvent(any(com.live.monitor.entity.CheckEvent.class));
+        alerts.publishCheckEvent(monitored, monitorResult("UNKNOWN", 0));
+        verify(outbox).enqueueHistory(42L);
+        verify(outbox).enqueue(eq(42L), eq(monitored.id), eq(channel), any(), eq("availability"));
+        verify(delivery, never()).send(any(), any());
+        verify(history, never()).saveAlertRecord(any());
+    }
+
+    @Test
     void externalTextIsForwardedOncePerEnabledChannelAcrossMultipleGroups() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
@@ -393,7 +416,7 @@ class AlertServiceTest {
     }
 
     @Test
-    void hostResourceCooldownSuppressesRepeatedNotificationAfterRecovery() {
+    void hostResourceNewIncidentIsNotSuppressedByPreviousCooldown() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
         AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
@@ -433,10 +456,10 @@ class AlertServiceTest {
         secondAlert.message = "CPU 91.0% / 85.0%, Memory 40.0% / 85.0%, Disk 20.0% / 85.0%";
         service.evaluate(monitorService, secondAlert, "UP");
 
-        verify(historyRepository, times(1)).saveAlertRecord(any(AlertRecord.class));
+        verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
         AlertState state = states.get("1:host_resource_threshold");
         org.junit.jupiter.api.Assertions.assertEquals("ALERTING", state.state);
-        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:00:00", state.lastAlertAt);
+        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:05:00", state.lastAlertAt);
     }
 
     @Test
@@ -625,7 +648,7 @@ class AlertServiceTest {
     }
 
     @Test
-    void availabilityCooldownSuppressesRepeatedNotificationAfterRecovery() {
+    void newIncidentAfterRecoveryIsNeverSuppressedByPreviousCooldown() {
         AlertMapper alertMapper = mock(AlertMapper.class);
         RocksDbHistoryRepository historyRepository = mock(RocksDbHistoryRepository.class);
         AlertService service = new AlertService(alertMapper, historyRepository, mock(AlertDeliveryService.class));
@@ -658,10 +681,10 @@ class AlertServiceTest {
         service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:06:00"), "DOWN");
         service.evaluate(monitorService, monitorResultAt("DOWN", "2026-06-03 09:07:00"), "DOWN");
 
-        verify(historyRepository, times(2)).saveAlertRecord(any(AlertRecord.class));
+        verify(historyRepository, times(3)).saveAlertRecord(any(AlertRecord.class));
         AlertState state = states.get("1:availability");
         org.junit.jupiter.api.Assertions.assertEquals("ALERTING", state.state);
-        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:02:00", state.lastAlertAt);
+        org.junit.jupiter.api.Assertions.assertEquals("2026-06-03 09:07:00", state.lastAlertAt);
     }
 
     @Test

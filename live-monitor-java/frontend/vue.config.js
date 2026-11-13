@@ -5,7 +5,7 @@ module.exports = defineConfig({
   transpileDependencies: true,
   parallel: false,
   publicPath: '/',
-  outputDir: path.resolve(__dirname, '../src/main/resources/static'),
+  outputDir: path.resolve(__dirname, 'dist'),
   assetsDir: 'static',
   productionSourceMap: false,
   devServer: {

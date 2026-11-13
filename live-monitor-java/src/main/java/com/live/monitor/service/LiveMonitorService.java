@@ -32,6 +32,11 @@ public class LiveMonitorService {
         new TypeReference<Map<String, Object>>() {};
     private static final DateTimeFormatter TEXT_TIME = MonitorTime.TEXT_TIME;
 
+    private final java.util.Set<Long> activeChecks = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    @org.springframework.beans.factory.annotation.Autowired
+    private MonitorCheckExecution checkExecution;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.live.monitor.alert.AlertTaskAdmin taskAdmin;
     private final MonitorServiceMapper serviceMapper;
     private final RocksDbHistoryRepository historyRepository;
     private final MonitorRunnerService runnerService;
@@ -177,20 +182,41 @@ public class LiveMonitorService {
     }
 
     public MonitorResult checkAndStore(Long id) {
+        if (!activeChecks.add(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Check already running for service " + id);
+        }
+        try {
+            return performCheckAndStore(id);
+        } finally {
+            activeChecks.remove(id);
+        }
+    }
+
+    private MonitorResult performCheckAndStore(Long id) {
         MonitorService service = requireService(id);
         if (!Boolean.TRUE.equals(service.enabled)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "service is disabled");
         }
-        CheckResult check = runnerService.run(service);
+        populateAlertGroupBindings(java.util.Collections.singletonList(service));
+        CheckResult check;
+        try {
+            check = checkExecution == null ? runnerService.run(service) : checkExecution.run(service, () -> runnerService.run(service));
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            check = new CheckResult("UNKNOWN", 0, "CHECKER_INTERNAL_ERROR: " + ex.getClass().getSimpleName());
+        }
+        final CheckResult checked = check;
         return transactionTemplate.execute(status -> {
             MonitorResult result = new MonitorResult();
             result.serviceId = id;
-            result.status = check.status == null ? "UNKNOWN" : check.status;
-            result.responseTimeMs = check.responseTimeMs;
-            result.message = check.message;
-            result.eventType = check.eventType;
-            result.alertType = check.alertType;
-            MonitorResult stored = historyRepository.saveMonitorResult(result);
+            result.status = checked.status == null ? "UNKNOWN" : checked.status;
+            result.responseTimeMs = checked.responseTimeMs;
+            result.message = checked.message;
+            result.eventType = checked.eventType;
+            result.alertType = checked.alertType;
+            result.checkedAt = MonitorTime.nowText();
+            MonitorResult stored = result;
             serviceMapper.upsertLatestStatus(
                 stored.serviceId,
                 stored.status,
@@ -246,7 +272,7 @@ public class LiveMonitorService {
         Map<String, Object> dashboard = new HashMap<String, Object>();
         dashboard.put("summary", summary);
         dashboard.put("services", services);
-        dashboard.put("recent_alerts", enrichAlerts(historyRepository.listAlerts(null, 10), services));
+        dashboard.put("recent_alerts", enrichAlerts(readAlerts(null, 10), services));
         dashboard.put("recent_results", enrichResults(historyRepository.listRecentMonitorResults(10), services));
         dashboard.put("server_time", MonitorTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return dashboard;
@@ -347,12 +373,19 @@ public class LiveMonitorService {
     }
 
     public List<com.live.monitor.entity.AlertRecord> alerts(Long serviceId, int limit) {
-        List<com.live.monitor.entity.AlertRecord> rows = historyRepository.listAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
+        List<com.live.monitor.entity.AlertRecord> rows = readAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
         return enrichAlerts(rows, listServices(true));
     }
 
     public int clearAlerts() {
         return historyRepository.deleteAllAlerts();
+    }
+
+    private List<com.live.monitor.entity.AlertRecord> readAlerts(Long serviceId, int limit) {
+        List<com.live.monitor.entity.AlertRecord> rows = new java.util.ArrayList<>(historyRepository.listAlerts(serviceId, limit));
+        if (taskAdmin != null) rows.addAll(taskAdmin.recentAlerts(serviceId, limit));
+        rows.sort(java.util.Comparator.comparing((com.live.monitor.entity.AlertRecord r) -> r.createdAt == null ? "" : r.createdAt).reversed());
+        return new java.util.ArrayList<>(rows.subList(0, Math.min(limit, rows.size())));
     }
 
     private MonitorService requireService(Long id) {
@@ -806,6 +839,9 @@ public class LiveMonitorService {
         service.serviceConsecutiveFailures = positiveOrDefault(payload.serviceConsecutiveFailures, 3);
         service.serviceRecoverSuccesses = positiveOrDefault(payload.serviceRecoverSuccesses, 2);
         service.serviceAlertCooldownSeconds = nonNegativeOrDefault(payload.serviceAlertCooldownSeconds, 600);
+        config.put("unknown_alert_enabled", payload.unknownAlertEnabled == null || payload.unknownAlertEnabled);
+        config.put("unknown_consecutive_failures", positiveOrDefault(payload.unknownConsecutiveFailures, 1));
+        config.put("alert_repeat_interval_seconds", nonNegativeOrDefault(payload.alertRepeatIntervalSeconds, 0));
         config.put("service_alert_enabled", service.serviceAlertEnabled);
         config.put("service_consecutive_failures", service.serviceConsecutiveFailures);
         config.put("service_recover_successes", service.serviceRecoverSuccesses);
@@ -822,6 +858,9 @@ public class LiveMonitorService {
 
         service.host = stringValue(config, "host", service.host);
         service.port = intValue(config, "port", service.port);
+        service.unknownAlertEnabled = booleanValue(config, "unknown_alert_enabled", true);
+        service.unknownConsecutiveFailures = positiveOrDefault(intValue(config, "unknown_consecutive_failures", 1), 1);
+        service.alertRepeatIntervalSeconds = nonNegativeOrDefault(intValue(config, "alert_repeat_interval_seconds", 0), 0);
         service.serviceAlertEnabled = booleanValue(config, "service_alert_enabled", true);
         service.serviceConsecutiveFailures = positiveOrDefault(intValue(config, "service_consecutive_failures", 3), 3);
         service.serviceRecoverSuccesses = positiveOrDefault(intValue(config, "service_recover_successes", 2), 2);
