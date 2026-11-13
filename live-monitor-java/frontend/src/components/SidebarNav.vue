@@ -16,7 +16,9 @@
     <!-- 导航菜单组 -->
     <div class="sidebar-menu-wrapper">
       <div v-for="group in visibleGroups" :key="group.title" class="menu-group">
-        <div v-show="!isCollapsed || isMobile" class="group-title">{{ group.title }}</div>
+        <button v-if="group.collapsible" type="button" class="group-title group-toggle" :aria-label="group.title" :aria-expanded="!collapsedGroups[group.id]" :aria-controls="'menu-group-' + group.id" :title="isCollapsed && !isMobile ? group.title : ''" @click="collapsedGroups[group.id] = !collapsedGroups[group.id]"><span v-if="isCollapsed && !isMobile"><IconSvg :name="group.icon" size="18" /></span><span v-else>{{ group.title }}</span><IconSvg name="chevron" size="14" :class="{ 'group-chevron-closed': collapsedGroups[group.id] }" /></button>
+        <div v-else v-show="!isCollapsed || isMobile" class="group-title">{{ group.title }}</div>
+        <div :id="group.id ? 'menu-group-' + group.id : undefined" v-show="!group.collapsible || !collapsedGroups[group.id]" class="group-items">
         <template v-for="item in group.items" :key="item.path"><router-link
           :to="item.path"
           class="menu-item"
@@ -37,6 +39,7 @@
           </span>
         </router-link>
         <router-link v-for="child in item.children || []" :key="child.path" :to="child.path" class="menu-item submenu-item" :class="{ active: route.path === child.path }" :aria-label="child.label" :aria-current="route.path === child.path ? 'page' : undefined" :title="isCollapsed && !isMobile ? child.label : ''"><span class="menu-icon"><IconSvg :name="child.icon" size="16" /></span><span v-show="!isCollapsed || isMobile" class="menu-label">{{ child.label }}</span></router-link></template>
+        </div>
       </div>
     </div>
 
@@ -65,6 +68,7 @@ const route = useRoute()
 const isCollapsed = ref(localStorage.getItem('lm_sidebar_collapsed') === 'true')
 const isMobile = ref(window.matchMedia('(max-width: 900px)').matches)
 const navigation = ref(null)
+const collapsedGroups = ref({ assets: true, alerts: true })
 const media = window.matchMedia('(max-width: 900px)')
 let returnFocus = null, previousOverflow = ''
 const resize = event => { isMobile.value = event.matches; if (!event.matches) store.navigationOpen = false }
@@ -123,6 +127,7 @@ const menuGroups = [
   },
   {
     title: '资产基础设施',
+    id: 'assets', collapsible: true, icon: 'server',
     items: [
       { label: '服务器主机', path: '/hosts', icon: 'server' },
       { label: '数据库监控', path: '/databases', icon: 'database' }
@@ -130,6 +135,7 @@ const menuGroups = [
   },
   {
     title: '告警中心',
+    id: 'alerts', collapsible: true, icon: 'bell',
     items: [
       { label: '告警规则配置', path: '/alerts/settings', icon: 'settings' },
       { label: '最近告警记录', path: '/alerts/recent', icon: 'bell' },
@@ -242,6 +248,12 @@ const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items:
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.group-items { display: flex; flex-direction: column; gap: 4px; }
+.group-toggle { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; min-height: 32px; border: 0; border-radius: 6px; background: transparent; text-align: left; cursor: pointer; color: #94a3b8; }
+.group-toggle:hover { background: #1e293b; color: #f8fafc; }
+.group-toggle:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.group-chevron-closed { transform: rotate(-90deg); }
+.collapsed .group-toggle { padding: 4px 6px; }
 
 .menu-item {
   display: flex;
