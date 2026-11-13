@@ -1,31 +1,30 @@
 const { test, expect } = require('@playwright/test')
 const groups = [{ id: 1, group_name: '邮件组', enabled: true }, { id: 2, group_name: '短信组', enabled: true }]
-test('DolphinScheduler overview paginates projects, workflows and tasks and preserves connection secrets', async ({ page }) => {
+test('DolphinScheduler filters workflows by project and uses centered configuration modals', async ({ page }) => {
   let saved,fail=false,overviewParams
   const config={base_url:'http://scheduler:12345/dolphinscheduler',project_codes:'',window_hours:24,alert_states:'FAILURE,STOP,KILL',running_timeout_minutes:180}
   const connection={id:50,service_name:'DS production',service_type:'dolphinscheduler',enabled:true,check_interval:60,service_alert_enabled:true,service_consecutive_failures:1,service_recover_successes:1,unknown_alert_enabled:true,unknown_consecutive_failures:1,alert_repeat_interval_seconds:300,alert_group_ids:[1],config_json:JSON.stringify(config)}
   const projects=Array.from({length:23},(_,i)=>({code:String(i+1),name:'project_'+i,total:1,success:0,running:0,abnormal:1}))
-  const instances=Array.from({length:25},(_,i)=>({id:String(i+1),project_code:'1',project_name:'project_0',name:'workflow_'+i,state:i===0?'FAILURE':'SUCCESS',abnormal:i===0}))
+  const instances=Array.from({length:25},(_,i)=>({id:String(i+1),project_code:i<20?'1':'2',project_name:'project_0',name:'workflow_'+i,state:i===0?'FAILURE':'SUCCESS',abnormal:i===0}))
   const errors=await backend(page,(request,path,url)=>{
     if(path==='/api/dolphinscheduler/connections')return[connection]
     if(path==='/api/dolphinscheduler/connections/50'){saved=request.postDataJSON();return connection}
     if(path.endsWith('/projects'))return projects
-    if(path.endsWith('/overview')){overviewParams=url.searchParams;return fail?{status:502,body:{detail:'DolphinScheduler HTTP 401'}}:{projects,instances,total:25,success:24,running:0,abnormal:1,other:1,start:'2026-11-13 00:00:00',end:'2026-11-13 23:59:59'}}
+    if(path.endsWith('/overview')){overviewParams=url.searchParams;return fail?{status:502,body:{detail:'DolphinScheduler HTTP 401'}}:{projects,instances:instances.filter(r=>!url.searchParams.get('project')||r.project_code===url.searchParams.get('project')),total:25,success:24,running:0,abnormal:1,other:1,start:'2026-11-13 00:00:00',end:'2026-11-13 23:59:59'}}
     if(path.endsWith('/tasks'))return Array.from({length:21},(_,i)=>({id:String(i+1),name:'task_'+i,state:'SUCCESS'}))
   })
   await page.goto('/#/dolphinscheduler')
   await expect(page.getByRole('heading',{name:'DolphinScheduler 执行总览',exact:true})).toBeVisible()
-  const projectNav=page.getByRole('navigation',{name:'DolphinScheduler 项目分页'}),instanceNav=page.getByRole('navigation',{name:'工作流实例分页'})
-  await expect(page.getByRole('tab',{name:/执行实例/})).toHaveAttribute('aria-selected','true')
+  const instanceNav=page.getByRole('navigation',{name:'工作流实例分页'})
+  await expect(page.getByRole('heading',{name:'工作流实例',exact:true})).toBeVisible()
+  await expect(page.getByRole('tab',{name:/项目概况/})).toHaveCount(0)
   await expect(instanceNav.locator('..').locator('tbody tr').first()).toContainText('失败')
-  await page.getByRole('tab',{name:/执行实例/}).focus();await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab',{name:/项目概况/})).toBeFocused()
-  await page.getByRole('tab',{name:/项目概况/}).click()
-  await expect(projectNav.locator('..').locator('tbody tr')).toHaveCount(10)
-  await projectNav.getByRole('button',{name:'末页',exact:true}).click();await expect(projectNav.locator('..').locator('tbody tr')).toHaveCount(3)
-  await page.getByRole('button',{name:'查看实例',exact:true}).first().click()
-  await expect(page.getByRole('tab',{name:/执行实例/})).toHaveAttribute('aria-selected','true')
-  await page.getByRole('button',{name:'清除筛选',exact:true}).click()
+  await page.getByLabel('筛选项目',{exact:true}).selectOption('2')
+  await expect(page.getByRole('button',{name:'查询 / 刷新',exact:true})).toBeEnabled()
+  expect(overviewParams.get('project')).toBe('2')
+  await expect(instanceNav.locator('..').locator('tbody tr')).toHaveCount(5)
+  await page.getByLabel('筛选项目',{exact:true}).selectOption('')
+  await expect(page.getByRole('button',{name:'查询 / 刷新',exact:true})).toBeEnabled()
   await instanceNav.getByRole('button',{name:'末页',exact:true}).click();await expect(instanceNav.locator('..').locator('tbody tr')).toHaveCount(5)
   await page.getByRole('button',{name:'查询 / 刷新',exact:true}).click()
   await expect(page.getByRole('button',{name:'查询 / 刷新',exact:true})).toBeEnabled()
@@ -39,10 +38,19 @@ test('DolphinScheduler overview paginates projects, workflows and tasks and pres
   await page.getByRole('button',{name:'任务节点',exact:true}).click()
   const taskNav=page.getByRole('navigation',{name:'任务节点分页'});await expect(taskNav.locator('..').locator('tbody tr')).toHaveCount(10)
   await page.getByRole('dialog').getByRole('button',{name:'关闭详情',exact:true}).last().click()
-  await page.getByRole('button',{name:'连接与告警配置',exact:true}).click()
-  await page.getByRole('button',{name:'保存连接与规则',exact:true}).click();await expect.poll(()=>saved).toBeTruthy()
+  await page.getByRole('button',{name:'告警配置',exact:true}).click()
+  await expect(page.getByRole('dialog',{name:'告警配置',exact:true})).toHaveClass(/modal-panel/)
+  await page.getByRole('button',{name:'保存告警配置',exact:true}).click();await expect.poll(()=>saved).toBeTruthy()
   expect(saved.secret_config).toBeUndefined();expect(saved.config.base_url).toBe(config.base_url);expect(saved.alert_group_ids).toEqual([1])
-  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await page.getByRole('button',{name:'新增连接',exact:true}).click()
+  const modal=page.getByRole('dialog',{name:'新增 DolphinScheduler 连接',exact:true})
+  await expect(modal).toHaveClass(/modal-panel/)
+  await modal.getByRole('button',{name:'取消',exact:true}).focus();await page.keyboard.press('Tab')
+  await expect(modal.getByRole('button',{name:'关闭配置',exact:true})).toBeFocused()
+  await page.setViewportSize({width:390,height:844})
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'新增连接',exact:true})).toBeFocused()
+
   fail=true;await page.getByRole('button',{name:'查询 / 刷新',exact:true}).click()
   await expect(page.getByRole('alert')).toContainText('401');await expect(instanceNav).toHaveCount(0)
   expect(overviewParams.get('start')).toBeNull();expect(errors).toEqual([])
