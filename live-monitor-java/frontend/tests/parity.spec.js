@@ -61,6 +61,35 @@ test('service form persists multiple groups and complete alert rules', async ({ 
   expect(errors).toEqual([])
 })
 
+test('web advanced parameters start collapsed and preserve edits when saved collapsed', async ({ page }) => {
+  let saved
+  const errors = await backend(page, (request,path) => {
+    if (path === '/api/services' && request.method() === 'POST') { saved=request.postDataJSON(); return {id:99,...saved} }
+  })
+  await page.goto('/#/services/new')
+  const toggle=page.getByRole('button',{name:/高级参数/})
+  await expect(toggle).toHaveAttribute('aria-expanded','false')
+  await expect(page.getByLabel(/^认证方式/)).toBeHidden()
+  await toggle.focus();await page.keyboard.press('Enter')
+  await expect(toggle).toHaveAttribute('aria-expanded','true')
+  await page.getByLabel(/^认证方式/).selectOption('basic')
+  await page.getByLabel('Basic 用户名',{exact:true}).fill('probe-user')
+  await page.getByLabel('Basic 密码',{exact:true}).fill('test-only-password')
+  await page.getByLabel('文本断言内容',{exact:true}).fill('healthy')
+  await page.getByLabel('断言表达式',{exact:true}).fill('status_code == 200')
+  await toggle.click();await toggle.click()
+  await expect(page.getByLabel('Basic 用户名',{exact:true})).toHaveValue('probe-user')
+  await toggle.click()
+  await page.locator('input[maxlength="120"]').fill('web advanced test')
+  await page.locator('input[type="url"]').first().fill('https://example.com/health')
+  await page.getByLabel('邮件组',{exact:true}).check()
+  await page.getByRole('button',{name:'保存监控服务',exact:true}).click()
+  await expect.poll(()=>saved).toBeTruthy()
+  expect(saved.api_auth_type).toBe('basic');expect(saved.api_basic_username).toBe('probe-user')
+  expect(saved.api_basic_password).toBe('test-only-password');expect(saved.api_text_assertion_value).toBe('healthy')
+  expect(saved.api_assertion_expression).toBe('status_code == 200');expect(errors).toEqual([])
+})
+
 test('host form submits SSH names and detail supports process creation', async ({ page }) => {
   let saved, process
   const errors = await backend(page, (request, path) => {
