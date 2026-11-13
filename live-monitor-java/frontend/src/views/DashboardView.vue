@@ -4,7 +4,7 @@
     <div class="page-header">
       <div class="page-header-title">
         <h1>监控服务总览</h1>
-        <p>轻量事件驱动实时监控平台，毫秒级探测与全链路健康分析</p>
+        <p>查看服务运行状态、告警通知与主机资源，及时定位异常。</p>
       </div>
       <div class="header-refresh-box">
         <span class="live-dot" :class="{ pulse: refreshing }"></span>
@@ -18,32 +18,32 @@
 
     <!-- 概览指标卡片网格 -->
     <div class="metrics-grid">
-      <div class="metric-card total" :class="{ active: statusFilter === 'all' }" @click="statusFilter = 'all'">
+      <button type="button" class="metric-card total" :class="{ active: statusFilter === 'all' }" :aria-pressed="statusFilter === 'all'" @click="statusFilter = 'all'">
         <span class="metric-label">服务总数</span>
-        <div class="metric-num">{{ summary.total || 0 }}</div>
-        <div class="metric-sub">{{ summary.instances || 0 }} 个实例</div>
-      </div>
+        <div class="metric-num">{{ summary.instances || 0 }}</div>
+        <div class="metric-sub">{{ summary.total || 0 }} 个服务分组</div>
+      </button>
 
-      <div class="metric-card up" :class="{ active: statusFilter === 'UP' }" @click="statusFilter = 'UP'">
+      <button type="button" class="metric-card up" :class="{ active: statusFilter === 'UP' }" :aria-pressed="statusFilter === 'UP'" @click="statusFilter = 'UP'">
         <span class="metric-label">运行正常</span>
         <div class="metric-num text-success">{{ summary.up || 0 }}</div>
         <div class="metric-sub">可用状态</div>
-      </div>
+      </button>
 
-      <div class="metric-card down" :class="{ active: statusFilter === 'DOWN' }" @click="statusFilter = 'DOWN'">
+      <button type="button" class="metric-card down" :class="{ active: statusFilter === 'DOWN' }" :aria-pressed="statusFilter === 'DOWN'" @click="statusFilter = 'DOWN'">
         <span class="metric-label">服务异常</span>
         <div class="metric-num text-danger">{{ summary.down || 0 }}</div>
         <div class="metric-sub">急需关注</div>
-      </div>
+      </button>
 
-      <div class="metric-card unknown" :class="{ active: statusFilter === 'UNKNOWN' }" @click="statusFilter = 'UNKNOWN'">
+      <button type="button" class="metric-card unknown" :class="{ active: statusFilter === 'UNKNOWN' }" :aria-pressed="statusFilter === 'UNKNOWN'" @click="statusFilter = 'UNKNOWN'">
         <span class="metric-label">未知状态</span>
         <div class="metric-num text-muted">{{ summary.unknown || 0 }}</div>
         <div class="metric-sub">等待探测</div>
-      </div>
+      </button>
 
       <div class="metric-card alert">
-        <span class="metric-label">今日告警</span>
+        <span class="metric-label">今日告警通知</span>
         <div class="metric-num text-warn">{{ summary.today_alerts || 0 }}</div>
         <div class="metric-sub">昨日: {{ summary.yesterday_alerts || 0 }} 次</div>
       </div>
@@ -819,10 +819,13 @@ onBeforeUnmount(() => {
   .metrics-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
-  .metrics-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .metric-card.alert { grid-column: 1 / -1; }
 }
 
 .metric-card {
+  text-align: left;
+  font: inherit;
   background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -852,6 +855,7 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 20px;
 }
+.dashboard-content-layout > * { min-width: 0; }
 @media (max-width: 1024px) {
   .dashboard-content-layout { grid-template-columns: 1fr; }
 }

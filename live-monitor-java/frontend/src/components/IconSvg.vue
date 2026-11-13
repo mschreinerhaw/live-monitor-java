@@ -23,6 +23,7 @@ const props = defineProps({
 })
 
 const icons = {
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   server: '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
   bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',

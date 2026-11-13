@@ -74,6 +74,7 @@ const router = createRouter({
 
 // 登录与未授权路由守卫
 router.beforeEach(async (to, from, next) => {
+  store.navigationLoading = true
   // 兼容直接从非 hash 地址进入（如 /data-send、/hosts 等）
   if (to.matched.length === 0) {
     next('/dashboard')
@@ -98,5 +99,8 @@ router.beforeEach(async (to, from, next) => {
   if (to.path === '/admin' && !store.user?.admin) { next('/account'); return }
   next()
 })
+
+router.afterEach(() => { store.navigationLoading = false })
+router.onError(() => { store.navigationLoading = false; store.showToast('页面加载失败，请刷新重试', 'error') })
 
 export default router

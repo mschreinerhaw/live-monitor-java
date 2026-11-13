@@ -35,8 +35,9 @@ test('durable task details and manual retry show real results', async ({ page })
   await expect(page.getByText('支付接口 / 邮件')).toBeVisible()
   await page.getByRole('button', { name: '发送历史' }).click()
   await expect(page.getByText('支付接口 DOWN')).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: '关闭详情', exact: true }).last().click()
   await page.getByRole('button', { name: '手动重试' }).click()
-  await expect(page.getByRole('cell', { name: 'PENDING', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '排队中', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
 
@@ -324,4 +325,93 @@ test('service table paginates filtered results and keeps a valid page across ref
   await expect(pagination).toContainText('第 1 / 1 页')
   await page.screenshot({ path: 'test-results/service-table-pagination.png', fullPage: true })
   expect(errors).toEqual([])
+})
+
+test('all workspace pages retain usable content width on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const errors = await backend(page, (_, path) => {
+    if (path === '/api/services/1') return { id: 1, service_name: '应用监控', service_type: 'web', config_json: '{}', alert_group_ids: [1] }
+    if (path === '/api/hosts/1') return { id: 1, host_name: '应用主机', ip: '127.0.0.1' }
+    if (path === '/api/hosts/1/metrics') return {}
+    if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
+  })
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
+    await page.goto('/#' + path)
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+    const main = await page.locator('main').boundingBox()
+    expect(main.width, path).toBeGreaterThan(370)
+    const overflowing = await page.locator('main').evaluate(node => [...node.querySelectorAll('.card,input,select')].filter(element => {
+      if (element.closest('.table-wrap') || !element.getClientRects().length) return false
+      return element.getBoundingClientRect().right > innerWidth + 2
+    }).map(element => element.className))
+    expect(overflowing, path).toEqual([])
+  }
+  await page.screenshot({ path: 'test-results/product-mobile-host.png', fullPage: true })
+  expect(errors).toEqual([])
+})
+
+test('mobile navigation traps focus, dismisses with Escape and closes after navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await backend(page)
+  await page.goto('/#/dashboard')
+  const toggle = page.getByRole('button', { name: '打开导航菜单' })
+  await toggle.click()
+  const navigation = page.getByRole('dialog', { name: '主导航' })
+  await expect(navigation).toBeVisible()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(toggle).toBeFocused()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+  await navigation.getByRole('link', { name: '最近告警记录', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '最近告警记录', exact: true })).toBeVisible()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden')
+})
+
+test('notification previews remove HTML and menus dismiss without losing focus', async ({ page }) => {
+  await backend(page, (_, path) => path === '/api/alerts' ? [{ id: 7, service_id: 11, service_name: '应用主机', alert_status: 'success', alert_content: '<div>主机资源告警</div><script>window.productXss=true</script><img src="https://invalid.example/image" onerror="window.productXss=true">' }] : undefined)
+  await page.goto('/#/dashboard')
+  const bell = page.getByRole('button', { name: '告警通知', exact: true })
+  await bell.click()
+  await expect(page.locator('.notify-item-msg')).toHaveText('主机资源告警')
+  await expect(page.locator('.notify-item-msg img, .notify-item-msg script')).toHaveCount(0)
+  await expect(page.locator('.notify-item')).toHaveAttribute('href', '#/alerts/recent?service_id=11')
+  await page.keyboard.press('Escape')
+  await expect(bell).toBeFocused()
+  await expect(bell).toHaveAttribute('aria-expanded', 'false')
+  await page.getByRole('button', { name: '账号菜单' }).click()
+  await expect(page.locator('#account-menu')).toBeVisible()
+  await page.getByRole('heading', { name: '监控服务总览' }).click()
+  await expect(page.locator('#account-menu')).toHaveCount(0)
+  expect(await page.evaluate(() => window.productXss)).toBeUndefined()
+  await page.goto('/#/account')
+  await page.getByRole('link', { name: '跳到主要内容' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('main')).toBeFocused()
+  await expect(page).toHaveURL(/#\/account/)
+  await page.goto('/#/alerts/recent?service_id=11')
+  await expect(page.getByRole('heading', { name: '最近告警记录', exact: true })).toBeVisible()
+  const nextService = page.waitForRequest(request => request.url().includes('/api/services/12/alerts'))
+  await page.goto('/#/alerts/recent?service_id=12')
+  await nextService
+})
+
+test('task filters use service and channel names and reset to all results', async ({ page }) => {
+  let parameters
+  await backend(page, (_, path, url) => {
+    if (path === '/api/services') return [{ id: 12, service_name: '生产主机' }]
+    if (path === '/api/alert-channels') return [{ id: 2, channel_name: '生产邮件', channel_type: 'email' }]
+    if (path === '/api/alert-tasks') { parameters = url.searchParams; return { items: [], total: 0, counts: [] } }
+  })
+  await page.goto('/#/alerts/tasks')
+  await page.getByLabel('监控服务', { exact: true }).selectOption({ label: '生产主机' })
+  await page.getByLabel('告警渠道', { exact: true }).selectOption({ label: '生产邮件' })
+  await page.getByLabel('发送状态', { exact: true }).selectOption({ label: '等待重试' })
+  await page.getByRole('button', { name: '查询 / 刷新', exact: true }).click()
+  await expect.poll(() => parameters.get('service_id')).toBe('12')
+  expect(parameters.get('channel_id')).toBe('2'); expect(parameters.get('status')).toBe('FAILED')
+  await page.getByRole('button', { name: '重置筛选' }).click()
+  await expect.poll(() => parameters.get('service_id')).toBeNull()
+  expect(parameters.get('channel_id')).toBeNull(); expect(parameters.get('status')).toBeNull()
 })

@@ -1,33 +1,36 @@
 <template>
-  <aside class="sidebar-nav" :class="{ collapsed: isCollapsed }">
+  <aside id="primary-navigation" ref="navigation" class="sidebar-nav" :class="{ collapsed: isCollapsed && !isMobile, 'mobile-open': store.navigationOpen }" :role="isMobile ? 'dialog' : undefined" :aria-modal="isMobile && store.navigationOpen ? 'true' : undefined" :aria-hidden="isMobile && !store.navigationOpen ? 'true' : undefined" :inert="isMobile && !store.navigationOpen || undefined" aria-label="主导航" @keydown="handleKeydown">
     <div class="sidebar-header">
       <router-link to="/dashboard" class="sidebar-brand">
         <span class="brand-logo">
           <IconSvg name="activity" size="20" />
         </span>
-        <div v-show="!isCollapsed" class="brand-text">
+        <div v-show="!isCollapsed || isMobile" class="brand-text">
           <strong class="brand-name">Live Monitor</strong>
           <span class="brand-tag">事件监控</span>
         </div>
       </router-link>
+      <button v-if="isMobile" class="mobile-close" aria-label="关闭主导航" @click="store.navigationOpen = false"><IconSvg name="x" size="20" /></button>
     </div>
 
     <!-- 导航菜单组 -->
     <div class="sidebar-menu-wrapper">
-      <div v-for="group in menuGroups" :key="group.title" class="menu-group">
-        <div v-show="!isCollapsed" class="group-title">{{ group.title }}</div>
+      <div v-for="group in visibleGroups" :key="group.title" class="menu-group">
+        <div v-show="!isCollapsed || isMobile" class="group-title">{{ group.title }}</div>
         <router-link
           v-for="item in group.items"
           :key="item.path"
           :to="item.path"
           class="menu-item"
           :class="{ active: isRouteActive(item) }"
-          :title="isCollapsed ? item.label : ''"
+          :title="isCollapsed && !isMobile ? item.label : ''"
+          :aria-label="item.label"
+          :aria-current="isRouteActive(item) ? 'page' : undefined"
         >
           <span class="menu-icon">
             <IconSvg :name="item.icon" size="18" />
           </span>
-          <span v-show="!isCollapsed" class="menu-label">{{ item.label }}</span>
+          <span v-show="!isCollapsed || isMobile" class="menu-label">{{ item.label }}</span>
           <span
             v-if="!isCollapsed && item.badge && item.badge() > 0"
             class="menu-badge"
@@ -39,7 +42,7 @@
     </div>
 
     <!-- 底部收起与环境标识 -->
-    <div class="sidebar-footer">
+    <div v-if="!isMobile" class="sidebar-footer">
       <button
         type="button"
         class="collapse-toggle-btn"
@@ -54,13 +57,42 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { store } from '../store'
 import IconSvg from './IconSvg.vue'
 
 const route = useRoute()
 const isCollapsed = ref(localStorage.getItem('lm_sidebar_collapsed') === 'true')
+const isMobile = ref(window.matchMedia('(max-width: 900px)').matches)
+const navigation = ref(null)
+const media = window.matchMedia('(max-width: 900px)')
+let returnFocus = null, previousOverflow = ''
+const resize = event => { isMobile.value = event.matches; if (!event.matches) store.navigationOpen = false }
+watch(() => route.fullPath, () => { store.navigationOpen = false })
+watch(() => store.navigationOpen, async open => {
+  if (open) {
+    returnFocus = document.activeElement; previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    await nextTick()
+    navigation.value?.querySelector('button, a')?.focus()
+  } else {
+    document.body.style.overflow = previousOverflow
+    if (returnFocus?.isConnected) returnFocus.focus()
+  }
+})
+function handleKeydown(event) {
+  if (!isMobile.value || !store.navigationOpen) return
+  if (event.key === 'Escape') { event.preventDefault(); store.navigationOpen = false }
+  if (event.key === 'Tab') {
+    const elements = [...navigation.value.querySelectorAll('a, button')].filter(node => node.getClientRects().length)
+    const first = elements[0], last = elements[elements.length - 1]
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+  }
+}
+onMounted(() => media.addEventListener('change', resize))
+onBeforeUnmount(() => { media.removeEventListener('change', resize); document.body.style.overflow = previousOverflow; store.navigationOpen = false })
 
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
@@ -72,7 +104,7 @@ const isRouteActive = (item) => {
     return route.path === '/dashboard' || route.path === '/'
   }
   if (item.path === '/services/new') {
-    return route.path.startsWith('/services')
+    return route.path === '/services/new'
   }
   if (item.path === '/alerts/settings') {
     return route.path.startsWith('/alerts/settings')
@@ -96,23 +128,23 @@ const menuGroups = [
     ]
   },
   {
-    title: '告警与安全',
+    title: '告警中心',
     items: [
       { label: '告警规则配置', path: '/alerts/settings', icon: 'settings' },
       { label: '最近告警记录', path: '/alerts/recent', icon: 'bell' },
       { label: '告警任务与重试', path: '/alerts/tasks', icon: 'bell' },
       { label: '外部项目与消息', path: '/external-projects', icon: 'send' },
-      { label: '个人密码', path: '/account', icon: 'settings' },
-      {
-        label: '通知审计流水',
-        path: '/alerts/audit',
-        icon: 'bell',
-        badge: () => store.notifications.unreadCount
-      },
-      { label: '用户安全管理', path: '/admin', icon: 'users' }
+      { label: '通知审计流水', path: '/alerts/audit', icon: 'file' }
+    ]
+  },
+  {
+    title: '账号与安全', items: [
+      { label: '个人密码', path: '/account', icon: 'lock' },
+      { label: '用户安全管理', path: '/admin', icon: 'users', adminOnly: true }
     ]
   }
 ]
+const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || store.user?.admin) })))
 </script>
 
 <style scoped>
@@ -281,5 +313,10 @@ const menuGroups = [
 .collapse-toggle-btn:hover {
   background: #1e293b;
   color: #f8fafc;
+}
+.mobile-close { margin-left: auto; padding: 8px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; }
+@media (max-width: 900px) {
+  .sidebar-nav { position: fixed; inset: 0 auto 0 0; width: 260px; height: 100dvh; transform: translateX(-100%); transition: transform .2s ease; z-index: 200; visibility: hidden; }
+  .sidebar-nav.mobile-open { transform: translateX(0); visibility: visible; }
 }
 </style>

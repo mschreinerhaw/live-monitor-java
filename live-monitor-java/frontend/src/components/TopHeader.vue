@@ -1,12 +1,13 @@
 <template>
   <header class="top-navbar">
     <div class="navbar-left">
+      <button class="topbar-icon-btn mobile-menu-toggle" aria-label="打开导航菜单" aria-controls="primary-navigation" :aria-expanded="store.navigationOpen" @click="store.navigationOpen = !store.navigationOpen"><IconSvg name="menu" size="20" /></button>
       <!-- 面包屑导航 -->
-      <div class="breadcrumb-trail">
-        <span class="bc-root">平台</span>
+      <nav class="breadcrumb-trail" aria-label="面包屑">
+        <router-link to="/dashboard" class="bc-root">平台</router-link>
         <span class="bc-sep">/</span>
         <span class="bc-current">{{ currentRouteTitle }}</span>
-      </div>
+      </nav>
     </div>
 
     <div class="navbar-right">
@@ -23,42 +24,45 @@
 
       <!-- 告警通知铃铛 -->
       <div class="notify-wrapper">
-        <button class="topbar-icon-btn" @click="toggleNotifications" title="告警通知">
+        <button ref="notificationButton" class="topbar-icon-btn" @click="toggleNotifications" title="告警通知" aria-label="告警通知" :aria-expanded="showNotificationPanel" aria-controls="notification-panel">
           <IconSvg name="bell" size="18" />
           <span v-if="store.notifications.unreadCount > 0" class="notify-badge">
             {{ store.notifications.unreadCount }}
           </span>
         </button>
 
-        <div v-if="showNotificationPanel" class="notify-dropdown">
+        <section v-if="showNotificationPanel" id="notification-panel" class="notify-dropdown" aria-label="通知动态">
           <div class="notify-dropdown-head">
-            <strong>告警通知</strong>
-            <button class="text-btn" @click="markAllSeen">全部已读</button>
+            <strong>通知动态 <span class="text-muted">最近 {{ store.notifications.list.length }} 条</span></strong>
+            <button class="text-btn" :disabled="!store.notifications.unreadCount" @click="markAllSeen">全部已读</button>
           </div>
           <div class="notify-list">
             <div v-if="!store.notifications.list.length" class="notify-empty">暂无告警记录</div>
-            <div
+            <router-link
               v-for="item in store.notifications.list"
               :key="item.task_id || item.id"
               class="notify-item"
+              :to="{ path: '/alerts/recent', query: { service_id: item.service_id } }"
             >
-              <div class="notify-item-title">{{ item.service_name || '服务异常' }}</div>
-              <div class="notify-item-msg">{{ item.alert_content || item.message || item.alert_type }}</div>
+              <div class="notify-item-title">{{ item.service_name || '监控服务' }} <span :class="['badge', deliveryTone(item.alert_status)]">{{ deliveryLabel(item.alert_status) }}</span></div>
+              <div class="notify-item-msg">{{ plainMessage(item.alert_content || item.message || item.alert_type) }}</div>
               <div class="notify-item-time">{{ item.created_at || item.checked_at }}</div>
-            </div>
+            </router-link>
           </div>
-        </div>
+          <router-link to="/alerts/recent" class="notify-footer">查看全部告警记录</router-link>
+        </section>
       </div>
 
       <!-- 用户下拉信息 -->
       <div class="user-profile-dropdown">
-        <button class="user-profile-btn" @click="showUserMenu = !showUserMenu">
+        <button ref="userButton" class="user-profile-btn" @click="showUserMenu = !showUserMenu; showNotificationPanel = false" aria-label="账号菜单" :aria-expanded="showUserMenu" aria-controls="account-menu">
           <span class="user-avatar">{{ (store.user?.user_id || 'A').slice(0, 1).toUpperCase() }}</span>
           <span class="user-name">{{ store.user?.user_id || store.user?.name || 'admin' }}</span>
           <IconSvg name="chevron" size="14" />
         </button>
 
-        <div v-if="showUserMenu" class="user-popover-menu">
+        <div v-if="showUserMenu" id="account-menu" class="user-popover-menu">
+          <router-link to="/account" class="popover-item"><IconSvg name="lock" size="14" /><span>修改个人密码</span></router-link>
           <router-link v-if="store.user?.admin" to="/admin" class="popover-item" @click="showUserMenu = false">
             <IconSvg name="users" size="14" />
             <span>用户维护</span>
@@ -74,16 +78,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { store } from '../store'
 import { api } from '../api'
 import IconSvg from './IconSvg.vue'
+import { plainMessage, deliveryLabel, deliveryTone } from '../utils/presentation'
 
 const router = useRouter()
 const route = useRoute()
 const showNotificationPanel = ref(false)
 const showUserMenu = ref(false)
+const notificationButton = ref(null), userButton = ref(null)
+function dismiss(event) {
+  if (event.type === 'keydown') {
+    if (event.key !== 'Escape') return
+    if (showNotificationPanel.value) notificationButton.value?.focus()
+    else if (showUserMenu.value) userButton.value?.focus()
+  } else if (event.target.closest('.notify-wrapper, .user-profile-dropdown')) return
+  showNotificationPanel.value = false; showUserMenu.value = false
+}
+watch(() => route.fullPath, () => { showNotificationPanel.value = false; showUserMenu.value = false })
 
 const currentRouteTitle = computed(() => {
   const map = {
@@ -97,7 +112,10 @@ const currentRouteTitle = computed(() => {
     '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/account': '个人密码',
     '/admin': '用户安全管理'
   }
-  return map[route.path] || '监控详情'
+  if (/^\/services\/[^/]+\/edit$/.test(route.path)) return '编辑监控服务'
+  if (/^\/services\/[^/]+$/.test(route.path)) return '服务详情'
+  if (/^\/hosts\/[^/]+$/.test(route.path)) return '主机详情'
+  return map[route.path] || '监控总览'
 })
 
 const toggleNotifications = () => {
@@ -120,6 +138,8 @@ const handleLogout = async () => {
 
 let notifyInterval = null
 onMounted(async () => {
+  document.addEventListener('pointerdown', dismiss)
+  document.addEventListener('keydown', dismiss)
   if (route.path !== '/login') {
     await store.fetchCurrentUser()
     await store.fetchNotifications()
@@ -132,6 +152,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', dismiss)
+  document.removeEventListener('keydown', dismiss)
   if (notifyInterval) clearInterval(notifyInterval)
 })
 </script>
@@ -217,7 +239,7 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 4px;
   right: 4px;
-  background: #ef4444;
+  background: #0284c7;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
@@ -270,6 +292,7 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 .notify-item {
+  display: block;
   padding: 10px 16px;
   border-bottom: 1px solid #f8fafc;
   font-size: 12px;
@@ -281,6 +304,11 @@ onBeforeUnmount(() => {
 .notify-item-msg {
   color: var(--text-muted);
   margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .notify-item-time {
   color: var(--text-light);
@@ -353,5 +381,23 @@ onBeforeUnmount(() => {
 }
 .popover-item.logout:hover {
   background: #fef2f2;
+}
+.navbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mobile-menu-toggle { display: none; }
+.notify-item-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.notify-item-title .badge { flex-shrink: 0; font-size: 10px; }
+.notify-item:hover { background: #f8fafc; }
+.notify-footer { display: block; text-align: center; padding: 12px; border-top: 1px solid var(--border-color); font-size: 12px; }
+@media (max-width: 900px) {
+  .mobile-menu-toggle { display: inline-flex; flex-shrink: 0; }
+  .top-navbar { padding: 0 12px; }
+  .navbar-right { gap: 8px; }
+  .quick-action-btn { display: none; }
+  .notify-dropdown { position: fixed; top: 62px; right: 12px; width: min(360px, calc(100vw - 24px)); }
+  .bc-root, .bc-sep { display: none; }
+  .bc-current { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .breadcrumb-trail { min-width: 0; }
+  .user-name { display: none; }
+  .user-profile-btn { padding: 4px; }
 }
 </style>

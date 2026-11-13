@@ -36,7 +36,9 @@
     <div class="audit-explanation" role="status">今日处理中 {{ stats.today_pending }} 条 · 未发送（配置阻塞）{{ stats.today_blocked }} 条。未绑定告警组或没有启用渠道时不会发送消息，请在服务配置中检查接收组。</div>
 
     <!-- ECharts 趋势图卡片 -->
-    <div class="card" style="margin-bottom: 20px;">
+    <details class="card audit-trend" @toggle="toggleTrend">
+      <summary>通知趋势 <span class="text-muted">展开查看每日记录变化</span></summary>
+      <div class="audit-trend-content">
       <div class="card-header">
         <div class="card-title">
           <IconSvg name="activity" size="16" />
@@ -67,7 +69,9 @@
         </div>
       </div>
       <div ref="trendChartContainer" style="width: 100%; height: 220px;"></div>
-    </div>
+      <p v-if="trendFailed" class="form-hint" role="status">趋势暂不可用，请刷新重试。</p>
+      </div>
+    </details>
 
     <!-- 审计流水表格 -->
     <div class="card">
@@ -76,26 +80,28 @@
           <IconSvg name="activity" size="16" />
           <span>通知审计流水</span>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <div class="audit-filter-controls">
 <label>开始<input v-model="startTime" type="datetime-local" class="form-control" @change="page = 1; fetchLogs()"></label><label>结束<input v-model="endTime" type="datetime-local" class="form-control" @change="page = 1; fetchLogs()"></label>
-          <select v-model="statusFilter" class="form-control" style="width: 130px;" @change="page = 1; fetchLogs()">
+          <select v-model="statusFilter" aria-label="通知状态" class="form-control" style="width: 150px;" @change="page = 1; fetchLogs()">
             <option value="">全部状态</option>
             <option value="success">渠道已受理</option>
             <option value="failed">最终失败</option><option value="pending">排队中</option><option value="retrying">重试中</option><option value="sending">发送中</option><option value="blocked">未发送（配置阻塞）</option>
           </select>
           <input
             v-model="keyword"
+            aria-label="搜索通知"
             type="text"
             class="form-control"
             placeholder="搜索服务 / 渠道 / 内容 / 原因..."
             style="width: 220px;"
             @input="handleSearch"
           />
+          <button class="btn btn-ghost" :disabled="loading" @click="resetFilters">重置筛选</button>
         </div>
       </div>
 
       <div class="table-wrap">
-        <table class="table">
+        <table class="table" :aria-busy="loading">
           <thead>
             <tr>
               <th>通知时间</th>
@@ -109,7 +115,7 @@
           <tbody>
             <tr v-if="!logList.length">
               <td colspan="6" class="text-center text-muted" style="padding: 36px;">
-                暂无告警通知审计记录
+                {{ loading ? '正在加载通知记录…' : '暂无符合筛选条件的通知记录' }}
               </td>
             </tr>
             <tr v-for="item in logList" :key="item.task_id || item.taskId || item.id">
@@ -149,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { api } from '../api'
 import { store } from '../store'
@@ -163,6 +169,11 @@ const total = ref(0)
 const statusFilter = ref('')
 const keyword = ref('')
 const trendDays = ref(14)
+const trendFailed = ref(false), lastTrendData = ref([])
+async function toggleTrend(event) {
+  if (event.target.open) { await nextTick(); if (!trendChart) initTrendChart(); else trendChart.resize() }
+}
+function resetFilters() { clearTimeout(searchTimer); startTime.value = ''; endTime.value = ''; statusFilter.value = ''; keyword.value = ''; page.value = 1; fetchLogs() }
 
 const stats = reactive({
   today_total: 0,
@@ -194,6 +205,7 @@ const formatTime = (val) => {
 
 const fetchLogs = async () => {
   loading.value = true
+  trendFailed.value = false
   try {
     const [res, trendRes] = await Promise.all([
       api.alertNotifications({
@@ -203,14 +215,14 @@ const fetchLogs = async () => {
         status: statusFilter.value || undefined,
         query: keyword.value.trim() || undefined
       }),
-      api.alertNotificationsTrend(trendDays.value).catch(() => [])
+      api.alertNotificationsTrend(trendDays.value).catch(() => { trendFailed.value = true; return [] })
     ])
     logList.value = res?.items || res?.records || []
     total.value = res?.total != null ? res.total : logList.value.length
 
     // 统计更新
-    stats.today_total = res?.todayTotal != null ? res.todayTotal : (res?.today_total != null ? res.today_total : total.value)
-    stats.today_success = res?.todaySuccess != null ? res.todaySuccess : (res?.today_success != null ? res.today_success : logList.value.filter(i => (i.notify_status || i.notifyStatus || i.status) === 'success').length)
+    stats.today_total = res?.today_total ?? res?.todayTotal ?? 0
+    stats.today_success = res?.today_success ?? res?.todaySuccess ?? 0
     stats.today_failed = res?.today_failed ?? res?.todayFailed ?? 0
     stats.today_pending = res?.today_pending ?? res?.todayPending ?? 0
     stats.today_blocked = res?.today_blocked ?? res?.todayBlocked ?? 0
@@ -236,19 +248,21 @@ const handleSearch = () => {
 
 const changeTrendDays = async (days) => {
   trendDays.value = days
+  trendFailed.value = false
   try {
     const trendRes = await api.alertNotificationsTrend(days)
     updateTrendChart(trendRes)
-  } catch (_) {}
+  } catch (_) { trendFailed.value = true }
 }
 
 const initTrendChart = () => {
   if (!trendChartContainer.value) return
   trendChart = echarts.init(trendChartContainer.value)
-  updateTrendChart([])
+  updateTrendChart(lastTrendData.value)
 }
 
 const updateTrendChart = (trendData = []) => {
+  lastTrendData.value = trendData
   if (!trendChart) return
   let dates = []
   let counts = []
@@ -261,9 +275,6 @@ const updateTrendChart = (trendData = []) => {
       d.setDate(d.getDate() - i)
       dates.push(`${d.getMonth() + 1}/${d.getDate()}`)
       counts.push(0)
-    }
-    if (logList.value.length) {
-      counts[counts.length - 1] = logList.value.length
     }
   }
 
@@ -288,7 +299,6 @@ const handleResize = () => {
 }
 
 onMounted(async () => {
-  initTrendChart()
   await fetchLogs()
   window.addEventListener('resize', handleResize)
 })
@@ -301,6 +311,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.audit-trend summary { cursor: pointer; font-weight: 600; }
+.audit-trend summary span { font-weight: 400; font-size: 12px; margin-left: 8px; }
+.audit-trend-content { padding-top: 16px; }
+.audit-filter-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+.audit-filter-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .audit-explanation { margin-bottom: 20px; padding: 12px 16px; background: #eff6ff; color: #334155; border-radius: 8px; }
 .audit-target { max-width: 240px; overflow-wrap: anywhere; font-size: 12px; }
 .audit-details { min-width: 260px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }

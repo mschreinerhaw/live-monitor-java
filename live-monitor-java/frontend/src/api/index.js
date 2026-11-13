@@ -158,7 +158,7 @@ export const api = {
     const suffix = search.toString()
     return request(`/api/alert-notifications${suffix ? `?${suffix}` : ''}`)
   },
-  alertNotificationsTrend: (days = 14) => request(`/api/alert-notifications/trend?days=${days}`).catch(() => []),
+  alertNotificationsTrend: (days = 14) => request(`/api/alert-notifications/trend?days=${days}`),
 
   // Service Alert Bindings
   updateServiceAlertGroups: (serviceId, groupIds) => request(`/api/services/${serviceId}/alert-group`, {

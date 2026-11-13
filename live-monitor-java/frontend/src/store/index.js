@@ -3,6 +3,8 @@ import { api } from '../api'
 
 export const store = reactive({
   user: null,
+  navigationOpen: false,
+  navigationLoading: false,
   toast: {
     visible: false,
     message: '',

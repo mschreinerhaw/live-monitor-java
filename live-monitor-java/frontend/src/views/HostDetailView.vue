@@ -1,6 +1,6 @@
 <template>
-  <div class="page-container"><router-link to="/hosts">返回主机列表</router-link><h1>{{ host?.host_name || '主机详情' }}</h1><p>{{ host?.ip }} · {{ host?.cluster_name }}</p><p v-if="error" role="alert">{{ error }}</p>
-    <section class="card"><div class="form-row"><button class="btn btn-primary" :disabled="busy" @click="refreshMetrics">立即采集指标</button><button class="btn btn-ghost" :disabled="busy" @click="load">刷新详情</button></div><div class="grid-4"><p>CPU：{{ metrics.cpu_usage_percent ?? '—' }}%</p><p>内存：{{ metrics.memory_used_percent ?? '—' }}%</p><p>磁盘：{{ metrics.disk_used_percent ?? '—' }}%</p><p>采集时间：{{ metrics.checked_at || '—' }}</p></div>
+  <div class="page-container"><div class="page-header"><div class="page-header-title"><router-link to="/hosts" class="back-nav-link">← 返回主机列表</router-link><h1>{{ host?.host_name || '主机详情' }}</h1><p>{{ host?.ip }} · {{ host?.cluster_name || '未分组' }}</p></div><div class="page-actions"><button class="btn btn-ghost" :disabled="busy" @click="load">刷新详情</button><button class="btn btn-primary" :disabled="busy" @click="refreshMetrics">立即采集指标</button></div></div><p v-if="error" role="alert" class="inline-error">{{ error }}</p>
+    <section class="card"><div class="grid-4 resource-summary"><div><span>CPU 使用率</span><strong>{{ metrics.cpu_usage_percent ?? '—' }}%</strong></div><div><span>内存使用率</span><strong>{{ metrics.memory_used_percent ?? '—' }}%</strong></div><div><span>磁盘使用率</span><strong>{{ metrics.disk_used_percent ?? '—' }}%</strong></div><div><span>最近采集</span><time>{{ metrics.checked_at || '暂无采集数据' }}</time></div></div>
       <h2>磁盘分区与物理磁盘</h2><div class="table-wrap"><table class="table"><thead><tr><th>磁盘 / 挂载点</th><th>使用情况</th><th>详情</th></tr></thead><tbody><tr v-for="(disk, index) in [...(metrics.disk_metrics || []), ...(metrics.physical_disk_metrics || [])]" :key="index"><td>{{ disk.mount || disk.mount_point || disk.device || disk.name }}</td><td>{{ disk.used_percent ?? disk.usage_percent ?? '—' }}%</td><td><details><summary>磁盘详情</summary><pre>{{ JSON.stringify(disk, null, 2) }}</pre></details></td></tr></tbody></table></div>
     </section>
     <section class="card"><h2>资源趋势</h2><label>时间范围<select v-model="days" class="form-control" @change="loadHistory"><option :value="1">最近一天</option><option :value="7">最近七天</option><option :value="30">最近三十天</option></select></label><div ref="chartElement" style="height:300px"></div><p v-if="!history.length">暂无历史指标</p></section>
@@ -10,6 +10,14 @@
     </section>
   </div>
 </template>
+<style scoped>
+.resource-summary { margin-bottom: 24px; }
+.resource-summary > div { padding: 14px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; }
+.resource-summary span { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
+.resource-summary strong { font-size: 24px; }
+.resource-summary time { font-size: 13px; overflow-wrap: anywhere; }
+@media(max-width: 560px) { .resource-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+</style>
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'

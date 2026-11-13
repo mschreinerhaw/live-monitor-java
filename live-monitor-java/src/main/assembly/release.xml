@@ -12,6 +12,10 @@
 
     <files>
         <file>
+            <source>PRODUCT_UX_REVIEW.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
             <source>VUE3_FUNCTIONAL_PARITY.txt</source>
             <outputDirectory>/</outputDirectory>
         </file>
