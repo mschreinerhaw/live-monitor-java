@@ -415,3 +415,46 @@ test('task filters use service and channel names and reset to all results', asyn
   await expect.poll(() => parameters.get('service_id')).toBeNull()
   expect(parameters.get('channel_id')).toBeNull(); expect(parameters.get('status')).toBeNull()
 })
+
+test('external integration examples use the selected project and preserve JSON and shell quoting', async ({ page }) => {
+  const errors = await backend(page, (_, path) => {
+    if (path === '/api/external-projects') return [{ id: 9, project_name: "O'Reilly 项目", match_keyword: "ORDER'KEY", enabled: true, alert_group_ids: [1] }]
+  })
+  await page.goto('/#/external-projects')
+  await page.getByRole('button', { name: '接入示例', exact: true }).click()
+  const guide = page.getByRole('region', { name: '外部消息接入说明' })
+  await expect(guide.getByRole('heading')).toBeFocused()
+  await expect(guide.getByLabel('外部消息接口地址')).toHaveValue('http://127.0.0.1:18407/api/external/messages')
+  const fs = require('fs')
+  for (const [label, extension] of [['JSON 请求体','json'],['cURL','curl'],['Python','py'],['PowerShell','ps1']]) {
+    await guide.getByRole('tab', { name: label, exact: true }).click()
+    const example = await guide.locator('.example-code pre').innerText()
+    fs.writeFileSync(`test-results/external-guide.${extension}`, example)
+    if (extension === 'json') expect(JSON.parse(example).content).toContain("ORDER'KEY")
+    if (extension === 'curl') expect(example).toContain("'\\''")
+  }
+  await guide.getByText('如何判断发送成功与排查错误', { exact: true }).click()
+  await expect(guide.getByRole('cell', { name: '200 / success: false', exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  const size = await guide.boundingBox(); expect(size.x + size.width).toBeLessThanOrEqual(390)
+  expect(errors).toEqual([])
+})
+
+test('external guide copies on HTTP without Clipboard API and never sends a message', async ({ page }) => {
+  const writes = []
+  await backend(page, (request, path) => { if (request.method() !== 'GET') writes.push(path) })
+  await page.addInitScript(() => {
+    window.guideCopies = []
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Not a secure context') } } })
+    document.execCommand = command => { if (command !== 'copy') return false; window.guideCopies.push(document.querySelector('textarea[readonly]').value); return true }
+  })
+  await page.goto('/#/external-projects')
+  const guide = page.getByRole('region', { name: '外部消息接入说明' })
+  await guide.getByRole('button', { name: '复制地址', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.guideCopies[0])).toBe('http://127.0.0.1:18407/api/external/messages')
+  await guide.getByRole('button', { name: '复制示例', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.guideCopies.length)).toBe(2)
+  expect(await page.evaluate(() => window.guideCopies[1])).toContain('curl --request POST')
+  await expect(page.getByText('调用示例已复制', { exact: true })).toBeVisible()
+  expect(writes).toEqual([])
+})
