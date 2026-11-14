@@ -35,5 +35,6 @@ public class AlertTaskMaintenance {
         jdbc.update("DELETE FROM alert_manual_retry WHERE original_task_id IN ("+terminal+") AND new_task_id IN ("+terminal+")",cutoff,cutoff);
         jdbc.update("DELETE FROM alert_delivery_task WHERE delivery_status IN ('SUCCESS','FINAL_FAILED') AND updated_at < ? AND id NOT IN (SELECT original_task_id FROM alert_manual_retry) AND id NOT IN (SELECT new_task_id FROM alert_manual_retry)",cutoff);
         jdbc.update("DELETE FROM monitor_check_event WHERE checked_at < ? AND id NOT IN (SELECT event_id FROM monitor_history_projection) AND id NOT IN (SELECT event_id FROM alert_delivery_task)",cutoff);
+        jdbc.update("DELETE FROM alert_delivery_dedup WHERE event_id NOT IN (SELECT id FROM monitor_check_event)");
     }
 }

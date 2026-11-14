@@ -29,7 +29,8 @@ public class DolphinSchedulerController {
         }catch(IllegalArgumentException e){throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,e.getMessage());}
     }
     @GetMapping("/{id}/projects") public Object projects(@PathVariable Long id){return ds.projects(id);}
-    @GetMapping("/{id}/overview") public Object overview(@PathVariable Long id,@RequestParam(required=false) String start,@RequestParam(required=false) String end,@RequestParam(required=false) String project){return ds.snapshot(ds.require(id),start,end,project);}
+    @GetMapping("/{id}/projects/{project}/definitions") public Object definitions(@PathVariable Long id,@PathVariable String project){return ds.definitions(id,project);}
+    @GetMapping("/{id}/overview") public Object overview(@PathVariable Long id,@RequestParam(required=false) String start,@RequestParam(required=false) String end,@RequestParam(required=false) String project,@RequestParam(name="etl_date",required=false) String etlDate){return ds.snapshot(ds.require(id),start,end,project,etlDate);}
     @GetMapping("/{id}/projects/{project}/instances/{instance}/tasks") public Object tasks(@PathVariable Long id,@PathVariable String project,@PathVariable long instance){return ds.tasks(id,project,instance);}
     @ExceptionHandler(IllegalArgumentException.class) @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY) public Map<String,String> invalid(IllegalArgumentException e){return Collections.singletonMap("detail",e.getMessage());}
     @ExceptionHandler(IllegalStateException.class) @ResponseStatus(HttpStatus.BAD_GATEWAY) public Map<String,String> failed(IllegalStateException e){return Collections.singletonMap("detail",e.getMessage());}

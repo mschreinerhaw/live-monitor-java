@@ -26,6 +26,7 @@ class DolphinSchedulerServiceTest {
             else if("business".equals(mode)){data="{\"code\":100,\"success\":false}";}
             else if(path.endsWith("/projects"))data="{\"code\":0,\"data\":{\"total\":1,\"totalList\":[{\"id\":1,\"code\":123,\"name\":\"project\"}]}}";
             else if(path.endsWith("/tasks"))data="{\"code\":0,\"data\":{\"taskList\":[{\"id\":9,\"name\":\"shell\",\"state\":\"FAILURE\",\"taskParams\":\"hidden-secret\"}]}}";
+            else if(path.endsWith("/process-definition"))data="{\"code\":0,\"data\":{\"total\":3,\"totalList\":[{\"code\":1,\"name\":\"online\",\"releaseState\":\"ONLINE\"},{\"code\":2,\"releaseState\":\"OFFLINE\"},{\"code\":3}]}}";
             else {
                 pages++;List<Map<String,Object>> rows=new ArrayList<>();boolean second=query.contains("pageNo=2");
                 if(!"empty".equals(mode)&&!(second&&"incomplete".equals(mode)))for(int i=second?101:1;i<=(second?101:100);i++){Map<String,Object> r=new LinkedHashMap<>();r.put("id",i);r.put("name","workflow"+i);r.put("state",i==101?"FAILURE":"SUCCESS");r.put("startTime","2026-11-13 10:00:00");rows.add(r);}
@@ -38,6 +39,18 @@ class DolphinSchedulerServiceTest {
         CryptoService crypto=new CryptoService(new LiveMonitorProperties());service.secretConfigJson=crypto.encrypt("{\"token\":\"fixture-token\"}");MonitorServiceMapper mapper=mock(MonitorServiceMapper.class);when(mapper.findById(7L)).thenReturn(service);ds=new DolphinSchedulerService(json,crypto,mapper);
     }
     @AfterEach void close(){server.stop(0);}
+    @Test void definitionsDistinguishReleaseStateAndEnforceScope(){Map<String,Object> result=ds.definitions(7L,"123");assertEquals(3,result.get("total"));assertEquals(1,result.get("online"));assertEquals(1,result.get("offline"));assertEquals(1,result.get("unknown"));assertThrows(IllegalArgumentException.class,()->ds.definitions(7L,"999"));}
+    @Test void businessDateExtractsOnlyExplicitParameters() throws Exception {
+        assertEquals("2026-11-12",ds.etlDate(json.readTree("{\"globalParams\":\"[{\\\"prop\\\":\\\"ETL_Date\\\",\\\"value\\\":\\\"20261112\\\"}]\"}")));
+        assertEquals("2026-11-11",ds.etlDate(json.readTree("{\"localParams\":[{\"prop\":\"etl_date\",\"value\":\"2026-11-11\"}]}")));
+        assertEquals("",ds.etlDate(json.readTree("{\"startTime\":\"2026-11-13 10:00:00\",\"ETL_Date\":\"2026-02-30\"}")));
+        assertEquals("",ds.etlDate(json.readTree("{\"globalParams\":\"invalid\"}")));
+    }
+    @Test void businessDateFilterExcludesUnknownDatesAndValidatesInput(){
+        Map<String,Object> result=ds.snapshot(service,"2026-11-13T00:00","2026-11-13T23:59:59",null,"2026-11-12");
+        assertEquals(0,result.get("total"));assertEquals(0,result.get("success"));
+        assertThrows(IllegalArgumentException.class,()->ds.snapshot(service,null,null,null,"2026-02-30"));
+    }
     @Test void aggregatesAllPagesAndFindsFailureBeyondFirstHundred(){Map<String,Object> result=ds.snapshot(service,"2026-11-13T00:00","2026-11-13 23:59:59",null);assertEquals(101,result.get("total"));assertEquals(1,result.get("abnormal"));assertEquals(100,result.get("success"));assertEquals(2,pages);assertTrue(credential);assertEquals("DOWN",ds.check(service).status);assertTrue(ds.check(service).message.contains("workflow101"));}
     @Test void incompletePaginationCannotReportHealthy(){mode="incomplete";assertEquals("UNKNOWN",ds.check(service).status);}
     @Test void httpAndBusinessAuthenticationFailuresCannotReportHealthy(){mode="auth";assertEquals("UNKNOWN",ds.check(service).status);mode="business";assertEquals("UNKNOWN",ds.check(service).status);assertFalse(ds.check(service).message.contains("fixture-token"));}

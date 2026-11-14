@@ -26,6 +26,13 @@ import org.mockito.InOrder;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class LiveMonitorServiceTest {
+    @Test void transientCommitFailureRetriesPersistenceWithoutRepeatingProbe(){
+        MonitorServiceMapper mapper=mock(MonitorServiceMapper.class);MonitorService monitored=new MonitorService();monitored.id=88L;monitored.serviceName="probe";monitored.serviceType="web";monitored.enabled=true;monitored.configJson="{}";monitored.secretConfigJson="{}";when(mapper.findById(88L)).thenReturn(monitored);when(mapper.listServiceAlertGroups(any())).thenReturn(Collections.emptyList());
+        MonitorRunnerService runner=mock(MonitorRunnerService.class);when(runner.run(any())).thenReturn(new CheckResult("DOWN",12,"observed failure"));TransactionTemplate transactions=mock(TransactionTemplate.class);
+        when(transactions.execute(any())).thenThrow(new org.springframework.dao.DeadlockLoserDataAccessException("retry whole transaction",null)).thenAnswer(call->((org.springframework.transaction.support.TransactionCallback<?>)call.getArgument(0)).doInTransaction(mock(org.springframework.transaction.TransactionStatus.class)));
+        LiveMonitorService service=new LiveMonitorService(mapper,mock(RocksDbHistoryRepository.class),runner,mock(AlertService.class),objectMapper,mock(CryptoService.class),transactions);
+        assertEquals("DOWN",service.checkAndStore(88L).status);org.mockito.Mockito.verify(runner,org.mockito.Mockito.times(1)).run(any());org.mockito.Mockito.verify(transactions,org.mockito.Mockito.times(2)).execute(any());
+    }
     private static final TypeReference<Map<String, Object>> MAP_TYPE =
         new TypeReference<Map<String, Object>>() {};
 

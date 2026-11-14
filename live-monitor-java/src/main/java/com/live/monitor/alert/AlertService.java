@@ -55,6 +55,7 @@ public class AlertService {
 
     private final ThreadLocal<Long> checkEventId = new ThreadLocal<Long>();
     private final ThreadLocal<Long> groupScope = new ThreadLocal<Long>();
+    private final ThreadLocal<String> incidentScope = new ThreadLocal<String>();
     private AlertOutbox outbox;
 
     @Autowired
@@ -105,6 +106,15 @@ public class AlertService {
         publishCheckEvent(service, result);
     }
 
+    /** Independent incidents share the existing event/outbox transaction and channel senders. */
+    @org.springframework.transaction.annotation.Transactional
+    public void publishScopedCheckEvent(MonitorService service, MonitorResult result, String scope) {
+        if(scope==null||!scope.matches("[a-f0-9]{64}"))throw new IllegalArgumentException("Invalid incident scope");
+        incidentScope.set(scope);
+        try { publishCheckEvent(service,result); } finally { incidentScope.remove(); }
+    }
+    private String scopedKey(String key){return incidentScope.get()==null?key:"ds:"+incidentScope.get()+":"+key;}
+
     public AlertRecord testAlert(MonitorService service) {
         List<AlertRecord> records = testAlerts(service);
         return records.isEmpty()
@@ -151,6 +161,7 @@ public class AlertService {
     }
 
     private AlertState state(Long serviceId, String alertKey) {
+        alertKey=scopedKey(alertKey);
         if (groupScope.get() != null) alertKey = "g" + groupScope.get() + ":" + alertKey;
         AlertState existing = alertMapper.findAlertState(serviceId, alertKey);
         if (existing != null) {
@@ -346,6 +357,11 @@ public class AlertService {
         CheckEvent event,
         List<AlertPolicy> policies
     ) {
+        if(incidentScope.get()==null&&"dolphinscheduler".equals(normalize(service.serviceType))
+            &&booleanConfig(service,"enterprise_enabled",false)&&booleanConfig(service,"enterprise_alerts_enabled",false)){
+            applyState(state(service.id,AVAILABILITY_ALERT_KEY),STATE_NORMAL,0,0,null,result,event);
+            return; // The enterprise collector owns independent collection/project incidents.
+        }
         if (!availabilityAlertEnabled(service)) {
             return;
         }
@@ -507,6 +523,14 @@ public class AlertService {
             }
             String alertKey = "latency_gt_ms:" + policy.id;
             AlertState state = state(service.id, alertKey);
+            // Host responseTimeMs measures a multi-command SSH collection cycle,
+            // including deliberate sampling waits, not a service response latency.
+            if ("host".equals(normalize(service.serviceType))) {
+                if (!STATE_NORMAL.equals(state.state)) {
+                    applyState(state, STATE_NORMAL, 0, 0, null, result, event);
+                }
+                continue;
+            }
             boolean slow = "UP".equals(result.status)
                 && result.responseTimeMs != null
                 && result.responseTimeMs > intValue(policy.triggerValue, 3000);
@@ -656,6 +680,7 @@ public class AlertService {
     }
 
     private List<AlertRecord> dispatch(MonitorService service, MonitorResult result, AlertPolicy policy, String alertKey, AlertState activeState) {
+        alertKey=scopedKey(alertKey);
         String fallbackContent = defaultContent(service, result, policy);
         List<AlertRecord> records = new ArrayList<AlertRecord>();
         if (!hasAnyBoundGroup(service)) {
@@ -850,12 +875,19 @@ public class AlertService {
         record.clusterName = service.clusterName;
         if (outbox != null && checkEventId.get() != null) {
             if (content != null && content.contains("Delivery skipped:")) outbox.recordBlocked(service.id, alertKey, type, content);
-            else alertMapper.insertNotifyRecord(service.id, alertKey, null, type, status, content);
+            else insertNotifyRecord(service.id, alertKey, null, type, status, content);
             return record;
         }
         AlertRecord saved = historyRepository.saveAlertRecord(record);
-        alertMapper.insertNotifyRecord(service.id, alertKey, saved.id, type, status, content);
+        insertNotifyRecord(service.id, alertKey, saved.id, type, status, content);
         return saved;
+    }
+
+    private void insertNotifyRecord(Long serviceId,String key,Long recordId,String type,String status,String content){
+        // This INSERT supplies no id and the audit table has only its generated primary key.
+        // A transient allocator collision must not roll back an otherwise valid outbox event.
+        for(int attempt=0;;attempt++)try{alertMapper.insertNotifyRecord(serviceId,key,recordId,type,status,content);return;}
+        catch(org.springframework.dao.DuplicateKeyException conflict){if(attempt>=2)throw conflict;}
     }
 
     private String content(
@@ -876,7 +908,7 @@ public class AlertService {
         String fallbackContent,
         AlertState activeState
     ) {
-        String templateName = templateName(service, result, policy, channel);
+        String templateName = templateName(service, result, policy, channel, activeState);
         return deliveryService.renderTemplate(templateName, templateVariables(service, result, policy, activeState), fallbackContent);
     }
 
@@ -897,9 +929,13 @@ public class AlertService {
             ". Message: " + safe(result.message);
     }
 
-    private String templateName(MonitorService service, MonitorResult result, AlertPolicy policy, AlertChannel channel) {
+    private String templateName(MonitorService service, MonitorResult result, AlertPolicy policy, AlertChannel channel, AlertState activeState) {
         String channelType = normalize(channel.channelType);
-        if ("host".equals(normalize(service.serviceType))) {
+        boolean resourceNotification = HOST_RESOURCE_THRESHOLD_ALERT.equals(policy.triggerType)
+            || (activeState != null && activeState.alertKey != null
+                && (HOST_RESOURCE_THRESHOLD_ALERT.equals(activeState.alertKey)
+                    || activeState.alertKey.endsWith(":" + HOST_RESOURCE_THRESHOLD_ALERT)));
+        if ("host".equals(normalize(service.serviceType)) && resourceNotification) {
             if ("recovered".equals(policy.triggerType)) {
                 if ("email".equals(channelType)) {
                     return "email_host_resource_recover.j2";
@@ -1218,10 +1254,11 @@ public class AlertService {
     }
 
     private String alertLevel(AlertPolicy policy, MonitorResult result) {
+        if(java.util.Arrays.asList("DS_TIMEOUT","DS_BACKLOG","DS_CPU_HIGH","DS_MEMORY_HIGH","DS_JVM_HIGH","DS_DISK_LOW").contains(result.eventType))return "WARNING";
         if ("DOWN".equals(result.status) || "consecutive_down".equals(policy.triggerType)) {
             return "CRITICAL";
         }
-        if ("latency_gt_ms".equals(policy.triggerType) || HOST_RESOURCE_THRESHOLD_ALERT.equals(policy.triggerType)) {
+        if ("UNKNOWN".equals(result.status) || "latency_gt_ms".equals(policy.triggerType) || HOST_RESOURCE_THRESHOLD_ALERT.equals(policy.triggerType)) {
             return "WARNING";
         }
         return "INFO";

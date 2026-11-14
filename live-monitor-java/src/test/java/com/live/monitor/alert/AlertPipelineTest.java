@@ -23,6 +23,7 @@ class AlertPipelineTest {
     AlertOutbox outbox;
     AlertDeliveryService delivery;
     TransactionTemplate tx;
+    com.live.monitor.dolphin.DolphinStore dolphinStore;
 
     @BeforeEach void setup() throws Exception {
         DriverManagerDataSource source = new DriverManagerDataSource("jdbc:h2:mem:"+UUID.randomUUID()+";MODE=LEGACY;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1", "sa", "");
@@ -44,6 +45,7 @@ class AlertPipelineTest {
         jdbc.update("INSERT INTO alert_group(id,group_name,enabled) VALUES (2,'production',1)");
         jdbc.update("INSERT INTO alert_channel(id,channel_name,channel_type,enabled) VALUES(7,'broken','http',1),(8,'healthy','http',1)");
         jdbc.update("INSERT INTO group_channel_rel(group_id,channel_id) VALUES(2,7),(2,8)");
+        dolphinStore=new com.live.monitor.dolphin.DolphinStore(jdbc,new ObjectMapper(),tx.getTransactionManager());dolphinStore.migrate();
     }
 
     MonitorService service(long id) {
@@ -58,6 +60,71 @@ class AlertPipelineTest {
         MonitorResult result = new MonitorResult(); result.serviceId=service.id; result.status=status;
         result.responseTimeMs=1; result.message="reason-"+status; result.checkedAt=at;
         tx.execute(transaction -> { alerts.publishCheckEvent(service,result); return null; });
+    }
+
+    com.live.monitor.dolphin.DolphinAlerts enterpriseAlerts(MonitorService service,List<Long> fallback) {
+        com.live.monitor.service.DolphinSchedulerService api=mock(com.live.monitor.service.DolphinSchedulerService.class);
+        Map<String,Object> config=new HashMap<>();config.put("enterprise_alerts_enabled",true);config.put("default_ops_group_ids",fallback);when(api.config(service)).thenReturn(config);when(api.sourceNow(service)).thenAnswer(call->com.live.monitor.util.MonitorTime.now());
+        com.live.monitor.mapper.MonitorServiceMapper services=mock(com.live.monitor.mapper.MonitorServiceMapper.class);when(services.listServiceAlertGroups(any())).thenReturn(Collections.emptyList());
+        return new com.live.monitor.dolphin.DolphinAlerts(dolphinStore,api,alerts,services,mapper,new ObjectMapper());
+    }
+    void task(long cluster,String project,String id,String state) {
+        Map<String,Object> row=new HashMap<>();row.put("id",id);row.put("project_code",project);row.put("definition_code","800");row.put("task_code",id);row.put("state",state);row.put("etl_date","2026-11-13");row.put("retry_times",0);row.put("max_retry_times",0);
+        dolphinStore.save(cluster,"task_instance",row);dolphinStore.success(cluster,"runtime:"+project,com.live.monitor.util.MonitorTime.nowText());dolphinStore.success(cluster,"runtime",com.live.monitor.util.MonitorTime.nowText());
+    }
+    @Test void historicalTimeoutsAreAggregatedUntilEveryMemberHasBeenObservedTerminal() throws Exception {
+        MonitorService cluster=service(910);cluster.serviceType="dolphinscheduler";
+        com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));
+        task(910,"101","9001","RUNNING_EXECUTION");task(910,"101","9002","RUNNING_EXECUTION");
+        for(Map<String,Object> row:dolphinStore.entities(910,"task_instance",null)){row.put("start_time","2020-01-01 00:00:00");dolphinStore.save(910,"task_instance",row);}
+        java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");StringBuilder hex=new StringBuilder();for(byte b:digest.digest("TIMEOUT:task:9001".getBytes(java.nio.charset.StandardCharsets.UTF_8)))hex.append(String.format("%02x",b&255));String legacy=hex.toString();
+        jdbc.update("INSERT INTO ds_incident(cluster_id,incident_key,project_code,category,message,group_ids,active,opened_at) VALUES(910,?,'101','TIMEOUT','previous single event','[2]',1,?)",legacy,com.live.monitor.util.MonitorTime.nowText());
+        jdbc.update("INSERT INTO alert_state(service_id,alert_key,state,fail_count) VALUES(910,?,'ALERTING',1)","group:2:ds:"+legacy+":availability");
+        engine.evaluate(cluster,"runtime");engine.evaluate(cluster,"runtime");
+        assertEquals(2,jdbc.queryForObject("SELECT active FROM ds_incident WHERE cluster_id=910 AND incident_key=?",Integer.class,legacy));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=910",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM ds_incident_member WHERE cluster_id=910",Integer.class));
+        task(910,"101","9001","SUCCESS");engine.evaluate(cluster,"runtime");
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=910",Integer.class));
+        task(910,"101","9002","SUCCESS");engine.evaluate(cluster,"runtime");
+        assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=910",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM ds_incident WHERE cluster_id=910 AND active<>0",Integer.class));
+        assertEquals("RECOVERED",jdbc.queryForObject("SELECT state FROM alert_state WHERE service_id=910 AND alert_key=?",String.class,"group:2:ds:"+legacy+":availability"));
+    }
+    @Test void enterpriseProjectsRouteToDifferentGroupsDeduplicateAndRecoverThroughOutbox() {
+        MonitorService cluster=service(904);cluster.serviceType="dolphinscheduler";
+        jdbc.update("INSERT INTO alert_group(id,group_name,enabled) VALUES(3,'project-b',1)");jdbc.update("INSERT INTO group_channel_rel(group_id,channel_id) VALUES(3,8)");
+        dolphinStore.saveConfig(904,"101","alice","backup-a",Arrays.asList(2L),true);dolphinStore.saveConfig(904,"102","bob","backup-b",Arrays.asList(3L),true);
+        com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));
+        task(904,"101","9001","FAILURE");task(904,"102","9002","FAILURE");engine.evaluate(cluster,"runtime");
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=904",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(DISTINCT alert_key) FROM alert_delivery_task WHERE service_id=904",Integer.class));
+        engine.evaluate(cluster,"runtime");assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=904",Integer.class));
+        task(904,"101","9001","SUCCESS");task(904,"102","9002","SUCCESS");engine.evaluate(cluster,"runtime");
+        assertEquals(6,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=904",Integer.class));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM ds_incident WHERE cluster_id=904 AND active=1",Integer.class));
+        verify(delivery,never()).send(any(),any());
+    }
+    @Test void enterpriseMissingOwnerFallsBackAndMissingRouteIsAuditedThenRetried() {
+        MonitorService cluster=service(905);cluster.serviceType="dolphinscheduler";
+        task(905,"101","9001","FAILURE");com.live.monitor.dolphin.DolphinAlerts unconfigured=enterpriseAlerts(cluster,Collections.emptyList());unconfigured.evaluate(cluster,"runtime");
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=905",Integer.class));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM alert_notify_record WHERE service_id=905 AND notify_message LIKE '%no alert group%'",Integer.class));
+        com.live.monitor.dolphin.DolphinAlerts repaired=enterpriseAlerts(cluster,Arrays.asList(2L));repaired.evaluate(cluster,"runtime");assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=905",Integer.class));
+    }
+    @Test void enterpriseRulePriorityAndDisabledTaskOverrideAreRespected() {
+        MonitorService cluster=service(906);com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));
+        for(String[] scope:new String[][]{{"platform","*","10"},{"project","101","20"},{"workflow","800","30"},{"task","9001","40"}}){Map<String,Object> r=new HashMap<>();r.put("scope_type",scope[0]);r.put("scope_id",scope[1]);r.put("rule_type","TIMEOUT");r.put("threshold_value",Double.valueOf(scope[2]));r.put("enabled",true);dolphinStore.saveRule(906,r);}
+        assertEquals(40,engine.threshold(906,"101","800","9001","TIMEOUT",100));assertEquals(30,engine.threshold(906,"101","800","9002","TIMEOUT",100));
+        Map<String,Object> off=new HashMap<>();off.put("scope_type","task");off.put("scope_id","9001");off.put("rule_type","TIMEOUT");off.put("enabled",false);dolphinStore.saveRule(906,off);assertEquals(-1,engine.threshold(906,"101","800","9001","TIMEOUT",100));
+    }
+    @Test void enterpriseOfflineNodeRequiresConfirmedObservationAndRecoversDurably() {
+        MonitorService cluster=service(907);com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));Map<String,Object> node=new HashMap<>();node.put("id","masters:node:5678");node.put("role","masters");node.put("host","node");node.put("online",false);node.put("offline_confirmations",1);dolphinStore.save(907,"node",node);dolphinStore.success(907,"resources",com.live.monitor.util.MonitorTime.nowText());engine.evaluate(cluster,"resources");assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=907",Integer.class));
+        node.put("offline_confirmations",2);dolphinStore.save(907,"node",node);engine.evaluate(cluster,"resources");assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=907",Integer.class));node.put("online",true);node.put("offline_confirmations",0);dolphinStore.save(907,"node",node);engine.evaluate(cluster,"resources");assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=907",Integer.class));
+    }
+    @Test void enterpriseMissingInstanceNeverCountsAsSuccessfulRecovery() {
+        MonitorService cluster=service(908);com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));task(908,"101","9001","FAILURE");engine.evaluate(cluster,"runtime");jdbc.update("DELETE FROM ds_entity WHERE cluster_id=908 AND kind='task_instance'");engine.evaluate(cluster,"runtime");assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=908",Integer.class));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM ds_incident WHERE cluster_id=908 AND active=1",Integer.class));
+    }
+    @Test void enterpriseCollectionFailuresAreConfirmedAndRestoredThroughExistingOutbox() {
+        MonitorService cluster=service(909);com.live.monitor.dolphin.DolphinAlerts engine=enterpriseAlerts(cluster,Arrays.asList(2L));dolphinStore.failure(909,"runtime","HTTP 503");engine.evaluate(cluster,"runtime");assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=909",Integer.class));dolphinStore.failure(909,"runtime","HTTP 503");engine.evaluate(cluster,"runtime");assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=909",Integer.class));dolphinStore.success(909,"runtime",com.live.monitor.util.MonitorTime.nowText());engine.evaluate(cluster,"runtime");assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=909",Integer.class));
     }
 
     @Test void oneHundredServicesFollowThresholdSuppressDuplicatesRecoverAndIsolateChannels() throws Exception {
@@ -101,6 +168,29 @@ class AlertPipelineTest {
         assertTrue(content.contains("workflow-101"));assertTrue(content.contains("FAILURE"));
         check(service,"DOWN","2026-11-13 10:01:00");
         assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=901",Integer.class));
+    }
+
+    @Test void hostCollectionLatencyNeverCreatesResourceAlarmAndClearsLegacyState() {
+        MonitorService service=service(902);service.serviceType="host";
+        jdbc.update("INSERT INTO alert_policy(id,policy_name,trigger_type,trigger_value,enabled) VALUES(92,'Latency > 3 seconds','latency_gt_ms','3000',1)");
+        jdbc.update("INSERT INTO group_policy_rel(group_id,policy_id) VALUES(2,92)");
+        jdbc.update("INSERT INTO alert_state(service_id,alert_key,state,fail_count,recover_count,active_trigger_type) VALUES(902,'latency_gt_ms:92','ALERTING',1,0,'latency_gt_ms')");
+        MonitorResult result=new MonitorResult();result.serviceId=902L;result.status="UP";result.responseTimeMs=3427;
+        result.checkedAt="2026-11-14 00:13:39";result.message="CPU 0.3% / 85.0%, Memory 64.1% / 85.0%, Disk 83.0% / 85.0%";
+        tx.execute(transaction->{alerts.publishCheckEvent(service,result);return null;});
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=902",Integer.class));
+        assertEquals("NORMAL",jdbc.queryForObject("SELECT state FROM alert_state WHERE service_id=902 AND alert_key='latency_gt_ms:92'",String.class));
+        verify(delivery,never()).send(any(),any());
+    }
+
+    @Test void hostAvailabilityFailureUsesServiceTemplateWithActualCollectionError() {
+        MonitorService service=service(903);service.serviceType="host";service.serviceConsecutiveFailures=1;
+        MonitorResult result=new MonitorResult();result.serviceId=903L;result.status="UNKNOWN";
+        result.checkedAt="2026-11-14 01:00:00";result.message="SSH connection timed out";
+        tx.execute(transaction->{alerts.publishCheckEvent(service,result);return null;});
+        verify(delivery,times(2)).renderTemplate(eq("http_service_alert.j2"),any(),any());
+        String content=jdbc.queryForList("SELECT alert_content FROM alert_delivery_task WHERE service_id=903",String.class).get(0);
+        assertTrue(content.contains("SSH connection timed out"));
     }
 
     @Test void rollbackRemovesEventStateProjectionAndTasksTogether() {

@@ -207,7 +207,8 @@ public class LiveMonitorService {
             check = new CheckResult("UNKNOWN", 0, "CHECKER_INTERNAL_ERROR: " + ex.getClass().getSimpleName());
         }
         final CheckResult checked = check;
-        return transactionTemplate.execute(status -> {
+        final String observedAt=MonitorTime.nowText();
+        for(int attempt=0;;attempt++)try{return transactionTemplate.execute(status -> {
             MonitorResult result = new MonitorResult();
             result.serviceId = id;
             result.status = checked.status == null ? "UNKNOWN" : checked.status;
@@ -215,7 +216,7 @@ public class LiveMonitorService {
             result.message = checked.message;
             result.eventType = checked.eventType;
             result.alertType = checked.alertType;
-            result.checkedAt = MonitorTime.nowText();
+            result.checkedAt = observedAt;
             MonitorResult stored = result;
             serviceMapper.upsertLatestStatus(
                 stored.serviceId,
@@ -226,7 +227,11 @@ public class LiveMonitorService {
             );
             alertService.publishCheckEvent(service, stored);
             return stored;
-        });
+        });}catch(org.springframework.dao.TransientDataAccessException transientFailure){
+            if(attempt>=2)throw transientFailure;
+            org.slf4j.LoggerFactory.getLogger(LiveMonitorService.class).warn("Retrying monitor event transaction for service {} after {}",id,transientFailure.getClass().getSimpleName());
+            try{Thread.sleep(50L<<attempt);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw transientFailure;}
+        }
     }
 
     public Map<String, Object> dashboard() {

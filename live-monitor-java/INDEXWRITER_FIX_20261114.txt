@@ -1,0 +1,60 @@
+IndexWriter 已关闭故障分析与修复
+日期：2026-11-14，Asia/Shanghai
+
+结论
+该异常属于 192.168.195.221 上 Live Monitor 自身的 Lucene 指标索引组件故障，不能据此判断被监控主机 192.168.195.232 有资源或业务故障。
+历史告警的“主机资源告警”分类以及 INFO 级别也不正确。真实含义是本次监控检测因平台内部组件异常而无法完整完成。
+
+线上证据
+告警时间：2026-11-14 03:16:01.587。
+投递任务：837ffb27-5b8f-4f13-a16f-cae1c644baf0，服务 12，alert_key=availability，投递 SUCCESS。
+错误：CHECKER_INTERNAL_ERROR: AlreadyClosedException: this IndexWriter is closed。
+平台日志从 03:15:35 起反复出现 Lucene metric index commit failed。
+直接底层异常：java.nio.channels.ClosedByInterruptException。
+调用链：HostResourceMonitorService.collectAndStore → RocksDbHistoryRepository.saveHostMetric → MetricSearchIndex.indexMetric → IndexWriter.updateDocument。
+IndexWriter 和 data/search-lucene/metrics 属于监控服务器上的本地辅助索引，不是被监控主机的服务。
+历史日志没有完整记录首次发起线程中断的调用者；结合检测超时取消代码和故障复现，确认可取消检测线程执行共享 Lucene NIO 是需要修复的故障路径，不将此推断为目标主机故障。
+
+原实现问题
+1. 可取消的检测线程直接执行 Lucene NIO，Future.cancel(true) 可能中断文件通道，使共享 writer 进入不可用状态。
+2. 后续写索引只捕获 IOException，AlreadyClosedException 是运行时异常，越过保护层并将正常采集改为 UNKNOWN。
+3. RocksDB 主数据已先写入，但异常中止后续流程，最新指标状态可能未能更新；查询辅助索引也可能不完整。
+4. 索引维护关闭时 shutdownNow 会中断在途 NIO，关闭、查询和写入也缺少统一执行边界。
+5. 原通知只按 serviceType=host 选择资源模板，造成 CPU/内存/磁盘为“-”；UNKNOWN 级别回退为 INFO。
+
+修复
+所有运行期 Lucene 写入、查询、刷新和提交通过专用单线程及有界队列执行，与可取消的检测/HTTP 调用线程隔离。调用者被中断时恢复其中断标记，不取消已提交索引操作。
+索引异常或队列不可用时标记索引降级，记录警告，历史读取回退 RocksDB，避免用不完整索引继续返回局部历史。
+索引降级会写重建标记，重启后从 RocksDB 全量重建；标记保留到正常关闭，防止重建中途崩溃后误用部分索引。降级期间不自动重启应用。
+关闭时按队列顺序释放索引资源，不使用 shutdownNow 中断索引 IO。
+UNKNOWN 通知使用 WARNING。主机连接/采集异常使用服务异常模板，资源超限及恢复使用资源模板（模板分类修复已包含在此前主机告警修复中）。
+
+测试
+Maven 全部 160 项后端测试通过，失败 0、错误 0。
+新增真实 Lucene/RocksDB 测试：调用者已有中断标记时索引仍可写入并继续工作；模拟 writer 关闭后采集存储不抛异常，历史回退 RocksDB，重启重建后可检索全部测试记录。
+原有主机、服务、告警与 DolphinScheduler 后端回归通过。
+未在生产主动制造文件通道中断或手动发送测试邮件。
+
+部署与恢复
+目录：/opt/live-monitor-java-1.0.0
+备份：/opt/live-monitor-backups/20261114-102953，包含 MySQL SQL、原 data/config/lib/bin/templates 及 previous.jar。
+JAR SHA-256：12cd8d37017875c3aa7aaf59c041efebcc0a9f59a91ff6ff5fd1975ede1ecae0。
+停机备份后替换程序，设置一次性重建标记，从 RocksDB 重建辅助索引，没有删除主历史数据。
+启动日志 10:35:06.785：Rebuilt Lucene metric index from RocksDB, indexed 3438453 host-metric documents。
+10:35:07.866 启动完成，包含全量索引恢复用时约 261 秒。原辅助索引约 9.7 万条，不能代表 RocksDB 原始历史总量。
+管理员登录和基础 API 验证通过。30 个服务、11 台主机、2 个告警组及 1 个 DolphinScheduler 连接数量保持一致。
+
+线上验证（10:36:13）
+192.168.195.232 最新检测 UP，采集时间 10:35:16，CPU 0.2%、内存 73.5%、磁盘 78.0%。
+主机近一天历史 API 返回 200，共 2538 条，首尾时间 2026-11-13 10:36:16.196 至 2026-11-14 10:35:15.654。
+新进程日志未发现 AlreadyClosedException、ClosedByInterruptException、索引降级或 ERROR。
+这是短期线上验证结果，不能替代长期运行观察。
+
+证据
+tmp/indexwriter-alert-evidence.json
+tmp/indexwriter-root-stack.txt
+tmp/indexwriter-fixed-live-evidence.json
+tmp/indexwriter-fixed-log-evidence.txt
+tmp/indexwriter-fix-build.log
+
+回退应先停机并备份新增数据，再使用本次备份 previous.jar；数据库及 RocksDB 不得在线覆盖。本次未执行生产回退。

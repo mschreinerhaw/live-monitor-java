@@ -1,12 +1,16 @@
 # Live Monitor Java
 
-面向内部监控平台长期扩展的 Java Maven 工程。当前版本保持原静态前端不变，由 Spring Boot 托管 HTML/JS/ECharts 页面，并提供兼容原 `/api/...` 的后端接口。
+面向内部监控与调度运维的 Java Maven 工程。1.1.0 在现有平台上增加 DolphinScheduler 企业监控，由 Spring Boot 托管 Vue3/ECharts 页面，保留原有服务、主机和告警接口。
+
+企业监控入口：`/#/dolphinscheduler/enterprise`。支持持久化项目与定义同步、增量实例采集、ETL_Date、Master/Worker/JVM、项目责任人与告警组、独立异常去重与恢复，以及历史资源趋势。现场核验版本为定制 `ld-2.0.8`；其他版本需要核对接口及数据口径。
+
+完整使用与 API 清单见 [DOLPHIN_ENTERPRISE_GUIDE.txt](DOLPHIN_ENTERPRISE_GUIDE.txt)，迁移和归档说明见 [DOLPHIN_DATABASE_CHANGES.txt](DOLPHIN_DATABASE_CHANGES.txt)。认证沿用服务端加密 Token；所有调度侧请求均只读，不控制生产任务。未采集、失败、过期和未知业务日期明确区分，不用模拟值补齐。
 
 ## 技术栈
 
-- 前端：HTML + JS + ECharts
+- 前端：Vue3 + Vue Router + ECharts
 - 后端：Java 8 + Spring Boot 2.7
-- 数据库：SQLite，后续可切 MySQL
+- 配置库：H2 / MySQL；历史：RocksDB；辅助索引：Lucene（异常回退 RocksDB）
 - ORM：MyBatis
 - 定时任务：Spring Scheduler
 - SSH：JSch
@@ -42,8 +46,7 @@ live-monitor-java/
 ## 启动
 
 ```bash
-mvn clean -DskipTests package
-cd live-monitor-java
+mvn verify
 mvn spring-boot:run
 ```
 
@@ -56,10 +59,12 @@ http://127.0.0.1:8000/services/new
 http://127.0.0.1:8000/alerts/settings
 ```
 
-SQLite 数据库默认写入：
+默认数据目录（从发布根目录启动）：
 
 ```text
-live-monitor-java/data/live_monitor.db
+data/h2/live_monitor.mv.db
+data/rocksdb/
+data/search-lucene/
 ```
 
 ## SSH 密码

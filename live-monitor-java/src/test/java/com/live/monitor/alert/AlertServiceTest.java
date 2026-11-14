@@ -28,6 +28,15 @@ import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 
 class AlertServiceTest {
+    @Test void generatedAuditIdCollisionRetriesWithoutLosingOutboxTask() {
+        AlertMapper mapper=mock(AlertMapper.class);AlertDeliveryService delivery=mock(AlertDeliveryService.class);AlertOutbox outbox=mock(AlertOutbox.class);
+        AlertService alerts=new AlertService(mapper,mock(RocksDbHistoryRepository.class),delivery);alerts.setOutbox(outbox);MonitorService monitored=monitorService();AlertChannel channel=alertChannel("http");channel.id=19L;
+        when(mapper.listChannelsByGroup(2L)).thenReturn(Collections.singletonList(channel));
+        org.mockito.Mockito.doAnswer(call->{((com.live.monitor.entity.CheckEvent)call.getArgument(0)).id=42L;return 1;}).when(mapper).insertCheckEvent(any());
+        when(mapper.insertNotifyRecord(any(),any(),any(),any(),any(),any())).thenThrow(new org.springframework.dao.DuplicateKeyException("generated audit id collision")).thenReturn(1);
+        alerts.publishCheckEvent(monitored,monitorResult("UNKNOWN",0));
+        verify(mapper,times(2)).insertNotifyRecord(any(),any(),any(),any(),any(),any());verify(outbox).enqueue(eq(42L),eq(monitored.id),eq(channel),any(),eq("availability"));verify(delivery,never()).send(any(),any());
+    }
     @Test
     void productionUnknownCreatesDurableTaskWithoutSendingInMonitorTransaction() {
         AlertMapper mapper = mock(AlertMapper.class);

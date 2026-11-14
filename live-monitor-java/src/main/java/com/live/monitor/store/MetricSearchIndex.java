@@ -16,6 +16,10 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Future;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
@@ -77,6 +81,46 @@ public class MetricSearchIndex {
     private SearcherManager searcherManager;
     private ScheduledExecutorService maintenance;
     private volatile boolean pendingChanges = false;
+    private volatile boolean healthy = true;
+    private volatile boolean closing;
+    private volatile boolean rebuildRequired;
+    private volatile Thread indexThread;
+    private Path rebuildMarker;
+    // Never execute Lucene file-channel IO on cancellable checker/HTTP threads.
+    private final ThreadPoolExecutor indexExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+        new ArrayBlockingQueue<Runnable>(256), runnable -> {
+            Thread thread = new Thread(runnable, "metric-search-index-io");
+            thread.setDaemon(true);
+            indexThread = thread;
+            return thread;
+        }, new ThreadPoolExecutor.AbortPolicy());
+
+    private <T> T isolated(Callable<T> action, T fallback) {
+        if (!healthy || closing) return fallback;
+        try {
+            Future<T> future = indexExecutor.submit(action);
+            return future.get();
+        } catch (InterruptedException ex) {
+            // Leave the queued operation running. Cancelling it would close Lucene's NIO channels.
+            Thread.currentThread().interrupt();
+            return fallback;
+        } catch (Exception ex) {
+            disableIndex(ex);
+            return fallback;
+        }
+    }
+
+    private void disableIndex(Exception ex) {
+        if (healthy) log.warn("Metric search index unavailable; host collection continues using RocksDB history. Restart to reopen the index.", ex);
+        healthy = false;
+        markRebuildRequired();
+    }
+
+    private void markRebuildRequired() {
+        rebuildRequired = true;
+        try { if (rebuildMarker != null) Files.write(rebuildMarker, new byte[] {1}); }
+        catch (IOException markerError) { log.warn("Could not mark metric index for rebuild", markerError); }
+    }
 
     public MetricSearchIndex(LiveMonitorProperties properties) {
         this.properties = properties;
@@ -86,12 +130,14 @@ public class MetricSearchIndex {
     public synchronized void open() throws IOException {
         Path path = Paths.get(properties.getLuceneIndexPath()).toAbsolutePath().normalize().resolve("metrics");
         Files.createDirectories(path);
+        rebuildMarker = path.getParent().resolve("metrics.rebuild-required");
         directory = FSDirectory.open(path);
         IndexWriterConfig config = new IndexWriterConfig(new KeywordAnalyzer());
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
+        config.setOpenMode(Files.exists(rebuildMarker) ? IndexWriterConfig.OpenMode.CREATE : IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         writer = new IndexWriter(directory, config);
         // Ensure the index exists on disk before opening a reader.
         writer.commit();
+        // Keep the marker until a clean shutdown, so an interrupted rebuild is retried.
         searcherManager = new SearcherManager(writer, true, true, null);
         maintenance = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "metric-search-index-maintenance");
@@ -107,9 +153,23 @@ public class MetricSearchIndex {
 
     @PreDestroy
     public synchronized void close() {
+        if (closing) return;
+        closing = true;
+        if (maintenance != null) maintenance.shutdown();
+        try {
+            Future<?> closed = indexExecutor.submit(this::closeResources);
+            indexExecutor.shutdown();
+            closed.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            log.warn("Lucene index shutdown is still pending or failed", ex);
+        }
+    }
+
+    private void closeResources() {
         try {
             if (maintenance != null) {
-                maintenance.shutdownNow();
                 maintenance = null;
             }
             if (searcherManager != null) {
@@ -117,14 +177,14 @@ public class MetricSearchIndex {
                 searcherManager = null;
             }
             if (writer != null) {
-                writer.commit();
-                writer.close();
-                writer = null;
+                try { if (writer.isOpen()) writer.close(); }
+                finally { writer = null; }
             }
             if (directory != null) {
                 directory.close();
                 directory = null;
             }
+            if (healthy && !rebuildRequired && rebuildMarker != null) Files.deleteIfExists(rebuildMarker);
         } catch (Exception ex) {
             log.warn("Failed to cleanly close Lucene metric index", ex);
         }
@@ -132,6 +192,8 @@ public class MetricSearchIndex {
 
     /** Number of live documents in the index. */
     public int numDocs() {
+        if (!healthy || closing) return 0;
+        if (Thread.currentThread() != indexThread) return isolated(this::numDocs, 0);
         return writer == null ? 0 : writer.getDocStats().numDocs;
     }
 
@@ -153,6 +215,13 @@ public class MetricSearchIndex {
         String diskMetricsJson,
         String checkedAt
     ) {
+        if (!healthy) return;
+        if (closing && Thread.currentThread() != indexThread) { markRebuildRequired(); return; }
+        if (Thread.currentThread() != indexThread) {
+            isolated(() -> { indexMetric(id, hostId, cpuUsagePercent, loadAverage, memoryUsedPercent,
+                diskUsedPercent, diskMetricsJson, checkedAt); return null; }, null);
+            return;
+        }
         if (writer == null || id == null || hostId == null) {
             return;
         }
@@ -180,7 +249,7 @@ public class MetricSearchIndex {
             writer.updateDocument(new Term("id_key", idKey), doc);
             pendingChanges = true;
         } catch (IOException ex) {
-            log.warn("Failed to index metric id={} hostId={}", id, hostId, ex);
+            disableIndex(ex);
         }
     }
 
@@ -190,6 +259,8 @@ public class MetricSearchIndex {
      * newest first.
      */
     public List<Map<String, Object>> searchByHost(long hostId, int days, int limit) {
+        if (!healthy || closing) return new ArrayList<>();
+        if (Thread.currentThread() != indexThread) return isolated(() -> searchByHost(hostId, days, limit), new ArrayList<>());
         if (searcherManager == null) {
             return new ArrayList<>();
         }
@@ -213,7 +284,7 @@ public class MetricSearchIndex {
                 rows.add(documentToMap(doc));
             }
         } catch (IOException ex) {
-            log.warn("Lucene search failed for hostId={}, falling back to caller", hostId, ex);
+            disableIndex(ex);
             return new ArrayList<>();
         } finally {
             if (searcher != null) {
@@ -232,7 +303,9 @@ public class MetricSearchIndex {
     /**
      * Delete every document from the index. Used before a full rebuild.
      */
-    public synchronized void clear() {
+    public void clear() {
+        if (!healthy || closing) return;
+        if (Thread.currentThread() != indexThread) { isolated(() -> { clear(); return null; }, null); return; }
         if (writer == null) {
             return;
         }
@@ -242,7 +315,7 @@ public class MetricSearchIndex {
             searcherManager.maybeRefresh();
             log.info("Cleared Lucene metric index");
         } catch (IOException ex) {
-            log.warn("Failed to clear Lucene metric index", ex);
+            disableIndex(ex);
         }
     }
 
@@ -250,7 +323,9 @@ public class MetricSearchIndex {
      * Remove indexed documents whose {@code checked_at_ms} is strictly before {@code cutoffMs}.
      * Returns the (approximate) number of docs removed based on writer stats before/after.
      */
-    public synchronized int purgeBefore(long cutoffMs) {
+    public int purgeBefore(long cutoffMs) {
+        if (!healthy || closing) return 0;
+        if (Thread.currentThread() != indexThread) return isolated(() -> purgeBefore(cutoffMs), 0);
         if (writer == null) {
             return 0;
         }
@@ -260,7 +335,7 @@ public class MetricSearchIndex {
             writer.commit();
             safeMaybeRefresh();
         } catch (IOException ex) {
-            log.warn("Failed to purge Lucene metric index before {}", cutoffMs, ex);
+            disableIndex(ex);
             return 0;
         }
         int after = writer.getDocStats().numDocs;
@@ -268,29 +343,34 @@ public class MetricSearchIndex {
     }
 
     /** Force a commit + reader refresh (best-effort). */
-    public synchronized void flush() {
+    public void flush() {
+        if (Thread.currentThread() != indexThread) { isolated(() -> { flush(); return null; }, null); return; }
         safeCommit();
         safeMaybeRefresh();
     }
 
     private void safeMaybeRefresh() {
+        if (!healthy || closing) return;
+        if (Thread.currentThread() != indexThread) { isolated(() -> { safeMaybeRefresh(); return null; }, null); return; }
         try {
             if (searcherManager != null) {
                 searcherManager.maybeRefresh();
             }
-        } catch (Exception ignored) {
-            // best-effort
+        } catch (Exception ex) {
+            disableIndex(ex);
         }
     }
 
     private void safeCommit() {
+        if (!healthy || closing) return;
+        if (Thread.currentThread() != indexThread) { isolated(() -> { safeCommit(); return null; }, null); return; }
         try {
             if (writer != null && pendingChanges) {
                 writer.commit();
                 pendingChanges = false;
             }
         } catch (Exception ex) {
-            log.warn("Lucene metric index commit failed", ex);
+            disableIndex(ex);
         }
     }
 

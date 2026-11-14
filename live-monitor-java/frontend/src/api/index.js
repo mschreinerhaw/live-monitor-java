@@ -68,9 +68,11 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  dolphinEnterprise: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/enterprise${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
   dolphinConnections: () => request('/api/dolphinscheduler/connections'),
   saveDolphinConnection: (id,data) => request('/api/dolphinscheduler/connections' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }),
   dolphinProjects: id => request(`/api/dolphinscheduler/${id}/projects`),
+  dolphinDefinitions: (id,project) => request(`/api/dolphinscheduler/${id}/projects/${project}/definitions`),
   dolphinOverview: (id,params) => request(`/api/dolphinscheduler/${id}/overview${query(params)}`),
   dolphinTasks: (id,project,instance) => request(`/api/dolphinscheduler/${id}/projects/${project}/instances/${instance}/tasks`),
   // Auth

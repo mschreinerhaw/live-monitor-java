@@ -21,11 +21,21 @@ public class AlertOutbox {
     public AlertOutbox(JdbcTemplate jdbc, @Value("${live-monitor.alert-max-retries:5}") int maxRetries) {
         this.jdbc = jdbc;
         this.maxRetries = Math.max(0, Math.min(20, maxRetries));
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(new org.springframework.core.io.ClassPathResource("db/alert-delivery-dedup.sql")).execute(java.util.Objects.requireNonNull(jdbc.getDataSource()));
+        String database=jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>)connection->connection.getMetaData().getDatabaseProductName());
+        String seed="SELECT DISTINCT event_id,channel_id,COALESCE(alert_key,'') FROM alert_delivery_task";
+        if(database!=null&&database.toLowerCase(java.util.Locale.ROOT).contains("mysql"))jdbc.update("INSERT IGNORE INTO alert_delivery_dedup(event_id,channel_id,alert_key) "+seed);
+        else jdbc.update("MERGE INTO alert_delivery_dedup(event_id,channel_id,alert_key) KEY(event_id,channel_id,alert_key) "+seed);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void enqueue(Long eventId, Long serviceId, AlertChannel channel, String content, String alertKey) {
-        jdbc.update("INSERT INTO alert_delivery_task (id, event_id, service_id, channel_id, alert_content, alert_key, delivery_status, retry_count, max_retries, next_retry_at) SELECT ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, 0 WHERE NOT EXISTS (SELECT 1 FROM alert_delivery_task WHERE event_id=? AND channel_id=? AND alert_key=?)",
-            UUID.randomUUID().toString(), eventId, serviceId, channel.id, content, alertKey, maxRetries, eventId, channel.id, alertKey);
+        String key=alertKey==null?"":alertKey;
+        try{jdbc.update("INSERT INTO alert_delivery_dedup(event_id,channel_id,alert_key) VALUES(?,?,?)",eventId,channel.id,key);}
+        catch(org.springframework.dao.DuplicateKeyException duplicate){return;}
+        // No INSERT ... SELECT / gap-lock scan. Manual retry tasks deliberately bypass this ledger.
+        jdbc.update("INSERT INTO alert_delivery_task (id, event_id, service_id, channel_id, alert_content, alert_key, delivery_status, retry_count, max_retries, next_retry_at) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, 0)",
+            UUID.randomUUID().toString(), eventId, serviceId, channel.id, content, key, maxRetries);
     }
 
     public void enqueueHistory(Long eventId) {

@@ -1,5 +1,17 @@
 # Live Monitor Java 生产发布说明
 
+## 1.1.0 DolphinScheduler 企业监控
+
+执行 `mvn verify` 构建、测试与打包。发布包为 `target/live-monitor-java-1.1.0-release.tar.gz` 和 `.zip`，包含构建后的 Vue 页面，运行端不需要 Node。当前配置库为 H2 或 MySQL，历史为 RocksDB；下文旧版本 SQLite 示例仅用于历史迁移参考。
+
+停机备份完整 `data/`、配置库、`config/`、`templates/`、固定密钥和旧 JAR。保留原配置与密钥，替换 `lib/live-monitor-java.jar` 后启动。新增企业监控表由 `src/main/resources/db/dolphin-enterprise.sql` 自动幂等创建；不对 DolphinScheduler 数据库执行迁移或写操作。
+
+管理员进入 `/#/dolphinscheduler/enterprise`，核验集群数据后配置采样周期、业务日期参数名、JVM 主机映射和默认运维告警组，再启用企业采集与通知。连接管理仍在原 DolphinScheduler 页面。各项目主要/备用责任人及接收组需使用实际运维资料配置，不能把调度所有者自动当作业务负责人。
+
+现场为定制 `ld-2.0.8`，已核验只读 API、状态、系统日期变量和资源口径。JVM 使用已有 SSH 主机凭据与目标 JDK 的 jstat/jcmd；不可用指标显示未知。现场时钟偏差用 HTTP Date 校正心跳及运行时长判断，同时显示源时钟偏差，不主动修改服务器时钟。
+
+新增表、游标恢复、采样归档和回退注意事项见 `DOLPHIN_DATABASE_CHANGES.txt`；配置、API、统计口径及来源限制见 `DOLPHIN_ENTERPRISE_GUIDE.txt`。
+
 ## 目录规范
 
 发布包解压后目录如下：

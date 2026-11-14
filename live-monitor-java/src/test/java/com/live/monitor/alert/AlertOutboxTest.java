@@ -44,6 +44,7 @@ class AlertOutboxTest {
             return null;
         });
         assertTrue(outbox.due(0).isEmpty());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_dedup",Integer.class));enqueue();assertEquals(1,outbox.due(0).size());enqueue();assertEquals(1,outbox.due(0).size());
     }
 
     @Test

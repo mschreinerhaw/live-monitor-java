@@ -1,0 +1,53 @@
+主机告警根因与修复报告
+时间：2026-11-14，Asia/Shanghai
+
+结论
+192.168.195.223 在 00:13:39 收到的“主机资源告警”为错误分类的延迟告警，不是资源指标计算错误，也没有发现当次 CPU、内存、磁盘超过阈值。
+
+生产证据
+投递任务：4d1d2538-8491-4ee9-82d8-5cd3e8ca17e0，投递成功。
+检测事件：3047244，服务 19，状态 UP。
+alert_key：latency_gt_ms:2；response_time_ms：3427。
+策略 2：Latency > 3 seconds，阈值 3000 ms，由告警组 2 绑定。
+事件 alert_type：NULL，非 host_resource_threshold。
+原始指标：CPU 0.3% / 85.0%, Memory 64.1% / 85.0%, Disk 83.0% / 85.0%。
+当前磁盘明细也显示 / 为 83%、/boot 为 16%、/home 为 7%；未发现隐藏超限挂载点。
+
+根因
+1. 主机 responseTimeMs 是多条 SSH 命令、CPU 采样等待及结果处理的总耗时，不代表主机服务响应时间。confirmLatency 却将通用 3000 ms 延迟规则用于主机资源采集。
+2. templateName 只按 serviceType=host 选择资源告警模板，没有区分资源超限、连接异常和采集异常。因为所有资源均未超限，alertItems 为空，最终显示“-”；告警原因回退为原始指标，丢失真实的耗时触发原因。
+
+修复
+- 主机采集不再触发通用 latency_gt_ms 策略；其他服务的延迟策略保持原有行为。
+- 已存在的主机延迟告警状态在后续检查时归 NORMAL，不发送伪资源恢复通知。
+- 资源超限及其恢复仍使用资源模板；主机连接或采集故障使用服务异常模板，保留实际错误信息。
+- 未修改 CPU/内存/磁盘阈值，未关闭真实资源告警，未禁用共享告警策略，也未修改历史投递记录。
+
+验证
+全部 158 项后端测试通过，失败 0、错误 0。
+新增数据库事务级回归复现原始 3427 ms 和正常资源值：不生成通知任务；已有延迟告警状态归 NORMAL。
+新增主机采集超时回归：服务异常模板包含 SSH connection timed out 原因。
+既有资源超限、恢复与普通服务延迟告警测试通过。
+
+线上结果（10:23:33 查询）
+新版本启动后资源采集正常。服务 19 在 10:22:54 的事件 3062827：UP，耗时 2335 ms，CPU 0.2%、内存 64.0%、磁盘 83.0%。
+10:22 起全部主机新增 latency_gt_ms 投递任务数为 0。
+服务 19 的 availability、host_resource_threshold、latency_gt_ms:2 状态均为 NORMAL。
+其他主机的真实超限指标仍保留，例如服务 17 的磁盘 96% / 85%，并未通过改阈值或过滤实际指标消除异常。
+管理员登录、健康接口、服务及主机等基础接口通过，数据数量保持 30 服务、11 主机、2 告警组、1 DolphinScheduler 连接。
+未手工发送测试邮件，未改写已发送历史，未进行生产回退演练。
+
+部署
+程序目录：/opt/live-monitor-java-1.0.0
+本次备份：/opt/live-monitor-backups/20261114-102104
+停机备份 MySQL、data/config/lib/bin/templates 及 previous.jar 后替换并重启。
+JAR SHA-256：fa17bfb9072ec41b87cd1d1a05b8eef1a2597546467c0bed550ed626729645b7
+通过增量文件重建与本地构建字节一致的完整 JAR，重建前后均核对 SHA-256。
+备份及回退方式参见 DEPLOYMENT_VERIFICATION_20261114.txt，回退应使用本次备份目录；数据库与数据文件不得在线覆盖。
+
+证据文件
+tmp/host-alert-db-evidence.txt
+tmp/host-alert-fixed-live-evidence.txt
+tmp/host-alert-fix-build.log
+代码：src/main/java/com/live/monitor/alert/AlertService.java
+回归：src/test/java/com/live/monitor/alert/AlertPipelineTest.java

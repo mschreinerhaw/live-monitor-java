@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { store } from '../store'
 
 const routes = [
+  { path: '/dolphinscheduler/enterprise', component: () => import('../views/DolphinEnterpriseView.vue') },
   { path: '/dolphinscheduler', component: () => import('../views/DolphinSchedulerView.vue') },
   { path: '/external-requests', component: () => import('../views/ExternalRequestsView.vue') },
   { path: '/databases', component: () => import('../views/DatabaseView.vue') },

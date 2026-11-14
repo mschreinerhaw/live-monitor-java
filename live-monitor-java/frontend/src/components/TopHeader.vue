@@ -114,7 +114,7 @@ const currentRouteTitle = computed(() => {
     '/alerts/settings': '告警规则配置',
     '/alerts/audit': '通知审计流水',
     '/alerts/recent': '最近告警记录',
-    '/dolphinscheduler': 'DolphinScheduler 监控', '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/external-requests': '外部消息请求', '/account': '个人密码',
+    '/dolphinscheduler/enterprise': '调度集群驾驶舱', '/dolphinscheduler': 'DolphinScheduler 监控', '/alerts/tasks': '告警任务与重试', '/external-projects': '外部项目与消息', '/external-requests': '外部消息请求', '/account': '个人密码',
     '/admin': '用户安全管理'
   }
   if (route.query.from === 'databases') return route.path.endsWith('/edit') ? '编辑数据库监控' : route.path === '/services/new' ? '添加数据库监控' : '数据库详情'
