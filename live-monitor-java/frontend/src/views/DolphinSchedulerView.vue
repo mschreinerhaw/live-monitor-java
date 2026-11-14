@@ -967,15 +967,17 @@
                   class="form-control"
                   v-model="settings.etl_date_keys"
                   placeholder="ETL_Date,dataDate,RQ,@rq" /></label
-              ><label
-                >默认运维告警组<select
-                  multiple
-                  class="form-control"
-                  v-model="settings.default_ops_group_ids"
-                >
-                  <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.group_name }}</option>
-                </select></label
               >
+              <fieldset class="default-ops-groups">
+                <legend>默认运维告警组（可多选）</legend>
+                <div class="group-options">
+                  <label v-for="g in groups" :key="g.id" :class="['group-option', {selected:settings.default_ops_group_ids?.includes(g.id)}]">
+                    <input v-model="settings.default_ops_group_ids" type="checkbox" :value="g.id">
+                    <span>{{ g.group_name }}{{ g.enabled===false?'（已禁用）':'' }}</span>
+                  </label>
+                </div>
+                <p v-if="!groups.length" class="form-hint">暂无可选告警组，请先在告警中心配置。</p>
+              </fieldset>
             </div>
             <p class="form-hint">
               现场 ld-2.0.8 已验证。JVM 需要已维护的 SSH 主机凭据及

@@ -4,8 +4,9 @@ async function backend(page,options={}){
  const project={id:'123',name:'业务项目',owner:'scheduler-owner',online_count:2,workflow_count:3,task_definition_count:12,etl_dates:['2026-11-13'],not_executed_workflows:0,unclassified_workflows:0,workflow_statistics:{total:3,running:1,success:1,waiting:0,failed:1},config:{primary_owner:'alice',group_ids:'[2]',alert_enabled:1}};
  await page.route('**/api/**',async route=>{const r=route.request(),u=new URL(r.url()),p=u.pathname;requests.push({path:p,query:Object.fromEntries(u.searchParams),method:r.method(),body:r.postDataJSON?.()});let body=[];
   if(p==='/api/auth/me')body={authenticated:true,user_id:'admin',admin:true,name:'admin'};
-  else if(p==='/api/dolphinscheduler/connections')body=[{id:7,service_name:'测试集群',config_json:'{}',check_interval:60}];
-  else if(p==='/api/alert-groups')body=[{id:2,group_name:'业务运维'}];
+  else if(p==='/api/dolphinscheduler/connections')body=[{id:7,service_name:'测试集群',config_json:JSON.stringify(options.config || {}),check_interval:60}];
+  else if(p==='/api/dolphinscheduler/connections/7'&&r.method()==='PUT'){options.config=r.postDataJSON().config;body={id:7};}
+  else if(p==='/api/alert-groups')body=options.groups || [{id:2,group_name:'业务运维'}];
   else if(p.endsWith('/monitor/summary'))body={project_count:1,online_workflows:2,task_definitions:12,not_executed_workflows:0,pending_deliveries:0,enterprise_enabled:true,projects:[project],workflow_statistics:{total:3,running:1,success:1,failed:1,waiting:0},collection:['inventory','runtime','users','resources'].map(lane=>({lane,last_success:now,failures:0})),nodes:[{id:'masters:node:5678',role:'masters',host:'node',cpu_percent:20,host_memory_percent:60,jvm_available:false,online:true,heartbeat:now,waiting_tasks:0,execution_threads:0}],databases:[]};
   else if(p.endsWith('/monitor/projects'))body=[project];
   else if(p.endsWith('/monitor/users'))body=[{id:1,userName:'alice'}];
@@ -128,4 +129,16 @@ test('empty connections use onboarding instead of fabricated zero metrics',async
 test('unavailable node metrics show unknown instead of zero percent',async({page})=>{
  const {errors}=await backend(page,{unavailable:true});await page.goto('/#/dolphinscheduler');const master=page.locator('.role-summary').filter({hasText:'Master'});
  await expect(master).toContainText('0 / 1 在线');await expect(master.locator('.role-values strong')).toHaveText(['未知','未知']);expect(errors).toEqual([]);
+})
+
+test('default operation groups use shared checkbox styling and preserve numeric selections',async({page})=>{
+ const {requests,errors}=await backend(page,{config:{default_ops_group_ids:[2]},groups:[{id:2,group_name:'生产邮件告警',enabled:true},{id:3,group_name:'短信告警',enabled:true}]});
+ await page.goto('/#/dolphinscheduler');await page.getByRole('tab',{name:'采集配置',exact:true}).click();
+ const groups=page.getByRole('group',{name:'默认运维告警组（可多选）',exact:true});
+ await expect(groups.getByLabel('生产邮件告警',{exact:true})).toBeChecked();await expect(groups.getByLabel('短信告警',{exact:true})).not.toBeChecked();
+ await groups.getByLabel('短信告警',{exact:true}).check();await groups.getByLabel('生产邮件告警',{exact:true}).uncheck();
+ await page.getByRole('button',{name:'保存配置',exact:true}).click();
+ await expect.poll(()=>requests.some(r=>r.path==='/api/dolphinscheduler/connections/7'&&r.method==='PUT')).toBe(true);
+ expect(requests.find(r=>r.path==='/api/dolphinscheduler/connections/7'&&r.method==='PUT').body.config.default_ops_group_ids).toEqual([3]);
+ await page.reload();await page.getByRole('tab',{name:'采集配置',exact:true}).click();await expect(groups.getByLabel('短信告警',{exact:true})).toBeChecked();await expect(groups.getByLabel('生产邮件告警',{exact:true})).not.toBeChecked();expect(errors).toEqual([]);
 })
