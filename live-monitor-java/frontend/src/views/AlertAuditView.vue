@@ -6,34 +6,36 @@
         <p>每个渠道发送任务计一条通知，重试不重复计数。渠道受理成功不代表已送达收件箱或已读。</p>
       </div>
       <div>
-        <button class="btn btn-ghost btn-sm" @click="fetchLogs" :disabled="loading" title="刷新审计流水">
+        <button class="btn btn-ghost btn-sm" @click="refreshAll" :disabled="loading || trendLoading" title="刷新审计流水">
           <IconSvg name="refresh" size="14" />
           <span>刷新</span>
         </button>
       </div>
     </div>
 
+    <p v-if="loadError" class="audit-error audit-explanation" role="alert">加载审计日志失败：{{ loadError }} <button class="btn btn-ghost btn-sm" :disabled="loading" @click="fetchLogs">重新加载</button></p>
+    <p v-else-if="loading" role="status" class="text-muted">正在加载审计流水…</p>
     <!-- 统计指标卡片 -->
     <div class="grid-4" style="margin-bottom: 20px;">
       <div class="card" style="margin: 0; padding: 16px;">
         <span class="text-muted" style="font-size: 12px;">今日通知及未发送记录</span>
-        <div style="font-size: 22px; font-weight: 700; margin-top: 4px;">{{ stats.today_total }}</div>
+        <div style="font-size: 22px; font-weight: 700; margin-top: 4px;">{{ stats.today_total ?? '—' }}</div>
       </div>
       <div class="card" style="margin: 0; padding: 16px;">
         <span class="text-muted" style="font-size: 12px;">今日渠道已受理</span>
-        <div style="font-size: 22px; font-weight: 700; color: #16a34a; margin-top: 4px;">{{ stats.today_success }}</div>
+        <div style="font-size: 22px; font-weight: 700; color: #16a34a; margin-top: 4px;">{{ stats.today_success ?? '—' }}</div>
       </div>
       <div class="card" style="margin: 0; padding: 16px;">
         <span class="text-muted" style="font-size: 12px;">今日最终失败</span>
-        <div style="font-size: 22px; font-weight: 700; color: #dc2626; margin-top: 4px;">{{ stats.today_failed }}</div>
+        <div style="font-size: 22px; font-weight: 700; color: #dc2626; margin-top: 4px;">{{ stats.today_failed ?? '—' }}</div>
       </div>
       <div class="card" style="margin: 0; padding: 16px;">
         <span class="text-muted" style="font-size: 12px;">当前筛选总数</span>
-        <div style="font-size: 22px; font-weight: 700; color: #0284c7; margin-top: 4px;">{{ total }}</div>
+        <div style="font-size: 22px; font-weight: 700; color: #0284c7; margin-top: 4px;">{{ total ?? '—' }}</div>
       </div>
     </div>
 
-    <div class="audit-explanation" role="status">今日处理中 {{ stats.today_pending }} 条 · 未发送（配置阻塞）{{ stats.today_blocked }} 条。未绑定告警组或没有启用渠道时不会发送消息，请在服务配置中检查接收组。</div>
+    <div v-if="total !== null" class="audit-explanation" role="status">今日处理中 {{ stats.today_pending }} 条 · 未发送（配置阻塞）{{ stats.today_blocked }} 条。未绑定告警组或没有启用渠道时不会发送消息，请在服务配置中检查接收组。</div>
 
     <!-- ECharts 趋势图卡片 -->
     <details class="card audit-trend" @toggle="toggleTrend">
@@ -68,8 +70,9 @@
           </button>
         </div>
       </div>
-      <div ref="trendChartContainer" style="width: 100%; height: 220px;"></div>
-      <p v-if="trendFailed" class="form-hint" role="status">趋势暂不可用，请刷新重试。</p>
+      <p v-if="trendLoading" role="status">正在加载通知趋势…</p>
+      <p v-else-if="trendFailed" class="audit-error" role="alert">趋势暂不可用：{{ trendFailed }} <button class="btn btn-ghost btn-sm" @click="fetchTrend">重试趋势</button></p>
+      <div v-show="lastTrendData !== null && !trendFailed && !trendLoading" ref="trendChartContainer" style="width: 100%; height: 220px;"></div>
       </div>
     </details>
 
@@ -115,7 +118,7 @@
           <tbody>
             <tr v-if="!logList.length">
               <td colspan="6" class="text-center text-muted" style="padding: 36px;">
-                {{ loading ? '正在加载通知记录…' : '暂无符合筛选条件的通知记录' }}
+                {{ loading ? '正在加载通知记录…' : loadError ? '通知记录加载失败，请重新加载。' : '暂无符合筛选条件的通知记录' }}
               </td>
             </tr>
             <tr v-for="item in logList" :key="item.task_id || item.taskId || item.id">
@@ -142,37 +145,43 @@
         </table>
       </div>
 
-      <PaginationControls v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" label="通知审计" @change="fetchLogs" />
+      <PaginationControls v-if="total !== null" v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" label="通知审计" @change="fetchLogs" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import PaginationControls from '../components/PaginationControls.vue'
 import { api } from '../api'
-import { store } from '../store'
 
 const startTime = ref(''), endTime = ref('')
 const loading = ref(false)
 const logList = ref([])
 const page = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
+const total = ref(null), loadError = ref('')
 const statusFilter = ref('')
 const keyword = ref('')
 const trendDays = ref(14)
-const trendFailed = ref(false), lastTrendData = ref([])
+const trendFailed = ref(''), trendLoading = ref(false), trendOpen = ref(false), lastTrendData = ref(null)
+let listController = null, trendController = null
+let listRequest = 0, trendRequest = 0
 async function toggleTrend(event) {
-  if (event.target.open) { await nextTick(); if (!trendChart) initTrendChart(); else trendChart.resize() }
+  trendOpen.value = event.target.open
+  if (trendOpen.value) {
+    if (lastTrendData.value === null || trendFailed.value) await fetchTrend()
+    else { await nextTick(); if (!trendChart) initTrendChart(); else trendChart.resize() }
+  }
 }
+function refreshAll() { fetchLogs(); if (trendOpen.value) fetchTrend() }
 function resetFilters() { clearTimeout(searchTimer); startTime.value = ''; endTime.value = ''; statusFilter.value = ''; keyword.value = ''; page.value = 1; fetchLogs() }
 
 const stats = reactive({
-  today_total: 0,
-  today_success: 0,
-  today_failed: 0, today_pending: 0, today_blocked: 0
+  today_total: null,
+  today_success: null,
+  today_failed: null, today_pending: null, today_blocked: null
 })
 
 const statusOf = item => item.notify_status || item.notifyStatus || item.status
@@ -189,8 +198,6 @@ const retryTime = item => { const timestamp = item.next_retry_at ?? item.nextRet
 const trendChartContainer = ref(null)
 let trendChart = null
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
-
 const formatTime = (val) => {
   if (!val) return '-'
   if (typeof val === 'string') return val.replace('T', ' ').slice(0, 19)
@@ -198,19 +205,20 @@ const formatTime = (val) => {
 }
 
 const fetchLogs = async () => {
+  const requestId = ++listRequest
+  listController?.abort()
+  listController = new AbortController()
   loading.value = true
-  trendFailed.value = false
+  loadError.value = ''
   try {
-    const [res, trendRes] = await Promise.all([
-      api.alertNotifications({
+    const res = await api.alertNotifications({
         page: page.value,
         page_size: pageSize.value,
         start_time: startTime.value.replace('T', ' ') || undefined, end_time: endTime.value.replace('T', ' ') || undefined,
         status: statusFilter.value || undefined,
         query: keyword.value.trim() || undefined
-      }),
-      api.alertNotificationsTrend(trendDays.value).catch(() => { trendFailed.value = true; return [] })
-    ])
+      }, { signal: listController.signal })
+    if (requestId !== listRequest) return
     page.value = res?.page || page.value
     logList.value = res?.items || res?.records || []
     total.value = res?.total != null ? res.total : logList.value.length
@@ -222,13 +230,14 @@ const fetchLogs = async () => {
     stats.today_pending = res?.today_pending ?? res?.todayPending ?? 0
     stats.today_blocked = res?.today_blocked ?? res?.todayBlocked ?? 0
 
-    updateTrendChart(trendRes)
   } catch (err) {
-    if (!err.message?.includes('未授权')) {
-      store.showToast('加载审计日志失败：' + err.message, 'error')
-    }
+    if (requestId !== listRequest) return
+    loadError.value = err.message || '请求失败，请稍后重试'
+    logList.value = []
+    total.value = null
+    Object.keys(stats).forEach(key => { stats[key] = null })
   } finally {
-    loading.value = false
+    if (requestId === listRequest) loading.value = false
   }
 }
 
@@ -243,17 +252,37 @@ const handleSearch = () => {
 
 const changeTrendDays = async (days) => {
   trendDays.value = days
-  trendFailed.value = false
+  await fetchTrend()
+}
+
+const fetchTrend = async () => {
+  const requestId = ++trendRequest
+  trendController?.abort()
+  trendController = new AbortController()
+  trendLoading.value = true
+  trendFailed.value = ''
   try {
-    const trendRes = await api.alertNotificationsTrend(days)
+    const trendRes = await api.alertNotificationsTrend(trendDays.value, { signal: trendController.signal })
+    if (requestId !== trendRequest) return
+    lastTrendData.value = trendRes
+    trendLoading.value = false
+    await nextTick()
+    if (requestId !== trendRequest) return
+    if (!trendChart && trendOpen.value) initTrendChart()
+    trendChart?.resize()
     updateTrendChart(trendRes)
-  } catch (_) { trendFailed.value = true }
+  } catch (err) {
+    if (requestId !== trendRequest) return
+    trendFailed.value = err.message || '请求失败，请稍后重试'
+    lastTrendData.value = null
+    trendChart?.clear()
+  } finally { if (requestId === trendRequest) trendLoading.value = false }
 }
 
 const initTrendChart = () => {
   if (!trendChartContainer.value) return
   trendChart = echarts.init(trendChartContainer.value)
-  updateTrendChart(lastTrendData.value)
+  if (lastTrendData.value !== null) updateTrendChart(lastTrendData.value)
 }
 
 const updateTrendChart = (trendData = []) => {
@@ -264,13 +293,6 @@ const updateTrendChart = (trendData = []) => {
   if (Array.isArray(trendData) && trendData.length) {
     dates = trendData.map(d => d.date || d.day || '')
     counts = trendData.map(d => Number(d.count || d.total || 0))
-  } else {
-    for (let i = trendDays.value - 1; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      dates.push(`${d.getMonth() + 1}/${d.getDate()}`)
-      counts.push(0)
-    }
   }
 
   trendChart.setOption({
@@ -293,13 +315,15 @@ const handleResize = () => {
   if (trendChart) trendChart.resize()
 }
 
-onMounted(async () => {
-  await fetchLogs()
+onMounted(() => {
   window.addEventListener('resize', handleResize)
+  fetchLogs()
 })
 
 onBeforeUnmount(() => {
   clearTimeout(searchTimer)
+  listRequest++; trendRequest++
+  listController?.abort(); trendController?.abort()
   window.removeEventListener('resize', handleResize)
   if (trendChart) trendChart.dispose()
 })

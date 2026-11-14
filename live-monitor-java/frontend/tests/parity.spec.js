@@ -349,6 +349,65 @@ test('audit displays backend status and message and sends date filters', async (
   expect(errors).toEqual([])
 })
 
+test('audit retries a transient network failure and never renders failed requests as zero statistics or a zero trend', async ({ page }) => {
+  let attempts = 0, failList = false, failTrend = true, trendRequests = 0
+  const errors = await backend(page, (_, path) => {
+    if (path === '/api/alert-notifications') return failList ? { status: 503, body: { detail: '审计服务暂不可用' } } : { items: [{ id: 1, notify_status: 'success', service_name: '真实通知' }], total: 7, today_total: 7, today_success: 7, today_failed: 0 }
+    if (path === '/api/alert-notifications/trend') { trendRequests++; return failTrend ? { status: 503, body: { detail: '趋势查询暂不可用' } } : [{ date: '2026-11-14', total: 7 }] }
+  })
+  await page.route('**/api/alert-notifications?*', async route => { attempts++; if (attempts === 1) await route.abort('failed'); else await route.fallback() })
+  await page.goto('/#/alerts/audit')
+  await expect(page.getByRole('cell', { name: '真实通知', exact: true })).toBeVisible()
+  expect(attempts).toBe(2); expect(trendRequests).toBe(0)
+  await expect(page.locator('.grid-4 .card').first()).toContainText('7')
+  await page.locator('.audit-trend > summary').click()
+  await expect(page.locator('.audit-trend [role="alert"]')).toContainText('趋势查询暂不可用')
+  expect(trendRequests).toBe(2)
+  await expect(page.locator('.audit-trend canvas')).toHaveCount(0)
+  await expect(page.getByRole('cell', { name: '真实通知', exact: true })).toBeVisible()
+  failList = true
+  await page.getByRole('button', { name: '刷新', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: '加载审计日志失败' })).toContainText('审计服务暂不可用')
+  for (const card of await page.locator('.grid-4 .card').all()) await expect(card).toContainText('—')
+  await expect(page.getByText('暂无符合筛选条件的通知记录')).toHaveCount(0)
+  failList = false
+  await page.getByRole('button', { name: '重新加载', exact: true }).click()
+  await expect(page.getByRole('cell', { name: '真实通知', exact: true })).toBeVisible()
+  failTrend = false
+  await page.getByRole('button', { name: '重试趋势', exact: true }).click()
+  await expect(page.locator('.audit-trend canvas')).toBeVisible()
+  expect(await page.locator('.audit-trend canvas').evaluate(el => el.width)).toBeGreaterThan(100)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
+test('audit lists load independently of a slow trend and rapid filters retain the latest results', async ({ page }) => {
+  let releaseTrend, releaseOld, oldStarted = false
+  const trend = new Promise(resolve => { releaseTrend = resolve })
+  const old = new Promise(resolve => { releaseOld = resolve })
+  const errors = await backend(page, async (_, path, url) => {
+    if (path === '/api/alert-notifications/trend') { await trend; return [{ date: '2026-11-14', total: 2 }] }
+    if (path === '/api/alert-notifications') {
+      const status = url.searchParams.get('status')
+      if (status === 'pending') { oldStarted = true; await old }
+      return { items: [{ id: 1, service_name: status || 'initial', notify_status: status || 'success' }], total: 1, today_total: 2 }
+    }
+  })
+  await page.goto('/#/alerts/audit')
+  await expect(page.getByRole('cell', { name: 'initial', exact: true })).toBeVisible()
+  await page.locator('.audit-trend > summary').click()
+  await expect(page.getByText('正在加载通知趋势…')).toBeVisible()
+  await page.getByLabel('通知状态', { exact: true }).selectOption('pending')
+  await expect.poll(() => oldStarted).toBe(true)
+  await page.getByLabel('通知状态', { exact: true }).selectOption('failed')
+  await expect(page.getByRole('cell', { name: 'failed', exact: true })).toBeVisible()
+  releaseOld(); releaseTrend()
+  await expect(page.locator('.audit-trend canvas')).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'failed', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'pending', exact: true })).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
 test('all page routes render without runtime errors and direct links keep the page', async ({ page }) => {
   const errors = await backend(page, (_, path) => {
     if (path === '/api/services/1') return { id: 1, service_name: '应用监控', service_type: 'web', endpoint: 'http://localhost', config_json: '{}', last_status: 'DOWN', alert_group_ids: [1] }

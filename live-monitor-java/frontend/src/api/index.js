@@ -58,13 +58,42 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const errorMsg = (typeof data === 'object' && (data.message || data.detail || data.error)) || response.statusText || '请求失败'
-    throw new Error(errorMsg)
+    const error = new Error(errorMsg)
+    error.status = response.status
+    throw error
   }
   if ((endpoint.includes('test') || endpoint.includes('/api/data-send/')) && data && typeof data === 'object' && data.success === false) {
     throw new Error(data.error || data.message || '测试发送失败，请检查渠道结果')
   }
 
   return data
+}
+
+// Audit reads can fail briefly during a restart or a network interruption.
+// Retry only these read-only requests, with a bounded timeout and cancellation.
+async function auditRequest(endpoint, options = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController()
+    const cancel = () => controller.abort()
+    if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError')
+    options.signal?.addEventListener('abort', cancel, { once: true })
+    let timedOut = false
+    const timer = setTimeout(() => { timedOut = true; controller.abort() }, 15000)
+    try { return await request(endpoint, { signal: controller.signal }) }
+    catch (error) {
+      if (options.signal?.aborted) throw error
+      const transient = timedOut || error instanceof TypeError || error.status >= 500 || error.status === 429
+      if (!transient || attempt === 1) {
+        if (timedOut) throw new Error('请求超时，请稍后重试')
+        if (error instanceof TypeError) throw new Error('网络连接失败，请检查连接后重试')
+        throw error
+      }
+    } finally {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', cancel)
+    }
+    await new Promise(resolve => setTimeout(resolve, 300))
+  }
 }
 
 export const api = {
@@ -155,7 +184,7 @@ export const api = {
 
   listAlertPolicies: (includeDisabled = true) => request(`/api/alert-policies?include_disabled=${includeDisabled}`),
   allAlerts: (limit = 20) => request(`/api/alerts?limit=${limit}`),
-  alertNotifications: (params = {}) => {
+  alertNotifications: (params = {}, options = {}) => {
     const search = new URLSearchParams()
     if (params.page) search.set('page', params.page)
     if (params.pageSize || params.page_size) search.set('page_size', params.pageSize || params.page_size)
@@ -164,9 +193,9 @@ export const api = {
     if (params.status) search.set('status', params.status)
     if (params.query) search.set('query', params.query)
     const suffix = search.toString()
-    return request(`/api/alert-notifications${suffix ? `?${suffix}` : ''}`)
+    return auditRequest(`/api/alert-notifications${suffix ? `?${suffix}` : ''}`, options)
   },
-  alertNotificationsTrend: (days = 14) => request(`/api/alert-notifications/trend?days=${days}`),
+  alertNotificationsTrend: (days = 14, options = {}) => auditRequest(`/api/alert-notifications/trend?days=${days}`, options),
 
   // Service Alert Bindings
   updateServiceAlertGroups: (serviceId, groupIds) => request(`/api/services/${serviceId}/alert-group`, {
