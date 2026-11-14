@@ -1,8 +1,7 @@
 <template>
-  <section v-if="http || database" class="card" :class="{ 'http-advanced': http }">
-    <template v-if="http"><h2 class="advanced-heading"><button type="button" class="advanced-toggle" :aria-expanded="advancedOpen" aria-controls="http-advanced-fields" @click="advancedOpen = !advancedOpen"><span><span class="advanced-title">高级参数</span><span class="advanced-hint">认证、响应断言与表达式测试，按需配置</span></span><span class="advanced-toggle-label">{{ advancedOpen ? '收起' : '展开' }}<IconSvg name="chevron" :class="{ rotated: advancedOpen }" size="16" /></span></button></h2></template>
-    <h2 v-else>断言、认证与查询预览</h2>
-    <div id="http-advanced-fields" v-show="!http || advancedOpen" @invalid.capture="advancedOpen = true">
+  <section v-if="http || database" class="card service-advanced" :class="{ 'http-advanced': http }">
+    <h2 class="advanced-heading"><button type="button" class="advanced-toggle" :aria-expanded="advancedOpen" aria-controls="service-advanced-fields" @click="advancedOpen = !advancedOpen"><span><span class="advanced-title">高级参数</span><span class="advanced-hint">{{ http ? '认证、响应断言与表达式测试，按需配置' : '查询预览、跨数据库对照与断言表达式，按需配置' }}</span></span><span class="advanced-toggle-label">{{ advancedOpen ? '收起' : '展开' }}<IconSvg name="chevron" :class="{ rotated: advancedOpen }" size="16" /></span></button></h2>
+    <div id="service-advanced-fields" v-show="advancedOpen" @invalid.capture="advancedOpen = true">
     <template v-if="http"><div class="advanced-section"><h3>请求与认证</h3><div class="form-row"><label class="form-group">认证方式<select v-model="form.api_auth_type" class="form-control"><option value="none">无认证</option><option value="basic">Basic</option><option value="bearer">Bearer</option><option value="custom_header">自定义认证头</option></select></label><label class="form-group">Content-Type<input v-model="form.api_content_type" class="form-control" placeholder="application/json"></label></div>
       <div v-if="form.api_auth_type === 'basic'" class="form-row"><label class="form-group">Basic 用户名<input v-model="form.api_basic_username" class="form-control"></label><label class="form-group">Basic 密码<input v-model="form.api_basic_password" type="password" autocomplete="new-password" class="form-control" placeholder="编辑时留空保留原密码"></label></div>
       <label v-if="form.api_auth_type === 'bearer'" class="form-group">Bearer Token<input v-model="form.api_bearer_token" type="password" class="form-control" placeholder="编辑时留空保留原 Token"></label>
@@ -57,7 +56,7 @@ async function testRule(){busy.value=true;error.value='';try{ruleResult.value=aw
 .advanced-toggle-label { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; color: #0284c7; font-size: 13px; font-weight: 500; }
 .advanced-toggle-label .rotated { transform: rotate(180deg); }
 .advanced-toggle:focus-visible { outline: 2px solid #0284c7; outline-offset: 6px; border-radius: 4px; }
-.http-advanced #http-advanced-fields { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+.service-advanced #service-advanced-fields { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
 .advanced-section { margin-bottom: 20px; }
 .advanced-section h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
 .advanced-section .form-hint { margin: -4px 0 14px; }

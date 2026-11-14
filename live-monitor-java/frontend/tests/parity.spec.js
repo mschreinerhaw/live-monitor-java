@@ -215,6 +215,43 @@ test('web advanced parameters start collapsed and preserve edits when saved coll
   expect(saved.api_assertion_expression).toBe('status_code == 200');expect(errors).toEqual([])
 })
 
+test('database advanced parameters are uniformly collapsed and preserve preview and saved assertions', async ({ page }) => {
+  let saved, preview
+  const errors = await backend(page, (request, path) => {
+    if (path === '/api/database/preview') { preview = request.postDataJSON(); return { columns: ['total'], rows: [{ total: 42 }] } }
+    if (path === '/api/services' && request.method() === 'POST') { saved = request.postDataJSON(); return { id: 99, ...saved } }
+    if (path === '/api/services/99') return { ...saved, id: 99 }
+  })
+  await page.goto('/#/services/new')
+  const toggle = page.getByRole('button', { name: /高级参数/ })
+  for (const type of ['mysql', 'oracle', 'postgresql', 'jdbc']) {
+    await page.getByLabel('服务类型', { exact: true }).selectOption(type)
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByText('断言、认证与查询预览', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '查询预览', exact: true })).toBeHidden()
+    await toggle.click()
+    await expect(page.getByRole('button', { name: '查询预览', exact: true })).toBeVisible()
+  }
+  await page.getByLabel('参与断言的字段（逗号分隔）', { exact: true }).fill('total')
+  await page.getByLabel('断言表达式', { exact: true }).fill('total > 0')
+  await page.getByRole('button', { name: '查询预览', exact: true }).click()
+  await expect(page.getByRole('cell', { name: '42', exact: true })).toBeVisible()
+  expect(preview.database_assertion_fields).toEqual(['total'])
+  await toggle.click()
+  await page.locator('input[maxlength="120"]').fill('Database advanced parameters')
+  await page.getByLabel('邮件组', { exact: true }).check()
+  await page.getByRole('button', { name: '保存监控服务', exact: true }).click()
+  await expect.poll(() => saved?.database_assertion_fields).toEqual(['total'])
+  expect(saved.api_assertion_expression).toBe('total > 0')
+  await expect(page).toHaveURL(/#\/dashboard/)
+  await page.goto('/#/services/99/edit')
+  await expect(page.getByLabel('服务类型', { exact: true })).toHaveValue('jdbc')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+  await expect(page.getByLabel('断言表达式', { exact: true })).toHaveValue('total > 0')
+  expect(errors).toEqual([])
+})
+
 test('host form submits SSH names and detail supports process creation', async ({ page }) => {
   let saved, process
   const errors = await backend(page, (request, path) => {
