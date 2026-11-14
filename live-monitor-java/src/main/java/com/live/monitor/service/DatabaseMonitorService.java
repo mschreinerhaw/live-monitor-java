@@ -1,10 +1,26 @@
 package com.live.monitor.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.live.monitor.config.LiveMonitorProperties;
 import com.live.monitor.dto.CheckResult;
+import com.live.monitor.entity.MonitorService;
+import com.live.monitor.rule.ApiRuleEvaluator;
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.ResultSetMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.SQLException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
@@ -12,6 +28,27 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class DatabaseMonitorService {
+    private static final int ABSOLUTE_MAX_RESULT_ROWS = 10;
+    private static final String[] FORBIDDEN_SQL_KEYWORDS = {
+        "insert", "update", "delete", "drop", "alter", "truncate", "call",
+        "merge", "create", "replace", "grant", "revoke", "execute", "exec"
+    };
+
+    private final ApiRuleEvaluator apiRuleEvaluator;
+    private final ObjectMapper objectMapper;
+    private final LiveMonitorProperties properties;
+    private volatile ClassLoader externalDriverClassLoader;
+
+    public DatabaseMonitorService(
+        ApiRuleEvaluator apiRuleEvaluator,
+        ObjectMapper objectMapper,
+        LiveMonitorProperties properties
+    ) {
+        this.apiRuleEvaluator = apiRuleEvaluator;
+        this.objectMapper = objectMapper;
+        this.properties = properties;
+    }
+
     public CheckResult check(
         String type,
         String host,
@@ -21,20 +58,158 @@ public class DatabaseMonitorService {
         String password,
         String query,
         String expectedResult,
+        String resultOperator,
+        String jdbcDriverClass,
+        String jdbcUrl,
         double timeoutSeconds
     ) {
-        if (!StringUtils.hasText(host) || port == null) {
+        return check(
+            type,
+            host,
+            port,
+            databaseName,
+            username,
+            password,
+            query,
+            expectedResult,
+            resultOperator,
+            null,
+            null,
+            jdbcDriverClass,
+            jdbcUrl,
+            timeoutSeconds
+        );
+    }
+
+    public CheckResult check(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String expectedResult,
+        String resultOperator,
+        String apiAssertionExpression,
+        List<String> assertionFields,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) {
+        String normalizedType = type == null ? "" : type.toLowerCase();
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        if (genericJdbc && (!StringUtils.hasText(jdbcDriverClass) || !StringUtils.hasText(jdbcUrl))) {
+            return new CheckResult("UNKNOWN", null, "JDBC driver class and URL are required");
+        }
+        if (!genericJdbc && (!StringUtils.hasText(host) || port == null)) {
             return new CheckResult("UNKNOWN", null, "Host and port are required for database checks");
         }
-        String normalizedType = type == null ? "" : type.toLowerCase();
         if ("oracle".equals(normalizedType) && !StringUtils.hasText(databaseName)) {
             return new CheckResult("UNKNOWN", null, "Oracle service name or SID is required");
         }
 
         long started = System.nanoTime();
-        int timeoutSecondsInt = Math.max(1, (int) Math.ceil(timeoutSeconds));
-        String jdbcUrl = jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt);
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
         String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
+        try {
+            validateReadOnlySql(sql);
+            DriverManager.setLoginTimeout(timeoutSecondsInt);
+            Properties properties = new Properties();
+            if (StringUtils.hasText(username)) {
+                properties.put("user", username.trim());
+            }
+            if (StringUtils.hasText(password)) {
+                properties.put("password", password);
+            }
+            try (Connection connection = connect(url, properties, jdbcDriverClass);
+                 Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(timeoutSecondsInt);
+                statement.setMaxRows(databaseResultMaxRows());
+                boolean hasResultSet = statement.execute(sql);
+                QueryResult queryResult = queryResult(statement, hasResultSet, assertionFields);
+                boolean ok = matchesExpectedResult(queryResult, expectedResult, resultOperator);
+                ApiRuleEvaluator.Evaluation apiRule = null;
+                if (StringUtils.hasText(apiAssertionExpression)) {
+                    apiRule = apiRuleEvaluator.evaluate(
+                        apiAssertionExpression,
+                        new ApiRuleEvaluator.ResponseContext(0, elapsedMs(started), queryResult.ruleValue())
+                    );
+                    ok = ok && apiRule.matched;
+                }
+                String product = connection.getMetaData().getDatabaseProductName();
+                String version = connection.getMetaData().getDatabaseProductVersion();
+                String message = product + " " + shortText(version, 32) + ", result: " + shortText(queryResult.displayValue, 120);
+                if (StringUtils.hasText(expectedResult)) {
+                    message += ", rule: " + operatorLabel(resultOperator) + " " + expectedResult.trim();
+                }
+                if (apiRule != null) {
+                    message += ", " + apiRule.message + ruleDetail(apiRule);
+                }
+                return new CheckResult(ok ? "UP" : "DOWN", elapsedMs(started), message);
+            }
+        } catch (Exception ex) {
+            return new CheckResult("DOWN", elapsedMs(started), ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        }
+    }
+
+    public PreviewResult preview(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) {
+        return preview(
+            type,
+            host,
+            port,
+            databaseName,
+            username,
+            password,
+            query,
+            jdbcDriverClass,
+            jdbcUrl,
+            databaseResultMaxRows(),
+            timeoutSeconds
+        );
+    }
+
+    public PreviewResult preview(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        int requestedMaxRows,
+        double timeoutSeconds
+    ) {
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        if (genericJdbc && (!StringUtils.hasText(jdbcDriverClass) || !StringUtils.hasText(jdbcUrl))) {
+            throw new IllegalArgumentException("JDBC driver class and URL are required");
+        }
+        if (!genericJdbc && (!StringUtils.hasText(host) || port == null)) {
+            throw new IllegalArgumentException("Host and port are required for database preview");
+        }
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
+        String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
+        validateReadOnlySql(sql);
         try {
             DriverManager.setLoginTimeout(timeoutSecondsInt);
             Properties properties = new Properties();
@@ -44,29 +219,180 @@ public class DatabaseMonitorService {
             if (StringUtils.hasText(password)) {
                 properties.put("password", password);
             }
-            try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+            try (Connection connection = connect(url, properties, jdbcDriverClass);
                  Statement statement = connection.createStatement()) {
+                int maxRows = Math.max(1, Math.min(ABSOLUTE_MAX_RESULT_ROWS, requestedMaxRows));
                 statement.setQueryTimeout(timeoutSecondsInt);
+                statement.setMaxRows(maxRows);
                 boolean hasResultSet = statement.execute(sql);
-                String value = resultValue(statement, hasResultSet);
-                boolean ok = !StringUtils.hasText(expectedResult) || value.contains(expectedResult.trim());
-                String product = connection.getMetaData().getDatabaseProductName();
-                String version = connection.getMetaData().getDatabaseProductVersion();
-                String message = product + " " + shortText(version, 32) + ", result: " + shortText(value, 120);
-                return new CheckResult(ok ? "UP" : "DOWN", elapsedMs(started), message);
+                if (!hasResultSet) {
+                    PreviewResult result = new PreviewResult();
+                    result.columns = new ArrayList<String>();
+                    result.columnTypes = new LinkedHashMap<String, String>();
+                    result.rows = new ArrayList<Map<String, Object>>();
+                    result.message = "update count " + statement.getUpdateCount();
+                    result.maxRows = maxRows;
+                    return result;
+                }
+                return previewResult(statement.getResultSet(), maxRows);
             }
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        }
+    }
+
+    public CheckResult checkCrossDatabase(
+        List<MonitorService.CrossDatabaseQuery> queries,
+        String apiAssertionExpression,
+        double timeoutSeconds
+    ) {
+        long started = System.nanoTime();
+        if (queries == null || queries.size() < 2) {
+            return new CheckResult("UNKNOWN", null, "At least two data sources are required for cross database checks");
+        }
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        Map<String, Object> sources = new LinkedHashMap<String, Object>();
+        List<String> messages = new ArrayList<String>();
+        try {
+            for (int index = 0; index < queries.size(); index++) {
+                MonitorService.CrossDatabaseQuery query = queries.get(index);
+                String alias = StringUtils.hasText(query.alias) ? query.alias.trim() : "db" + (index + 1);
+                QueryResult result = executeQuery(
+                    query.serviceType,
+                    query.host,
+                    query.port,
+                    query.databaseName,
+                    query.databaseUsername,
+                    query.databasePassword,
+                    query.databaseQuery,
+                    query.assertionFields,
+                    query.fieldMapping,
+                    query.jdbcDriverClass,
+                    query.jdbcUrl,
+                    timeoutSeconds
+                );
+                Map<String, Object> source = new LinkedHashMap<String, Object>();
+                source.put("rows", result.rows);
+                source.put("columns", result.columns);
+                source.put("fields", result.fields);
+                source.put("display", result.displayValue);
+                sources.put(alias, source);
+                payload.put(alias, source);
+                messages.add(alias + ": " + shortText(result.displayValue, 80));
+            }
+            payload.put("sources", sources);
+            String body = objectMapper.writeValueAsString(payload);
+            if (!StringUtils.hasText(apiAssertionExpression)) {
+                return new CheckResult("DOWN", elapsedMs(started), "cross database assertion is required");
+            }
+            ApiRuleEvaluator.Evaluation apiRule = apiRuleEvaluator.evaluate(
+                apiAssertionExpression,
+                new ApiRuleEvaluator.ResponseContext(0, elapsedMs(started), body)
+            );
+            String message = "cross database result: " + String.join(" | ", messages) + ", " + apiRule.message + ruleDetail(apiRule);
+            return new CheckResult(apiRule.matched ? "UP" : "DOWN", elapsedMs(started), message);
         } catch (Exception ex) {
             return new CheckResult("DOWN", elapsedMs(started), ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
     }
 
-    private String jdbcUrl(String type, String host, Integer port, String databaseName, int timeoutSeconds) {
+    private QueryResult executeQuery(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        String username,
+        String password,
+        String query,
+        List<String> assertionFields,
+        Map<String, String> fieldMapping,
+        String jdbcDriverClass,
+        String jdbcUrl,
+        double timeoutSeconds
+    ) throws Exception {
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        boolean genericJdbc = "jdbc".equals(normalizedType);
+        int timeoutSecondsInt = queryTimeoutSeconds(timeoutSeconds);
+        String url = genericJdbc
+            ? jdbcUrl.trim()
+            : jdbcUrl(normalizedType, host, port, databaseName, timeoutSecondsInt, jdbcDriverClass);
+        String sql = StringUtils.hasText(query) ? query.trim() : defaultQuery(normalizedType);
+        validateReadOnlySql(sql);
+        DriverManager.setLoginTimeout(timeoutSecondsInt);
+        Properties properties = new Properties();
+        if (StringUtils.hasText(username)) {
+            properties.put("user", username.trim());
+        }
+        if (StringUtils.hasText(password)) {
+            properties.put("password", password);
+        }
+        try (Connection connection = connect(url, properties, jdbcDriverClass);
+             Statement statement = connection.createStatement()) {
+            statement.setQueryTimeout(timeoutSecondsInt);
+            statement.setMaxRows(databaseResultMaxRows());
+            boolean hasResultSet = statement.execute(sql);
+            return queryResult(statement, hasResultSet, assertionFields, fieldMapping);
+        }
+    }
+
+    private Connection connect(String jdbcUrl, Properties properties, String driverClassName) throws Exception {
+        if (!StringUtils.hasText(driverClassName)) {
+            return DriverManager.getConnection(jdbcUrl, properties);
+        }
+        ClassLoader classLoader = externalDriverClassLoader();
+        Class<?> driverClass = Class.forName(driverClassName.trim(), true, classLoader);
+        Driver driver = (Driver) driverClass.getDeclaredConstructor().newInstance();
+        Connection connection = driver.connect(jdbcUrl, properties);
+        if (connection == null) {
+            throw new SQLException("Driver " + driverClassName + " does not accept URL: " + jdbcUrl);
+        }
+        return connection;
+    }
+
+    private ClassLoader externalDriverClassLoader() throws Exception {
+        ClassLoader current = externalDriverClassLoader;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (externalDriverClassLoader != null) {
+                return externalDriverClassLoader;
+            }
+            List<URL> urls = new ArrayList<URL>();
+            collectJarUrls(new File("lib"), urls);
+            collectJarUrls(new File("libs"), urls);
+            URL[] jarUrls = urls.toArray(new URL[0]);
+            externalDriverClassLoader = new ExternalDriverClassLoader(jarUrls, Thread.currentThread().getContextClassLoader());
+            return externalDriverClassLoader;
+        }
+    }
+
+    private void collectJarUrls(File directory, List<URL> urls) throws Exception {
+        if (!directory.isDirectory()) {
+            return;
+        }
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (file.isFile() && file.getName().toLowerCase().endsWith(".jar")) {
+                urls.add(file.toURI().toURL());
+            }
+        }
+    }
+
+    private String jdbcUrl(
+        String type,
+        String host,
+        Integer port,
+        String databaseName,
+        int timeoutSeconds,
+        String jdbcDriverClass
+    ) {
         String db = StringUtils.hasText(databaseName) ? databaseName.trim() : "";
         if ("mysql".equals(type)) {
-            return "jdbc:mysql://" + host.trim() + ":" + port + "/" + db
-                + "?connectTimeout=" + timeoutSeconds * 1000
-                + "&socketTimeout=" + timeoutSeconds * 1000
-                + "&useUnicode=true&characterEncoding=utf8&serverTimezone=UTC";
+            return mysqlJdbcUrl(host, port, db, timeoutSeconds, jdbcDriverClass);
         }
         if ("postgresql".equals(type) || "postgres".equals(type)) {
             String databasePath = StringUtils.hasText(db) ? db : "postgres";
@@ -83,20 +409,380 @@ public class DatabaseMonitorService {
         throw new IllegalArgumentException("Unsupported database type: " + type);
     }
 
+    private String mysqlJdbcUrl(
+        String host,
+        Integer port,
+        String databaseName,
+        int timeoutSeconds,
+        String jdbcDriverClass
+    ) {
+        String base = "jdbc:mysql://" + host.trim() + ":" + port + "/" + databaseName
+            + "?connectTimeout=" + timeoutSeconds * 1000
+            + "&socketTimeout=" + timeoutSeconds * 1000
+            + "&useUnicode=true"
+            + "&characterEncoding=UTF-8"
+            + "&useSSL=false"
+            + "&zeroDateTimeBehavior=convertToNull";
+        if (isLegacyMysqlDriver(jdbcDriverClass)) {
+            return base;
+        }
+        return base
+            + "&serverTimezone=UTC"
+            + "&allowPublicKeyRetrieval=true";
+    }
+
+    private boolean isLegacyMysqlDriver(String jdbcDriverClass) {
+        return "com.mysql.jdbc.Driver".equals(StringUtils.hasText(jdbcDriverClass) ? jdbcDriverClass.trim() : "");
+    }
+
     private String defaultQuery(String type) {
         return "oracle".equals(type) ? "SELECT 1 FROM dual" : "SELECT 1";
     }
 
-    private String resultValue(Statement statement, boolean hasResultSet) throws Exception {
+    private QueryResult queryResult(Statement statement, boolean hasResultSet, List<String> assertionFields) throws Exception {
+        return queryResult(statement, hasResultSet, assertionFields, new LinkedHashMap<String, String>());
+    }
+
+    private QueryResult queryResult(
+        Statement statement,
+        boolean hasResultSet,
+        List<String> assertionFields,
+        Map<String, String> fieldMapping
+    ) throws Exception {
         if (!hasResultSet) {
-            return "update count " + statement.getUpdateCount();
+            int count = statement.getUpdateCount();
+            return new QueryResult("update count " + count, String.valueOf(count));
         }
         try (ResultSet resultSet = statement.getResultSet()) {
             if (!resultSet.next()) {
-                return "empty result";
+                return new QueryResult("empty result", "");
             }
-            Object value = resultSet.getObject(1);
-            return value == null ? "null" : String.valueOf(value);
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            List<String> columns = columnLabels(metaData);
+            Map<String, String> selectedFields = selectedFieldMap(assertionFields);
+            Map<String, String> mappedFields = selectedFieldMapFromMapping(fieldMapping);
+            boolean includeAllFields = assertionFields != null && assertionFields.isEmpty();
+            List<Map<String, Object>> selectedRows = new ArrayList<Map<String, Object>>();
+            int maxRows = databaseResultMaxRows();
+            StringBuilder builder = new StringBuilder();
+            int row = 0;
+            String firstValue = "";
+            do {
+                Map<String, Object> selectedRow = new LinkedHashMap<String, Object>();
+                if (row > 0) {
+                    builder.append(" | ");
+                }
+                for (int column = 1; column <= columnCount; column++) {
+                    if (column > 1) {
+                        builder.append(", ");
+                    }
+                    String label = metaData.getColumnLabel(column);
+                    if (StringUtils.hasText(label)) {
+                        builder.append(label).append("=");
+                    }
+                    Object value = resultSet.getObject(column);
+                    String text = value == null ? "null" : String.valueOf(value);
+                    if (row == 0 && column == 1) {
+                        firstValue = text;
+                    }
+                    builder.append(text);
+                    String selectedName = includeAllFields ? label : selectedFields.get(normalizeFieldName(label));
+                    String mappedName = mappedFields.get(normalizeFieldName(label));
+                    if (row < maxRows && (selectedName != null || mappedName != null)) {
+                        String valueText = value == null ? null : String.valueOf(value);
+                        selectedRow.put(label, valueText);
+                        selectedRow.put(normalizeFieldName(label), valueText);
+                        if (selectedName != null) {
+                            selectedRow.put(selectedName, valueText);
+                        }
+                        if (mappedName != null) {
+                            selectedRow.put(mappedName, valueText);
+                            selectedRow.put(normalizeFieldName(mappedName), valueText);
+                        }
+                    }
+                }
+                if (!selectedRow.isEmpty()) {
+                    selectedRows.add(selectedRow);
+                }
+                row++;
+            } while (row < maxRows && builder.length() < 4000 && resultSet.next());
+            String ruleValue = selectedRows.isEmpty() ? firstValue : selectedRowsJson(selectedRows, columns, assertionFields);
+            return new QueryResult(builder.toString(), firstValue, ruleValue, columns, selectedRows, assertionFields);
+        }
+    }
+
+    private PreviewResult previewResult(ResultSet resultSet, int maxRows) throws Exception {
+        try (ResultSet closeable = resultSet) {
+            ResultSetMetaData metaData = closeable.getMetaData();
+            List<String> columns = columnLabels(metaData);
+            Map<String, String> columnTypes = columnTypes(metaData, columns);
+            List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+            int row = 0;
+            while (row < maxRows && closeable.next()) {
+                Map<String, Object> item = new LinkedHashMap<String, Object>();
+                for (int column = 1; column <= columns.size(); column++) {
+                    Object value = closeable.getObject(column);
+                    item.put(columns.get(column - 1), value == null ? null : String.valueOf(value));
+                }
+                rows.add(item);
+                row++;
+            }
+            PreviewResult result = new PreviewResult();
+            result.columns = columns;
+            result.columnTypes = columnTypes;
+            result.rows = rows;
+            result.maxRows = maxRows;
+            result.message = "preview limited to " + maxRows + " rows";
+            return result;
+        }
+    }
+
+    private int databaseResultMaxRows() {
+        if (properties == null) {
+            return 5;
+        }
+        return Math.max(1, Math.min(ABSOLUTE_MAX_RESULT_ROWS, properties.getDatabaseResultMaxRows()));
+    }
+
+    private int queryTimeoutSeconds(double timeoutSeconds) {
+        if (properties != null) {
+            return properties.getDatabaseQueryTimeoutSeconds();
+        }
+        if (Double.isNaN(timeoutSeconds) || Double.isInfinite(timeoutSeconds)) {
+            return 3;
+        }
+        return Math.max(1, Math.min(60, (int) Math.ceil(timeoutSeconds)));
+    }
+
+    public void validateReadOnlySql(String sql) {
+        String normalized = normalizeSqlForValidation(sql);
+        if (!StringUtils.hasText(normalized)) {
+            throw new IllegalArgumentException("SQL is required");
+        }
+        if (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        if (normalized.indexOf(';') >= 0) {
+            throw new IllegalArgumentException("Only a single read-only SELECT SQL statement is allowed");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (!lower.matches("(?s)^select\\b.*")) {
+            throw new IllegalArgumentException("Only read-only SELECT SQL is allowed");
+        }
+        lower = maskSqlStringLiterals(normalized).toLowerCase(Locale.ROOT);
+        if (lower.matches("(?s).*\\bfor\\s+update\\b.*")) {
+            throw new IllegalArgumentException("SELECT FOR UPDATE is not allowed");
+        }
+        for (String keyword : FORBIDDEN_SQL_KEYWORDS) {
+            if (lower.matches("(?s).*\\b" + keyword + "\\b.*")) {
+                throw new IllegalArgumentException("SQL keyword is not allowed: " + keyword);
+            }
+        }
+    }
+
+    private String normalizeSqlForValidation(String sql) {
+        if (sql == null) {
+            return "";
+        }
+        String value = sql.trim();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            if (value.startsWith("--")) {
+                int end = value.indexOf('\n');
+                value = end >= 0 ? value.substring(end + 1).trim() : "";
+                changed = true;
+            } else if (value.startsWith("/*")) {
+                int end = value.indexOf("*/");
+                value = end >= 0 ? value.substring(end + 2).trim() : "";
+                changed = true;
+            }
+        }
+        return value;
+    }
+
+    private String maskSqlStringLiterals(String sql) {
+        StringBuilder builder = new StringBuilder(sql.length());
+        boolean inSingleQuote = false;
+        for (int index = 0; index < sql.length(); index++) {
+            char current = sql.charAt(index);
+            if (current == '\'') {
+                builder.append(' ');
+                if (inSingleQuote && index + 1 < sql.length() && sql.charAt(index + 1) == '\'') {
+                    builder.append(' ');
+                    index++;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+            } else {
+                builder.append(inSingleQuote ? ' ' : current);
+            }
+        }
+        return builder.toString();
+    }
+
+    private String ruleDetail(ApiRuleEvaluator.Evaluation apiRule) {
+        String detail = "";
+        if (StringUtils.hasText(apiRule.hitContent)) {
+            detail += ", hit: " + shortText(apiRule.hitContent, 120);
+        }
+        if (StringUtils.hasText(apiRule.failureReason)) {
+            detail += ", reason: " + shortText(apiRule.failureReason, 120);
+        }
+        return detail;
+    }
+
+    private List<String> columnLabels(ResultSetMetaData metaData) throws Exception {
+        List<String> columns = new ArrayList<String>();
+        for (int column = 1; column <= metaData.getColumnCount(); column++) {
+            String label = metaData.getColumnLabel(column);
+            columns.add(StringUtils.hasText(label) ? label : "column_" + column);
+        }
+        return columns;
+    }
+
+    private Map<String, String> columnTypes(ResultSetMetaData metaData, List<String> columns) throws Exception {
+        Map<String, String> types = new LinkedHashMap<String, String>();
+        for (int column = 1; column <= metaData.getColumnCount(); column++) {
+            String typeName = metaData.getColumnTypeName(column);
+            if (StringUtils.hasText(typeName)) {
+                types.put(columns.get(column - 1), typeName);
+            }
+        }
+        return types;
+    }
+
+    private Map<String, String> selectedFieldMap(List<String> assertionFields) {
+        Map<String, String> selected = new LinkedHashMap<String, String>();
+        if (assertionFields == null) {
+            return selected;
+        }
+        for (String field : assertionFields) {
+            if (StringUtils.hasText(field)) {
+                selected.put(normalizeFieldName(field), field.trim());
+            }
+        }
+        return selected;
+    }
+
+    private Map<String, String> selectedFieldMapFromMapping(Map<String, String> fieldMapping) {
+        Map<String, String> selected = new LinkedHashMap<String, String>();
+        if (fieldMapping == null) {
+            return selected;
+        }
+        for (Map.Entry<String, String> entry : fieldMapping.entrySet()) {
+            if (StringUtils.hasText(entry.getKey()) && StringUtils.hasText(entry.getValue())) {
+                selected.put(normalizeFieldName(entry.getKey()), entry.getValue().trim());
+            }
+        }
+        return selected;
+    }
+
+    private String selectedRowsJson(List<Map<String, Object>> rows, List<String> columns, List<String> fields) {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        if (!rows.isEmpty()) {
+            payload.putAll(rows.get(0));
+        }
+        payload.put("rows", rows);
+        payload.put("columns", columns);
+        payload.put("fields", fields);
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (Exception ex) {
+            return rows.toString();
+        }
+    }
+
+    private String normalizeFieldName(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean matchesExpectedResult(QueryResult result, String expectedResult, String operator) {
+        if (!StringUtils.hasText(expectedResult)) {
+            return true;
+        }
+        String expected = expectedResult.trim();
+        String actual = result.firstValue == null ? "" : result.firstValue.trim();
+        String display = result.displayValue == null ? "" : result.displayValue;
+        String normalizedOperator = normalizeOperator(operator);
+        if ("fuzzy".equals(normalizedOperator)) {
+            String expectedLower = expected.toLowerCase(Locale.ROOT);
+            return display.toLowerCase(Locale.ROOT).contains(expectedLower)
+                || actual.toLowerCase(Locale.ROOT).contains(expectedLower);
+        }
+        if ("exact".equals(normalizedOperator)) {
+            return actual.equals(expected) || display.trim().equals(expected);
+        }
+        if ("eq".equals(normalizedOperator)) {
+            BigDecimal actualNumber = decimalValue(actual);
+            BigDecimal expectedNumber = decimalValue(expected);
+            if (actualNumber != null && expectedNumber != null) {
+                return actualNumber.compareTo(expectedNumber) == 0;
+            }
+            return actual.equals(expected);
+        }
+        BigDecimal actualNumber = decimalValue(actual);
+        BigDecimal expectedNumber = decimalValue(expected);
+        if (actualNumber == null || expectedNumber == null) {
+            return false;
+        }
+        int compared = actualNumber.compareTo(expectedNumber);
+        if ("gt".equals(normalizedOperator)) {
+            return compared > 0;
+        }
+        if ("gte".equals(normalizedOperator)) {
+            return compared >= 0;
+        }
+        if ("lt".equals(normalizedOperator)) {
+            return compared < 0;
+        }
+        if ("lte".equals(normalizedOperator)) {
+            return compared <= 0;
+        }
+        return display.contains(expected) || actual.contains(expected);
+    }
+
+    private String normalizeOperator(String value) {
+        String operator = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        if ("gt".equals(operator) || "gte".equals(operator) || "lt".equals(operator)
+            || "lte".equals(operator) || "eq".equals(operator) || "exact".equals(operator)) {
+            return operator;
+        }
+        return "fuzzy";
+    }
+
+    private String operatorLabel(String value) {
+        String operator = normalizeOperator(value);
+        if ("gt".equals(operator)) {
+            return ">";
+        }
+        if ("gte".equals(operator)) {
+            return ">=";
+        }
+        if ("lt".equals(operator)) {
+            return "<";
+        }
+        if ("lte".equals(operator)) {
+            return "<=";
+        }
+        if ("eq".equals(operator)) {
+            return "=";
+        }
+        if ("exact".equals(operator)) {
+            return "exact";
+        }
+        return "contains";
+    }
+
+    private BigDecimal decimalValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim().replace(",", ""));
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 
@@ -110,5 +796,77 @@ public class DatabaseMonitorService {
 
     private int elapsedMs(long started) {
         return (int) TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+    }
+
+    private static final class QueryResult {
+        private final String displayValue;
+        private final String firstValue;
+        private final String ruleValue;
+        private final List<String> columns;
+        private final List<Map<String, Object>> rows;
+        private final List<String> fields;
+
+        private QueryResult(String displayValue, String firstValue) {
+            this(displayValue, firstValue, firstValue);
+        }
+
+        private QueryResult(String displayValue, String firstValue, String ruleValue) {
+            this(displayValue, firstValue, ruleValue, new ArrayList<String>(), new ArrayList<Map<String, Object>>(), new ArrayList<String>());
+        }
+
+        private QueryResult(
+            String displayValue,
+            String firstValue,
+            String ruleValue,
+            List<String> columns,
+            List<Map<String, Object>> rows,
+            List<String> fields
+        ) {
+            this.displayValue = displayValue;
+            this.firstValue = firstValue;
+            this.ruleValue = ruleValue;
+            this.columns = columns == null ? new ArrayList<String>() : columns;
+            this.rows = rows == null ? new ArrayList<Map<String, Object>>() : rows;
+            this.fields = fields == null ? new ArrayList<String>() : fields;
+        }
+
+        private String ruleValue() {
+            return StringUtils.hasText(ruleValue) ? ruleValue : displayValue;
+        }
+    }
+
+    public static final class PreviewResult {
+        public List<String> columns;
+        public Map<String, String> columnTypes;
+        public List<Map<String, Object>> rows;
+        public Integer maxRows;
+        public String message;
+    }
+
+    private static final class ExternalDriverClassLoader extends URLClassLoader {
+        private ExternalDriverClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null && !name.startsWith("java.") && !name.startsWith("javax.")) {
+                    try {
+                        loaded = findClass(name);
+                    } catch (ClassNotFoundException ignored) {
+                        // Fall back to the application class loader for framework and shared classes.
+                    }
+                }
+                if (loaded == null) {
+                    loaded = super.loadClass(name, false);
+                }
+                if (resolve) {
+                    resolveClass(loaded);
+                }
+                return loaded;
+            }
+        }
     }
 }

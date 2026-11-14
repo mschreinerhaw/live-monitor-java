@@ -1,0 +1,27 @@
+DolphinScheduler 监控
+
+入口：监控中心 → DolphinScheduler 监控（/dolphinscheduler）
+配置：接口根地址（含 /dolphinscheduler）、Token、项目编码、检查窗口及告警规则。
+Token 存入现有关系数据库的加密 secret_config_json，查询及编辑不返回明文；留空保存保留原值。
+项目编码逗号分隔，留空表示 Token 可访问的全部项目，包含后续新增的可访问项目。
+
+总览
+- 项目执行概况、工作流实例的成功/运行/异常/其他统计，实例可展开任务节点。
+- 日期留空使用配置的滚动窗口；自选历史日期仅影响查询，不改变检查及告警时间范围。
+- 异常命中可与运行/其他分类重叠，例如运行超时同时计入运行和异常。
+- 各记录表默认每页10条，可选20/50/100，支持筛选、首末页及跳页。
+- 全部上游页采集完成后才返回统计。每项目最多10000条，采集预算110秒（单次HTTP最多20秒）；超限或任一项目采集失败明确报错，不返回部分健康统计。
+- 无执行记录不等于调度正常；可配置“无实例视为UNKNOWN”。当前统计依据工作流实例，任务节点详情按需读取。
+
+告警
+- 通过现有 MonitorScheduler/检查线程执行，CheckResult 交由现有事务事件与 Outbox 管道。
+- FAILURE/STOP/KILL 等可选状态、运行超时导致 DOWN，接口故障、Token失效、采集不完整导致 UNKNOWN。
+- 按连接汇总异常，通知含查询窗口、总数及最多15条异常实例详情（项目、实例、状态、开始时间）。
+- 连续失败/连续恢复/UNKNOWN确认次数、持续异常提醒间隔、告警组均可配置。
+- 后续异常在持续提醒中汇总，非每实例独立通知；0提醒间隔表示同一持续异常仅首次通知。
+- 发送和失败重试由独立 AlertWorker 完成，页面查询不发送消息，历史查询不触发历史告警。
+- 停用定时检查不妨碍只读历史查询。通过既有告警任务页检查真实发送结果，不把接口查询成功显示为邮件投递成功。
+
+接口核对：实际环境的 /projects、/projects/{code}/process-instances、/projects/{code}/process-instances/{id}/tasks。
+版本差异参考 Apache 上游 ProcessInstanceController：
+https://apache.googlesource.com/dolphinscheduler/+/8d12dc0702622783a48f178e7028cbc7ef5b82e1/dolphinscheduler-api/src/main/java/org/apache/dolphinscheduler/api/controller/ProcessInstanceController.java

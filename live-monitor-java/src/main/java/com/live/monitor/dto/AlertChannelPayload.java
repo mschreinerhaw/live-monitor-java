@@ -1,5 +1,6 @@
 package com.live.monitor.dto;
 
+import java.util.List;
 import javax.validation.constraints.NotBlank;
 
 public class AlertChannelPayload {
@@ -20,6 +21,7 @@ public class AlertChannelPayload {
     public Boolean smtpUseSsl = false;
     public String smtpSslTrust;
     public String smsApiUrl;
+    public List<String> smsApiUrls;
     public String smsApiToken;
     public String smsUsername;
     public String smsPassword;
@@ -28,11 +30,19 @@ public class AlertChannelPayload {
     public String smsRstype = "text";
     public String smsExtCode;
     public String webhookUrl;
+    public String httpMethod = "POST";
+    public String httpHeaders;
+    public String httpBody;
     public String dingtalkSecret;
     public String dingtalkAtMobiles;
     public Boolean dingtalkAtAll = false;
     public String wecomMentionedList;
     public String wecomMentionedMobiles;
     public Boolean wecomAtAll = false;
+    public String proxyType;
+    public String proxyHost;
+    public Integer proxyPort;
+    public String proxyUsername;
+    public String proxyPassword;
     public Boolean enabled = true;
 }

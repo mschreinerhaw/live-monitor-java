@@ -4,31 +4,42 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>告警设置 - Live Monitor</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#176b87">
+  <link rel="stylesheet" href="/vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/alert-settings.css">
+  <link rel="stylesheet" href="/css/vendor-overrides/alert-settings.css">
   <script src="/vendor/lucide/lucide.min.js"></script>
 </head>
 <body data-page="alert-settings">
 <header class="topbar">
-  <a class="brand" href="/dashboard">
-    <span class="brand-mark">LM</span>
-    <span>Live Monitor</span>
+  <a class="brand app-brand" href="/dashboard" aria-label="Live Monitor 首页">
+    <span class="brand-mark app-brand-mark"><i data-lucide="activity"></i></span>
+    <span class="app-brand-copy">
+      <strong>Live Monitor</strong>
+      <small>轻量事件驱动监控平台</small>
+    </span>
   </a>
   <nav class="nav">
     <a href="/dashboard">监控首页</a>
     <a href="/hosts">主机维护</a>
+    <a href="/services/new">添加服务</a>
     <a class="active" href="/alerts/settings">告警设置</a>
+    <a href="/alerts/audit">告警审计</a>
   </nav>
 </header>
 
 <main class="page alert-settings-page">
   <section class="alert-settings-hero">
-    <h1>服务绑定与测试</h1>
-    <p>管理监控服务与告警规则的绑定关系，并进行告警测试</p>
+    <h1 id="alertSettingsHeroTitle">服务绑定与测试</h1>
+    <p id="alertSettingsHeroSubtitle">管理监控服务与告警规则的绑定关系，并进行告警测试</p>
   </section>
 
   <div class="alert-page-tabs" role="tablist" aria-label="告警设置页面切换">
     <button class="tab-button active" id="showBindingTestBtn" type="button" role="tab" aria-selected="true">服务绑定与测试</button>
     <button class="tab-button" id="showAlertConfigBtn" type="button" role="tab" aria-selected="false">告警配置</button>
+    <button class="tab-button" id="showExternalProjectBtn" type="button" role="tab" aria-selected="false">外部项目通道</button>
   </div>
 
   <section class="alert-metric-strip" aria-label="告警设置概览">
@@ -74,12 +85,9 @@
           <p class="panel-subtitle">每种告警类型只登记一条配置，服务绑定后将使用对应配置发送通知。</p>
         </div>
         <div class="panel-actions">
-          <button class="icon-button" id="reloadAlertSettingsBtn" title="刷新">
-            <i data-lucide="refresh-cw"></i>
-          </button>
-          <button class="primary-button" id="newAlertGroupBtn" type="button">
+          <button class="light-button" id="newAlertGroupBtn" type="button">
             <i data-lucide="plus"></i>
-            新增配置
+            <span>新增配置</span>
           </button>
         </div>
       </div>
@@ -111,9 +119,9 @@
             <i data-lucide="plus"></i>
             新增服务绑定
           </button> -->
-          <button class="ghost-button" id="batchAlertActionBtn" type="button">
+          <button class="light-button alert-toolbar-action" id="batchAlertActionBtn" type="button">
             <i data-lucide="settings-2"></i>
-            批量操作
+            <span>批量操作</span>
             <i data-lucide="chevron-down"></i>
           </button>
         </div>
@@ -132,9 +140,6 @@
             <input id="alertServiceSearchInput" type="search" placeholder="搜索服务名称">
             <i data-lucide="search"></i>
           </label>
-          <button class="icon-button" id="reloadAlertBindingBtn" type="button" title="刷新">
-            <i data-lucide="refresh-cw"></i>
-          </button>
         </div>
       </div>
 
@@ -176,7 +181,55 @@
         </div>
       </div>
     </div>
+
+    <div class="panel alert-config-panel external-project-panel">
+      <div class="panel-head">
+        <div>
+          <h1>外部项目通道</h1>
+          <p class="panel-subtitle">维护项目匹配关键字并绑定告警组，外部消息将按最长关键字优先匹配投递对象。</p>
+        </div>
+        <div class="panel-actions">
+          <button class="light-button" id="newExternalProjectBtn" type="button">
+            <i data-lucide="plus"></i><span>新增项目</span>
+          </button>
+        </div>
+      </div>
+      <div class="alert-binding-toolbar external-project-toolbar">
+        <div class="alert-toolbar-left"><span class="field-note">匹配方式：消息内容 LIKE %匹配关键字%</span></div>
+        <div class="alert-toolbar-right">
+          <label class="alert-search-field">
+            <input id="externalProjectSearchInput" type="search" placeholder="搜索项目名称或关键字">
+            <i data-lucide="search"></i>
+          </label>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table external-project-table">
+          <thead><tr><th>项目名称</th><th>匹配关键字</th><th>绑定告警组</th><th>项目说明</th><th>状态</th><th class="actions-column">操作</th></tr></thead>
+          <tbody id="externalProjectTableBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="alert-table-footer"><span id="externalProjectTotalText">共 0 个项目</span></div>
+    </div>
   </section>
+    <section class="panel" id="deliveryTaskPanel">
+      <h2>告警发送任务</h2>
+      <p>查看每个渠道的发送结果与重试计划。测试消息记录与生产任务分开；渠道测试成功不代表后续生产消息一定送达。</p>
+      <div id="deliveryTaskCounts" role="status"></div>
+      <form id="deliveryTaskFilters">
+        <label>服务 ID <input name="service_id" type="number" min="1"></label>
+        <label>渠道 ID <input name="channel_id" type="number" min="1"></label>
+        <label>状态 <select name="status"><option value="">全部</option><option>PENDING</option><option>SENDING</option><option>SUCCESS</option><option>FAILED</option><option>FINAL_FAILED</option></select></label>
+        <label>开始 <input name="start_time" type="datetime-local"></label>
+        <label>结束 <input name="end_time" type="datetime-local"></label>
+        <button type="submit">查询 / 刷新</button>
+      </form>
+      <p id="deliveryTaskError" role="alert"></p>
+      <div class="table-wrapper"><table><thead><tr><th>服务 / 渠道</th><th>事件 / 任务</th><th>状态</th><th>尝试次数</th><th>下次执行</th><th>最近错误</th><th>操作</th></tr></thead><tbody id="deliveryTaskRows"></tbody></table></div>
+      <button type="button" id="deliveryTaskPrev">上一页</button><span id="deliveryTaskPage"></span><button type="button" id="deliveryTaskNext">下一页</button>
+      <pre id="deliveryTaskAttempts" style="white-space:pre-wrap" aria-live="polite"></pre>
+    </section>
+    <script src="/js/alert_tasks.js" defer></script>
 </main>
 
 <div class="modal-backdrop" id="alertConfigModal" hidden>
@@ -193,41 +246,58 @@
       </div>
 
       <div class="form-grid alert-simple-form modal-body">
-        <label>
-          <span>配置名称</span>
-          <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
-        </label>
-
-        <label>
-          <span>告警类型</span>
-          <select id="alertChannelTypeSelect" required>
-            <option value="sms">短信告警</option>
-            <option value="email">邮箱告警</option>
-            <option value="wecom">企业微信告警</option>
-            <option value="dingtalk">钉钉告警</option>
-          </select>
-        </label>
-
-        <label class="span-2">
-          <span>备注</span>
-          <textarea id="alertGroupDescriptionInput" name="description" rows="3" placeholder="例如：核心服务异常时通知值班人员"></textarea>
-        </label>
-
-        <label class="switch-row span-2">
-          <input id="alertGroupEnabledInput" name="enabled" type="checkbox" checked>
-          <span>启用该告警</span>
-        </label>
-
-        <section class="setting-section span-2">
+        <section class="setting-section span-2 alert-basic-section">
           <div class="section-head">
-            <h2>触发策略</h2>
+            <div>
+              <h2>基础信息</h2>
+              <p>定义配置名称、通知类型和启用状态。</p>
+            </div>
+          </div>
+          <div class="alert-basic-grid">
+            <label>
+              <span>配置名称</span>
+              <input id="alertGroupNameInput" name="group_name" required maxlength="120" placeholder="例如：生产服务告警">
+            </label>
+
+            <label>
+              <span>告警类型</span>
+              <select id="alertChannelTypeSelect" required>
+                <option value="sms">短信告警</option>
+                <option value="email">邮箱告警</option>
+                <option value="wecom">企业微信告警</option>
+                <option value="dingtalk">钉钉告警</option>
+                <option value="http">HTTP 告警</option>
+              </select>
+            </label>
+
+            <label class="span-2">
+              <span>备注</span>
+              <textarea id="alertGroupDescriptionInput" name="description" rows="3" placeholder="例如：核心服务异常时通知值班人员"></textarea>
+            </label>
+
+            <label class="switch-row span-2">
+              <input id="alertGroupEnabledInput" name="enabled" type="checkbox" checked>
+              <span>启用该告警</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="setting-section span-2 alert-policy-section">
+          <div class="section-head">
+            <div>
+              <h2>触发策略</h2>
+              <p>选择哪些服务状态变化会触发该配置。</p>
+            </div>
           </div>
           <div id="policyChecklist" class="choice-list"></div>
         </section>
 
-        <section class="setting-section span-2 channel-field sms-channel-field">
+        <section class="setting-section span-2 channel-field sms-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>短信接收配置</h2>
+            <div>
+              <h2>短信接收配置</h2>
+              <p>维护接收手机号和短信网关参数。</p>
+            </div>
           </div>
           <div class="recipient-list-field">
             <span>手机号接收人</span>
@@ -241,8 +311,8 @@
             <div class="recipient-chip-list" id="alertMobileRecipientList"></div>
           </div>
           <label>
-            <span>短信接口地址</span>
-            <input id="smsApiUrlInput" type="url" placeholder="https://sms.example.com/send">
+            <span>短信接口地址 <small class="field-note">（按顺序故障转移，每行一个）</small></span>
+            <textarea id="smsApiUrlInput" rows="3" placeholder="https://sms-a.example.com/send&#10;https://sms-b.example.com/send"></textarea>
           </label>
           <div class="inline-grid">
             <label>
@@ -278,9 +348,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field email-channel-field">
+        <section class="setting-section span-2 channel-field email-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>邮箱接收配置</h2>
+            <div>
+              <h2>邮箱接收配置</h2>
+              <p>配置收件人、发件人和 SMTP 连接信息。</p>
+            </div>
           </div>
           <div class="recipient-list-field">
             <span>收件人</span>
@@ -346,9 +419,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field wecom-channel-field">
+        <section class="setting-section span-2 channel-field wecom-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>企业微信接收配置</h2>
+            <div>
+              <h2>企业微信接收配置</h2>
+              <p>填写机器人地址，并设置需要提醒的成员。</p>
+            </div>
           </div>
           <label>
             <span>机器人 Webhook 地址</span>
@@ -382,9 +458,12 @@
           </label>
         </section>
 
-        <section class="setting-section span-2 channel-field dingtalk-channel-field">
+        <section class="setting-section span-2 channel-field dingtalk-channel-field alert-channel-section">
           <div class="section-head">
-            <h2>钉钉接收配置</h2>
+            <div>
+              <h2>钉钉接收配置</h2>
+              <p>填写机器人地址、加签密钥和提醒对象。</p>
+            </div>
           </div>
           <label>
             <span>机器人 Webhook 地址</span>
@@ -410,6 +489,82 @@
             <span>@所有人</span>
           </label>
         </section>
+
+        <section class="setting-section span-2 channel-field http-channel-field alert-channel-section">
+          <div class="section-head">
+            <div>
+              <h2>HTTP 告警配置</h2>
+              <p>配置 HTTP 接口地址、请求方式、请求头和请求体模板。</p>
+            </div>
+          </div>
+          <label>
+            <span>URL</span>
+            <input id="httpWebhookUrlInput" type="url" placeholder="http://173.101.13.102:9980/alerthub/api/v1/send/9">
+          </label>
+          <label>
+            <span>请求类型</span>
+            <select id="httpMethodInput">
+              <option value="POST">POST</option>
+              <option value="GET">GET</option>
+            </select>
+          </label>
+          <label>
+            <span>请求头</span>
+            <textarea id="httpHeadersInput" rows="3" placeholder='{"Content-Type":"application/json"}'></textarea>
+          </label>
+          <label>
+            <span class="field-label-with-help">
+              <span>请求体</span>
+              <span class="field-help-icon" tabindex="0" title="可用变量：${message}、${content}、{{message}}、{{content}}。其中 ${message}/${content} 会替换为后端 http_*.j2 模板渲染后的告警正文。">
+                <i data-lucide="circle-help"></i>
+              </span>
+            </span>
+            <textarea id="httpBodyInput" rows="8" placeholder='{"msgtype":"text","text":{"content":"${message}"}}'></textarea>
+          </label>
+        </section>
+
+        <details id="alertProxySection" class="setting-section span-2 alert-proxy-section">
+          <summary class="alert-proxy-summary">
+            <div>
+              <h2>发送代理</h2>
+              <p id="alertProxySummaryText">不使用代理</p>
+            </div>
+            <i data-lucide="chevron-down"></i>
+          </summary>
+          <div class="alert-proxy-body">
+            <label>
+              <span>代理类型</span>
+              <select id="alertProxyTypeInput">
+                <option value="none">不使用代理</option>
+                <option value="http">HTTP 代理</option>
+                <option value="socks5">SOCKS5 代理</option>
+              </select>
+            </label>
+            <div id="alertProxyFields" class="proxy-config-fields" hidden>
+              <div class="inline-grid">
+                <label>
+                  <span>代理 IP / 域名</span>
+                  <input id="alertProxyHostInput" type="text" placeholder="例如：192.168.10.20">
+                </label>
+                <label>
+                  <span>代理端口</span>
+                  <input id="alertProxyPortInput" type="number" min="1" max="65535" placeholder="例如：8080">
+                </label>
+              </div>
+              <div id="alertHttpProxyAuthFields" class="inline-grid">
+                <label>
+                  <span>代理账号（可选）</span>
+                  <input id="alertProxyUsernameInput" type="text" autocomplete="off">
+                </label>
+                <label>
+                  <span>代理密码（可选）</span>
+                  <input id="alertProxyPasswordInput" type="password" autocomplete="new-password" placeholder="留空则不修改">
+                </label>
+              </div>
+              <p id="alertProxyHint" class="proxy-config-hint"></p>
+            </div>
+          </div>
+        </details>
 
         <div class="form-actions span-2">
           <button class="ghost-button" id="deleteAlertGroupBtn" type="button">
@@ -449,12 +604,16 @@
 
         <div class="service-binding-summary span-2" id="alertBindingServiceSummary" hidden></div>
 
-        <label class="span-2">
+        <div class="alert-binding-group-field span-2">
           <span>绑定规则</span>
-          <select id="alertBindingGroupSelect">
-            <option value="">不绑定告警</option>
-          </select>
-        </label>
+          <details class="alert-binding-group-picker" id="alertBindingGroupPicker">
+            <summary aria-label="选择绑定规则" aria-haspopup="listbox">
+              <span id="alertBindingGroupSummary">不绑定告警</span>
+              <i data-lucide="chevron-down"></i>
+            </summary>
+            <div class="alert-binding-group-options" id="alertBindingGroupOptions" role="listbox" aria-multiselectable="true"></div>
+          </details>
+        </div>
 
         <label class="span-2 interval-field">
           <span>检测间隔</span>
@@ -487,6 +646,105 @@
         </div>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="externalProjectModal" hidden>
+  <div class="modal-dialog external-project-modal" role="dialog" aria-modal="true" aria-labelledby="externalProjectFormTitle">
+    <form id="externalProjectForm">
+      <div class="modal-head">
+        <div>
+          <h2 id="externalProjectFormTitle">新增外部项目</h2>
+          <p class="panel-subtitle">项目匹配成功后，只向这里绑定的告警组发送消息。</p>
+        </div>
+        <button class="icon-button" id="closeExternalProjectModalBtn" type="button" title="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <div class="form-grid alert-simple-form modal-body external-project-form-body">
+        <label>
+          <span>项目名称</span>
+          <input id="externalProjectNameInput" maxlength="255" required placeholder="例如：IDS3.0-ZYZQ">
+        </label>
+        <label>
+          <span>匹配关键字</span>
+          <input id="externalProjectKeywordInput" maxlength="255" required placeholder="默认与项目名称相同">
+        </label>
+        <label class="span-2">
+          <span>项目说明</span>
+          <textarea id="externalProjectDescriptionInput" maxlength="1000" rows="3" placeholder="填写项目负责人、用途等信息"></textarea>
+        </label>
+        <div class="external-project-group-field span-2">
+          <span>绑定告警组 <small>（可多选）</small></span>
+          <details class="external-project-group-picker" id="externalProjectGroupPicker">
+            <summary aria-label="选择项目告警组" aria-haspopup="listbox">
+              <span id="externalProjectGroupSummary">请选择告警组</span>
+              <i data-lucide="chevron-down"></i>
+            </summary>
+            <div class="external-project-group-options" id="externalProjectGroupOptions" role="listbox" aria-multiselectable="true"></div>
+          </details>
+        </div>
+        <div class="external-project-status-card span-2">
+          <div><strong>项目路由状态</strong><small>停用后，该项目将不参与消息匹配</small></div>
+          <label class="switch-row">
+            <input id="externalProjectEnabledInput" type="checkbox" checked>
+            <span>启用</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions external-project-form-actions">
+        <button class="ghost-button" id="cancelExternalProjectBtn" type="button">取消</button>
+        <button class="primary-button" type="submit"><i data-lucide="save"></i>保存项目</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="externalMessageModal" hidden>
+  <div class="modal-dialog external-message-modal" role="dialog" aria-modal="true" aria-labelledby="externalMessageModalTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="externalMessageModalTitle">更多操作 · 外部消息转发接口</h2>
+        <p class="panel-subtitle">管理接口状态、查看请求示例和外部请求审计。</p>
+      </div>
+      <button class="icon-button" id="closeExternalMessageModalBtn" type="button" title="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div class="external-message-modal-body">
+      <div class="external-message-status-row">
+        <span>接口状态：<strong id="externalMessageStatusText">-</strong></span>
+        <button class="light-button" id="externalMessageToggleBtn" type="button">启用</button>
+      </div>
+      <section class="setting-section">
+        <div class="section-head">
+          <div><h2>请求示例</h2><p>支持任意合法 JSON；系统使用消息内容与“外部项目通道”的匹配关键字进行 LIKE 匹配，并投递到项目绑定的告警组。</p></div>
+          <button class="light-button" id="copyExternalMessageExampleBtn" type="button"><i data-lucide="copy"></i>复制</button>
+        </div>
+        <pre id="externalMessageCurlExample" class="external-message-code"></pre>
+      </section>
+      <section class="setting-section">
+        <div class="section-head">
+          <div><h2>最近请求审计</h2><p>记录来源、请求状态、消息摘要和通道投递结果。</p></div>
+          <button class="icon-button" id="reloadExternalMessageAuditBtn" type="button" title="刷新"><i data-lucide="refresh-cw"></i></button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table external-message-audit-table">
+            <thead><tr><th>时间</th><th>来源 IP</th><th>项目名称</th><th>状态</th><th>消息摘要</th><th>投递</th><th>说明</th></tr></thead>
+            <tbody id="externalMessageAuditBody"><tr><td colspan="7" class="empty">加载中...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="external-message-audit-pagination" aria-label="外部请求审计分页">
+          <span id="externalMessageAuditTotal">共 0 条</span>
+          <label>每页
+            <select id="externalMessageAuditPageSize" aria-label="每页记录数">
+              <option value="10">10 条</option>
+              <option value="20" selected>20 条</option>
+              <option value="50">50 条</option>
+            </select>
+          </label>
+          <button class="light-button" id="externalMessageAuditPrevBtn" type="button">上一页</button>
+          <span id="externalMessageAuditPageInfo">第 1 / 1 页</span>
+          <button class="light-button" id="externalMessageAuditNextBtn" type="button">下一页</button>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
 

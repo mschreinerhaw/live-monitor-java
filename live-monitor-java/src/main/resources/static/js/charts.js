@@ -17,7 +17,7 @@
       return;
     }
 
-    const chart = window.echarts.init(element);
+    const chart = window.echarts.getInstanceByDom(element) || window.echarts.init(element);
     chart.setOption({
       color: ["#176b87", "#168a52"],
       tooltip: {
@@ -28,7 +28,7 @@
           return `${labels[index]}<br>状态：${item.status}<br>响应：${item.response_time_ms ?? "-"} ms<br>${item.message || ""}`;
         },
       },
-      grid: { top: 24, right: 38, bottom: 38, left: 42 },
+      grid: { top: 44, right: 58, bottom: 38, left: 46 },
       xAxis: {
         type: "category",
         data: labels,
@@ -38,9 +38,11 @@
       yAxis: [
         {
           type: "value",
+          name: "状态",
           min: -1,
           max: 1,
           interval: 1,
+          nameTextStyle: { color: "#697586", padding: [0, 0, 6, 0] },
           axisLabel: {
             color: "#697586",
             formatter(value) {
@@ -53,6 +55,8 @@
         },
         {
           type: "value",
+          name: "响应时间 (ms)",
+          nameTextStyle: { color: "#697586", padding: [0, 0, 6, 0] },
           axisLabel: { color: "#697586", formatter: "{value} ms" },
           splitLine: { show: false },
         },
@@ -70,6 +74,26 @@
           type: "bar",
           yAxisIndex: 1,
           barMaxWidth: 20,
+          label: {
+            show: true,
+            position: "top",
+            color: "#33455d",
+            fontSize: 11,
+            formatter(params) {
+              return params.value == null ? "" : `${params.value} ms`;
+            },
+          },
+          itemStyle: {
+            borderRadius: [4, 4, 0, 0],
+            color(params) {
+              if (params.value == null) return "#cbd6df";
+              const value = Number(params.value);
+              if (!Number.isFinite(value)) return "#cbd6df";
+              if (value >= 1000) return "#c0392b";
+              if (value >= 500) return "#b7791f";
+              return "#168a52";
+            },
+          },
           data: responseData,
         },
       ],

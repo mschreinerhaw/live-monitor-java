@@ -1,17 +1,26 @@
 # Live Monitor Java
 
-面向内部监控平台长期扩展的 Java Maven 工程。当前版本保持原静态前端不变，由 Spring Boot 托管 HTML/JS/ECharts 页面，并提供兼容原 `/api/...` 的后端接口。
+面向内部监控与调度运维的 Java Maven 工程。1.1.2 优化 DolphinScheduler 监控的信息层级、异常定位和移动端操作，由 Spring Boot 托管 Vue3/ECharts 页面，保留原有服务、主机和告警接口。主机支持可配置的挂载点监控、只读预览及挂载丢失、只读、空间超阈告警，详见[挂载点监控说明](docs/HOST_MOUNT_MONITORING.md)。
+
+监控入口：`/#/dolphinscheduler`，不再提供独立企业驾驶舱菜单。首页按项目展示上线工作流、执行实例、运行中、成功、失败、待执行和未执行工作流，并直接展示 Master/Worker 资源。支持执行时间及 ETL_Date 筛选；连接、采集和告警配置均在同一监控入口内。原驾驶舱链接自动跳转至此。现场核验版本为定制 `ld-2.0.8`；其他版本需要核对接口及数据口径。
+
+完整使用与 API 清单见 [DOLPHIN_ENTERPRISE_GUIDE.txt](DOLPHIN_ENTERPRISE_GUIDE.txt)，迁移和归档说明见 [DOLPHIN_DATABASE_CHANGES.txt](DOLPHIN_DATABASE_CHANGES.txt)。认证沿用服务端加密 Token；所有调度侧请求均只读，不控制生产任务。未采集、失败、过期和未知业务日期明确区分，不用模拟值补齐。
+
+单菜单整合、统计口径与当前验证结果见 [DOLPHIN_MONITOR_REVISION.txt](DOLPHIN_MONITOR_REVISION.txt)。
+
+当前产品体验改版与验证结果见 [DOLPHIN_PRODUCT_DESIGN_20261114.txt](DOLPHIN_PRODUCT_DESIGN_20261114.txt)：异常优先、项目搜索、状态点击下钻、资源摘要、可暂停刷新和移动端项目卡片。
 
 ## 技术栈
 
-- 前端：HTML + JS + ECharts
+- 前端：Vue3 + Vue Router + ECharts
 - 后端：Java 8 + Spring Boot 2.7
-- 数据库：SQLite，后续可切 MySQL
+- 配置库：H2 / MySQL；历史：RocksDB；辅助索引：Lucene（异常回退 RocksDB）
 - ORM：MyBatis
 - 定时任务：Spring Scheduler
 - SSH：JSch
 - Redis 检测：Lettuce
 - ZooKeeper 检测：四字命令 / 端口探测
+- 数据库检测：MySQL / Oracle / PostgreSQL / 通用 JDBC
 - Web 检测：OkHttp
 
 ## 结构
@@ -41,7 +50,7 @@ live-monitor-java/
 ## 启动
 
 ```bash
-cd live-monitor-java
+mvn verify
 mvn spring-boot:run
 ```
 
@@ -54,10 +63,12 @@ http://127.0.0.1:8000/services/new
 http://127.0.0.1:8000/alerts/settings
 ```
 
-SQLite 数据库默认写入：
+默认数据目录（从发布根目录启动）：
 
 ```text
-live-monitor-java/data/live_monitor.db
+data/h2/live_monitor.mv.db
+data/rocksdb/
+data/search-lucene/
 ```
 
 ## SSH 密码
@@ -77,11 +88,143 @@ set LIVE_MONITOR_SECRET_KEY=your-long-random-secret
 
 如果后续多实例部署，要保证各实例使用同一个 `LIVE_MONITOR_SECRET_KEY`，否则历史密文无法解密。
 
+## 主机监控命令依赖
+
+后端主机监控通过 SSH 登录目标 Linux 主机，并执行系统命令采集 CPU、内存、磁盘和负载指标。目标主机需要具备以下常用命令或文件：
+
+- CPU 使用率：`awk`、`/proc/stat`
+- 系统负载：`awk`、`/proc/loadavg`
+- 内存使用率和总量：`awk`、`/proc/meminfo`
+- CPU 核数：优先使用 `nproc`，缺失时回退读取 `/proc/cpuinfo`
+- 已挂载磁盘：`df -P -T -B1`
+- 物理磁盘数量：优先使用 `lsblk`，缺失时依次回退 `/proc/partitions`、`fdisk -l`
+
+其中 `awk`、`df`、`grep`、`cat` 通常由 Linux 基础系统提供。`lsblk` 用于提升物理磁盘识别准确性；如果目标系统没有 `lsblk`，仍可通过回退命令获取部分磁盘信息。部分发行版执行 `fdisk -l` 可能需要更高权限，权限不足时只会影响物理磁盘数量兜底识别，不影响 CPU、内存、负载和已挂载磁盘采集。
+
+建议用于主机监控的 SSH 账号至少具备读取 `/proc/stat`、`/proc/loadavg`、`/proc/meminfo`、`/proc/cpuinfo`、`/proc/partitions` 以及执行 `df`、`lsblk` 的权限。常规 CPU、内存和挂载磁盘监控不需要 sudo。
+
+## 告警模板自定义
+
+告警正文模板默认从运行目录 `./templates` 读取，可通过配置项 `live-monitor.template-dir` 修改模板目录。外部目录中存在同名模板时优先使用外部文件；不存在时回退使用项目内置的 `src/main/resources/templates/*.j2`。
+
+模板支持简单的 Jinja 风格变量，例如 `{{ serviceName }}`、`{{ alertTime }}`。常用变量包括：
+
+- 通用服务变量：`serviceName`、`instanceName`、`host`、`level`、`alertTime`、`recoverTime`、`duration`、`responseTime`、`errorMsg`、`alertReason`、`recoverReason`
+- 主机资源变量：`cpu`、`memory`、`disk`、`cpuText`、`memoryText`、`diskText`、`alertItems`、`recoverItems`、`alertSummary`
+- 数据库断言变量：`databaseProduct`、`databaseResult`、`databaseRule`、`databaseHit`、`databaseReason`、`databaseSummary`、`businessImpact`、`actionSuggestion`
+
+当前模板文件对应关系：
+
+- 短信服务告警：`sms_service_alert.j2`、`sms_service_recover.j2`
+- 短信数据库断言告警：`sms_database_assertion_alert.j2`
+- 邮件服务和主机告警：`email_service_alert.j2`、`email_host_resource_alert.j2`、`email_host_resource_recover.j2`
+- 邮件数据库断言告警：`email_database_assertion_alert.j2`
+- 主机短信/普通告警：`alert_host_resource.j2`、`alert_host_resource_recover.j2`
+- HTTP、钉钉、企业微信告警：`http_service_alert.j2`、`http_service_recover.j2`、`http_host_resource_alert.j2`、`http_host_resource_recover.j2`、`http_database_assertion_alert.j2`
+
+HTTP 告警的请求体可以在告警渠道页面自由配置，适合钉钉、企业微信等 Webhook。请求体中可使用 `${message}`、`${content}`、`{{message}}`、`{{content}}`，系统会将它们替换为对应 `http_*.j2` 模板渲染后的告警正文。例如：
+
+```json
+{
+  "msgtype": "text",
+  "text": {
+    "content": "${message}"
+  }
+}
+```
+
+钉钉和企业微信内置渠道也会复用 `http_*.j2` 模板生成消息正文；如需调整机器人收到的告警文案，修改对应 HTTP 模板即可。
+
+短信渠道支持配置多个短信接口地址，每行一个并按填写顺序作为主、备网关。每批短信先调用第一个地址；连接失败、非 2xx 响应或网关返回失败码时，自动尝试下一个地址，任一地址成功后立即停止切换。原有单地址 `sms_api_url` 配置继续兼容。
+
+## 通用 JDBC 驱动
+
+除内置 MySQL、Oracle、PostgreSQL 外，添加服务时可选择“通用 JDBC”。将对应数据库的 JDBC 驱动 jar 放到运行目录的 `lib/` 下，页面填写驱动类、JDBC 连接串、用户、密码、检测 SQL 和期望关键字即可。检测会执行 SQL，并在返回结果文本中查找期望关键字。
+
+内置 MySQL 检测默认兼容 MySQL 5.x 和 MySQL 8.x：连接参数会显式设置超时、字符集、禁用 SSL 握手。默认使用项目内置 MySQL 8 驱动；如果要连旧版 MySQL，可把 MySQL 5.x 驱动 jar 放到 `lib/` 下，并在页面 JDBC 驱动类填写 `com.mysql.jdbc.Driver`。MySQL 8 可填写 `com.mysql.cj.jdbc.Driver` 或留空。
+
+MySQL、Oracle、PostgreSQL 也支持可选的 JDBC 驱动类配置。填写后系统会优先从运行目录 `lib/` / `libs/` 下加载对应驱动，适合连接只能使用旧版驱动的数据库。
+
+## 高级响应断言规则使用方法
+
+Web/API 监控和数据库断言支持高级响应断言规则。添加或编辑服务时，在断言配置区域可以选择“可视化配置”或“高级表达式”：可视化配置会自动生成表达式；高级表达式适合直接编写复杂规则。
+
+规则表达式最终返回 true/false，返回 false 时检测结果为 DOWN。表达式支持 `&&` / `and`、`||` / `or`、`!` / `not` 和括号组合，比较操作符支持 `==`、`!=`、`>`、`>=`、`<`、`<=`。
+
+常用函数：
+
+- `status()`：HTTP 状态码，例如 `status() == 200`
+- `responseMs()` / `time()`：响应时间，单位毫秒，例如 `responseMs() < 3000`
+- `body()`：完整响应正文
+- `contains("文本")`：响应正文包含文本
+- `contains(目标, "文本")`：指定目标包含文本，例如 `contains(json("$.message"), "success")`
+- `icontains(目标, "文本")`：忽略大小写包含
+- `notContains(目标, "文本")`：不包含
+- `json("$.path")`：从 JSON 响应中取值，支持对象字段和数组下标，例如 `json("$.data.rows[0].code")`
+- `regex("正则")`：从响应正文中提取正则命中内容；有捕获组时取第一个捕获组，没有捕获组时取完整命中
+- `matches("正则")`：判断响应正文是否匹配正则
+- `exists(目标)`：判断目标值存在且非空
+- `number(目标)`、`string(目标)`：将目标值按数字或文本参与比较
+
+Web/API 监控示例：
+
+```text
+status() == 200 && json("$.code") == 0 && responseMs() < 3000
+contains("success") && icontains(json("$.status"), "ok")
+regex("CPU:\\s*([0-9.]+)") < 80
+exists(json("$.data.token")) && notContains(body(), "error")
+```
+
+数据库高级断言复用同一套表达式，并额外支持按查询结果字段取值。数据库查询结果会以表格行形式参与规则判断：
+
+- `field("字段名")` / `column("字段名")`：读取查询结果字段值，例如 `field("FUND_CODE") == "011389"`
+- `allRowsCompare("左字段", "操作符", "右字段")`：所有行的两个字段逐行比较
+- `anyRowsCompare("左字段", "操作符", "右字段")`：任意一行满足字段比较
+- `sameValues("A.字段", "B.字段")`：跨库断言中比较两个数据源字段值集合是否一致
+- `absDiff(左值, 右值)`：数字绝对差
+- `pctDiff(左值, 右值)`：数字差异比例
+
+数据库断言示例：
+
+```text
+field("ORDER_COUNT") > 0
+contains(field("FUND_NAME"), "创新") && field("FUND_CODE") == "011389"
+allRowsCompare("FUND_CODE", "==", "fund_code")
+sameValues("A.FUND_CODE", "B.FUND_CODE") && absDiff(field("A.AMOUNT"), field("B.AMOUNT")) <= 0.05
+```
+
+注意事项：规则长度最多 1000 字符；响应正文参与解析的最大长度为 262144 字符；JSON 路径深度最多 32 层；正则表达式最长 300 字符，正则匹配只读取响应正文前 8192 字符，并有 100ms 超时保护。带前导 0 的编号建议用引号按文本比较，例如 `json("$.FUND_CODE") == "011389"`。
+
+## 外部文本消息转发
+
+应用启动后会自动创建“外部 REST 消息转发”内置服务。它不参与定时探测，但会显示在“告警设置 → 服务绑定与测试”中；可像普通服务一样绑定多个告警组。同一告警通道即使被多个所选告警组复用，也只会收到一次消息。该外部入口默认禁用，管理员可在服务行点击“启用/禁用”，并通过“请求示例/请求审计”查看动态生成的 curl 示例及最近请求记录。
+
+外部系统无需登录会话，调用 `POST /api/external/messages` 即可转发文本。支持原始文本：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/external/messages \
+  -H "Content-Type: text/plain; charset=UTF-8" \
+  --data-binary "外部系统通知：磁盘空间不足"
+```
+
+也支持 JSON 字符串，或包含 `message`、`text`、`content` 任一文本字段的 JSON 对象：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/external/messages \
+  -H "Content-Type: application/json" \
+  -d '{"message":"外部系统通知：磁盘空间不足"}'
+```
+
+响应中的 `success` 表示所有目标通道是否均发送成功，`success_count` / `failed_count` 是成功和失败通道数，`records` 包含每个通道的投递记录。消息不能为空，最大长度为 100000 个字符。该接口为便于内部系统集成而公开放行，部署时应通过网关或防火墙限制可访问来源。
+
+外部请求审计会记录来源 IP、Content-Type、消息长度和摘要、请求状态、投递成功/失败数及处理说明。接口处于禁用状态、请求格式错误和通道投递失败时同样会留下记录；启用和禁用操作也会作为安全配置事件记录。
+
 ## 已提供接口
 
 - 服务监控：`/api/services`、`/api/services/{id}/check`、`/api/dashboard`
 - 告警配置：`/api/alert-policies`、`/api/alert-channels`、`/api/alert-groups`
 - 告警记录：`/api/alerts`、`/api/services/{id}/alerts`
+- 外部消息转发：`POST /api/external/messages`
 - 主机配置：`/api/hosts`
 - 主机指标：`/api/hosts/{id}/metrics`
 - 进程探测：`/api/hosts/{id}/processes`、`/api/hosts/{id}/process-status`
@@ -92,3 +235,20 @@ set LIVE_MONITOR_SECRET_KEY=your-long-random-secret
 - 主机监控结果单独入库，形成趋势图。
 - 增加登录、角色、操作审计。
 - 数据量上来后把 SQLite 切换为 MySQL。
+
+### 告警可靠性（1.0.1）
+
+检查事件、状态机和每渠道发送任务在 H2（或配置的 MySQL）事务中提交，独立 Worker 发送与重试。RocksDB 只存监控历史，通过持久化投影任务补写，历史列表可能比最新状态稍晚更新。
+
+服务编辑页可配置 DOWN 连续失败次数、恢复确认次数、UNKNOWN 开关与连续次数、持续异常提醒间隔（0 表示仅首次通知）。新异常事件不受旧事件冷却时间抑制。检查入口加载全部告警组，每组单独判断策略，发送结果按渠道记录。
+
+告警设置页新增任务状态、服务/渠道/时间筛选、每次发送历史和管理员手动重试。手动重试创建新任务，保留原任务与操作者审计。生产任务与测试消息分开记录；测试成功不保证后续网络和渠道始终可用。
+
+配置项：live-monitor.alert-max-retries 默认 5（间隔 30/60/120/240/480 秒）；live-monitor.alert-lease-ms 默认 300000；live-monitor.alert-retention-days 默认 90；live-monitor.check-execution-threads 默认 16。检查总超时取服务配置，限制为 0.1～300 秒。超时后保留互斥直到实际检查器退出，避免忽略中断的检查器重入。
+
+升级前停机备份整个 data 目录和密钥配置。发送采用至少一次语义，外部响应丢失时可能重复通知。详见 ALERT_RELIABILITY_REPORT.txt 和 DEPLOY.md。
+
+## Vue3 分支页面对照与构建
+
+feature/vue3-frontend 已合入告警可靠性修复并补齐页面。完整对照与验证说明见 VUE3_FUNCTIONAL_PARITY.txt，前端操作与浏览器回归命令见 frontend/README.md。
+执行 mvn verify 会安装锁定依赖、构建并同步 Vue、运行 Java 验证和打包；运行发布 JAR 不需要 Node。只在已构建前端时使用 -DskipFrontend=true。Vue 入口为生成文件，不能直接用旧 HTML 首页代替。

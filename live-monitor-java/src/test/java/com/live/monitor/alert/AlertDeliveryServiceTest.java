@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -24,12 +26,75 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class AlertDeliveryServiceTest {
+    @Test
+    void smtpFinalDataAcknowledgementDeterminesSuccessEvenWhenQuitDisconnects() throws Exception {
+        for (int acknowledgement : new int[]{250, 550}) {
+            try (java.net.ServerSocket server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+                server.setSoTimeout(10000);
+                java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+                try {
+                    java.util.concurrent.Future<?> gateway = executor.submit(() -> {
+                        try (java.net.Socket socket = server.accept()) {
+                            socket.setSoTimeout(10000);
+                            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                            java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+                            writer.write("220 test SMTP\r\n"); writer.flush();
+                            boolean data = false;
+                            for (String line; (line = reader.readLine()) != null;) {
+                                if (data) {
+                                    if (line.equals(".")) { writer.write(acknowledgement + " final DATA result\r\n"); writer.flush(); return; }
+                                } else {
+                                    if (line.equals("DATA")) { data = true; writer.write("354 send message\r\n"); }
+                                    else writer.write("250 OK\r\n");
+                                    writer.flush();
+                                }
+                            }
+                        } catch (java.io.IOException ex) { throw new RuntimeException(ex); }
+                    });
+                    AlertChannel channel = new AlertChannel(); channel.channelType = "email";
+                    channel.configJson = "{\"smtp_host\":\"127.0.0.1\",\"smtp_port\":" + server.getLocalPort() + ",\"smtp_auth\":false,\"alert_email\":\"ops@example.com\"}";
+                    assertEquals(acknowledgement == 250, new AlertDeliveryService(new ObjectMapper()).send(channel, "test message").success);
+                    gateway.get(12, java.util.concurrent.TimeUnit.SECONDS);
+                } finally { executor.shutdownNow(); }
+            }
+        }
+    }
+    @org.junit.jupiter.api.Test
+    void robotBusinessErrorsAndMalformedAcknowledgementsAreNeverSuccess() throws Exception {
+        HttpServer gateway = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        gateway.createContext("/rejected", exchange -> {
+            byte[] body = "{\"errcode\":40014,\"errmsg\":\"invalid credential\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length); exchange.getResponseBody().write(body); exchange.close();
+        });
+        gateway.createContext("/malformed", exchange -> {
+            byte[] body = "not a robot acknowledgement".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length); exchange.getResponseBody().write(body); exchange.close();
+        });
+        gateway.start();
+        try {
+            AlertDeliveryService delivery = new AlertDeliveryService(new ObjectMapper());
+            for (String type : new String[]{"dingtalk", "wecom"}) {
+                for (String path : new String[]{"rejected", "malformed"}) {
+                    AlertChannel channel = new AlertChannel(); channel.channelType = type;
+                    channel.configJson = "{\"webhook_url\":\"http://127.0.0.1:" + gateway.getAddress().getPort() + "/" + path + "\"}";
+                    org.junit.jupiter.api.Assertions.assertFalse(delivery.send(channel, "DOWN").success);
+                }
+            }
+        } finally { gateway.stop(0); }
+    }
+
     private static final Charset GBK = Charset.forName("GBK");
     private static HttpServer server;
     private static URI requestUri;
     private static String requestBody;
+    private static String requestMethod;
+    private static String requestContentType;
     private static String baseUrl;
     private static String robotUrl;
+    private static String failingSmsUrl;
+    private static String backupSmsUrl;
+    private static final AtomicInteger failingSmsRequests = new AtomicInteger();
+    private static final AtomicInteger backupSmsRequests = new AtomicInteger();
 
     @BeforeAll
     static void startServer() throws Exception {
@@ -43,6 +108,8 @@ class AlertDeliveryServiceTest {
         });
         server.createContext("/robot", exchange -> {
             requestUri = exchange.getRequestURI();
+            requestMethod = exchange.getRequestMethod();
+            requestContentType = exchange.getRequestHeaders().getFirst("Content-Type");
             requestBody = readRequestBody(exchange.getRequestBody());
             byte[] body = "{\"errcode\":0,\"errmsg\":\"ok\"}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -50,9 +117,26 @@ class AlertDeliveryServiceTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
+        server.createContext("/sms-primary", exchange -> {
+            failingSmsRequests.incrementAndGet();
+            byte[] body = "primary unavailable".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(503, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.createContext("/sms-backup", exchange -> {
+            backupSmsRequests.incrementAndGet();
+            requestUri = exchange.getRequestURI();
+            byte[] body = "0_1:13800000000".getBytes(GBK);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
         server.start();
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/smsSendServlet.htm";
         robotUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/robot?access_token=test-token";
+        failingSmsUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/sms-primary";
+        backupSmsUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/sms-backup";
     }
 
     @AfterAll
@@ -91,6 +175,28 @@ class AlertDeliveryServiceTest {
         assertEquals("text", params.get("rstype"));
         assertEquals("99", params.get("extCode"));
         assertEquals("\u670d\u52a1\u5f02\u5e38", URLDecoder.decode(params.get("content"), GBK.name()));
+    }
+
+    @Test
+    void smsGatewayFallsBackToNextConfiguredAddress() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        failingSmsRequests.set(0);
+        backupSmsRequests.set(0);
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "sms";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("alert_mobile", "13800000000");
+        config.put("sms_api_urls", Arrays.asList(failingSmsUrl, backupSmsUrl));
+        config.put("sms_username", "xxzx");
+        config.put("sms_password_is_md5", true);
+        config.put("sms_password_md5", "751CB3F4AA17C36186F4856C8982BF27");
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result = new AlertDeliveryService(mapper).send(channel, "服务异常");
+
+        assertTrue(result.success, result.message);
+        assertEquals(1, failingSmsRequests.get());
+        assertEquals(1, backupSmsRequests.get());
     }
 
     @Test
@@ -153,6 +259,100 @@ class AlertDeliveryServiceTest {
     }
 
     @Test
+    void httpAlertUsesConfiguredMethodHeadersAndBodyTemplate() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        requestUri = null;
+        requestBody = null;
+        requestMethod = null;
+        requestContentType = null;
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "http";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", robotUrl);
+        config.put("http_method", "POST");
+        config.put("http_headers", "{\"Content-Type\":\"application/json\",\"X-Alert\":\"live-monitor\"}");
+        config.put("http_body", "{"
+            + "\"msgtype\":\"text\","
+            + "\"text\":{\"content\":\"${message}\"}"
+            + "}");
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "service \"down\"");
+
+        Map<String, Object> payload = mapper.readValue(requestBody, Map.class);
+        Map<String, Object> text = (Map<String, Object>) payload.get("text");
+        assertTrue(result.success, result.message);
+        assertEquals("POST", requestMethod);
+        assertTrue(requestContentType.startsWith("application/json"));
+        assertEquals("/robot", requestUri.getPath());
+        assertEquals("text", payload.get("msgtype"));
+        assertEquals("service \"down\"", text.get("content"));
+    }
+
+    @Test
+    void configuredHttpProxyRoutesWebhookRequest() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        requestUri = null;
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "webhook";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", "http://127.0.0.1:1/robot");
+        config.put("proxy_type", "http");
+        config.put("proxy_host", "127.0.0.1");
+        config.put("proxy_port", server.getAddress().getPort());
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "proxied alert");
+
+        assertTrue(result.success, result.message);
+        assertEquals("/robot", requestUri.getPath());
+        assertEquals("proxied alert", mapper.readValue(requestBody, Map.class).get("content"));
+    }
+
+    @Test
+    void enabledProxyWithoutHostDoesNotFallBackToDirectConnection() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "webhook";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("webhook_url", robotUrl);
+        config.put("proxy_type", "http");
+        config.put("proxy_port", 8080);
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "must use proxy");
+
+        assertEquals(false, result.success);
+        assertTrue(result.message.contains("proxy host is empty"));
+    }
+
+    @Test
+    void emailRejectsHttpProxyInsteadOfConnectingDirectly() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        AlertChannel channel = new AlertChannel();
+        channel.channelType = "email";
+        Map<String, Object> config = new LinkedHashMap<String, Object>();
+        config.put("smtp_host", "127.0.0.1");
+        config.put("smtp_port", 1);
+        config.put("alert_email", "ops@example.com");
+        config.put("smtp_from", "monitor@example.com");
+        config.put("smtp_auth", false);
+        config.put("proxy_type", "http");
+        config.put("proxy_host", "127.0.0.1");
+        config.put("proxy_port", 8080);
+        channel.configJson = mapper.writeValueAsString(config);
+
+        AlertDeliveryService.DeliveryResult result =
+            new AlertDeliveryService(mapper).send(channel, "email alert");
+
+        assertEquals(false, result.success);
+        assertTrue(result.message.contains("requires a SOCKS5 proxy"));
+    }
+
+    @Test
     void rendersBundledJinjaTemplateVariables(@TempDir Path templateDir) {
         Map<String, Object> variables = new LinkedHashMap<String, Object>();
         variables.put("serviceName", "Order API");
@@ -166,6 +366,63 @@ class AlertDeliveryServiceTest {
         assertTrue(rendered.contains("Order API"));
         assertTrue(rendered.contains("10.0.0.8:8080"));
         assertTrue(rendered.contains("Connection refused"));
+    }
+
+    @Test
+    void rendersHostResourceTemplateReasons(@TempDir Path templateDir) {
+        Map<String, Object> variables = new LinkedHashMap<String, Object>();
+        variables.put("host", "10.0.0.8");
+        variables.put("cpuText", "45.0% / 85.0%");
+        variables.put("memoryText", "90.0% / 80.0%");
+        variables.put("diskText", "20.0% / 90.0%");
+        variables.put("alertItems", "MEM");
+        variables.put("recoverItems", "MEM");
+        variables.put("alertReason", "MEMORY_USED_90_GE_80");
+        variables.put("recoverReason", "ALL_RESOURCE_METRICS_RECOVERED");
+        variables.put("alertSummary", "memory threshold breached");
+        variables.put("historyAlert", "MEMORY_USED_90_GE_80");
+        variables.put("duration", "180s");
+        variables.put("alertId", "alert-001");
+        variables.put("alertTime", "2026-06-02 18:10:00");
+        variables.put("recoverTime", "2026-06-02 18:13:00");
+
+        AlertDeliveryService service = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"));
+        String rendered = service.renderTemplate("alert_host_resource.j2", variables, "fallback");
+        String recoverRendered = service.renderTemplate("alert_host_resource_recover.j2", variables, "fallback");
+
+        assertTrue(rendered.contains("MEMORY_USED_90_GE_80"));
+        assertTrue(rendered.contains("memory threshold breached"));
+        assertTrue(recoverRendered.contains("ALL_RESOURCE_METRICS_RECOVERED"));
+        assertTrue(recoverRendered.contains("MEMORY_USED_90_GE_80"));
+    }
+
+    @Test
+    void rendersDatabaseAssertionTemplateBusinessFields(@TempDir Path templateDir) {
+        Map<String, Object> variables = new LinkedHashMap<String, Object>();
+        variables.put("serviceName", "Order DB");
+        variables.put("instanceName", "10.0.0.9:3306");
+        variables.put("databaseProduct", "MySQL 8.0");
+        variables.put("level", "CRITICAL");
+        variables.put("alertTime", "2026-06-05 10:11:12");
+        variables.put("responseTime", "68");
+        variables.put("databaseSummary", "数据库查询结果不符合业务规则：> 0");
+        variables.put("databaseResult", "order_count=0");
+        variables.put("databaseRule", "> 0");
+        variables.put("databaseHit", "-");
+        variables.put("databaseReason", "order_count = [0] > 0 not matched");
+        variables.put("businessImpact", "影响订单业务判断");
+        variables.put("actionSuggestion", "核对监控 SQL 和断言表达式");
+
+        AlertDeliveryService service = new AlertDeliveryService(new ObjectMapper(), templateDir.resolve("missing"));
+        String rendered = service.renderTemplate("sms_database_assertion_alert.j2", variables, "fallback");
+        String emailRendered = service.renderTemplate("email_database_assertion_alert.j2", variables, "fallback");
+
+        assertTrue(rendered.contains("数据库业务断言告警"));
+        assertTrue(rendered.contains("Order DB"));
+        assertTrue(rendered.contains("order_count=0"));
+        assertTrue(rendered.contains("核对监控 SQL 和断言表达式"));
+        assertTrue(emailRendered.contains("数据库查询结果不符合业务规则"));
+        assertTrue(emailRendered.contains("order_count = [0] > 0 not matched"));
     }
 
     @Test

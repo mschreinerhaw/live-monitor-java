@@ -48,21 +48,28 @@ public class SqliteToH2RocksMigrationService {
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
     private final RocksDbHistoryRepository historyRepository;
+    private final DatabaseDialect databaseDialect;
 
     public SqliteToH2RocksMigrationService(
         LiveMonitorProperties properties,
         JdbcTemplate jdbcTemplate,
         TransactionTemplate transactionTemplate,
-        RocksDbHistoryRepository historyRepository
+        RocksDbHistoryRepository historyRepository,
+        DatabaseDialect databaseDialect
     ) {
         this.properties = properties;
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = transactionTemplate;
         this.historyRepository = historyRepository;
+        this.databaseDialect = databaseDialect;
     }
 
     @PostConstruct
     public void migrateIfNeeded() {
+        if (!databaseDialect.isH2()) {
+            log.info("Current config database is {}, skip SQLite to H2 migration", databaseDialect.productName());
+            return;
+        }
         if (migrationCompleted()) {
             log.info("SQLite migration marker exists, skip SQLite");
             return;
@@ -120,12 +127,15 @@ public class SqliteToH2RocksMigrationService {
         counts.configRows += copyTable(sqlite, "group_policy_rel", "group_id, policy_id");
         counts.configRows += copyTable(sqlite, "group_channel_rel", "group_id, channel_id");
         counts.configRows += copyTable(sqlite, "service_alert_group", "service_id");
+        counts.configRows += copyTable(sqlite, "external_project", "id");
+        counts.configRows += copyTable(sqlite, "external_project_alert_group", "project_id, group_id");
         counts.configRows += copyTable(sqlite, "host_config", "id");
         counts.configRows += copyTable(sqlite, "host_process_config", "id");
         restartIdentity("monitor_service");
         restartIdentity("alert_policy");
         restartIdentity("alert_channel");
         restartIdentity("alert_group");
+        restartIdentity("external_project");
         restartIdentity("host_config");
         restartIdentity("host_process_config");
 
@@ -262,12 +272,20 @@ public class SqliteToH2RocksMigrationService {
                 continue;
             }
             jdbcTemplate.update(
-                "MERGE INTO host_latest_metric KEY(host_id) VALUES (?, ?, ?, ?, ?, ?)",
+                "MERGE INTO host_latest_metric " +
+                    "(host_id, cpu_usage_percent, load_average, memory_used_percent, disk_used_percent, " +
+                    "cpu_core_count, memory_total_mb, disk_mount_count, disk_metrics_json, physical_disk_metrics_json, checked_at) " +
+                    "KEY(host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 latest.hostId,
                 latest.cpu,
                 latest.load,
                 latest.memory,
                 latest.disk,
+                null,
+                null,
+                null,
+                null,
+                null,
                 Timestamp.valueOf(latest.checkedAt)
             );
         }

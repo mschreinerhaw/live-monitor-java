@@ -1,0 +1,128 @@
+Live Monitor 1.1.2：DolphinScheduler 监控使用及接口说明
+
+入口
+/#/dolphinscheduler：唯一监控菜单。首页展示每个项目的上线工作流、任务定义、执行实例、运行中、成功、失败、待执行实例与未执行工作流，直接展示 Master/Worker 资源。
+工作流定义、运行明细、项目告警、连接、Token 及采集配置在同页查看和维护。
+旧 /#/dolphinscheduler/enterprise 链接自动跳转，不再显示独立驾驶舱菜单。
+原服务、主机、告警渠道、通知审计、用户管理入口保留。
+1.1.2 中连接与通知操作收进顶部“管理”；项目列表默认异常优先，可搜索并点击状态数量进入明细。资源摘要在首页，手机以项目状态卡片展示。
+
+现场核验
+2026-11-14 通过现有加密连接及已维护 SSH 主机映射读取部署包，确认现场版本为 ld-2.0.8。
+部署包路径中的 dolphinscheduler-api-ld-2.0.8.jar 及 common 包 ExecutionStatus、BusinessTimeUtils 字节码已核对。
+现场 /version、/v2/api-docs、/v3/api-docs 返回 404，未把其他版本的 Swagger 当作现场依据。
+以下所有上游路径均为相对配置 API 根地址的 GET 请求，现场核验过结构；不会执行上游 POST、PUT、DELETE，也不会启停、重跑或删除生产调度任务。
+
+上游接口对接清单
+GET /projects：pageNo/pageSize；data.total/data.totalList。
+GET /projects/{projectCode}/process-definition：定义列表、version、releaseState、scheduleReleaseState。
+GET /projects/{projectCode}/process-definition/{definitionCode}：taskDefinitionList、processTaskRelationList。
+GET /projects/{projectCode}/process-instances：startDate/endDate/pageNo/pageSize；stateType 用于跨窗口活动实例发现。
+GET /projects/{projectCode}/process-instances/{instanceId}：工作流运行参数、scheduleTime、runTimes 及状态。
+GET /projects/{projectCode}/process-instances/{instanceId}/tasks：data.taskList。
+GET /users/list-paging：仅保存 id/userName/state/userType，不保存密码散列、邮箱、电话或其他无关字段。
+GET /projects/authed-user?projectCode=...：项目授权关系。所有者单独从项目数据同步。
+GET /monitor/masters、/monitor/workers：节点注册信息、心跳、resInfo。
+GET /monitor/databases：数据库状态及连接指标。
+GET /log/detail?taskInstanceId=...&skipLineNum=...&limit=...：只读日志分页；不保存完整日志，常见凭据字段脱敏。
+认证使用服务端加密保存的 token 请求头，不在页面回显。
+
+首次配置
+1. 使用原连接管理维护集群名称、API 根地址及 Token。不要填写 /ui/#/... 页面地址。
+2. 进入企业监控“采集配置”，选择已核验接口档。现场使用 ld-2.0.8；其他版本需先核验接口、状态和单位。
+3. 启用企业采集。定义/用户默认 300 秒，实例 30 秒，节点 15 秒；各周期独立，不使用用户打开页面驱动采集。
+4. 开启 JVM 采集前，在原主机管理中维护相同节点地址的 SSH 凭据。缺少映射或 JDK 工具时 JVM 标为不可用。
+5. 配置默认运维组；为空时沿用连接绑定的现有告警组。组内渠道仍由原告警管理维护。
+6. 在项目中分别指定主要、备用责任人与接收告警组，检查渠道中的真实收件人包含对应责任人。
+7. 启用企业告警后，实际异常进入现有事件、Outbox、发送 Worker、重试和审计机制。缺少组或渠道时留下失败审计，后续检查继续评估，不会静默丢弃。
+主要责任人只是业务关联信息；填写姓名不会自行创建收件地址或新通知渠道。未配置责任人或接收组时转默认运维组。
+
+业务日期
+默认识别 ETL_Date、etl_date、etlDate、dataDate，可配置 RQ、@rq 等现场别名。
+从工作流详情 globalParams/globalParamList/varPool 和任务 taskParams.localParams/varPool 读取，明确日期支持 yyyy-MM-dd、yyyyMMdd。
+任务明确日期优先；否则继承明确的工作流日期。工作流没有日期且所有任务日期明确一致时，按一致任务参数关联，注明来源。
+同一工作流不同实例保留独立 ID 和日期，支持多业务日期并发及重跑。
+只有选定已核验 ld-2.0.8 且开启 resolve_verified_system_dates 时，才解析精确的 ${system.biz.curdate}、${system.biz.date}；依据的是工作流 scheduleTime，不是 startTime、采集时间或当前日期。
+现场 common 包字节码已确认：curdate=逻辑调度日期，biz.date=逻辑调度日期前一天；该定制版本补数命令也采用此规则。
+标准 Apache 2.0.0 的补数分支与现场存在差别，所以该逻辑严格限定配置档，不通用于其他版本。
+参考原版源码：https://raw.githubusercontent.com/apache/dolphinscheduler/2.0.0/dolphinscheduler-common/src/main/java/org/apache/dolphinscheduler/common/utils/placeholder/BusinessTimeUtils.java
+缺少 scheduleTime、其他表达式、无效日期或无法识别的参数保持 UNKNOWN。不会以系统当天代替。
+业务日期汇总同时返回全部实例次数、重跑次数以及每个项目/工作流/任务最近尝试的统计和完成率；UNKNOWN 的完成率为空。
+unfinished 表示未成功的实例数，active 是运行与等待之和；失败、停止等终态仍保留原始状态。
+
+状态与数量口径
+定义与执行实例分别保存；工作流定义、任务定义、工作流实例、任务实例是四种不同对象。
+任务定义按工作流中的节点关联计数，同一节点用于多个工作流时按节点关联保留，不能将工作流数当任务数。
+ONLINE/OFFLINE 发布状态与 scheduleReleaseState 分别统计；接口返回 null 的定时状态计入 unknown_schedule_count，不算已关闭。
+运行=RUNNING_EXECUTION；成功=SUCCESS/FORCED_SUCCESS；失败=FAILURE；提交、准备暂停/停止、延迟、等待线程/依赖、待容错等保留原始枚举并归入等待/未完成。停止、暂停等其他终态不冒充成功。
+驾驶舱成功/失败数量来自已采集历史，不标注为“今日”，首次范围由 initial_window_hours 决定，后续按保留期累积。
+无成功采集时统计为空，页面显示未知；失败及过期时保留最近成功值并标注状态，不能用零掩盖采集错误。
+
+资源与时间口径
+现场 resInfo.cpuUsage、memoryUsage 是 0–1 比率，转换为百分数。memoryUsage 是主机物理内存口径，不是 JVM Heap。
+diskAvailable、availablePhysicalMemorySize 按现场 GB 展示；loadAverage 不转成百分数。
+JDK jstat -gc 的容量 KiB 转成字节，分别保存 heap_used_bytes、heap_committed_bytes、heap_committed_percent、YGC/FGC/GCT。
+通过同一 JVM 所属 JDK 的 jcmd VM.flags 尝试获取 MaxHeapSize，另存 heap_max_bytes、heap_max_percent。自动 JVM 高使用率告警使用最大堆比例，不将 committed 比例冒充最大堆压力。
+GCT 是累计垃圾收集时间，不是单次或精确 STW 停顿；没有暂停分布、GC 后存活堆等数据时不虚构这些指标，也不凭一个堆使用率直接诊断 OOM。
+执行线程数、等待队列数与运行实例数分开保存。运行实例数通过实际实例 Host 关联，运行数据未同步时为空。
+节点在连续两次成功资源查询中缺失/心跳过期才触发离线；API 失败不增加节点离线次数。
+现场 API 服务器比监控服务器慢约五分多钟。HTTP Date 用于估计源时钟偏差；心跳年龄、增量采集窗口、运行时长使用源时间，采集成功时间使用监控时间。偏差在页面单独展示。建议运维统一时钟，但监控不执行系统改时操作。
+
+告警规则
+WORKFLOW_FAILURE、TASK_FAILURE：实例最终 FAILURE；任务尚未达到上游重试上限时暂不当作最终失败。
+TIMEOUT：活动实例时长超过阈值，单位秒，默认 10800。
+ETL_DEADLINE：指定业务日期及截止时间；项目范围按已上线工作流检查，未取得日期不会当作完成。
+BACKLOG：项目等待任务数量超过阈值，默认 100。
+NODE_OFFLINE：至少两次离线确认。
+CPU_HIGH、MEMORY_HIGH、JVM_HIGH：持续采样超过阈值，默认 85%，默认确认 3 次。
+DISK_LOW：可用空间低于阈值，默认 5 GB。
+COLLECTION_INTERRUPTED：连续采集失败，默认 2 次；COLLECTION_STALE 由独立看门狗检查数据过期。
+范围覆盖：task > workflow > project > platform；禁用高优先级规则覆盖低优先级规则。规则类型的阈值单位按页面提示。
+节点故障时批量实例失败聚合到平台事件，标注时间相关性推断，不把相关性当作已证实的唯一根因。
+TIMEOUT 按项目聚合；TASK_FAILURE/WORKFLOW_FAILURE 默认同项目至少 10 条聚合，可配置 incident_aggregation_threshold（2–1000）。成员持久化保存，原单条事件显示“聚合抑制”，不会冒充恢复。历史 RUNNING 来自调度元数据，监控不会修改生产任务。
+项目、实例、日期及责任人写入通知上下文。告警采用稳定 SHA-256 事件范围，复用同一 monitor_service 的独立持久化状态，避免不同项目互相恢复或互相压制。
+已失败实例只有观察到成功才发送成功恢复；实例暂时消失、采集失败或历史过期不等于恢复。
+开启企业告警后原连接汇总告警交由企业事件处理，原服务状态继续显示采集健康，避免同一采集故障重复通知。
+
+Live Monitor 新 API
+根路径：/api/dolphinscheduler/{connectionId}/monitor；旧 /enterprise 根路径兼容保留。
+GET /summary?project=...&etl_date=...&start=...&end=...：按项目、业务日期与实例开始时间筛选的统计。project_options 保留所有可见项目供切换。
+上线数是当前上线工作流定义数量；运行/成功/失败/待执行为实例次数，重跑可以重复产生实例，不能用上线数直接减实例数。
+not_executed_workflows 为当前上线且筛选范围内未发现实例的工作流数，按稳定定义 ID 去重；不是未来计划次数或未生成的实例数量。unclassified_workflows 单列日期/采集范围无法确认的工作流。
+默认查询“今天”的执行开始时间，可切换最近 24 小时、已采集全部或自定义；ETL_Date 来自真实参数，不默认使用今天。
+第一次升级会成功补采一次 initial_window_hours 范围，事务中保存 runtime_coverage:{projectCode} 起点及运行游标。失败不推进覆盖；采集异常、超出覆盖或保留范围时未执行返回 null，页面显示未知。
+GET /dashboard：总览、项目摘要、节点、数据库、采集状态、待发送任务。
+GET /projects、/users、/projects/{code}/authorizations。
+GET /definitions?project=...&kind=workflow_definition|task_definition。
+last_collected_run 是持久化实例采集范围内最近开始时间；未取得历史实例则未知，不用定义上线/修改时间冒充运行时间。
+GET /instances?kind=workflow_instance|task_instance&project=...&workflow=...&task=...&state=...&etl_date=...&start=...&end=...&page=1&page_size=20。
+1.1.2 扩展 state=success（成功及强制成功）、state=waiting（与统计一致的等待/延迟/准备状态）。原有大写执行状态仍精确匹配，保证卡片数量与下钻范围一致。
+实例响应包含 duration_seconds（运行中按源时钟计算）和工作流 running_nodes（关联已采集活动任务，保留各自状态），不把等待状态当作操作系统执行进程。
+GET /business-dates?project=...：实例次数及最新尝试统计。
+GET /nodes/{encodedNodeKey}/history?hours=1|24|168：源值或有来源标记的小时均值。
+GET /logs/{taskInstanceId}?offset=0&limit=100：最多 500 行，只允许已采集任务及当前项目范围。
+GET /rules、/incidents。
+POST /sync：管理员提交独立采集任务；不控制上游任务。
+POST /test：管理员只读连接检查。
+PUT /projects/{code}/config：管理员保存 primary_owner、backup_owner、group_ids、alert_enabled。
+PUT /rules：管理员保存 scope_type、scope_id、rule_type、enabled、threshold_value、business_date、deadline。
+所有接口沿用现有会话认证；写配置、测试及手动采集要求 admin。项目范围在读写接口均校验。
+发送与重试继续使用 /api/alert-tasks、/api/alert-tasks/{id}/attempts、/api/alert-notifications。
+
+配置键
+配置兼容保留 enterprise_enabled、enterprise_alerts_enabled、collect_jvm 键。未指定时服务端默认关闭；1.1.1 新建连接表单启用周期采集与项目告警，接收人通过用户选择的既有告警组配置，JVM 需单独启用。
+api_profile：generic 或已经现场核验的 ld-2.0.8。
+etl_date_keys：逗号分隔字段名；resolve_verified_system_dates：是否按已核验逻辑日期解析系统变量。
+source_timezone：源时间字段的时区，默认 Asia/Shanghai。
+inventory_interval_seconds/users_interval_seconds 默认 300；runtime_interval_seconds 默认 30；resources_interval_seconds 默认 15。
+api_timeout_seconds 默认 15，范围 1–60；api_retries 默认 1，范围 0–3；仅临时网络错误、429、5xx 重试，指数退避；鉴权/业务错误不重试。
+initial_window_hours 默认 24，范围 1–744；重启沿用持久化游标，保留十分钟重叠，长中断按六小时段补采。
+heartbeat_timeout_seconds 默认 120；resource_confirmation_samples 默认 3；collection_failure_threshold 默认 2。
+retention_days 默认 90；default_ops_group_ids 使用既有组 ID 数组。
+
+运行限制
+每页 100，最多 100 页；超过上限明确报采集失败，不使用截断结果冒充完整统计。
+定义详情按版本和更新时间增量更新，并至少每小时重新核对。人员和授权按周期全量读元数据，业务实例按游标加跨窗口活动状态刷新。
+按集群/采集类型互斥，四个独立工作线程、有界队列；失败项目保留断点，其他项目继续采集。
+当前设计为单个 Live Monitor 采集进程管理同一配置库；多集群可配置多条连接。未实现多个采集进程同时写同一集群的分布式租约。
+项目负责人及外部渠道收件人是实际运维配置，系统不会编造人员或自动把所有者当业务负责人。

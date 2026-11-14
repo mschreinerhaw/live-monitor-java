@@ -13,7 +13,7 @@ public class SystemMetricsController {
         this.systemMetricsService = systemMetricsService;
     }
 
-    @GetMapping("/api/system-metrics")
+    @GetMapping({"/api/system-metrics", "/api/system-metrics/latest"})
     public Map<String, Object> metrics() {
         return systemMetricsService.snapshot();
     }

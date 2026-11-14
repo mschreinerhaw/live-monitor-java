@@ -1,0 +1,49 @@
+Live Monitor DolphinScheduler 升级实施记录
+历史首批记录：下文描述首批交付状态。1.1.0 后续完整实现与当前限制以 DOLPHIN_ENTERPRISE_GUIDE.txt、DOLPHIN_DATABASE_CHANGES.txt 和最终验收报告为准。
+日期：2026-11-14
+
+本次交付范围
+1. 工作流实例支持 ETL_Date 筛选，统计随业务日期筛选同步变化。
+2. 业务日期只从 ETL_Date / etl_date / etlDate 明确字段，以及 globalParams、localParams、varPool 参数中提取；支持 yyyy-MM-dd 和 yyyyMMdd，统一输出 yyyy-MM-dd。不存在、无效或未解析的表达式输出空字符串，不以开始时间替代，不输出其他参数。
+3. 任务详情增加业务日期、执行节点、执行用户、重试次数，以及工作流实例和任务编码关联字段。
+4. 增加项目工作流定义分页查询，分别统计 ONLINE、OFFLINE、未知状态。未采集的任务定义数和有效定时数不显示为零。
+5. 复用现有连接、凭据加密、项目范围校验、请求超时、分页上限和异常处理。保持现有定时检查及通知流水线。
+
+接口与配置
+GET /api/dolphinscheduler/{id}/overview
+可选参数：start、end、project、etl_date。
+etl_date 使用 yyyy-MM-dd；仍需选择覆盖目标执行记录的执行时间范围；本次不支持跨所有历史的业务日期检索。
+响应 instances 新增 cluster_id、etl_date、workflow_instance_id、task_code、retry_times。
+
+GET /api/dolphinscheduler/{id}/projects/{project}/definitions
+读取上游 GET /projects/{project}/process-definition，pageNo/pageSize 分页。
+返回 definitions、total、online、offline、unknown、collected_at。
+仅人工点击查询定义，不增加现有定时检查的请求负担。
+
+无需数据库变更；本次没有新增持久化表或变更脚本。
+现有 base_url、project_codes、服务端加密 token 配置保持兼容。
+部署：frontend 下执行 npm.cmd run build（Windows），项目目录执行 mvn -DskipFrontend=true package。
+升级前按 DEPLOY.md 备份数据及固定加密密钥。新增只读接口沿用平台会话认证。
+
+版本核验
+上游接口依据 Apache DolphinScheduler 3.1.0 ProcessDefinitionController 源码：
+https://apache.googlesource.com/dolphinscheduler/+/refs/tags/3.1.0/dolphinscheduler-api/src/main/java/org/apache/dolphinscheduler/api/controller/ProcessDefinitionController.java
+尚无现场版本、API 样本或访问权限，不能声称已兼容现场。需要核对现场路径、Token 权限、分页结构、发布状态枚举及实例参数是否在列表响应中提供。
+如实例列表不含业务日期参数，本次显示未提供；尚未逐实例请求详情补采。
+
+验证报告
+mvn -DskipFrontend=true test：156 tests，0 failures，0 errors，0 skipped。
+新增覆盖：业务日期提取、非法日期、缺失日期不回退开始时间、业务日期筛选、定义发布状态区分和项目范围限制。
+现有服务、主机、告警流水线等后端测试全部通过。
+npm.cmd run build：通过，存在 webpack 包体积性能警告。
+未执行真实集群验收及新增交互的浏览器测试。
+
+任务书尚未完成的范围
+- 定义、人员、权限、实例、节点资源持久化关联模型与迁移脚本。
+- 独立增量采集、游标持久化、运行中实例跨窗口刷新、断点补采及采样历史。
+- 任务定义数、有效定时数以及用户和授权关系同步。
+- 手工主要/备用责任人维护、项目告警路由与平台默认运维组兜底。
+- 实例级异常去重及恢复，任务/工作流/项目规则优先级，根因关联和告警风暴抑制。
+- Master/Worker/DB 监控及主机/JVM/GC 独立指标来源校验、趋势与容量分析。
+- 统一驾驶舱、历史查询、日志入口、真实集群与通知故障验收。
+当前仍沿用连接级汇总告警，不能作为任务书 P0 整体验收或正式发布依据。本次未提交、推送或制作正式发布版本。

@@ -34,15 +34,32 @@ let alertSettingsState = {
 };
 let hostState = {
   hosts: [],
+  summary: null,
+  filters: {
+    query: "",
+    status: "all",
+    group: "all",
+    collectMode: "all",
+  },
+  page: 1,
+  pageSize: 20,
   processes: [],
   processStatus: {},
   alertGroups: [],
   selectedHostId: null,
   metrics: null,
+  metricView: "realtime",
+  metricHistoryRows: [],
+  metricLifecycleToken: 0,
   metricTimer: null,
   listMetricTimer: null,
   listMetricSnapshots: {},
+  expandedDiskHostIds: new Set(),
+  expandedPhysicalDiskHostIds: new Set(),
+  metricRefreshing: false,
+  expandedMetricChart: null,
   metricHistory: {
+    labels: [],
     cpu: [],
     load: [],
     memory: [],
@@ -53,6 +70,19 @@ let notificationState = {
   alerts: [],
   seenAlertId: Number(localStorage.getItem("liveMonitorSeenAlertId") || 0),
   poller: null,
+};
+let adminState = {
+  users: [],
+  auditLogs: [],
+  auditLogsLoaded: false,
+  auditLogPage: {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 1,
+    query: "",
+  },
+  currentUser: null,
 };
 let resourceMetricState = {
   history: {

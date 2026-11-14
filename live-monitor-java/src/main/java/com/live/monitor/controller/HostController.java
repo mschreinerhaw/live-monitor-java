@@ -33,6 +33,23 @@ public class HostController {
         return hostMonitorService.listHosts(includeDisabled);
     }
 
+    @PostMapping("/api/hosts/test-ssh")
+    public Map<String, Object> testSsh(@Valid @RequestBody HostPayload payload,
+        @RequestParam(name = "host_id", required = false) Long hostId) {
+        return hostMonitorService.testSsh(payload, hostId);
+    }
+
+    @GetMapping("/api/hosts/summary")
+    public Map<String, Object> summary() {
+        return hostMonitorService.summary();
+    }
+
+    @PostMapping("/api/hosts/mount-preview")
+    public List<Map<String, Object>> previewMounts(@Valid @RequestBody HostPayload payload,
+        @RequestParam(name = "host_id", required = false) Long hostId) {
+        return hostMonitorService.previewMounts(payload, hostId);
+    }
+
     @PostMapping("/api/hosts")
     @ResponseStatus(HttpStatus.CREATED)
     public HostConfig createHost(@Valid @RequestBody HostPayload payload) {
@@ -60,6 +77,25 @@ public class HostController {
     @GetMapping("/api/hosts/{hostId}/metrics")
     public Map<String, Object> metrics(@PathVariable Long hostId) {
         return hostMonitorService.metrics(hostId);
+    }
+
+    @GetMapping("/api/hosts/{hostId}/metrics/history")
+    public List<Map<String, Object>> metricHistory(
+        @PathVariable Long hostId,
+        @RequestParam(name = "days", defaultValue = "7") Integer days,
+        @RequestParam(name = "limit", defaultValue = "10000") Integer limit
+    ) {
+        return hostMonitorService.metricHistory(hostId, days, limit);
+    }
+
+    @PostMapping("/api/hosts/{hostId}/metrics/refresh")
+    public Map<String, Object> refreshMetrics(@PathVariable Long hostId) {
+        return hostMonitorService.refreshMetrics(hostId);
+    }
+
+    @PostMapping("/api/hosts/metrics/refresh")
+    public Map<String, Object> refreshAllMetrics() {
+        return hostMonitorService.refreshAllMetrics();
     }
 
     @GetMapping("/api/hosts/{hostId}/processes")

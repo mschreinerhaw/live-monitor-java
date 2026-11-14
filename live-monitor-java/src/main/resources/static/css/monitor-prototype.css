@@ -1,0 +1,1691 @@
+/*
+  Local Bootstrap-flavored prototype polish for the service monitor form.
+  Keep this file scoped to add-service so the dashboard keeps its existing rhythm.
+*/
+body[data-page="add-service"] {
+  --lm-primary: #1f6feb;
+  --lm-primary-strong: #1a56c6;
+  --lm-surface: #ffffff;
+  --lm-soft: #f6f8fb;
+  --lm-soft-blue: #eef5ff;
+  --lm-border: #d8e2ee;
+  --lm-border-strong: #b7c8dc;
+  --lm-text: #172033;
+  --lm-muted: #667085;
+  --lm-success: #198754;
+  --lm-danger: #dc3545;
+  --lm-warning: #b7791f;
+  background:
+    linear-gradient(180deg, #edf4ff 0, rgba(237, 244, 255, 0) 260px),
+    #f5f7fb;
+}
+
+body[data-page="add-service"] .topbar {
+  border-bottom-color: #dce6f2;
+  box-shadow: 0 8px 24px rgba(15, 34, 58, 0.05);
+}
+
+body[data-page="add-service"] .brand-mark,
+body[data-page="add-service"] .primary-button {
+  background: var(--lm-primary);
+}
+
+body[data-page="add-service"] .nav a.active,
+body[data-page="add-service"] .nav a:hover {
+  background: var(--lm-soft-blue);
+  color: var(--lm-primary-strong);
+}
+
+body[data-page="add-service"] .service-config-page {
+  width: min(1180px, 100%);
+  padding-block: 28px 56px;
+}
+
+body[data-page="add-service"] .panel {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  box-shadow: 0 18px 46px rgba(24, 39, 75, 0.08);
+}
+
+body[data-page="add-service"] .panel-head {
+  min-height: 74px;
+  padding: 16px 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-bottom-color: var(--lm-border);
+}
+
+body[data-page="add-service"] .panel-head h1 {
+  color: var(--lm-text);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+body[data-page="add-service"] .panel-subtitle,
+body[data-page="add-service"] .form-hint {
+  color: var(--lm-muted);
+}
+
+body[data-page="add-service"] .form-grid {
+  gap: 16px;
+  padding: 22px;
+}
+
+body[data-page="add-service"] .form-grid label,
+body[data-page="add-service"] .form-grid .form-field {
+  gap: 7px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body[data-page="add-service"] .form-grid input,
+body[data-page="add-service"] .form-grid select,
+body[data-page="add-service"] .form-grid textarea,
+body[data-page="add-service"] .service-type-trigger {
+  border-color: var(--lm-border);
+  border-radius: 7px;
+  background-color: #fff;
+  color: var(--lm-text);
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+body[data-page="add-service"] .form-grid input,
+body[data-page="add-service"] .form-grid select,
+body[data-page="add-service"] .service-type-trigger {
+  height: 40px;
+}
+
+body[data-page="add-service"] .form-grid textarea {
+  min-height: 112px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+body[data-page="add-service"] .form-grid input:focus,
+body[data-page="add-service"] .form-grid select:focus,
+body[data-page="add-service"] .form-grid textarea:focus,
+body[data-page="add-service"] .service-type-trigger:focus-visible {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+}
+
+body[data-page="add-service"] .switch-row input[type="checkbox"],
+body[data-page="add-service"] .host-alert-policy-toggle input[type="checkbox"] {
+  position: relative;
+  width: 46px;
+  height: 24px;
+  flex: 0 0 46px;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #98a2b3;
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+body[data-page="add-service"] .switch-row input[type="checkbox"]::after,
+body[data-page="add-service"] .host-alert-policy-toggle input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(16, 24, 40, 0.28);
+  transition: transform 0.16s ease;
+}
+
+body[data-page="add-service"] .switch-row input[type="checkbox"]:checked,
+body[data-page="add-service"] .host-alert-policy-toggle input[type="checkbox"]:checked {
+  background: var(--lm-primary);
+  box-shadow: inset 0 0 0 1px rgba(26, 86, 198, 0.2), 0 0 0 3px rgba(31, 111, 235, 0.12);
+}
+
+body[data-page="add-service"] .switch-row input[type="checkbox"]:checked::after,
+body[data-page="add-service"] .host-alert-policy-toggle input[type="checkbox"]:checked::after {
+  transform: translateX(22px);
+}
+
+body[data-page="add-service"] .switch-row input[type="checkbox"]:focus-visible,
+body[data-page="add-service"] .host-alert-policy-toggle input[type="checkbox"]:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08), 0 0 0 4px rgba(13, 110, 253, 0.18);
+}
+
+body[data-page="add-service"] .primary-button,
+body[data-page="add-service"] .ghost-button,
+body[data-page="add-service"] .icon-button {
+  border-radius: 7px;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+body[data-page="add-service"] .primary-button {
+  border-color: var(--lm-primary);
+  box-shadow: 0 9px 20px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="add-service"] .primary-button:hover,
+body[data-page="add-service"] .primary-button:focus-visible {
+  background: var(--lm-primary-strong);
+  border-color: var(--lm-primary-strong);
+}
+
+body[data-page="add-service"] .ghost-button {
+  border-color: var(--lm-border);
+  background: #fff;
+  color: #344054;
+}
+
+body[data-page="add-service"] .ghost-button:hover,
+body[data-page="add-service"] .ghost-button:focus-visible,
+body[data-page="add-service"] .icon-button:hover,
+body[data-page="add-service"] .icon-button:focus-visible {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+  outline: 0;
+}
+
+body[data-page="add-service"] .compact-button {
+  height: 32px;
+  min-height: 32px;
+  padding-inline: 10px;
+}
+
+body[data-page="add-service"] .api-form-section,
+body[data-page="add-service"] .host-form-section {
+  gap: 14px;
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: var(--lm-soft);
+}
+
+body[data-page="add-service"] .api-form-section {
+  padding: 18px;
+}
+
+body[data-page="add-service"] .assertion-config-section {
+  background: linear-gradient(180deg, #fbfdff 0%, #f6faff 100%);
+  border-left: 4px solid var(--lm-primary);
+}
+
+body[data-page="add-service"] .host-form-section-head,
+body[data-page="add-service"] .api-inline-head {
+  min-height: 34px;
+}
+
+body[data-page="add-service"] .host-form-section-head h3 {
+  color: var(--lm-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+body[data-page="add-service"] .api-inline-head > span {
+  color: var(--lm-text);
+  font-weight: 800;
+}
+
+body[data-page="add-service"] .database-query-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+body[data-page="add-service"] [name="database_query"],
+body[data-page="add-service"] [data-cross-db-sql],
+body[data-page="add-service"] [name="rule_test_body"],
+body[data-page="add-service"] [name="result_advanced_assertion_expression"],
+body[data-page="add-service"] #resultAssertionDslPreview {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.55;
+}
+
+body[data-page="add-service"] [name="database_query"] {
+  height: 46px;
+  background: #fbfdff;
+}
+
+body[data-page="add-service"] .assertion-mode-tabs {
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="add-service"] .assertion-mode-card {
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--lm-muted) !important;
+  font-weight: 800;
+}
+
+body[data-page="add-service"] .assertion-mode-card:has(input:checked) {
+  background: var(--lm-primary);
+  color: #fff !important;
+  box-shadow: 0 6px 14px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="add-service"] .assertion-mode-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-page="add-service"] .assertion-rule-rows {
+  gap: 10px;
+}
+
+body[data-page="add-service"] .assertion-rule-row {
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e3ebf5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.03);
+}
+
+body[data-page="add-service"] .assertion-rule-row .icon-button,
+body[data-page="add-service"] .cross-db-query-head .icon-button {
+  border-color: #f1c2c7;
+  color: var(--lm-danger);
+}
+
+body[data-page="add-service"] .database-assertion-field-list,
+body[data-page="add-service"] .database-preview-fields {
+  padding: 12px;
+  border: 1px dashed #b9cbe2;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+body[data-page="add-service"] .database-preview-field-chips,
+body[data-page="add-service"] .database-field-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body[data-page="add-service"] .database-field-chip,
+body[data-page="add-service"] .database-field-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid #cfe0f5;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #184d94;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body[data-page="add-service"] .database-field-chip em {
+  color: #667085;
+  font-weight: 700;
+}
+
+body[data-page="add-service"] .database-field-picker input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+}
+
+body[data-page="add-service"] #databasePreviewPanel,
+body[data-page="add-service"] .cross-db-preview,
+body[data-page="add-service"] #ruleTestResult,
+body[data-page="add-service"] #connectionTestResult {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--lm-text);
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
+}
+
+body[data-page="add-service"] #databasePreviewPanel .table-wrap,
+body[data-page="add-service"] .cross-db-preview .table-wrap {
+  max-height: 280px;
+  margin-top: 12px;
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="add-service"] #databasePreviewPanel table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+body[data-page="add-service"] #databasePreviewPanel th,
+body[data-page="add-service"] #databasePreviewPanel td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: left;
+  white-space: nowrap;
+}
+
+body[data-page="add-service"] #databasePreviewPanel th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fbff;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body[data-page="add-service"] #databasePreviewPanel tr:last-child td {
+  border-bottom: 0;
+}
+
+body[data-page="add-service"] .test-result.ok,
+body[data-page="add-service"] .cross-db-preview.ok {
+  border-color: rgba(25, 135, 84, 0.28);
+  background: #eaf7ef;
+  color: var(--lm-success);
+}
+
+body[data-page="add-service"] .test-result.bad,
+body[data-page="add-service"] .cross-db-preview.bad {
+  border-color: rgba(220, 53, 69, 0.26);
+  background: #fff0f2;
+  color: var(--lm-danger);
+}
+
+body[data-page="add-service"] .test-result.testing,
+body[data-page="add-service"] .cross-db-preview.testing {
+  border-color: rgba(31, 111, 235, 0.24);
+  background: var(--lm-soft-blue);
+  color: var(--lm-primary-strong);
+}
+
+body[data-page="add-service"] .cross-db-query-rows {
+  gap: 14px;
+}
+
+body[data-page="add-service"] .cross-db-query-row {
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e1eaf5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.035);
+}
+
+body[data-page="add-service"] .compare-rule-template {
+  padding: 12px;
+  border: 1px solid #e1eaf5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="add-service"] .host-alert-policy-row {
+  border-color: #e1eaf5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="add-service"] .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 6px -22px -22px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--lm-border);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 720px) {
+  body[data-page="add-service"] .service-config-page {
+    padding-block: 16px 36px;
+  }
+
+  body[data-page="add-service"] .form-grid {
+    padding: 16px;
+  }
+
+  body[data-page="add-service"] .api-form-section {
+    padding: 14px;
+  }
+
+  body[data-page="add-service"] .form-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    margin: 4px -16px -16px;
+    padding: 14px 16px;
+  }
+
+  body[data-page="add-service"] .form-actions .primary-button,
+  body[data-page="add-service"] .form-actions .ghost-button {
+    width: 100%;
+  }
+
+  body[data-page="add-service"] .assertion-rule-row,
+  body[data-page="add-service"] .assertion-rule-row.assertion-rule-row-text,
+  body[data-page="add-service"] .assertion-rule-row.assertion-rule-row-short {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shared local Bootstrap-flavored refresh for the rest of the monitor pages. */
+body[data-page="dashboard"],
+body[data-page="hosts"],
+body[data-page="service-detail"],
+body[data-page="alert-settings"],
+body[data-page="admin"],
+body[data-page="login"] {
+  --lm-primary: #1f6feb;
+  --lm-primary-strong: #1a56c6;
+  --lm-surface: #ffffff;
+  --lm-soft: #f6f8fb;
+  --lm-soft-blue: #eef5ff;
+  --lm-border: #d8e2ee;
+  --lm-border-strong: #b7c8dc;
+  --lm-text: #172033;
+  --lm-muted: #667085;
+  --lm-success: #198754;
+  --lm-danger: #dc3545;
+  --lm-warning: #b7791f;
+  background:
+    linear-gradient(180deg, #edf4ff 0, rgba(237, 244, 255, 0) 280px),
+    #f5f7fb;
+  color: var(--lm-text);
+}
+
+body[data-page="dashboard"] .topbar,
+body[data-page="hosts"] .topbar,
+body[data-page="service-detail"] .topbar,
+body[data-page="alert-settings"] .topbar,
+body[data-page="admin"] .topbar {
+  border-bottom-color: #dce6f2;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 24px rgba(15, 34, 58, 0.05);
+}
+
+body[data-page="dashboard"] .brand-mark,
+body[data-page="hosts"] .brand-mark,
+body[data-page="service-detail"] .brand-mark,
+body[data-page="alert-settings"] .brand-mark,
+body[data-page="admin"] .brand-mark {
+  background: var(--lm-primary);
+}
+
+body[data-page="dashboard"] .nav a,
+body[data-page="hosts"] .nav a,
+body[data-page="service-detail"] .nav a,
+body[data-page="alert-settings"] .nav a,
+body[data-page="admin"] .nav a {
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+body[data-page="dashboard"] .nav a.active,
+body[data-page="dashboard"] .nav a:hover,
+body[data-page="hosts"] .nav a.active,
+body[data-page="hosts"] .nav a:hover,
+body[data-page="service-detail"] .nav a.active,
+body[data-page="service-detail"] .nav a:hover,
+body[data-page="alert-settings"] .nav a.active,
+body[data-page="alert-settings"] .nav a:hover,
+body[data-page="admin"] .nav a.active,
+body[data-page="admin"] .nav a:hover {
+  background: var(--lm-soft-blue);
+  color: var(--lm-primary-strong);
+}
+
+body[data-page="dashboard"] .panel,
+body[data-page="dashboard"] .metric,
+body[data-page="dashboard"] .service-row-card,
+body[data-page="dashboard"] .resource-chart-card,
+body[data-page="dashboard"] .instance-panel,
+body[data-page="hosts"] .panel,
+body[data-page="hosts"] .host-stat-card,
+body[data-page="hosts"] .host-workbench,
+body[data-page="service-detail"] .panel,
+body[data-page="service-detail"] .metric,
+body[data-page="alert-settings"] .panel,
+body[data-page="alert-settings"] .alert-metric-card,
+body[data-page="admin"] .panel,
+body[data-page="admin"] .admin-user-dialog {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: var(--lm-surface);
+  box-shadow: 0 14px 36px rgba(24, 39, 75, 0.07);
+}
+
+body[data-page="dashboard"] .panel:hover,
+body[data-page="dashboard"] .metric:hover,
+body[data-page="hosts"] .panel:hover,
+body[data-page="hosts"] .host-stat-card:hover,
+body[data-page="service-detail"] .panel:hover,
+body[data-page="alert-settings"] .panel:hover,
+body[data-page="admin"] .panel:hover {
+  box-shadow: 0 18px 44px rgba(24, 39, 75, 0.1);
+}
+
+body[data-page="dashboard"] .panel-head,
+body[data-page="hosts"] .panel-head,
+body[data-page="service-detail"] .panel-head,
+body[data-page="alert-settings"] .panel-head,
+body[data-page="admin"] .panel-head,
+body[data-page="dashboard"] .instance-toolbar,
+body[data-page="hosts"] .host-workbench-toolbar {
+  border-bottom-color: var(--lm-border);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+body[data-page="dashboard"] .panel-head h1,
+body[data-page="dashboard"] .panel-head h2,
+body[data-page="hosts"] .panel-head h1,
+body[data-page="hosts"] .panel-head h2,
+body[data-page="service-detail"] .panel-head h1,
+body[data-page="service-detail"] .panel-head h2,
+body[data-page="alert-settings"] .panel-head h1,
+body[data-page="alert-settings"] .panel-head h2,
+body[data-page="admin"] .panel-head h1,
+body[data-page="admin"] .panel-head h2 {
+  color: var(--lm-text);
+  font-weight: 800;
+}
+
+body[data-page="dashboard"] .primary-button,
+body[data-page="dashboard"] .service-add-button:not(.light-button),
+body[data-page="hosts"] .primary-button,
+body[data-page="service-detail"] .primary-button,
+body[data-page="alert-settings"] .primary-button,
+body[data-page="admin"] .primary-button {
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 9px 20px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="dashboard"] .primary-button:hover,
+body[data-page="dashboard"] .service-add-button:not(.light-button):hover,
+body[data-page="hosts"] .primary-button:hover,
+body[data-page="service-detail"] .primary-button:hover,
+body[data-page="alert-settings"] .primary-button:hover,
+body[data-page="admin"] .primary-button:hover {
+  border-color: var(--lm-primary-strong);
+  background: var(--lm-primary-strong);
+}
+
+body[data-page="dashboard"] .ghost-button,
+body[data-page="dashboard"] .light-button,
+body[data-page="dashboard"] .icon-button,
+body[data-page="dashboard"] .instance-action,
+body[data-page="hosts"] .ghost-button,
+body[data-page="hosts"] .icon-button,
+body[data-page="service-detail"] .ghost-button,
+body[data-page="service-detail"] .icon-button,
+body[data-page="alert-settings"] .ghost-button,
+body[data-page="alert-settings"] .icon-button,
+body[data-page="admin"] .ghost-button,
+body[data-page="admin"] .icon-button {
+  border-color: var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+body[data-page="dashboard"] .ghost-button:hover,
+body[data-page="dashboard"] .light-button:hover,
+body[data-page="dashboard"] .icon-button:hover,
+body[data-page="dashboard"] .instance-action:hover,
+body[data-page="hosts"] .ghost-button:hover,
+body[data-page="hosts"] .icon-button:hover,
+body[data-page="service-detail"] .ghost-button:hover,
+body[data-page="service-detail"] .icon-button:hover,
+body[data-page="alert-settings"] .ghost-button:hover,
+body[data-page="alert-settings"] .icon-button:hover,
+body[data-page="admin"] .ghost-button:hover,
+body[data-page="admin"] .icon-button:hover {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+}
+
+body[data-page="dashboard"] input,
+body[data-page="dashboard"] select,
+body[data-page="dashboard"] textarea,
+body[data-page="hosts"] input,
+body[data-page="hosts"] select,
+body[data-page="hosts"] textarea,
+body[data-page="service-detail"] input,
+body[data-page="service-detail"] select,
+body[data-page="service-detail"] textarea,
+body[data-page="alert-settings"] input,
+body[data-page="alert-settings"] select,
+body[data-page="alert-settings"] textarea,
+body[data-page="admin"] input,
+body[data-page="admin"] select,
+body[data-page="admin"] textarea {
+  border-color: var(--lm-border);
+  border-radius: 7px;
+}
+
+body[data-page="dashboard"] input:focus,
+body[data-page="dashboard"] select:focus,
+body[data-page="dashboard"] textarea:focus,
+body[data-page="hosts"] input:focus,
+body[data-page="hosts"] select:focus,
+body[data-page="hosts"] textarea:focus,
+body[data-page="service-detail"] input:focus,
+body[data-page="service-detail"] select:focus,
+body[data-page="service-detail"] textarea:focus,
+body[data-page="alert-settings"] input:focus,
+body[data-page="alert-settings"] select:focus,
+body[data-page="alert-settings"] textarea:focus,
+body[data-page="admin"] input:focus,
+body[data-page="admin"] select:focus,
+body[data-page="admin"] textarea:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+  outline: 0;
+}
+
+body[data-page="dashboard"] .search,
+body[data-page="dashboard"] .global-search,
+body[data-page="dashboard"] .service-list-search,
+body[data-page="dashboard"] .instance-search,
+body[data-page="hosts"] .host-search,
+body[data-page="alert-settings"] .alert-search,
+body[data-page="admin"] .admin-search {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.035);
+}
+
+body[data-page="dashboard"] .data-table th,
+body[data-page="hosts"] .data-table th,
+body[data-page="service-detail"] .data-table th,
+body[data-page="alert-settings"] .data-table th,
+body[data-page="admin"] .data-table th,
+body[data-page="dashboard"] .instance-table th,
+body[data-page="hosts"] .host-table th,
+body[data-page="admin"] .admin-user-table th,
+body[data-page="admin"] .admin-audit-table th {
+  background: #f8fbff;
+  color: #475467;
+  font-weight: 900;
+}
+
+body[data-page="dashboard"] .data-table td,
+body[data-page="hosts"] .data-table td,
+body[data-page="service-detail"] .data-table td,
+body[data-page="alert-settings"] .data-table td,
+body[data-page="admin"] .data-table td,
+body[data-page="dashboard"] .instance-table td,
+body[data-page="hosts"] .host-table td,
+body[data-page="admin"] .admin-user-table td,
+body[data-page="admin"] .admin-audit-table td {
+  border-bottom-color: #edf2f7;
+}
+
+body[data-page="dashboard"] .status-UP,
+body[data-page="hosts"] .status-UP,
+body[data-page="service-detail"] .status-UP,
+body[data-page="alert-settings"] .status-UP {
+  background: #eaf7ef;
+  color: var(--lm-success);
+}
+
+body[data-page="dashboard"] .status-DOWN,
+body[data-page="hosts"] .status-DOWN,
+body[data-page="service-detail"] .status-DOWN,
+body[data-page="alert-settings"] .status-DOWN {
+  background: #fff0f2;
+  color: var(--lm-danger);
+}
+
+body[data-page="dashboard"] .status-UNKNOWN,
+body[data-page="hosts"] .status-UNKNOWN,
+body[data-page="service-detail"] .status-UNKNOWN,
+body[data-page="alert-settings"] .status-UNKNOWN {
+  background: #fff7e6;
+  color: var(--lm-warning);
+}
+
+body[data-page="dashboard"] .metric,
+body[data-page="hosts"] .host-stat-card,
+body[data-page="alert-settings"] .alert-metric-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+body[data-page="dashboard"] .metric-icon,
+body[data-page="hosts"] .host-stat-icon,
+body[data-page="alert-settings"] .alert-metric-icon {
+  border-radius: 8px;
+}
+
+body[data-page="dashboard"] .service-row-card,
+body[data-page="dashboard"] .service-row,
+body[data-page="dashboard"] .instance-mini-list,
+body[data-page="hosts"] .host-row,
+body[data-page="service-detail"] .instance-row,
+body[data-page="alert-settings"] .choice-card,
+body[data-page="alert-settings"] .recipient-item,
+body[data-page="admin"] .admin-tab {
+  border-color: #e1eaf5;
+  border-radius: 8px;
+}
+
+body[data-page="dashboard"] .service-row-card:hover,
+body[data-page="dashboard"] .instance-mini-list:hover,
+body[data-page="hosts"] .host-row:hover,
+body[data-page="service-detail"] .instance-row:hover {
+  border-color: #cfe0f5;
+  background: #fbfdff;
+}
+
+body[data-page="alert-settings"] .alert-settings-hero,
+body[data-page="service-detail"] .detail-head,
+body[data-page="hosts"] .host-hero-head,
+body[data-page="admin"] .admin-page > .panel:first-child {
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+  box-shadow: 0 14px 36px rgba(24, 39, 75, 0.07);
+}
+
+body[data-page="alert-settings"] .alert-page-tabs,
+body[data-page="admin"] .admin-tabs {
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--lm-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+body[data-page="alert-settings"] .alert-page-tabs .tab-button,
+body[data-page="admin"] .admin-tab {
+  border: 0;
+  background: transparent;
+  color: var(--lm-muted);
+  font-weight: 800;
+}
+
+body[data-page="alert-settings"] .alert-page-tabs .tab-button.active,
+body[data-page="admin"] .admin-tab.active {
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(31, 111, 235, 0.18);
+}
+
+body[data-page="alert-settings"] .modal,
+body[data-page="alert-settings"] .alert-config-modal,
+body[data-page="admin"] .modal,
+body[data-page="admin"] .admin-user-dialog {
+  border-color: var(--lm-border);
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+body[data-page="alert-settings"] .modal-head,
+body[data-page="admin"] .modal-head {
+  border-bottom-color: var(--lm-border);
+  background: #f8fbff;
+}
+
+body[data-page="login"] {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(31, 111, 235, 0.1), transparent 30%),
+    linear-gradient(135deg, #eef4ff 0%, #f6f8fb 48%, #edf3fa 100%);
+}
+
+body[data-page="login"] .login-shell,
+body[data-page="login"] .login-card,
+body[data-page="login"] .auth-card,
+body[data-page="login"] main,
+body[data-page="login"] form {
+  border-radius: 8px;
+}
+
+body[data-page="login"] .login-shell {
+  color: var(--lm-text);
+}
+
+body[data-page="login"] .login-card,
+body[data-page="login"] .auth-card,
+body[data-page="login"] main > form,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .login-form,
+body[data-page="login"] .login-box,
+body[data-page="login"] .auth-panel,
+body[data-page="login"] .auth-form {
+  border: 1px solid #cfdceb;
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--lm-text);
+  box-shadow: 0 26px 72px rgba(15, 34, 58, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+body[data-page="login"] h1,
+body[data-page="login"] h2,
+body[data-page="login"] .login-title,
+body[data-page="login"] .brand {
+  color: #101828;
+}
+
+body[data-page="login"] p,
+body[data-page="login"] small,
+body[data-page="login"] label,
+body[data-page="login"] .login-subtitle {
+  color: #475467;
+}
+
+body[data-page="login"] input {
+  min-height: 42px;
+  border-color: #b8c7d9;
+  border-radius: 7px;
+  background: #fff;
+  color: #101828;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+body[data-page="login"] input::placeholder {
+  color: #98a2b3;
+}
+
+body[data-page="login"] input:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14);
+}
+
+body[data-page="login"] button,
+body[data-page="login"] .primary-button {
+  border-radius: 7px;
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(31, 111, 235, 0.2);
+}
+
+body[data-page="login"] button:hover,
+body[data-page="login"] .primary-button:hover {
+  background: var(--lm-primary-strong);
+}
+
+/* Usability guardrail: keep form controls and buttons legible across all pages. */
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+  min-height: 40px;
+  border: 1px solid #b8c7d9 !important;
+  border-radius: 7px;
+  background-color: #fff !important;
+  color: #101828 !important;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select) {
+  padding: 0 12px;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) textarea {
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea)::placeholder {
+  color: #98a2b3;
+  opacity: 1;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.14) !important;
+  outline: 0;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input, select, textarea):disabled {
+  border-color: #d0d7e2 !important;
+  background-color: #eef2f6 !important;
+  color: #667085 !important;
+  cursor: not-allowed;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--lm-primary);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"] {
+  position: relative;
+  width: 46px !important;
+  height: 24px !important;
+  min-height: 24px;
+  flex: 0 0 46px;
+  padding: 0 !important;
+  appearance: none;
+  border: 0 !important;
+  border-radius: 999px;
+  background: #98a2b3 !important;
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(16, 24, 40, 0.28);
+  transition: transform 0.16s ease;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]:checked {
+  background: var(--lm-primary) !important;
+  box-shadow: inset 0 0 0 1px rgba(26, 86, 198, 0.2), 0 0 0 3px rgba(31, 111, 235, 0.12);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) .switch-row input[type="checkbox"]:checked::after {
+  transform: translateX(22px);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .ghost-button,
+  .light-button,
+  .danger-button,
+  .tab-button,
+  .admin-tab,
+  .service-add-button,
+  .alert-row-button,
+  .host-page-buttons button,
+  .form-actions button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button,
+  .modal-head button,
+  .setting-section button,
+  .admin-panel-actions button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+) {
+  min-height: 34px;
+  border: 1px solid var(--lm-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #344054;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+) {
+  border-color: var(--lm-primary);
+  background: var(--lm-primary);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(31, 111, 235, 0.18);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .ghost-button,
+  .light-button,
+  .tab-button,
+  .admin-tab,
+  .alert-row-button,
+  .host-page-buttons button,
+  .panel-actions button,
+  .toolbar button,
+  .modal button:not([type="submit"]),
+  .setting-section button,
+  .row-actions button,
+  .row-actions a,
+  .action-menu > summary
+):hover {
+  border-color: var(--lm-border-strong);
+  background: #f8fbff;
+  color: var(--lm-primary-strong);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.08);
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(
+  .primary-button,
+  .service-add-button:not(.light-button),
+  .form-actions button[type="submit"],
+  button[type="submit"]
+):hover {
+  border-color: var(--lm-primary-strong);
+  background: var(--lm-primary-strong);
+  color: #fff;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(.danger-button, .instance-action.danger, .row-actions .danger-button) {
+  border-color: #f1b8c0;
+  background: #fff5f6;
+  color: #b42318;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"],
+  body[data-page="login"]
+) :where(button, .primary-button, .ghost-button, .light-button, .icon-button, .tab-button, .admin-tab):disabled {
+  border-color: #d0d7e2 !important;
+  background: #eef2f6 !important;
+  color: #98a2b3 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+:where(
+  body[data-page="dashboard"],
+  body[data-page="hosts"],
+  body[data-page="service-detail"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="add-service"]
+) :where(.form-grid, .admin-form, .alert-simple-form, .setting-section, .modal, .admin-user-dialog) label > span {
+  color: #344054;
+  font-weight: 800;
+}
+
+/* Hosts page density fix after the global guardrail. */
+body[data-page="hosts"] .host-page {
+  width: min(100%, 1440px);
+}
+
+body[data-page="hosts"] .host-hero-head {
+  align-items: end;
+  min-height: auto;
+  padding: 18px 20px;
+}
+
+body[data-page="hosts"] .host-hero-title h1 {
+  margin: 8px 0 6px;
+  color: #101828;
+  font-size: 28px;
+  line-height: 1.18;
+}
+
+body[data-page="hosts"] .host-hero-title p {
+  margin: 0;
+  color: #52667f;
+  font-size: 15px;
+}
+
+body[data-page="hosts"] .host-primary-add {
+  height: 40px;
+  min-height: 40px;
+  min-width: 126px;
+  padding: 0 16px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+body[data-page="hosts"] .host-stat-grid {
+  gap: 16px;
+}
+
+body[data-page="hosts"] .host-stat-card {
+  min-height: 126px;
+  padding: 18px 22px;
+}
+
+body[data-page="hosts"] .host-workbench-toolbar {
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: #fff;
+}
+
+body[data-page="hosts"] .host-filter-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+body[data-page="hosts"] .host-table-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+body[data-page="hosts"] .host-search {
+  width: min(420px, 100%);
+  height: 38px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid #cfdceb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+body[data-page="hosts"] .host-search input {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #24344d !important;
+}
+
+body[data-page="hosts"] .host-page .compact-filter {
+  min-height: 38px;
+  padding: 0 8px 0 10px;
+  border: 1px solid #d7e1ec;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+body[data-page="hosts"] .host-page .compact-filter span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+body[data-page="hosts"] .host-page .compact-filter select {
+  width: auto;
+  min-width: 92px;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 24px 0 8px;
+  border: 0 !important;
+  background:
+    linear-gradient(45deg, transparent 50%, #667085 50%) calc(100% - 13px) 13px / 5px 5px no-repeat,
+    linear-gradient(135deg, #667085 50%, transparent 50%) calc(100% - 9px) 13px / 5px 5px no-repeat,
+    transparent !important;
+  box-shadow: none !important;
+  color: #101828 !important;
+}
+
+body[data-page="hosts"] .host-table-actions .light-button,
+body[data-page="hosts"] .host-table-actions .icon-button {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+body[data-page="hosts"] .host-table-actions .light-button {
+  min-width: auto;
+  padding: 0 12px;
+}
+
+body[data-page="hosts"] .host-table-actions .icon-button {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+}
+
+body[data-page="hosts"] .host-table th,
+body[data-page="hosts"] .host-table td {
+  padding: 13px 20px;
+}
+
+body[data-page="hosts"] .host-table-footer {
+  min-height: 64px;
+  padding: 12px 18px;
+}
+
+body[data-page="hosts"] .host-pagination {
+  align-items: center;
+  gap: 8px;
+}
+
+body[data-page="hosts"] .host-pagination select,
+body[data-page="hosts"] .host-pagination input {
+  height: 36px !important;
+  min-height: 36px !important;
+  border-color: #cfdceb !important;
+  border-radius: 8px;
+  background-color: #fff !important;
+  box-shadow: none;
+}
+
+body[data-page="hosts"] .host-pagination select {
+  width: 140px;
+}
+
+body[data-page="hosts"] .host-pagination input {
+  width: 58px;
+}
+
+body[data-page="hosts"] .host-page-buttons {
+  gap: 6px;
+}
+
+body[data-page="hosts"] .host-page-buttons button,
+body[data-page="hosts"] .host-pagination > .icon-button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+body[data-page="hosts"] .host-page-buttons button.active {
+  border-color: var(--lm-primary);
+  background: #eef5ff;
+  color: var(--lm-primary);
+}
+
+body[data-page="hosts"] #hostModal .modal-dialog {
+  width: min(920px, 100%);
+}
+
+body[data-page="hosts"] #hostModal .host-form input:not([type="checkbox"]):not([type="radio"]),
+body[data-page="hosts"] #hostModal .host-form select {
+  height: 40px !important;
+  min-height: 40px !important;
+}
+
+body[data-page="hosts"] #hostModal .host-form textarea {
+  min-height: 88px;
+}
+
+@media (max-width: 860px) {
+  body[data-page="hosts"] .host-hero-head,
+  body[data-page="hosts"] .host-workbench-toolbar,
+  body[data-page="hosts"] .host-table-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body[data-page="hosts"] .host-search,
+  body[data-page="hosts"] .host-table-actions {
+    width: 100%;
+  }
+
+  body[data-page="hosts"] .host-table-actions,
+  body[data-page="hosts"] .host-pagination {
+    justify-content: flex-start;
+  }
+}
+
+/* Login page form repair after the global button guardrail. */
+body[data-page="login"] {
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+body[data-page="login"] main,
+body[data-page="login"] .login-shell,
+body[data-page="login"] .login-card,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .auth-card,
+body[data-page="login"] .auth-panel {
+  width: min(566px, 100%);
+}
+
+body[data-page="login"] .login-card,
+body[data-page="login"] .login-panel,
+body[data-page="login"] .auth-card,
+body[data-page="login"] .auth-panel,
+body[data-page="login"] main > form,
+body[data-page="login"] .login-form,
+body[data-page="login"] .auth-form {
+  padding: 44px 42px;
+  border: 1px solid #cfdceb;
+  background: #fff;
+  box-shadow: 0 22px 58px rgba(15, 34, 58, 0.16);
+}
+
+body[data-page="login"] form {
+  display: grid;
+  gap: 18px;
+}
+
+body[data-page="login"] label,
+body[data-page="login"] .form-field {
+  display: grid;
+  gap: 8px;
+  color: #24344d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body[data-page="login"] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  height: 58px;
+  min-height: 58px;
+  padding-inline: 52px 14px;
+  border: 1px solid #b8c7d9 !important;
+  border-radius: 8px;
+  background: #fff !important;
+  color: #101828 !important;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+body[data-page="login"] input:not([type="checkbox"]):not([type="radio"]):focus {
+  border-color: #2f80ed !important;
+  box-shadow: 0 0 0 4px rgba(47, 128, 237, 0.14) !important;
+}
+
+body[data-page="login"] input::placeholder {
+  color: #8a99ad;
+  font-weight: 700;
+}
+
+body[data-page="login"] input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border: 1px solid #98a2b3;
+  border-radius: 4px;
+  background: #fff;
+}
+
+body[data-page="login"] button:not([type="submit"]):not(.primary-button) {
+  min-width: auto;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lm-primary);
+  box-shadow: none;
+}
+
+body[data-page="login"] button:not([type="submit"]):not(.primary-button):hover,
+body[data-page="login"] button:not([type="submit"]):not(.primary-button):focus-visible {
+  background: #eef5ff;
+  color: var(--lm-primary-strong);
+  box-shadow: none;
+}
+
+body[data-page="login"] input[type="password"] + button,
+body[data-page="login"] .password-toggle,
+body[data-page="login"] .toggle-password,
+body[data-page="login"] .eye-button {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid #d7e3ef;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #52667f;
+}
+
+body[data-page="login"] input[type="password"] + button:hover,
+body[data-page="login"] .password-toggle:hover,
+body[data-page="login"] .toggle-password:hover,
+body[data-page="login"] .eye-button:hover {
+  border-color: #b8c7d9;
+  background: #eef5ff;
+  color: var(--lm-primary);
+}
+
+body[data-page="login"] .captcha-row,
+body[data-page="login"] .verify-row,
+body[data-page="login"] .captcha-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 12px;
+}
+
+body[data-page="login"] .captcha-row input,
+body[data-page="login"] .verify-row input,
+body[data-page="login"] .captcha-field input {
+  padding-inline: 52px 12px;
+}
+
+body[data-page="login"] .captcha-image,
+body[data-page="login"] .captcha-code,
+body[data-page="login"] #captchaImage,
+body[data-page="login"] #captchaText {
+  display: grid;
+  place-items: center;
+  height: 58px;
+  border: 1px solid var(--lm-primary);
+  border-radius: 8px;
+  background: var(--lm-primary);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 8px;
+}
+
+body[data-page="login"] .captcha-refresh,
+body[data-page="login"] .refresh-captcha,
+body[data-page="login"] #refreshCaptcha,
+body[data-page="login"] [data-refresh-captcha] {
+  justify-self: end;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: var(--lm-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+body[data-page="login"] button[type="submit"],
+body[data-page="login"] .login-submit,
+body[data-page="login"] .login-button,
+body[data-page="login"] .primary-button {
+  width: 100%;
+  height: 58px;
+  min-height: 58px;
+  border: 1px solid var(--lm-primary);
+  border-radius: 8px;
+  background: var(--lm-primary);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 12px 28px rgba(31, 111, 235, 0.22);
+}
+
+body[data-page="login"] button[type="submit"]:hover,
+body[data-page="login"] .login-submit:hover,
+body[data-page="login"] .login-button:hover,
+body[data-page="login"] .primary-button:hover {
+  background: var(--lm-primary-strong);
+}
+
+@media (max-width: 560px) {
+  body[data-page="login"] .login-card,
+  body[data-page="login"] .login-panel,
+  body[data-page="login"] .auth-card,
+  body[data-page="login"] .auth-panel,
+  body[data-page="login"] main > form,
+  body[data-page="login"] .login-form,
+  body[data-page="login"] .auth-form {
+    padding: 28px 20px;
+  }
+
+  body[data-page="login"] .captcha-row,
+  body[data-page="login"] .verify-row,
+  body[data-page="login"] .captcha-field {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Bootstrap compatibility: our app uses .modal-dialog without Bootstrap's .modal-content wrapper. */
+:where(
+  body[data-page="hosts"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="service-detail"],
+  body[data-page="dashboard"]
+) .modal-backdrop > .modal-dialog {
+  pointer-events: auto;
+}
+
+:where(
+  body[data-page="hosts"],
+  body[data-page="alert-settings"],
+  body[data-page="admin"],
+  body[data-page="service-detail"],
+  body[data-page="dashboard"]
+) .modal-backdrop {
+  pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+  body[data-page="dashboard"] .panel,
+  body[data-page="dashboard"] .metric,
+  body[data-page="hosts"] .panel,
+  body[data-page="service-detail"] .panel,
+  body[data-page="alert-settings"] .panel,
+  body[data-page="admin"] .panel {
+    box-shadow: 0 10px 24px rgba(24, 39, 75, 0.06);
+  }
+
+  body[data-page="alert-settings"] .alert-page-tabs,
+  body[data-page="admin"] .admin-tabs {
+    align-items: stretch;
+  }
+}

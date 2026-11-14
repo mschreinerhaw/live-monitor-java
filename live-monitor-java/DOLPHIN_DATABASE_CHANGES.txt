@@ -1,0 +1,38 @@
+Live Monitor 1.1.0 数据库变更
+
+1.1.1 补充：不新增表或字段。ds_collection 增加 runtime_coverage:{projectCode} 记录成功采集的起点；首次补采与运行游标同事务，未覆盖范围不计算“未执行”。汇总读接口使用 /monitor/summary，原 /enterprise 路径兼容。
+
+迁移源文件：src/main/resources/db/dolphin-enterprise.sql 及 alert-delivery-dedup.sql。
+DolphinStore 初始化时执行幂等 CREATE TABLE IF NOT EXISTS，并创建 ds_entity_project_idx；兼容现有 H2/MySQL 配置库。
+不修改 DolphinScheduler 数据库，不写入调度生产元数据。
+
+新增表
+ds_entity：cluster_id/kind/object_id 复合主键；项目、定义、实例、用户、授权、节点和 DB 的最小必要字段；project_code/workflow_code/workflow_instance_id/state/etl_date 提供关联。
+ds_collection：cluster_id/lane 复合主键；开始尝试、最后成功、失败次数、错误与成功游标。项目游标单独保存，失败不前移。
+ds_project_config：cluster_id/project_code 主键；人工责任人、备份责任人、原平台告警组与启停；不会被自动同步覆盖。
+ds_alert_rule：集群、范围、范围 ID、规则类型主键；阈值、业务日期、截止时间。
+ds_incident：稳定事件键、关联项目、分类、说明、接收组与发生/恢复状态。通知事件和每渠道任务仍保存在原有告警表中。
+ds_node_sample：节点原始采样；ds_node_hourly：小时均值及样本数。
+
+原有表的复用
+monitor_service 保存多集群配置，仍由原 CryptoService 加密 Token。
+monitor_check_event、alert_state、alert_delivery_task、alert_delivery_attempt、alert_notify_record 及手动重试审计继续承担事务、投递、去重和恢复。
+新告警范围使用 ds:<64位稳定哈希>:availability，避免项目间状态冲突；不会修改原有服务和主机状态键。
+瞬时生成审计 ID 冲突有界重试，失败超过上限仍抛错，不跳过审计或伪造发送成功。
+
+保留与归档
+原始节点采样保留 48 小时；更早样本事务性聚合为小时均值，记录 aggregation=hourly_average、sample_count。
+节点小时数据、已完成实例及已恢复事件按 retention_days 清理，默认 90 天；活动实例、活动事件保留。
+原始执行历史不强行改成统计聚合，稳定实例 ID 与重试信息保留到配置保留期。
+
+alert_delivery_dedup：唯一投递账本（事件、渠道、告警键），从历史任务回填；原发送任务仍允许手工重试，避免 INSERT SELECT 并发间隙锁。
+ds_incident_member：持久化聚合成员。事件 active=2 表示聚合抑制，不代表恢复。超时聚合须全部成员观察为终态，失败聚合须全部成员观察为成功。
+快照与游标同事务，瞬时死锁重试整个外层事务，最多三次；嵌套事务不局部重试。
+定义按项目完整成功快照替换，删除和下线可被发现；自动同步与人工项目配置分别保存。
+已有 RocksDB 历史及 Lucene 主机索引机制保留。之前的索引中断隔离、降级回退和重建修复一并包含。
+
+升级及回退
+先停止应用并备份配置库、完整 data、config、templates 和旧 JAR，以及固定密钥。
+替换 1.1.0 程序并启动，确认新增表创建成功后再启用企业采集和通知。
+回退程序前备份新运行数据与未发送告警任务；不能用删除新表或覆盖在线数据代替回退设计。
+原 Outbox 格式没有变化，新创建的通知任务仍可由原投递 Worker 读取，但回退前应核对旧程序对新增事件范围的展示和业务解释。

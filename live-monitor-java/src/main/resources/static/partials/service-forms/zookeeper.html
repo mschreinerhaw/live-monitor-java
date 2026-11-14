@@ -1,0 +1,22 @@
+        <label class="zookeeper-only">
+          <span>ZooKeeper 检测方式</span>
+          <select name="zookeeper_check_mode">
+            <option value="ruok">ruok 四字命令</option>
+            <option value="port">仅检测端口连通</option>
+          </select>
+        </label>
+
+        <label class="zookeeper-only">
+          <span>四字命令</span>
+          <select name="zookeeper_check_command">
+            <option value="ruok">ruok</option>
+            <option value="stat">stat</option>
+            <option value="mntr">mntr</option>
+            <option value="srvr">srvr</option>
+          </select>
+        </label>
+
+        <label class="zookeeper-only">
+          <span>期望节点数</span>
+          <input name="zookeeper_expected_nodes" type="number" min="1" max="1000" placeholder="例如：3">
+        </label>

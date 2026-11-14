@@ -12,6 +12,26 @@
 
     <files>
         <file>
+            <source>DOLPHINSCHEDULER_MONITOR.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
+            <source>PRODUCT_UX_REVIEW.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
+            <source>VUE3_FUNCTIONAL_PARITY.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
+            <source>DEPLOY.md</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
+            <source>ALERT_RELIABILITY_REPORT.txt</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+        <file>
             <source>${project.build.directory}/${project.build.finalName}.jar</source>
             <outputDirectory>lib</outputDirectory>
             <destName>${project.artifactId}.jar</destName>
@@ -26,6 +46,18 @@
     </files>
 
     <fileSets>
+        <fileSet>
+            <directory>.</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes><include>README.md</include><include>DOLPHIN_*.txt</include><include>HOST_ALERT_FIX_20261114.txt</include><include>INDEXWRITER_FIX_20261114.txt</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>src/main/resources/db</directory>
+            <outputDirectory>db</outputDirectory>
+            <includes><include>dolphin-enterprise.sql</include><include>alert-delivery-dedup.sql</include></includes>
+            <fileMode>0644</fileMode>
+        </fileSet>
         <fileSet>
             <directory>src/main/assembly/bin</directory>
             <outputDirectory>bin</outputDirectory>

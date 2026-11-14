@@ -2,6 +2,7 @@ package com.live.monitor.entity;
 
 public class AlertRecord {
     public Long id;
+    public String taskId;
     public Long serviceId;
     public String serviceName;
     public String serviceType;

@@ -16,16 +16,14 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
             .addPathPatterns(
-                "/",
-                "/dashboard",
-                "/services/**",
-                "/alerts/**",
-                "/api/**",
-                "/index.html",
-                "/service.html",
-                "/add_service.html",
-                "/alert_settings.html"
+                "/api/**"
             )
-            .excludePathPatterns("/api/auth/login", "/api/auth/me", "/api/health", "/login.html");
+            .excludePathPatterns(
+                "/api/auth/login",
+                "/api/auth/me",
+                "/api/auth/current-user",
+                "/api/external/messages",
+                "/api/health"
+            );
     }
 }

@@ -1,5 +1,24 @@
+/**
+ * Return a human-readable label for a service's alert group binding.
+ * Handles the new multi-binding fields (alert_group_ids / alert_group_names) with
+ * fallback to the legacy singular fields.
+ */
+function serviceAlertGroupLabel(service, fallback = "未绑定告警组") {
+  if (!service) return fallback;
+  const names = Array.isArray(service.alert_group_names)
+    ? service.alert_group_names.filter(Boolean)
+    : [];
+  if (names.length > 1) return `${names.join(", ")}（共 ${names.length} 个）`;
+  if (names.length === 1) return names[0];
+  return service.alert_group_name || fallback;
+}
+
 async function initDashboard() {
   document.getElementById("activityRefreshBtn")?.addEventListener("click", loadDashboard);
+  document.getElementById("serviceExportBtn")?.addEventListener("click", exportServiceListExcel);
+  document.getElementById("dashboardEmbedBtn")?.addEventListener("click", showEmbedUrl);
+  document.getElementById("embedModalCloseBtn")?.addEventListener("click", closeEmbedModal);
+  document.getElementById("embedCopyBtn")?.addEventListener("click", copyEmbedUrl);
   document.getElementById("activityClearReloadBtn")?.addEventListener("click", clearDashboardActivityMessages);
   document.querySelectorAll(".status-filter-grid .metric").forEach((card) => {
     const activate = () => setDashboardFilter(card.dataset.filter || "all");
@@ -11,17 +30,30 @@ async function initDashboard() {
       }
     });
   });
-  document.getElementById("serviceSearch")?.addEventListener("input", (event) => {
-    dashboardState.query = event.target.value.trim().toLowerCase();
-    renderServiceTable();
-  });
+  bindDashboardSearchInput("serviceListSearch");
   initResourceMonitoring();
   await loadDashboard();
   window.setInterval(loadDashboard, 30000);
 }
 
+function bindDashboardSearchInput(id) {
+  document.getElementById(id)?.addEventListener("input", (event) => {
+    setDashboardQuery(event.target.value);
+  });
+}
+
+function setDashboardQuery(value) {
+  dashboardState.query = value.trim().toLowerCase();
+  ["serviceListSearch"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input && input.value !== value) input.value = value;
+  });
+  renderServiceTable();
+}
+
 function initResourceMonitoring() {
   if (!document.getElementById("cpuChart")) return;
+  window.addEventListener("resize", resizeMetricCharts);
   loadSystemMetrics();
   resourceMetricState.poller = window.setInterval(loadSystemMetrics, 5000);
 }
@@ -61,44 +93,79 @@ function nextSyntheticMetric(key, fallback) {
 }
 
 function drawMetricCharts() {
-  drawLineChart("cpuChart", resourceMetricState.history.cpu, "#2563eb", 100);
-  drawLineChart("memoryChart", resourceMetricState.history.memory, "#16a34a", 100);
-  drawLineChart("diskChart", resourceMetricState.history.disk, "#b7791f", 100);
+  drawLineChart("cpuChart", resourceMetricState.history.cpu, "#2563eb", 100, "%");
+  drawLineChart("memoryChart", resourceMetricState.history.memory, "#16a34a", 100, "%");
+  drawLineChart("diskChart", resourceMetricState.history.disk, "#b7791f", 100, "%");
   const networkMax = Math.max(20, ...resourceMetricState.history.network) * 1.2;
-  drawLineChart("networkChart", resourceMetricState.history.network, "#0e7490", networkMax);
+  drawLineChart("networkChart", resourceMetricState.history.network, "#0e7490", networkMax, " KB/s");
 }
 
-function drawLineChart(canvasId, values, color, maxValue) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const padding = 8;
-  ctx.clearRect(0, 0, width, height);
-  ctx.strokeStyle = "#e5edf4";
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 3; i++) {
-    const y = padding + ((height - padding * 2) / 2) * i;
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(width - padding, y);
-    ctx.stroke();
-  }
+function drawLineChart(chartId, values, color, maxValue, unit) {
+  const node = document.getElementById(chartId);
+  if (!node || !window.echarts) return;
+  resourceMetricState.charts = resourceMetricState.charts || {};
+  const chart = resourceMetricState.charts[chartId] || window.echarts.init(node);
+  resourceMetricState.charts[chartId] = chart;
   const rows = values.length ? values : [0];
-  const step = (width - padding * 2) / Math.max(1, rows.length - 1);
-  ctx.beginPath();
-  rows.forEach((value, index) => {
-    const x = padding + step * index;
-    const y = height - padding - (Math.max(0, Math.min(value, maxValue)) / maxValue) * (height - padding * 2);
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  chart.setOption({
+    animationDuration: 320,
+    grid: { left: 2, right: 2, top: 8, bottom: 2, containLabel: false },
+    tooltip: {
+      trigger: "axis",
+      appendToBody: true,
+      backgroundColor: "rgba(15, 23, 42, 0.9)",
+      borderWidth: 0,
+      textStyle: { color: "#fff", fontSize: 12 },
+      formatter: (items) => {
+        const value = Number(items?.[0]?.value ?? 0);
+        return `${value.toFixed(value >= 10 ? 0 : 1)}${unit}`;
+      },
+    },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: rows.map((_, index) => index + 1),
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+    },
+    yAxis: {
+      type: "value",
+      min: 0,
+      max: Math.max(1, maxValue),
+      splitNumber: 2,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { lineStyle: { color: "#e5edf4", type: "dashed" } },
+    },
+    series: [{
+      type: "line",
+      data: rows,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2.5, color },
+      areaStyle: {
+        color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: hexToRgba(color, 0.22) },
+          { offset: 1, color: hexToRgba(color, 0.02) },
+        ]),
+      },
+    }],
   });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
+}
+
+function resizeMetricCharts() {
+  Object.values(resourceMetricState.charts || {}).forEach((chart) => chart.resize());
+}
+
+function hexToRgba(hex, alpha) {
+  const value = hex.replace("#", "");
+  const number = parseInt(value.length === 3 ? value.replace(/(.)/g, "$1$1") : value, 16);
+  const red = (number >> 16) & 255;
+  const green = (number >> 8) & 255;
+  const blue = number & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function formatMetric(value) {
@@ -109,6 +176,76 @@ function formatMetric(value) {
 function setText(id, value) {
   const node = document.getElementById(id);
   if (node) node.textContent = value;
+}
+
+async function showEmbedUrl() {
+  const button = document.getElementById("dashboardEmbedBtn");
+  button?.setAttribute("disabled", "disabled");
+  try {
+    const result = await LiveMonitorApi.createEmbedToken({
+      view_id: document.body?.dataset?.page || "dashboard",
+      target_path: currentAuthUrlTargetPath(),
+    });
+    const input = document.getElementById("embedUrlInput");
+    if (input) {
+      input.value = result.url || "";
+      input.focus();
+      input.select();
+    }
+    const expire = document.getElementById("embedModalExpire");
+    if (expire) {
+      expire.textContent = result.long_term
+        ? "\u957f\u671f\u6709\u6548"
+        : result.expires_at
+        ? `\u6709\u6548\u81f3 ${formatTime(result.expires_at)}`
+        : "\u6709\u6548\u671f 24 \u5c0f\u65f6";
+    }
+    const modal = document.getElementById("embedModal");
+    if (modal) modal.hidden = false;
+    try {
+      await copyText(result.url || "");
+      showToast("\u5d4c\u5165 URL \u5df2\u751f\u6210\u5e76\u590d\u5236");
+    } catch (copyError) {
+      showToast("\u5d4c\u5165 URL \u5df2\u751f\u6210");
+    }
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    button?.removeAttribute("disabled");
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function currentAuthUrlTargetPath() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("token");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function closeEmbedModal() {
+  const modal = document.getElementById("embedModal");
+  if (modal) modal.hidden = true;
+}
+
+async function copyEmbedUrl() {
+  const input = document.getElementById("embedUrlInput");
+  if (!input?.value) return;
+  input.select();
+  try {
+    await copyText(input.value);
+    showToast("\u5d4c\u5165 URL \u5df2\u590d\u5236");
+  } catch (error) {
+    showToast("\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236");
+  }
+}
+
+async function copyText(value) {
+  if (!value) return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  document.execCommand("copy");
 }
 
 function clearDashboardActivityMessages() {
@@ -145,7 +282,6 @@ async function loadDashboard() {
     renderDashboardMetrics(summary);
     renderServiceTable();
     renderDashboardActivity(document.getElementById("recentAlerts"), data.recent_alerts || [], dashboardState.recentResults);
-    setText("alertMetric", String((data.recent_alerts || []).length));
     const refreshTime = document.getElementById("lastRefreshTime");
     if (refreshTime) refreshTime.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   } catch (error) {
@@ -155,7 +291,13 @@ async function loadDashboard() {
 }
 
 async function clearRecentAlerts() {
-  const confirmed = window.confirm("\u786e\u5b9a\u6e05\u7406\u6700\u8fd1\u544a\u8b66\uff1f\u6b64\u64cd\u4f5c\u4f1a\u540c\u6b65\u5220\u9664\u6570\u636e\u5e93\u4e2d\u7684\u544a\u8b66\u8bb0\u5f55\uff0c\u4e14\u4e0d\u53ef\u6062\u590d\u3002");
+  const confirmed = await showConfirmDialog({
+    title: "\u6e05\u7406\u6700\u8fd1\u544a\u8b66",
+    message: "\u6b64\u64cd\u4f5c\u4f1a\u540c\u6b65\u5220\u9664\u6570\u636e\u5e93\u4e2d\u7684\u544a\u8b66\u8bb0\u5f55\u3002",
+    detail: "\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\u3002",
+    confirmText: "\u6e05\u7406",
+    danger: true,
+  });
   if (!confirmed) return;
   try {
     const result = await LiveMonitorApi.clearAlerts();
@@ -216,8 +358,107 @@ function renderServiceTable() {
     return;
   }
 
-  container.innerHTML = groups.map(renderServiceGroupCard).join("");
+  container.innerHTML = `
+    <div class="service-list-table-head" role="row">
+      <span></span>
+      <span>状态</span>
+      <span></span>
+      <span>服务信息</span>
+      <span>实例状态</span>
+      <span>最后检测时间</span>
+      <span>操作</span>
+    </div>
+    ${groups.map(renderServiceGroupCard).join("")}
+  `;
   if (window.lucide) window.lucide.createIcons();
+}
+
+function exportServiceListExcel() {
+  const rows = currentServiceExportRows();
+  if (!rows.length) {
+    showToast("暂无可导出的服务数据");
+    return;
+  }
+  const columns = [
+    ["group", "分组"],
+    ["serviceName", "服务名称"],
+    ["serviceType", "服务类型"],
+    ["endpoint", "地址"],
+    ["status", "状态"],
+    ["responseTime", "响应时间(ms)"],
+    ["lastCheckedAt", "最近上报时间"],
+    ["alertGroup", "告警组"],
+    ["checkInterval", "检测间隔"],
+    ["enabled", "是否启用"],
+    ["monitorReason", "监控说明"],
+  ];
+  const xmlRows = [
+    excelRow(columns.map(([, title]) => title), true),
+    ...rows.map((row) => excelRow(columns.map(([key]) => row[key]))),
+  ].join("");
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="Text"><NumberFormat ss:Format="@"/></Style>
+  </Styles>
+  <Worksheet ss:Name="服务列表">
+    <Table>${xmlRows}</Table>
+  </Worksheet>
+</Workbook>`;
+  const blob = new Blob(["\ufeff", xml], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `服务列表_${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  URL.revokeObjectURL(link.href);
+  link.remove();
+  showToast(`已导出 ${rows.length} 条服务数据`);
+}
+
+function currentServiceExportRows() {
+  return buildServiceGroups(dashboardState.services)
+    .flatMap((group) => {
+      const visibleInstances = group.instances.filter((service) =>
+        instanceMatchesDashboardFilter(service, group)
+        && instanceMatchesGroupStatus(service, group.key)
+        && instanceMatchesGroupQuery(service, group.key)
+      );
+      return visibleInstances.map((service) => ({
+        group: group.clusterName || group.name || "默认分组",
+        serviceName: service.service_name || "",
+        serviceType: serviceTypeLabel(service.service_type),
+        endpoint: endpointText(service),
+        status: statusLabel(service.last_status),
+        responseTime: service.last_response_time_ms ?? "",
+        lastCheckedAt: formatTime(service.last_checked_at),
+        alertGroup: serviceAlertGroupLabel(service, "未绑定告警组"),
+        checkInterval: formatCheckInterval(service.check_interval),
+        enabled: service.enabled ? "是" : "否",
+        monitorReason: service.monitor_reason || "",
+      }));
+    });
+}
+
+function excelRow(values, header = false) {
+  const style = header ? ' ss:StyleID="Header"' : ' ss:StyleID="Text"';
+  return `<Row>${values.map((value) =>
+    `<Cell${style}><Data ss:Type="String">${escapeXml(value ?? "")}</Data></Cell>`
+  ).join("")}</Row>`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 }
 
 function buildServiceGroups(services) {
@@ -367,7 +608,7 @@ function renderLegacyServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <a class="primary-button" href="${addInstanceHref}">
@@ -387,7 +628,7 @@ function renderDashboardAlertGroupOptions(selectedId) {
   const mixed = selectedId === "__mixed";
   return [
     mixed ? '<option value="__mixed" selected>当前为混合配置</option>' : "",
-    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警</option>`,
+    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警组</option>`,
     ...dashboardState.alertGroups.map((group) => `
       <option value="${group.id}" ${Number(selectedId) === Number(group.id) ? "selected" : ""}>
         ${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停"}
@@ -411,11 +652,11 @@ function renderLegacyInstanceRow(service) {
       </div>
       <div class="instance-meta">
         <span>${formatTime(service.last_checked_at)}</span>
-        <small>${escapeHtml(service.alert_group_name || "未绑定告")}</small>
+        <small>${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</small>
       </div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}"><i data-lucide="eye"></i></a>
-        <button title="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button title="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         ${serviceOpenButton(service)}
         <a title="配置" href="${serviceEditHref(service.id)}"><i data-lucide="settings"></i></a>
       </div>
@@ -427,7 +668,7 @@ function renderDashboardAlertGroupOptions(selectedId) {
   const mixed = selectedId === "__mixed";
   return [
     mixed ? '<option value="__mixed" selected>混合配置</option>' : "",
-    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警</option>`,
+    `<option value="" ${selectedId === "" ? "selected" : ""}>不绑定告警组</option>`,
     ...dashboardState.alertGroups.map((group) => `
       <option value="${group.id}" ${Number(selectedId) === Number(group.id) ? "selected" : ""}>
         ${escapeHtml(group.group_name)}${group.enabled ? "" : " / 已停"}
@@ -501,7 +742,7 @@ function renderServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -545,11 +786,11 @@ function renderInstanceRow(service) {
       </div>
       <div class="instance-meta">
         <span>${formatTime(service.last_checked_at)}</span>
-        <small>${escapeHtml(service.alert_group_name || "未绑定告")}</small>
+        <small>${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</small>
       </div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}"><i data-lucide="eye"></i></a>
-        <button type="button" title="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button type="button" title="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         ${serviceOpenButton(service)}
         <a class="instance-text-action" title="编辑实例" href="${serviceEditHref(service.id)}"><i data-lucide="pencil"></i><span>编辑</span></a>
         <button class="instance-text-action danger" type="button" title="删除实例" onclick="deleteServiceInstance(${service.id})"><i data-lucide="trash-2"></i><span>删除</span></button>
@@ -606,7 +847,7 @@ function renderServiceGroupCard(group) {
               ${renderDashboardAlertGroupOptions(group.commonAlertGroupId)}
             </select>
           </label>
-          <button class="icon-button" type="button" title="检测全部实" aria-label="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" aria-label="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -643,23 +884,23 @@ function renderServiceGroupCard(group) {
             <div class="instance-table-head">
               <span>实例名称</span>
               <span>类型</span>
-              <span>状"/span>
+              <span>状态</span>
               <span>响应时间</span>
               <span>监控图表</span>
-              <span>最后上报时"/span>
-              <span>告警状"/span>
+              <span>最后上报时间</span>
+              <span>告警组</span>
               <span>操作</span>
             </div>
             ${group.visibleInstances.map(renderInstanceRow).join("") || '<p class="empty">暂无匹配实例</p>'}
           </div>
         </div>
         <div class="instance-list-footer">
-          <span>"${group.visibleInstances.length} "/span>
+          <span>共 ${group.visibleInstances.length} 条</span>
           <div class="pager">
-            <button class="icon-button" type="button" disabled aria-label="上一"><i data-lucide="chevron-left"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="上一页"><i data-lucide="chevron-left"></i></button>
             <button class="page-number active" type="button">1</button>
-            <button class="icon-button" type="button" disabled aria-label="下一"><i data-lucide="chevron-right"></i></button>
-            <button class="page-size" type="button">10 ""<i data-lucide="chevron-down"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="下一页"><i data-lucide="chevron-right"></i></button>
+            <button class="page-size" type="button">10 条/页<i data-lucide="chevron-down"></i></button>
           </div>
         </div>
       </div>
@@ -685,10 +926,10 @@ function renderInstanceRow(service) {
       <div class="instance-latency">${renderLatency(service.last_response_time_ms)}</div>
       <div class="instance-health">${renderSparkline(service)}</div>
       <div class="instance-meta"><span>${formatTime(service.last_checked_at)}</span></div>
-      <div class="instance-alert-state">${escapeHtml(service.alert_group_name || "未绑定告")}</div>
+      <div class="instance-alert-state">${escapeHtml(serviceAlertGroupLabel(service, "未绑定告警组"))}</div>
       <div class="row-actions compact">
         <a title="详情" href="${serviceDetailHref(service.id)}" aria-label="详情"><i data-lucide="eye"></i></a>
-        <button type="button" title="立即检" aria-label="立即检" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
+        <button type="button" title="立即检测" aria-label="立即检测" onclick="manualCheck(${service.id})"><i data-lucide="refresh-cw"></i></button>
         <a title="编辑实例" href="${serviceEditHref(service.id)}" aria-label="编辑实例"><i data-lucide="pencil"></i></a>
         <button class="danger" type="button" title="删除实例" aria-label="删除实例" onclick="deleteServiceInstance(${service.id})"><i data-lucide="trash-2"></i></button>
       </div>
@@ -742,7 +983,7 @@ function renderServiceGroupCard(group) {
               </label>
             </div>
           </details>
-          <button class="icon-button" type="button" title="检测全部实" aria-label="检测全部实" onclick="manualCheckGroup(${group.index})">
+          <button class="icon-button" type="button" title="检测全部实例" aria-label="检测全部实例" onclick="manualCheckGroup(${group.index})">
             <i data-lucide="refresh-cw"></i>
           </button>
           <details class="action-menu">
@@ -779,23 +1020,23 @@ function renderServiceGroupCard(group) {
             <div class="instance-table-head">
               <span>实例名称</span>
               <span>类型</span>
-              <span>状"/span>
+              <span>状态</span>
               <span>响应时间</span>
               <span>趋势</span>
-              <span>最后上报时"/span>
-              <span>告警状"/span>
+              <span>最后上报时间</span>
+              <span>告警组</span>
               <span>操作</span>
             </div>
             ${group.visibleInstances.map(renderInstanceRow).join("") || '<p class="empty">暂无匹配实例</p>'}
           </div>
         </div>
         <div class="instance-list-footer">
-          <span>"${group.visibleInstances.length} "/span>
+          <span>共 ${group.visibleInstances.length} 条</span>
           <div class="pager">
-            <button class="icon-button" type="button" disabled aria-label="上一"><i data-lucide="chevron-left"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="上一页"><i data-lucide="chevron-left"></i></button>
             <button class="page-number active" type="button">1</button>
-            <button class="icon-button" type="button" disabled aria-label="下一"><i data-lucide="chevron-right"></i></button>
-            <button class="page-size" type="button">10 ""<i data-lucide="chevron-down"></i></button>
+            <button class="icon-button" type="button" disabled aria-label="下一页"><i data-lucide="chevron-right"></i></button>
+            <button class="page-size" type="button">10 条/页<i data-lucide="chevron-down"></i></button>
           </div>
         </div>
       </div>
@@ -849,7 +1090,14 @@ function focusServiceGroupAlert(index) {
 async function deleteServiceInstance(id) {
   const service = dashboardState.services.find((item) => Number(item.id) === Number(id));
   const name = service?.service_name || "该实例";
-  if (!window.confirm(`确定删除实例「${name}」？该实例的检测记录和告警记录也会被删除。`)) return;
+  const confirmed = await showConfirmDialog({
+    title: "\u5220\u9664\u5b9e\u4f8b",
+    message: `\u786e\u5b9a\u5220\u9664\u5b9e\u4f8b\u300c${name}\u300d\uff1f`,
+    detail: "\u8be5\u5b9e\u4f8b\u7684\u68c0\u6d4b\u8bb0\u5f55\u548c\u544a\u8b66\u8bb0\u5f55\u4e5f\u4f1a\u88ab\u5220\u9664\u3002",
+    confirmText: "\u5220\u9664",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await LiveMonitorApi.deleteService(id);
     await loadDashboard();
@@ -863,7 +1111,14 @@ async function deleteServiceGroup(index) {
   const group = dashboardState.serviceGroups[index];
   if (!group) return;
   const count = group.instances.length;
-  if (!window.confirm(`确定删除服务「${group.name}」？这会删除该服务下 ${count} 个实例。`)) return;
+  const confirmed = await showConfirmDialog({
+    title: "\u5220\u9664\u670d\u52a1",
+    message: `\u786e\u5b9a\u5220\u9664\u670d\u52a1\u300c${group.name}\u300d\uff1f`,
+    detail: `\u8fd9\u4f1a\u5220\u9664\u8be5\u670d\u52a1\u4e0b ${count} \u4e2a\u5b9e\u4f8b\u3002`,
+    confirmText: "\u5220\u9664",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await Promise.all(group.instances.map((service) => LiveMonitorApi.deleteService(service.id)));
     dashboardState.expandedServiceGroupKeys.delete(group.key);
@@ -907,7 +1162,7 @@ async function applyServiceGroupAlert(index, value) {
       LiveMonitorApi.updateServiceAlertGroup(service.id, { alert_group_id: alertGroupId })
     ));
     await loadDashboard();
-    showToast("实例告警已批量关");
+    showToast("实例告警绑定已批量更新");
   } catch (error) {
     showToast(error.message);
     renderServiceTable();
@@ -916,16 +1171,39 @@ async function applyServiceGroupAlert(index, value) {
 
 
 function renderDashboardMetrics(summary) {
-  const total = Number(summary.total || dashboardState.services.length || 0);
-  const up = Number(summary.up || 0);
-  const down = Number(summary.down || 0);
-  const unknown = Math.max(0, total - up - down);
+  const total = Number(summary.total ?? dashboardState.services.length ?? 0);
+  const instances = Number(summary.instances ?? dashboardState.services.length ?? total);
+  const up = Number(summary.up ?? 0);
+  const down = Number(summary.down ?? 0);
+  const unknown = Math.max(0, instances - up - down);
+  const trends = summary.trends || {};
   setText("totalCount", String(total));
-  setText("instanceCount", String(dashboardState.services.length || total));
+  setText("instanceCount", String(instances));
   setText("upCount", String(up));
   setText("downCount", String(down));
   setText("unknownCount", String(unknown));
+  setText("alertMetric", String(Number(summary.today_alerts ?? 0)));
+  renderDashboardTrend("totalCount", trends.total);
+  renderDashboardTrend("instanceCount", trends.instances);
+  renderDashboardTrend("upCount", trends.up);
+  renderDashboardTrend("downCount", trends.down, true);
+  renderDashboardTrend("alertMetric", trends.alerts, true);
   renderStatusFilterCards();
+}
+
+function renderDashboardTrend(countId, delta, lowerIsBetter = false) {
+  const countNode = document.getElementById(countId);
+  const metric = countNode?.closest(".metric");
+  const small = metric?.querySelector("small");
+  if (!small) return;
+  const value = Number(delta || 0);
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+  const className = lowerIsBetter
+    ? (isPositive ? "trend-down" : "trend-up")
+    : (isNegative ? "trend-down" : "trend-up");
+  const text = value > 0 ? `+${value}` : String(value);
+  small.innerHTML = `较昨日 <span class="${className}">${text}</span>`;
 }
 
 function renderStatusFilterCards() {
@@ -982,6 +1260,7 @@ function renderServiceGroupCard(group) {
   const collapsed = !dashboardState.expandedServiceGroupKeys.has(group.key);
   const addInstanceHref = `/services/new?cluster_name=${encodeURIComponent(group.name)}`;
   const bodyId = `service-group-body-${group.index}`;
+  const latestCheckedAt = latestGroupCheckTime(group.instances);
 
   return `
     <article class="service-row-card service-group-${group.status}">
@@ -996,7 +1275,7 @@ function renderServiceGroupCard(group) {
           <p>${escapeHtml(types || "\u76d1\u63a7\u670d\u52a1")}</p>
           <p>\u5206\u7ec4: ${escapeHtml(group.clusterName || "\u9ed8\u8ba4\u5206\u7ec4")}</p>
         </div>
-        <div class="service-row-meta">
+        <div class="service-row-stats">
           <div class="service-stat-row" aria-label="\u5b9e\u4f8b\u72b6\u6001\u7b5b\u9009">
             ${renderGroupStatButton("\u5b9e\u4f8b", total, "all", group.index, group.key)}
             ${renderGroupStatButton("\u6b63\u5e38", up, "UP", group.index, group.key)}
@@ -1004,7 +1283,13 @@ function renderServiceGroupCard(group) {
             ${renderGroupStatButton("\u672a\u77e5", unknown, "UNKNOWN", group.index, group.key)}
           </div>
           <p><i data-lucide="bell"></i> \u544a\u8b66\u7b56\u7565: ${escapeHtml(alertBindingText(group))}</p>
-          <p><i data-lucide="clock-3"></i> \u6700\u540e\u66f4\u65b0\u65f6\u95f4: ${formatTime(latestGroupCheckTime(group.instances))}</p>
+        </div>
+        <div class="service-row-time">
+          <i data-lucide="clock-3"></i>
+          <div>
+            <strong>${formatTime(latestCheckedAt)}</strong>
+            <small>${relativeTime(latestCheckedAt)}</small>
+          </div>
         </div>
         <div class="service-row-actions">
           <button class="icon-button" type="button" title="\u7acb\u5373\u68c0\u6d4b" aria-label="\u7acb\u5373\u68c0\u6d4b" onclick="manualCheckGroup(${group.index})">
@@ -1022,7 +1307,7 @@ function renderServiceGroupCard(group) {
 function renderInstancePanel(group, bodyId, collapsed) {
   const query = dashboardState.instanceQueries[group.key] || "";
   const rows = group.visibleInstances.filter((service) => instanceMatchesGroupQuery(service, group.key));
-  const pageSize = 8;
+  const pageSize = 20;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(Math.max(1, Number(dashboardState.instancePages[group.key] || 1)), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -1129,16 +1414,23 @@ function renderAlerts(container, alerts, options = {}) {
     container.innerHTML = '<p class="empty">\u6682\u65e0\u544a\u8b66</p>';
     return;
   }
-  container.innerHTML = rows.slice(0, 4).map((alert, index) => `
-    <article class="alert-item">
-      <span class="alert-icon ${index > 1 ? "warning" : ""}"><i data-lucide="${index > 1 ? "octagon-alert" : "triangle-alert"}"></i></span>
-      <span>
-        <strong>${escapeHtml(alert.service_name || alert.alert_type || "\u544a\u8b66")}</strong>
-        <p>${escapeHtml(alert.alert_content || alert.alert_type || "-")}</p>
-      </span>
-      <time class="alert-time">${relativeTime(alert.created_at)}</time>
-    </article>
-  `).join("");
+  container.innerHTML = rows.slice(0, 4).map((alert, index) => {
+    const summary = alertContentSummary(alert.alert_content || "");
+    const content = [
+      summary.reason,
+      ...summary.metrics,
+    ].filter(Boolean).join(" / ") || summary.text || alert.alert_type || "-";
+    return `
+      <article class="alert-item" title="${escapeHtml(summary.text || content)}">
+        <span class="alert-icon ${index > 1 ? "warning" : ""}"><i data-lucide="${index > 1 ? "octagon-alert" : "triangle-alert"}"></i></span>
+        <span>
+          <strong>${escapeHtml(alert.service_name || summary.title || alert.alert_type || "\u544a\u8b66")}</strong>
+          <p>${escapeHtml(content)}</p>
+        </span>
+        <time class="alert-time">${relativeTime(alert.created_at)}</time>
+      </article>
+    `;
+  }).join("");
   if (window.lucide) window.lucide.createIcons();
 }
 

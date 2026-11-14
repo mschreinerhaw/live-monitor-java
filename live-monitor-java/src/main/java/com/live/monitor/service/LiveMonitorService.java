@@ -7,9 +7,11 @@ import com.live.monitor.dto.CheckResult;
 import com.live.monitor.dto.ServicePayload;
 import com.live.monitor.entity.MonitorResult;
 import com.live.monitor.entity.MonitorService;
+import com.live.monitor.entity.ServiceAlertGroupBinding;
 import com.live.monitor.mapper.MonitorServiceMapper;
 import com.live.monitor.store.RocksDbHistoryRepository;
 import com.live.monitor.util.CheckIntervals;
+import com.live.monitor.util.MonitorTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -28,12 +30,19 @@ import org.springframework.web.server.ResponseStatusException;
 public class LiveMonitorService {
     private static final TypeReference<Map<String, Object>> STRING_OBJECT_MAP =
         new TypeReference<Map<String, Object>>() {};
+    private static final DateTimeFormatter TEXT_TIME = MonitorTime.TEXT_TIME;
 
+    private final java.util.Set<Long> activeChecks = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    @org.springframework.beans.factory.annotation.Autowired
+    private MonitorCheckExecution checkExecution;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.live.monitor.alert.AlertTaskAdmin taskAdmin;
     private final MonitorServiceMapper serviceMapper;
     private final RocksDbHistoryRepository historyRepository;
     private final MonitorRunnerService runnerService;
     private final AlertService alertService;
     private final ObjectMapper objectMapper;
+    private final CryptoService cryptoService;
     private final TransactionTemplate transactionTemplate;
 
     public LiveMonitorService(
@@ -42,6 +51,7 @@ public class LiveMonitorService {
         MonitorRunnerService runnerService,
         AlertService alertService,
         ObjectMapper objectMapper,
+        CryptoService cryptoService,
         TransactionTemplate transactionTemplate
     ) {
         this.serviceMapper = serviceMapper;
@@ -49,6 +59,7 @@ public class LiveMonitorService {
         this.runnerService = runnerService;
         this.alertService = alertService;
         this.objectMapper = objectMapper;
+        this.cryptoService = cryptoService;
         this.transactionTemplate = transactionTemplate;
     }
 
@@ -58,27 +69,29 @@ public class LiveMonitorService {
             hydrateTypedFields(row);
             maskSecrets(row);
         }
+        populateAlertGroupBindings(rows);
         return rows;
     }
 
     public MonitorService getService(Long id) {
         MonitorService service = requireService(id);
         maskSecrets(service);
+        populateAlertGroupBindings(java.util.Collections.singletonList(service));
         return service;
     }
 
     @Transactional
     public MonitorService create(ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(null, payload);
         MonitorService service = fromPayload(payload);
         serviceMapper.insert(service);
-        syncAlertGroup(service.id, payload.alertGroupId);
+        syncAlertGroups(service.id, resolveGroupIds(payload));
         return getService(service.id);
     }
 
     @Transactional
     public MonitorService update(Long id, ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(id, payload);
         MonitorService existing = requireService(id);
         MonitorService service = fromPayload(payload);
         service.id = id;
@@ -88,30 +101,123 @@ public class LiveMonitorService {
         if (serviceMapper.update(service) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "service not found");
         }
-        syncAlertGroup(id, payload.alertGroupId);
+        syncAlertGroups(id, resolveGroupIds(payload));
         return getService(id);
+    }
+
+    private java.util.List<Long> resolveGroupIds(ServicePayload payload) {
+        if (payload.alertGroupIds != null) return payload.alertGroupIds;
+        if (payload.alertGroupId != null) return java.util.Collections.singletonList(payload.alertGroupId);
+        return java.util.Collections.emptyList();
     }
 
     public boolean delete(Long id) {
         return serviceMapper.delete(id) > 0;
     }
 
+    @Transactional
+    public MonitorService bindAlertGroups(Long serviceId, java.util.List<Long> groupIds) {
+        requireService(serviceId);
+        syncAlertGroups(serviceId, groupIds);
+        return getService(serviceId);
+    }
+
     public CheckResult test(ServicePayload payload) {
-        validatePayload(payload);
+        validatePayload(null, payload);
         return runnerService.run(fromPayload(payload));
     }
 
+    public CheckResult test(Long id, ServicePayload payload) {
+        validatePayload(id, payload);
+        MonitorService existing = requireService(id);
+        MonitorService service = fromPayload(payload);
+        if (!hasSecretPayload(payload) && sameType(existing.serviceType, service.serviceType)) {
+            service.secretConfigJson = existing.secretConfigJson;
+            hydrateTypedFields(service);
+        }
+        return runnerService.run(service);
+    }
+
+    public String databasePasswordForPreview(Long id, String serviceType, String password) {
+        return databasePasswordForPreview(id, serviceType, null, password);
+    }
+
+    public String databasePasswordForPreview(Long id, String serviceType, Long connectionServiceId, String password) {
+        if (connectionServiceId != null) {
+            return databaseConnectionSource(null, serviceType, connectionServiceId).databasePassword;
+        }
+        if (StringUtils.hasText(password) || id == null) {
+            return password;
+        }
+        MonitorService existing = requireService(id);
+        if (sameType(existing.serviceType, serviceType) && isDatabaseType(existing.serviceType)) {
+            return existing.databasePassword;
+        }
+        return password;
+    }
+
+    public List<MonitorService> databaseConnections(boolean includeDisabled) {
+        List<MonitorService> rows = serviceMapper.list(includeDisabled ? 1 : 0);
+        List<MonitorService> result = new java.util.ArrayList<MonitorService>();
+        for (MonitorService row : rows) {
+            if (!isDatabaseType(row.serviceType)) {
+                continue;
+            }
+            Map<String, Object> config = parseJsonMap(row.configJson);
+            if (longValue(config, "database_connection_service_id", null) != null) {
+                continue;
+            }
+            hydrateTypedFields(row);
+            maskSecrets(row);
+            result.add(row);
+        }
+        return result;
+    }
+
+    public MonitorService databaseConnectionForUse(String serviceType, Long connectionServiceId) {
+        if (!StringUtils.hasText(serviceType)) {
+            return databaseConnectionSourceAny(null, connectionServiceId);
+        }
+        return databaseConnectionSource(null, serviceType, connectionServiceId);
+    }
+
     public MonitorResult checkAndStore(Long id) {
+        if (!activeChecks.add(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Check already running for service " + id);
+        }
+        try {
+            return performCheckAndStore(id);
+        } finally {
+            activeChecks.remove(id);
+        }
+    }
+
+    private MonitorResult performCheckAndStore(Long id) {
         MonitorService service = requireService(id);
-        String previousStatus = serviceMapper.latestStatus(id);
-        CheckResult check = runnerService.run(service);
-        return transactionTemplate.execute(status -> {
+        if (!Boolean.TRUE.equals(service.enabled)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "service is disabled");
+        }
+        populateAlertGroupBindings(java.util.Collections.singletonList(service));
+        CheckResult check;
+        try {
+            check = checkExecution == null ? runnerService.run(service) : checkExecution.run(service, () -> runnerService.run(service));
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            check = new CheckResult("UNKNOWN", 0, "CHECKER_INTERNAL_ERROR: " + ex.getClass().getSimpleName());
+        }
+        final CheckResult checked = check;
+        final String observedAt=MonitorTime.nowText();
+        for(int attempt=0;;attempt++)try{return transactionTemplate.execute(status -> {
             MonitorResult result = new MonitorResult();
             result.serviceId = id;
-            result.status = check.status == null ? "UNKNOWN" : check.status;
-            result.responseTimeMs = check.responseTimeMs;
-            result.message = check.message;
-            MonitorResult stored = historyRepository.saveMonitorResult(result);
+            result.status = checked.status == null ? "UNKNOWN" : checked.status;
+            result.responseTimeMs = checked.responseTimeMs;
+            result.message = checked.message;
+            result.eventType = checked.eventType;
+            result.alertType = checked.alertType;
+            result.checkedAt = observedAt;
+            MonitorResult stored = result;
             serviceMapper.upsertLatestStatus(
                 stored.serviceId,
                 stored.status,
@@ -119,13 +225,23 @@ public class LiveMonitorService {
                 stored.message,
                 stored.checkedAt
             );
-            alertService.evaluate(service, stored, previousStatus);
+            alertService.publishCheckEvent(service, stored);
             return stored;
-        });
+        });}catch(org.springframework.dao.TransientDataAccessException transientFailure){
+            if(attempt>=2)throw transientFailure;
+            org.slf4j.LoggerFactory.getLogger(LiveMonitorService.class).warn("Retrying monitor event transaction for service {} after {}",id,transientFailure.getClass().getSimpleName());
+            try{Thread.sleep(50L<<attempt);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw transientFailure;}
+        }
     }
 
     public Map<String, Object> dashboard() {
         List<MonitorService> services = listServices(false);
+        LocalDateTime todayStart = MonitorTime.today().atStartOfDay();
+        LocalDateTime yesterdayStart = todayStart.minusDays(1);
+        int serviceTotal = serviceGroupCount(services, null);
+        int yesterdayServiceTotal = serviceGroupCount(services, todayStart);
+        int instanceTotal = services.size();
+        int yesterdayInstanceTotal = serviceCountBefore(services, todayStart);
         Map<String, Object> summary = new HashMap<String, Object>();
         int up = 0;
         int down = 0;
@@ -139,18 +255,121 @@ public class LiveMonitorService {
                 unknown++;
             }
         }
-        summary.put("total", services.size());
+        Map<String, Integer> yesterdayStatus = statusCountBefore(services, todayStart);
+        int todayAlerts = historyRepository.countAlertsBetween(formatTime(todayStart), formatTime(todayStart.plusDays(1)));
+        int yesterdayAlerts = historyRepository.countAlertsBetween(formatTime(yesterdayStart), formatTime(todayStart));
+        if (taskAdmin != null) {
+            todayAlerts += taskAdmin.countBetween(formatTime(todayStart), formatTime(todayStart.plusDays(1)));
+            yesterdayAlerts += taskAdmin.countBetween(formatTime(yesterdayStart), formatTime(todayStart));
+        }
+        Map<String, Object> trends = new HashMap<String, Object>();
+        trends.put("total", serviceTotal - yesterdayServiceTotal);
+        trends.put("instances", instanceTotal - yesterdayInstanceTotal);
+        trends.put("up", up - yesterdayStatus.get("up"));
+        trends.put("down", down - yesterdayStatus.get("down"));
+        trends.put("alerts", todayAlerts - yesterdayAlerts);
+
+        summary.put("total", serviceTotal);
+        summary.put("instances", instanceTotal);
         summary.put("up", up);
         summary.put("down", down);
         summary.put("unknown", unknown);
+        summary.put("today_alerts", todayAlerts);
+        summary.put("yesterday_alerts", yesterdayAlerts);
+        summary.put("trends", trends);
 
         Map<String, Object> dashboard = new HashMap<String, Object>();
         dashboard.put("summary", summary);
         dashboard.put("services", services);
-        dashboard.put("recent_alerts", enrichAlerts(historyRepository.listAlerts(null, 10), services));
+        dashboard.put("recent_alerts", enrichAlerts(readAlerts(null, 10), services));
         dashboard.put("recent_results", enrichResults(historyRepository.listRecentMonitorResults(10), services));
-        dashboard.put("server_time", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        dashboard.put("server_time", MonitorTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         return dashboard;
+    }
+
+    private int serviceGroupCount(List<MonitorService> services, LocalDateTime before) {
+        Map<String, Boolean> groups = new HashMap<String, Boolean>();
+        for (MonitorService service : services) {
+            if (before != null && !serviceExistedBefore(service, before)) {
+                continue;
+            }
+            String clusterName = emptyToNull(service.clusterName);
+            String key = clusterName == null ? "service:" + service.id : "cluster:" + clusterName;
+            groups.put(key, Boolean.TRUE);
+        }
+        return groups.size();
+    }
+
+    private int serviceCountBefore(List<MonitorService> services, LocalDateTime before) {
+        int count = 0;
+        for (MonitorService service : services) {
+            if (serviceExistedBefore(service, before)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private Map<String, Integer> statusCountBefore(List<MonitorService> services, LocalDateTime before) {
+        List<Long> serviceIds = new java.util.ArrayList<Long>(services.size());
+        for (MonitorService s : services) {
+            if (s.id != null) {
+                serviceIds.add(s.id);
+            }
+        }
+        Map<Long, MonitorResult> latestByService = historyRepository.latestMonitorResultsBefore(serviceIds, formatTime(before));
+        Map<String, Integer> counts = new HashMap<String, Integer>();
+        counts.put("up", 0);
+        counts.put("down", 0);
+        counts.put("unknown", 0);
+        for (MonitorService service : services) {
+            if (!serviceExistedBefore(service, before)) {
+                continue;
+            }
+            MonitorResult latest = latestByService.get(service.id);
+            String status = latest == null ? "UNKNOWN" : latest.status;
+            if ("UP".equals(status)) {
+                counts.put("up", counts.get("up") + 1);
+            } else if ("DOWN".equals(status)) {
+                counts.put("down", counts.get("down") + 1);
+            } else {
+                counts.put("unknown", counts.get("unknown") + 1);
+            }
+        }
+        return counts;
+    }
+
+    private boolean serviceExistedBefore(MonitorService service, LocalDateTime before) {
+        if (!StringUtils.hasText(service.createdAt)) {
+            return true;
+        }
+        return parseTime(service.createdAt).isBefore(before);
+    }
+
+    private LocalDateTime parseTime(String value) {
+        if (!StringUtils.hasText(value)) {
+            return MonitorTime.now();
+        }
+        String text = value.trim().replace('T', ' ');
+        if (text.length() == 19) {
+            text = text + ".000";
+        }
+        if (text.length() > 23) {
+            text = text.substring(0, 23);
+        }
+        try {
+            return LocalDateTime.parse(text, TEXT_TIME);
+        } catch (Exception ignored) {
+            try {
+                return LocalDateTime.parse(value);
+            } catch (Exception ignoredAgain) {
+                return MonitorTime.now();
+            }
+        }
+    }
+
+    private String formatTime(LocalDateTime value) {
+        return MonitorTime.formatText(value);
     }
 
     public List<MonitorResult> results(Long serviceId, int limit) {
@@ -163,12 +382,19 @@ public class LiveMonitorService {
     }
 
     public List<com.live.monitor.entity.AlertRecord> alerts(Long serviceId, int limit) {
-        List<com.live.monitor.entity.AlertRecord> rows = historyRepository.listAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
+        List<com.live.monitor.entity.AlertRecord> rows = readAlerts(serviceId, Math.max(1, Math.min(limit, 200)));
         return enrichAlerts(rows, listServices(true));
     }
 
     public int clearAlerts() {
         return historyRepository.deleteAllAlerts();
+    }
+
+    private List<com.live.monitor.entity.AlertRecord> readAlerts(Long serviceId, int limit) {
+        List<com.live.monitor.entity.AlertRecord> rows = new java.util.ArrayList<>(historyRepository.listAlerts(serviceId, limit));
+        if (taskAdmin != null) rows.addAll(taskAdmin.recentAlerts(serviceId, limit));
+        rows.sort(java.util.Comparator.comparing((com.live.monitor.entity.AlertRecord r) -> r.createdAt == null ? "" : r.createdAt).reversed());
+        return new java.util.ArrayList<>(rows.subList(0, Math.min(limit, rows.size())));
     }
 
     private MonitorService requireService(Long id) {
@@ -222,10 +448,95 @@ public class LiveMonitorService {
     }
 
     private void syncAlertGroup(Long serviceId, Long groupId) {
-        if (groupId == null) {
-            serviceMapper.unbindAlertGroup(serviceId);
-        } else {
-            serviceMapper.bindAlertGroup(serviceId, groupId);
+        syncAlertGroups(serviceId, groupId == null ? null : java.util.Collections.singletonList(groupId));
+    }
+
+    /**
+     * Rebind the service to exactly {@code groupIds} (null / empty means unbind all).
+     * Deduplicates and skips null entries. Existing rows outside the target set are removed.
+     */
+    private void syncAlertGroups(Long serviceId, java.util.List<Long> groupIds) {
+        java.util.LinkedHashSet<Long> desired = new java.util.LinkedHashSet<>();
+        if (groupIds != null) {
+            for (Long id : groupIds) {
+                if (id != null) desired.add(id);
+            }
+        }
+        serviceMapper.unbindAlertGroup(serviceId);
+        for (Long id : desired) {
+            serviceMapper.bindAlertGroup(serviceId, id);
+        }
+        java.util.LinkedHashSet<Long> persisted = new java.util.LinkedHashSet<Long>();
+        for (ServiceAlertGroupBinding binding : serviceMapper.listServiceAlertGroups(
+            java.util.Collections.singletonList(serviceId)
+        )) {
+            if (binding.groupId != null) persisted.add(binding.groupId);
+        }
+        if (!persisted.equals(desired)) {
+            throw new IllegalStateException(
+                "alert group binding was not persisted; verify service_alert_group primary key"
+            );
+        }
+    }
+
+    /**
+     * Batch-load the alert-group bindings for the given services and populate
+     * {@code alertGroupIds}, {@code alertGroupNames}, and the legacy singular
+     * {@code alertGroupId} / {@code alertGroupName} / {@code alertGroupEnabled}
+     * (kept for backward compatibility — take the first bound group whose {@code enabled}
+     * is true, or the first group overall if none is enabled).
+     */
+    private void populateAlertGroupBindings(List<MonitorService> services) {
+        if (services == null || services.isEmpty()) return;
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (MonitorService s : services) {
+            if (s.id != null) ids.add(s.id);
+            s.alertGroupIds = new java.util.ArrayList<>();
+            s.alertGroupNames = new java.util.ArrayList<>();
+            s.alertGroupId = null;
+            s.alertGroupName = null;
+            s.alertGroupEnabled = null;
+        }
+        if (ids.isEmpty()) return;
+        List<ServiceAlertGroupBinding> rows = serviceMapper.listServiceAlertGroups(ids);
+        java.util.Map<Long, MonitorService> byId = new java.util.HashMap<>();
+        for (MonitorService s : services) if (s.id != null) byId.put(s.id, s);
+        java.util.Map<Long, Long> firstEnabledGroupByService = new java.util.HashMap<>();
+        java.util.Map<Long, String> firstEnabledNameByService = new java.util.HashMap<>();
+        java.util.Map<Long, Boolean> anyEnabledByService = new java.util.HashMap<>();
+        for (ServiceAlertGroupBinding row : rows) {
+            Long serviceId = row.serviceId;
+            Long groupId = row.groupId;
+            String groupName = row.groupName;
+            Boolean groupEnabled = row.groupEnabled;
+            MonitorService s = byId.get(serviceId);
+            if (s == null) continue;
+            s.alertGroupIds.add(groupId);
+            s.alertGroupNames.add(groupName);
+            if (s.alertGroupId == null) {
+                s.alertGroupId = groupId;
+                s.alertGroupName = groupName;
+                s.alertGroupEnabled = groupEnabled;
+            }
+            if (Boolean.TRUE.equals(groupEnabled)) {
+                anyEnabledByService.put(serviceId, Boolean.TRUE);
+                firstEnabledGroupByService.putIfAbsent(serviceId, groupId);
+                firstEnabledNameByService.putIfAbsent(serviceId, groupName);
+            }
+        }
+        // Prefer the first enabled group as the "primary" for legacy singular fields,
+        // so AlertService (which reads alertGroupId + alertGroupEnabled) keeps working.
+        for (MonitorService s : services) {
+            if (s.id == null) continue;
+            Long enabledGroup = firstEnabledGroupByService.get(s.id);
+            if (enabledGroup != null) {
+                s.alertGroupId = enabledGroup;
+                s.alertGroupName = firstEnabledNameByService.get(s.id);
+                s.alertGroupEnabled = Boolean.TRUE;
+            } else if (!s.alertGroupIds.isEmpty()) {
+                // No enabled group but there are bindings; primary already set to first row above.
+                s.alertGroupEnabled = anyEnabledByService.get(s.id) != null ? Boolean.TRUE : Boolean.FALSE;
+            }
         }
     }
 
@@ -237,6 +548,7 @@ public class LiveMonitorService {
             ? normalizeType(payload.serviceCategory)
             : inferCategory(service.serviceType);
         service.clusterName = emptyToNull(payload.clusterName);
+        service.monitorReason = emptyToNull(payload.monitorReason);
         service.host = emptyToNull(payload.host);
         service.port = payload.port == null ? defaultPort(service.serviceType) : payload.port;
         service.endpoint = preferredEndpoint(payload, service.port);
@@ -250,23 +562,32 @@ public class LiveMonitorService {
 
         Map<String, Object> config = copyMap(payload.config);
         Map<String, Object> secretConfig = copyMap(payload.secretConfig);
+        applyServiceAlertConfig(payload, service, config);
         applyLegacyPayloadConfig(payload, service, config, secretConfig);
         service.configJson = toJson(config);
-        service.secretConfigJson = toJson(secretConfig);
+        service.secretConfigJson = toEncryptedJson(secretConfig);
         hydrateTypedFields(service);
         return service;
     }
 
     private void validatePayload(ServicePayload payload) {
+        validatePayload(null, payload);
+    }
+
+    private void validatePayload(Long currentServiceId, ServicePayload payload) {
         String type = normalizeType(payload.serviceType);
+        if ("dolphinscheduler".equals(type)) {
+            try { DolphinSchedulerService.validate(payload.config); }
+            catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage()); }
+        }
         if (!StringUtils.hasText(type) || !type.matches("[a-z0-9_.-]+")) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service_type must contain only letters, numbers, dot, dash, or underscore");
         }
         if (isWebUrlType(type) && !StringUtils.hasText(payload.url)) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "url is required for web services");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "url is required for HTTP request services");
         }
         if (isWebUrlType(type) && !isHttpUrl(payload.url)) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "web service url must start with http:// or https://");
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "service url must start with http:// or https://");
         }
         if ("process".equals(type)
             && (!StringUtils.hasText(payload.host) && payload.hostId == null)) {
@@ -286,17 +607,71 @@ public class LiveMonitorService {
         if (("port".equals(type) || "tcp".equals(type)) && (!StringUtils.hasText(payload.host) || payload.port == null)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host and port are required for port checks");
         }
-        if (isDatabaseType(type) && !StringUtils.hasText(payload.host)) {
+        if ("cross_database".equals(type)) {
+            validateCrossDatabasePayload(currentServiceId, payload);
+            return;
+        }
+        if ("data_send".equals(type)) {
+            if (payload.databaseConnectionServiceId == null) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "请选择引用的数据库资产");
+            }
+            if (!StringUtils.hasText(payload.databaseQuery)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "查询语句不能为空");
+            }
+            if (payload.dataSendSelectedColumns != null && payload.dataSendSelectedColumns.size() > 4) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "发送列数不能超过 4 列（手机短信限制）");
+            }
+            databaseConnectionSourceAny(currentServiceId, payload.databaseConnectionServiceId);
+            return;
+        }
+        boolean usesDatabaseConnectionReference = isDatabaseType(type) && payload.databaseConnectionServiceId != null;
+        if (usesDatabaseConnectionReference) {
+            databaseConnectionSource(currentServiceId, type, payload.databaseConnectionServiceId);
+        }
+        if (isDatabaseType(type) && !usesDatabaseConnectionReference && !"jdbc".equals(type) && !StringUtils.hasText(payload.host)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "host is required for database services");
         }
-        if ("oracle".equals(type) && !StringUtils.hasText(payload.databaseName)) {
+        if ("oracle".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.databaseName)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database_name is required for Oracle services");
+        }
+        if ("jdbc".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.jdbcDriverClass)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_driver_class is required for generic JDBC services");
+        }
+        if ("jdbc".equals(type) && !usesDatabaseConnectionReference && !StringUtils.hasText(payload.jdbcUrl)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "jdbc_url is required for generic JDBC services");
+        }
+    }
+
+    private void validateCrossDatabasePayload(Long currentServiceId, ServicePayload payload) {
+        List<MonitorService.CrossDatabaseQuery> queries = cleanCrossDatabaseQueries(payload.crossDatabaseQueries);
+        if (queries.size() < 2) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database checks require at least two data sources");
+        }
+        if (!StringUtils.hasText(payload.apiAssertionExpression)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database assertion expression is required");
+        }
+        for (MonitorService.CrossDatabaseQuery query : queries) {
+            databaseConnectionSourceAny(currentServiceId, query.sourceServiceId);
+            if (!StringUtils.hasText(query.alias) || !query.alias.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database alias must be a valid field name");
+            }
+            if (!StringUtils.hasText(query.databaseQuery)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database SQL is required");
+            }
         }
     }
 
     private void maskSecrets(MonitorService service) {
         service.redisPassword = null;
         service.databasePassword = null;
+        service.apiBasicPassword = null;
+        service.apiBearerToken = null;
+        service.apiAuthAppSecret = null;
+        if (service.crossDatabaseQueries != null) {
+            for (MonitorService.CrossDatabaseQuery query : service.crossDatabaseQueries) {
+                query.databasePassword = null;
+            }
+        }
         service.secretConfigJson = null;
     }
 
@@ -318,6 +693,20 @@ public class LiveMonitorService {
             service.httpMethod = StringUtils.hasText(payload.httpMethod) ? payload.httpMethod.toUpperCase(Locale.ROOT) : "GET";
             service.expectedStatusCode = payload.expectedStatusCode;
             service.responseKeyword = emptyToNull(payload.responseKeyword);
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.apiHeaders = cleanHeaderList(payload.apiHeaders);
+            service.apiContentType = emptyToNull(payload.apiContentType);
+            service.apiRequestBody = emptyToNull(payload.apiRequestBody);
+            service.apiAuthType = apiAuthType(payload.apiAuthType);
+            service.apiBasicUsername = emptyToNull(payload.apiBasicUsername);
+            service.apiBasicPassword = emptyToNull(payload.apiBasicPassword);
+            service.apiBearerToken = emptyToNull(payload.apiBearerToken);
+            service.apiAuthAppId = emptyToNull(payload.apiAuthAppId);
+            service.apiAuthAppSecret = emptyToNull(payload.apiAuthAppSecret);
+            service.apiResponseTimeMs = payload.apiResponseTimeMs;
+            service.apiJsonAssertions = emptyToNull(payload.apiJsonAssertions);
+            service.apiTextAssertionMode = apiTextAssertionMode(payload.apiTextAssertionMode);
+            service.apiTextAssertionValue = emptyToNull(payload.apiTextAssertionValue);
             service.ignoreSslVerification = Boolean.TRUE.equals(payload.ignoreSslVerification);
             service.endpoint = service.endpoint == null ? service.url : service.endpoint;
             service.expectedResult = service.expectedResult == null && service.expectedStatusCode != null
@@ -327,6 +716,20 @@ public class LiveMonitorService {
             config.put("http_method", service.httpMethod);
             putIfNotNull(config, "expected_status_code", service.expectedStatusCode);
             putIfNotNull(config, "response_keyword", service.responseKeyword);
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "api_headers", service.apiHeaders);
+            putIfNotNull(config, "api_content_type", service.apiContentType);
+            putIfNotNull(config, "api_request_body", service.apiRequestBody);
+            config.put("api_auth_type", service.apiAuthType);
+            putIfNotNull(config, "api_basic_username", service.apiBasicUsername);
+            putIfNotNull(config, "api_auth_app_id", service.apiAuthAppId);
+            putIfNotNull(config, "api_response_time_ms", service.apiResponseTimeMs);
+            putIfNotNull(config, "api_json_assertions", service.apiJsonAssertions);
+            config.put("api_text_assertion_mode", service.apiTextAssertionMode);
+            putIfNotNull(config, "api_text_assertion_value", service.apiTextAssertionValue);
+            putIfNotNull(secretConfig, "api_basic_password", service.apiBasicPassword);
+            putIfNotNull(secretConfig, "api_bearer_token", service.apiBearerToken);
+            putIfNotNull(secretConfig, "api_auth_app_secret", service.apiAuthAppSecret);
             config.put("ignore_ssl_verification", service.ignoreSslVerification);
             return;
         }
@@ -383,16 +786,58 @@ public class LiveMonitorService {
             return;
         }
 
+        if ("cross_database".equals(service.serviceType)) {
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.crossDatabaseQueries = cleanCrossDatabaseQueries(payload.crossDatabaseQueries);
+            service.checkMode = "cross_database";
+            service.checkCommand = null;
+            service.endpoint = "cross database";
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "cross_database_queries", crossDatabaseQueryConfig(service.crossDatabaseQueries));
+            return;
+        }
+
+        if ("data_send".equals(service.serviceType)) {
+            service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
+            service.databaseQuery = emptyToNull(payload.databaseQuery);
+            service.dataSendSelectedColumns = cleanStringList(payload.dataSendSelectedColumns);
+            service.dataSendColumnAliases = payload.dataSendColumnAliases;
+            service.dataSendTitle = emptyToNull(payload.dataSendTitle);
+            service.dataSendMaxRows = payload.dataSendMaxRows != null ? Math.min(10, Math.max(1, payload.dataSendMaxRows)) : 10;
+            service.checkMode = "data_send";
+            service.checkCommand = service.databaseQuery;
+            service.endpoint = "data_send #" + service.databaseConnectionServiceId;
+            putIfNotNull(config, "database_connection_service_id", service.databaseConnectionServiceId);
+            putIfNotNull(config, "database_query", service.databaseQuery);
+            putIfNotNull(config, "data_send_selected_columns", service.dataSendSelectedColumns);
+            putIfNotNull(config, "data_send_column_aliases", service.dataSendColumnAliases);
+            putIfNotNull(config, "data_send_title", service.dataSendTitle);
+            config.put("data_send_max_rows", service.dataSendMaxRows);
+            return;
+        }
+
         if (isDatabaseType(service.serviceType)) {
+            service.databaseConnectionServiceId = payload.databaseConnectionServiceId;
             service.databaseName = emptyToNull(payload.databaseName);
             service.databaseUsername = emptyToNull(payload.databaseUsername);
             service.databasePassword = emptyToNull(payload.databasePassword);
             service.databaseQuery = emptyToNull(payload.databaseQuery);
+            service.databaseResultOperator = databaseResultOperator(payload.databaseResultOperator);
+            service.apiAssertionExpression = emptyToNull(payload.apiAssertionExpression);
+            service.databaseAssertionFields = cleanStringList(payload.databaseAssertionFields);
+            service.jdbcDriverClass = emptyToNull(payload.jdbcDriverClass);
+            service.jdbcUrl = emptyToNull(payload.jdbcUrl);
             service.checkMode = "jdbc_query";
             service.checkCommand = service.databaseQuery;
+            putIfNotNull(config, "database_connection_service_id", service.databaseConnectionServiceId);
             putIfNotNull(config, "database_name", service.databaseName);
             putIfNotNull(config, "database_username", service.databaseUsername);
             putIfNotNull(config, "database_query", service.databaseQuery);
+            config.put("database_result_operator", service.databaseResultOperator);
+            putIfNotNull(config, "api_assertion_expression", service.apiAssertionExpression);
+            putIfNotNull(config, "database_assertion_fields", service.databaseAssertionFields);
+            putIfNotNull(config, "jdbc_driver_class", service.jdbcDriverClass);
+            putIfNotNull(config, "jdbc_url", service.jdbcUrl);
             putIfNotNull(secretConfig, "database_password", service.databasePassword);
             return;
         }
@@ -402,16 +847,37 @@ public class LiveMonitorService {
         }
     }
 
+    private void applyServiceAlertConfig(ServicePayload payload, MonitorService service, Map<String, Object> config) {
+        service.serviceAlertEnabled = payload.serviceAlertEnabled == null || payload.serviceAlertEnabled;
+        service.serviceConsecutiveFailures = positiveOrDefault(payload.serviceConsecutiveFailures, 3);
+        service.serviceRecoverSuccesses = positiveOrDefault(payload.serviceRecoverSuccesses, 2);
+        service.serviceAlertCooldownSeconds = nonNegativeOrDefault(payload.serviceAlertCooldownSeconds, 600);
+        config.put("unknown_alert_enabled", payload.unknownAlertEnabled == null || payload.unknownAlertEnabled);
+        config.put("unknown_consecutive_failures", positiveOrDefault(payload.unknownConsecutiveFailures, 1));
+        config.put("alert_repeat_interval_seconds", nonNegativeOrDefault(payload.alertRepeatIntervalSeconds, 0));
+        config.put("service_alert_enabled", service.serviceAlertEnabled);
+        config.put("service_consecutive_failures", service.serviceConsecutiveFailures);
+        config.put("service_recover_successes", service.serviceRecoverSuccesses);
+        config.put("service_alert_cooldown_seconds", service.serviceAlertCooldownSeconds);
+    }
+
     private void hydrateTypedFields(MonitorService service) {
         if (service == null) {
             return;
         }
         Map<String, Object> config = parseJsonMap(service.configJson);
-        Map<String, Object> secretConfig = parseJsonMap(service.secretConfigJson);
+        Map<String, Object> secretConfig = parseSecretJsonMap(service.secretConfigJson);
         applyCheckIntervalDisplay(service);
 
         service.host = stringValue(config, "host", service.host);
         service.port = intValue(config, "port", service.port);
+        service.unknownAlertEnabled = booleanValue(config, "unknown_alert_enabled", true);
+        service.unknownConsecutiveFailures = positiveOrDefault(intValue(config, "unknown_consecutive_failures", 1), 1);
+        service.alertRepeatIntervalSeconds = nonNegativeOrDefault(intValue(config, "alert_repeat_interval_seconds", 0), 0);
+        service.serviceAlertEnabled = booleanValue(config, "service_alert_enabled", true);
+        service.serviceConsecutiveFailures = positiveOrDefault(intValue(config, "service_consecutive_failures", 3), 3);
+        service.serviceRecoverSuccesses = positiveOrDefault(intValue(config, "service_recover_successes", 2), 2);
+        service.serviceAlertCooldownSeconds = nonNegativeOrDefault(intValue(config, "service_alert_cooldown_seconds", 600), 600);
         if (service.endpoint == null) {
             service.endpoint = endpointFromHostPort(service.host, service.port);
         }
@@ -421,6 +887,20 @@ public class LiveMonitorService {
             service.httpMethod = stringValue(config, "http_method", "GET");
             service.expectedStatusCode = intValue(config, "expected_status_code", null);
             service.responseKeyword = stringValue(config, "response_keyword", null);
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.apiHeaders = headerListValue(config, "api_headers");
+            service.apiContentType = stringValue(config, "api_content_type", null);
+            service.apiRequestBody = stringValue(config, "api_request_body", null);
+            service.apiAuthType = apiAuthType(stringValue(config, "api_auth_type", "none"));
+            service.apiBasicUsername = stringValue(config, "api_basic_username", null);
+            service.apiBasicPassword = stringValue(secretConfig, "api_basic_password", null);
+            service.apiBearerToken = stringValue(secretConfig, "api_bearer_token", null);
+            service.apiAuthAppId = stringValue(config, "api_auth_app_id", null);
+            service.apiAuthAppSecret = stringValue(secretConfig, "api_auth_app_secret", null);
+            service.apiResponseTimeMs = intValue(config, "api_response_time_ms", null);
+            service.apiJsonAssertions = stringValue(config, "api_json_assertions", null);
+            service.apiTextAssertionMode = apiTextAssertionMode(stringValue(config, "api_text_assertion_mode", "contains"));
+            service.apiTextAssertionValue = stringValue(config, "api_text_assertion_value", null);
             service.ignoreSslVerification = booleanValue(config, "ignore_ssl_verification", false);
         } else if ("redis".equals(service.serviceType)) {
             service.redisUsername = stringValue(config, "redis_username", null);
@@ -440,13 +920,116 @@ public class LiveMonitorService {
         } else if ("host".equals(service.serviceType)) {
             service.hostId = longValue(config, "host_id", service.hostId);
             service.cpuThresholdPercent = doubleValue(config, "cpu_threshold_percent", null);
+            service.memoryThresholdPercent = doubleValue(config, "memory_threshold_percent", null);
             service.diskThresholdPercent = doubleValue(config, "disk_threshold_percent", null);
+            service.cpuAlertEnabled = booleanValue(config, "cpu_alert_enabled", true);
+            service.memoryAlertEnabled = booleanValue(config, "memory_alert_enabled", true);
+            service.diskAlertEnabled = booleanValue(config, "disk_alert_enabled", true);
+        } else if ("cross_database".equals(service.serviceType)) {
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.crossDatabaseQueries = crossDatabaseQueryListValue(config, "cross_database_queries", service.id);
+            service.endpoint = "cross database";
+        } else if ("data_send".equals(service.serviceType)) {
+            service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
+            service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
+            service.dataSendSelectedColumns = stringListValue(config, "data_send_selected_columns");
+            service.dataSendColumnAliases = stringMapValue(config, "data_send_column_aliases");
+            service.dataSendTitle = stringValue(config, "data_send_title", null);
+            service.dataSendMaxRows = intValue(config, "data_send_max_rows", 10);
+            service.endpoint = "data_send #" + (service.databaseConnectionServiceId != null ? service.databaseConnectionServiceId : "-");
         } else if (isDatabaseType(service.serviceType)) {
+            service.databaseConnectionServiceId = longValue(config, "database_connection_service_id", null);
             service.databaseName = stringValue(config, "database_name", null);
             service.databaseUsername = stringValue(config, "database_username", null);
             service.databasePassword = stringValue(secretConfig, "database_password", null);
             service.databaseQuery = stringValue(config, "database_query", service.checkCommand);
+            service.databaseResultOperator = databaseResultOperator(stringValue(config, "database_result_operator", "fuzzy"));
+            service.apiAssertionExpression = stringValue(config, "api_assertion_expression", null);
+            service.databaseAssertionFields = stringListValue(config, "database_assertion_fields");
+            service.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+            service.jdbcUrl = stringValue(config, "jdbc_url", null);
+            applyDatabaseConnectionReference(service);
         }
+    }
+
+    private void applyDatabaseConnectionReference(MonitorService service) {
+        if (service.databaseConnectionServiceId == null) {
+            return;
+        }
+        MonitorService source = databaseConnectionSource(service.id, service.serviceType, service.databaseConnectionServiceId);
+        service.host = source.host;
+        service.port = source.port;
+        service.databaseName = source.databaseName;
+        service.databaseUsername = source.databaseUsername;
+        service.databasePassword = source.databasePassword;
+        service.jdbcDriverClass = source.jdbcDriverClass;
+        service.jdbcUrl = source.jdbcUrl;
+        service.endpoint = "jdbc".equals(service.serviceType)
+            ? source.jdbcUrl
+            : endpointFromHostPort(source.host, source.port);
+    }
+
+    private MonitorService databaseConnectionSource(Long currentServiceId, String serviceType, Long connectionServiceId) {
+        if (connectionServiceId == null) {
+            return null;
+        }
+        if (currentServiceId != null && currentServiceId.equals(connectionServiceId)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database_connection_service_id cannot reference itself");
+        }
+        MonitorService source = serviceMapper.findById(connectionServiceId);
+        if (source == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source not found");
+        }
+        if (!isDatabaseType(source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must be a database service");
+        }
+        if (!sameType(serviceType, source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must use the same service_type");
+        }
+        Map<String, Object> config = parseJsonMap(source.configJson);
+        Long nestedReferenceId = longValue(config, "database_connection_service_id", null);
+        if (nestedReferenceId != null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source cannot be another referenced connection");
+        }
+        Map<String, Object> secretConfig = parseSecretJsonMap(source.secretConfigJson);
+        source.host = stringValue(config, "host", source.host);
+        source.port = intValue(config, "port", source.port);
+        source.databaseName = stringValue(config, "database_name", null);
+        source.databaseUsername = stringValue(config, "database_username", null);
+        source.databasePassword = stringValue(secretConfig, "database_password", null);
+        source.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+        source.jdbcUrl = stringValue(config, "jdbc_url", null);
+        return source;
+    }
+
+    public MonitorService databaseConnectionSourceAny(Long currentServiceId, Long connectionServiceId) {
+        if (connectionServiceId == null) {
+            return null;
+        }
+        if (currentServiceId != null && currentServiceId.equals(connectionServiceId)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database source cannot reference itself");
+        }
+        MonitorService source = serviceMapper.findById(connectionServiceId);
+        if (source == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source not found");
+        }
+        if (!isDatabaseType(source.serviceType)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source must be a database service");
+        }
+        Map<String, Object> config = parseJsonMap(source.configJson);
+        Long nestedReferenceId = longValue(config, "database_connection_service_id", null);
+        if (nestedReferenceId != null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "database connection source cannot be another referenced connection");
+        }
+        Map<String, Object> secretConfig = parseSecretJsonMap(source.secretConfigJson);
+        source.host = stringValue(config, "host", source.host);
+        source.port = intValue(config, "port", source.port);
+        source.databaseName = stringValue(config, "database_name", null);
+        source.databaseUsername = stringValue(config, "database_username", null);
+        source.databasePassword = stringValue(secretConfig, "database_password", null);
+        source.jdbcDriverClass = stringValue(config, "jdbc_driver_class", null);
+        source.jdbcUrl = stringValue(config, "jdbc_url", null);
+        return source;
     }
 
     private String preferredEndpoint(ServicePayload payload, Integer port) {
@@ -456,6 +1039,9 @@ public class LiveMonitorService {
         }
         if (isWebUrlType(normalizeType(payload.serviceType))) {
             return emptyToNull(payload.url);
+        }
+        if ("jdbc".equals(normalizeType(payload.serviceType))) {
+            return emptyToNull(payload.jdbcUrl);
         }
         return endpointFromHostPort(emptyToNull(payload.host), port);
     }
@@ -490,11 +1076,14 @@ public class LiveMonitorService {
     }
 
     private String inferCategory(String type) {
+        if ("api".equals(type)) {
+            return "api";
+        }
         if ("web".equals(type) || "http".equals(type) || "https".equals(type) || "nginx".equals(type)) {
             return "web";
         }
         if ("mysql".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
-            || "oracle".equals(type) || "sqlserver".equals(type) || "mongodb".equals(type)) {
+            || "oracle".equals(type) || "jdbc".equals(type) || "sqlserver".equals(type) || "mongodb".equals(type)) {
             return "database";
         }
         if ("port".equals(type) || "tcp".equals(type)) {
@@ -515,7 +1104,10 @@ public class LiveMonitorService {
     private boolean hasSecretPayload(ServicePayload payload) {
         return !copyMap(payload.secretConfig).isEmpty()
             || StringUtils.hasText(payload.redisPassword)
-            || StringUtils.hasText(payload.databasePassword);
+            || StringUtils.hasText(payload.databasePassword)
+            || StringUtils.hasText(payload.apiBasicPassword)
+            || StringUtils.hasText(payload.apiBearerToken)
+            || StringUtils.hasText(payload.apiAuthAppSecret);
     }
 
     private boolean sameType(String left, String right) {
@@ -539,11 +1131,29 @@ public class LiveMonitorService {
     }
 
     private boolean isWebUrlType(String type) {
-        return "web".equals(type) || "nginx".equals(type);
+        return "web".equals(type) || "api".equals(type) || "nginx".equals(type);
     }
 
     private boolean isDatabaseType(String type) {
-        return "mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type);
+        return "mysql".equals(type) || "oracle".equals(type) || "postgresql".equals(type) || "postgres".equals(type)
+            || "jdbc".equals(type);
+    }
+
+    private String databaseResultOperator(String value) {
+        String normalized = normalizeType(value);
+        if ("gt".equals(normalized) || "gte".equals(normalized) || "lt".equals(normalized)
+            || "lte".equals(normalized) || "eq".equals(normalized) || "exact".equals(normalized)) {
+            return normalized;
+        }
+        return "fuzzy";
+    }
+
+    private int positiveOrDefault(Integer value, int fallback) {
+        return value == null || value < 1 ? fallback : value;
+    }
+
+    private int nonNegativeOrDefault(Integer value, int fallback) {
+        return value == null || value < 0 ? fallback : value;
     }
 
     private Integer defaultPort(String type) {
@@ -563,6 +1173,205 @@ public class LiveMonitorService {
         return source == null ? new LinkedHashMap<String, Object>() : new LinkedHashMap<String, Object>(source);
     }
 
+    private List<String> cleanStringList(List<String> source) {
+        List<String> result = new java.util.ArrayList<String>();
+        if (source == null) {
+            return result;
+        }
+        for (String item : source) {
+            String value = emptyToNull(item);
+            if (value != null && !result.contains(value)) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    private Map<String, String> cleanStringMap(Map<String, String> source) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (source == null) {
+            return result;
+        }
+        for (Map.Entry<String, String> entry : source.entrySet()) {
+            String key = emptyToNull(entry.getKey());
+            String value = emptyToNull(entry.getValue());
+            if (key != null && value != null) {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private List<MonitorService.CrossDatabaseQuery> cleanCrossDatabaseQueries(
+        List<ServicePayload.CrossDatabaseQueryPayload> source
+    ) {
+        List<MonitorService.CrossDatabaseQuery> result = new java.util.ArrayList<MonitorService.CrossDatabaseQuery>();
+        if (source == null) {
+            return result;
+        }
+        java.util.HashSet<String> aliases = new java.util.HashSet<String>();
+        int index = 1;
+        for (ServicePayload.CrossDatabaseQueryPayload item : source) {
+            if (item == null || item.sourceServiceId == null) {
+                continue;
+            }
+            MonitorService.CrossDatabaseQuery query = new MonitorService.CrossDatabaseQuery();
+            query.sourceServiceId = item.sourceServiceId;
+            query.alias = emptyToNull(item.alias);
+            if (query.alias == null) {
+                query.alias = "db" + index;
+            }
+            if (aliases.contains(query.alias)) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "cross database aliases must be unique");
+            }
+            aliases.add(query.alias);
+            query.databaseQuery = emptyToNull(item.databaseQuery);
+            query.assertionFields = cleanStringList(item.assertionFields);
+            query.fieldMapping = cleanStringMap(item.fieldMapping);
+            result.add(query);
+            index++;
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> crossDatabaseQueryConfig(List<MonitorService.CrossDatabaseQuery> queries) {
+        List<Map<String, Object>> result = new java.util.ArrayList<Map<String, Object>>();
+        if (queries == null) {
+            return result;
+        }
+        for (MonitorService.CrossDatabaseQuery query : queries) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("source_service_id", query.sourceServiceId);
+            item.put("alias", query.alias);
+            item.put("database_query", query.databaseQuery);
+            item.put("assertion_fields", query.assertionFields);
+            item.put("field_mapping", query.fieldMapping);
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<MonitorService.CrossDatabaseQuery> crossDatabaseQueryListValue(
+        Map<String, Object> map,
+        String key,
+        Long currentServiceId
+    ) {
+        Object value = map.get(key);
+        List<MonitorService.CrossDatabaseQuery> result = new java.util.ArrayList<MonitorService.CrossDatabaseQuery>();
+        if (!(value instanceof Iterable<?>)) {
+            return result;
+        }
+        for (Object item : (Iterable<?>) value) {
+            if (!(item instanceof Map<?, ?>)) {
+                continue;
+            }
+            Map<?, ?> itemMap = (Map<?, ?>) item;
+            Long sourceServiceId = longObjectValue(itemMap.get("source_service_id"));
+            if (sourceServiceId == null) {
+                sourceServiceId = longObjectValue(itemMap.get("sourceServiceId"));
+            }
+            if (sourceServiceId == null) {
+                continue;
+            }
+            MonitorService source = databaseConnectionSourceAny(currentServiceId, sourceServiceId);
+            MonitorService.CrossDatabaseQuery query = new MonitorService.CrossDatabaseQuery();
+            query.sourceServiceId = sourceServiceId;
+            query.alias = stringObjectValue(itemMap.get("alias"), "db" + (result.size() + 1));
+            query.databaseQuery = stringObjectValue(itemMap.get("database_query"), stringObjectValue(itemMap.get("databaseQuery"), null));
+            query.assertionFields = stringListObjectValue(itemMap.get("assertion_fields"));
+            if (query.assertionFields.isEmpty()) {
+                query.assertionFields = stringListObjectValue(itemMap.get("assertionFields"));
+            }
+            query.fieldMapping = stringMapObjectValue(itemMap.get("field_mapping"));
+            if (query.fieldMapping.isEmpty()) {
+                query.fieldMapping = stringMapObjectValue(itemMap.get("fieldMapping"));
+            }
+            query.serviceType = source.serviceType;
+            query.host = source.host;
+            query.port = source.port;
+            query.databaseName = source.databaseName;
+            query.databaseUsername = source.databaseUsername;
+            query.databasePassword = source.databasePassword;
+            query.jdbcDriverClass = source.jdbcDriverClass;
+            query.jdbcUrl = source.jdbcUrl;
+            result.add(query);
+        }
+        return result;
+    }
+
+    private List<Map<String, String>> cleanHeaderList(List<Map<String, String>> source) {
+        List<Map<String, String>> result = new java.util.ArrayList<Map<String, String>>();
+        if (source == null) {
+            return result;
+        }
+        for (Map<String, String> item : source) {
+            if (item == null) {
+                continue;
+            }
+            String name = emptyToNull(item.get("name"));
+            String value = item.get("value") == null ? "" : String.valueOf(item.get("value")).trim();
+            if (name == null) {
+                continue;
+            }
+            Map<String, String> header = new LinkedHashMap<String, String>();
+            header.put("name", name);
+            header.put("value", value);
+            result.add(header);
+        }
+        return result;
+    }
+
+    private List<Map<String, String>> headerListValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        List<Map<String, String>> result = new java.util.ArrayList<Map<String, String>>();
+        if (!(value instanceof Iterable<?>)) {
+            return result;
+        }
+        for (Object item : (Iterable<?>) value) {
+            if (!(item instanceof Map<?, ?>)) {
+                continue;
+            }
+            Map<?, ?> itemMap = (Map<?, ?>) item;
+            String name = itemMap.get("name") == null ? null : emptyToNull(String.valueOf(itemMap.get("name")));
+            String headerValue = itemMap.get("value") == null ? "" : String.valueOf(itemMap.get("value"));
+            if (name == null) {
+                continue;
+            }
+            Map<String, String> header = new LinkedHashMap<String, String>();
+            header.put("name", name);
+            header.put("value", headerValue);
+            result.add(header);
+        }
+        return result;
+    }
+
+    private Map<String, String> stringMapValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!(value instanceof Map<?, ?>)) {
+            return result;
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                result.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            }
+        }
+        return result;
+    }
+
+    private String apiAuthType(String value) {
+        String normalized = normalizeType(value);
+        if ("basic".equals(normalized) || "bearer".equals(normalized) || "custom_header".equals(normalized)) {
+            return normalized;
+        }
+        return "none";
+    }
+
+    private String apiTextAssertionMode(String value) {
+        String normalized = normalizeType(value);
+        return "not_contains".equals(normalized) ? "not_contains" : "contains";
+    }
+
     private Map<String, Object> parseJsonMap(String json) {
         if (!StringUtils.hasText(json)) {
             return new LinkedHashMap<String, Object>();
@@ -574,12 +1383,31 @@ public class LiveMonitorService {
         }
     }
 
+    private Map<String, Object> parseSecretJsonMap(String json) {
+        if (!StringUtils.hasText(json)) {
+            return new LinkedHashMap<String, Object>();
+        }
+        Map<String, Object> plain = parseJsonMap(json);
+        if (!plain.isEmpty() || json.trim().startsWith("{")) {
+            return plain;
+        }
+        return parseJsonMap(cryptoService.decryptIfEncrypted(json));
+    }
+
     private String toJson(Map<String, Object> value) {
         try {
             return objectMapper.writeValueAsString(value == null ? new LinkedHashMap<String, Object>() : value);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid monitor service config");
         }
+    }
+
+    private String toEncryptedJson(Map<String, Object> value) {
+        Map<String, Object> normalized = value == null ? new LinkedHashMap<String, Object>() : value;
+        if (normalized.isEmpty()) {
+            return "{}";
+        }
+        return cryptoService.encrypt(toJson(normalized));
     }
 
     private void putIfNotNull(Map<String, Object> map, String key, Object value) {
@@ -610,6 +1438,11 @@ public class LiveMonitorService {
 
     private Long longValue(Map<String, Object> map, String key, Long fallback) {
         Object value = map.get(key);
+        Long parsed = longObjectValue(value);
+        return parsed == null ? fallback : parsed;
+    }
+
+    private Long longObjectValue(Object value) {
         if (value instanceof Number) {
             return ((Number) value).longValue();
         }
@@ -617,10 +1450,10 @@ public class LiveMonitorService {
             try {
                 return Long.valueOf(String.valueOf(value));
             } catch (NumberFormatException ignored) {
-                return fallback;
+                return null;
             }
         }
-        return fallback;
+        return null;
     }
 
     private Double doubleValue(Map<String, Object> map, String key, Double fallback) {
@@ -647,6 +1480,42 @@ public class LiveMonitorService {
             return Boolean.valueOf(String.valueOf(value));
         }
         return fallback;
+    }
+
+    private List<String> stringListValue(Map<String, Object> map, String key) {
+        return stringListObjectValue(map.get(key));
+    }
+
+    private List<String> stringListObjectValue(Object value) {
+        List<String> result = new java.util.ArrayList<String>();
+        if (value instanceof Iterable<?>) {
+            for (Object item : (Iterable<?>) value) {
+                String text = item == null ? null : String.valueOf(item).trim();
+                if (StringUtils.hasText(text) && !result.contains(text)) {
+                    result.add(text);
+                }
+            }
+        }
+        return result;
+    }
+
+    private Map<String, String> stringMapObjectValue(Object value) {
+        Map<String, String> result = new LinkedHashMap<String, String>();
+        if (!(value instanceof Map<?, ?>)) {
+            return result;
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            String key = entry.getKey() == null ? null : String.valueOf(entry.getKey()).trim();
+            String itemValue = entry.getValue() == null ? null : String.valueOf(entry.getValue()).trim();
+            if (StringUtils.hasText(key) && StringUtils.hasText(itemValue)) {
+                result.put(key, itemValue);
+            }
+        }
+        return result;
+    }
+
+    private String stringObjectValue(Object value, String fallback) {
+        return value == null ? fallback : String.valueOf(value);
     }
 
     private String emptyToNull(String value) {

@@ -1,0 +1,52 @@
+历史部署验证报告（2026-11-14 上午，Asia/Shanghai）
+本文件记录企业监控升级前的阶段验证；当前 1.1.0 最终结果见 DOLPHIN_ACCEPTANCE_REPORT.txt。
+
+目标服务器：192.168.195.221，SSH 端口 5221
+访问地址：http://192.168.195.221:8000/#/dolphinscheduler
+应用目录：/opt/live-monitor-java-1.0.0
+实际程序版本：1.0.1，本次本地修改构建；目录名沿用现有目录。
+运行环境：OpenJDK 1.8.0_472，MySQL，RocksDB。
+新程序于 2026-11-14 10:14:51 启动完成，PID 910157（进程号随重启变化）。
+JAR SHA-256：efe7f729315de664777c478701f6ed40746fef1e2262f376d646d7f7a49de920
+
+备份与变更
+备份目录：/opt/live-monitor-backups/20261114-100538
+mysql.sql：约 341 MB，停机后使用 mysqldump --single-transaction --routines --triggers --events 生成。
+application.tar：约 1.8 GB，停机备份 data/config/lib/bin/templates。
+previous.jar：替换前的应用程序。
+保留原配置、数据库、模板和密钥；替换 lib/live-monitor-java.jar 后重启。
+临时 MySQL 客户端认证文件已删除；备份目录权限为 700。
+先前停机日志中有 ClosedByInterruptException，随后新程序启动完成；不将旧进程关闭异常计作新程序启动失败。
+
+已完成验证
+1. 使用提供的 admin 账号完成真实浏览器登录，进入监控总览和 DolphinScheduler 页面；未记录密码。
+2. /api/health 正常，登录、服务、主机、告警组和 DolphinScheduler 连接接口返回 200。
+3. 部署前后均为 30 个服务、11 台主机、2 个告警组、1 个 DolphinScheduler 连接。
+4. 现有 DolphinScheduler 连接到 192.168.195.224:12345/dolphinscheduler，可读取 55 个项目。
+5. 项目 21487894445760 的工作流定义接口返回 20 个定义，20 个 ONLINE、0 个 OFFLINE、0 个未知状态。
+6. 全项目默认时间窗口查询返回 31 个实例：24 成功、1 运行中、6 异常，其他状态 6。异常与其他状态是不同统计维度，存在重叠，不能相加。
+7. 抽查项目 9572546652608、实例 156410，任务详情接口返回 200 和 1 个任务，包含新详情字段。
+8. ETL_Date 日期控件和实例表列在真实浏览器正常渲染，无浏览器页面运行异常。
+9. 业务日期查询接口可调用，非法日期 2026-02-30 返回 422；未认证项目接口返回 401。
+10. 构建前后端：Maven 156 项后端测试通过；前端生产构建通过；本地 30 项浏览器回归通过（模拟 API，与上述真实服务器验证区分）。
+
+验收缺口
+真实 31 个工作流实例的 ETL_Date 均为空，抽查任务亦为空。当前仅能确认缺失值显示与非法日期处理，不能据此宣称真实业务日期提取及筛选通过验收。需继续核对上游实例参数字段、详情接口及实际业务日期约定。
+目标项目近 31 天查询无实例；上述真实执行数据来自全项目查询，而不是该项目。
+当前连接 DOWN 与 6 个实际异常实例一致，接口查询正常；本次未触发额外通知测试。
+未演练生产回滚，未验证第三方渠道真实接收或完成完整任务书验收。
+本次未提交、推送代码或制作正式发布版本。
+
+回退操作
+先执行应用目录 bin/stop.sh，备份新运行期间数据，再用备份 previous.jar 替换应用 lib/live-monitor-java.jar，执行 bin/start.sh。
+不要在在线状态覆盖数据库或 RocksDB；如需数据恢复，停机后评估新产生记录及告警任务，再从 mysql.sql 和 application.tar 恢复。本次没有执行数据回退。
+
+验证产物（工作区）
+tmp/live-monitor-deployment-result.json
+tmp/live-monitor-browser-verification.json
+tmp/live-monitor-real-instance-verification.json
+tmp/live-monitor-history-verification.json
+tmp/live-monitor-dashboard.png
+tmp/live-monitor-dolphinscheduler.png
+live-monitor-java/frontend/playwright-deployment-regression.log
+live-monitor-java/target/deployment-build.log

@@ -1,0 +1,21 @@
+package com.live.monitor.config;
+
+import java.util.Properties;
+import org.apache.ibatis.mapping.DatabaseIdProvider;
+import org.apache.ibatis.mapping.VendorDatabaseIdProvider;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class MyBatisConfig {
+    @Bean
+    public DatabaseIdProvider databaseIdProvider() {
+        VendorDatabaseIdProvider provider = new VendorDatabaseIdProvider();
+        Properties properties = new Properties();
+        properties.setProperty("H2", "h2");
+        properties.setProperty("MySQL", "mysql");
+        properties.setProperty("MariaDB", "mysql");
+        provider.setProperties(properties);
+        return provider;
+    }
+}

@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 public class CryptoService {
+    private static final String PREFIX = "ENC:";
     private final SecretKeySpec keySpec;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -40,7 +41,7 @@ public class CryptoService {
             byte[] packed = new byte[iv.length + encrypted.length];
             System.arraycopy(iv, 0, packed, 0, iv.length);
             System.arraycopy(encrypted, 0, packed, iv.length, encrypted.length);
-            return Base64.getEncoder().encodeToString(packed);
+            return PREFIX + Base64.getEncoder().encodeToString(packed);
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to encrypt secret", ex);
         }
@@ -51,7 +52,8 @@ public class CryptoService {
             return null;
         }
         try {
-            byte[] packed = Base64.getDecoder().decode(cipherText);
+            String normalized = isEncrypted(cipherText) ? cipherText.substring(PREFIX.length()) : cipherText;
+            byte[] packed = Base64.getDecoder().decode(normalized);
             byte[] iv = Arrays.copyOfRange(packed, 0, 16);
             byte[] encrypted = Arrays.copyOfRange(packed, 16, packed.length);
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -60,5 +62,19 @@ public class CryptoService {
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to decrypt secret", ex);
         }
+    }
+
+    public boolean isEncrypted(String value) {
+        return StringUtils.hasText(value) && value.startsWith(PREFIX);
+    }
+
+    public String decryptIfEncrypted(String value) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        if (isEncrypted(value)) {
+            return decrypt(value);
+        }
+        return value;
     }
 }
