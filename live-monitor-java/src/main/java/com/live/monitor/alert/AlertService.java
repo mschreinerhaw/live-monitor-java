@@ -281,6 +281,7 @@ public class AlertService {
         return EventType.HOST_CPU_HIGH.name().equals(eventType)
             || EventType.HOST_MEMORY_HIGH.name().equals(eventType)
             || EventType.HOST_DISK_HIGH.name().equals(eventType)
+            || EventType.HOST_MOUNT_ABNORMAL.name().equals(eventType)
             || EventType.SERVICE_RECOVERED.name().equals(eventType)
             || EventType.METRIC_FLUCTUATION.name().equals(eventType)
             || HOST_RESOURCE_THRESHOLD_ALERT.equals(eventType);
@@ -599,6 +600,7 @@ public class AlertService {
     }
 
     private boolean hostResourceRecovered(String message) {
+        if (message != null && (message.contains("MountStatus=ABNORMAL") || message.contains("MountStatus=UNKNOWN"))) return false;
         List<HostThreshold> metrics = hostThresholds(message);
         if (metrics.isEmpty()) {
             return false;
@@ -761,13 +763,15 @@ public class AlertService {
             && result != null
             && "host".equals(normalize(service.serviceType))
             && isHostResourceAlertEvent(result)
-            && !exceededMetrics(result.message).isEmpty();
+            && (!exceededMetrics(result.message).isEmpty()
+                || (HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType) && result.message != null && result.message.contains("MountStatus=ABNORMAL")));
     }
 
     private boolean isHostResourceAlertEvent(MonitorResult result) {
         return EventType.HOST_CPU_HIGH.name().equals(result.eventType)
             || EventType.HOST_MEMORY_HIGH.name().equals(result.eventType)
             || EventType.HOST_DISK_HIGH.name().equals(result.eventType)
+            || EventType.HOST_MOUNT_ABNORMAL.name().equals(result.eventType)
             || HOST_RESOURCE_THRESHOLD_ALERT.equals(result.eventType)
             || HOST_RESOURCE_THRESHOLD_ALERT.equals(result.alertType);
     }
@@ -1058,6 +1062,7 @@ public class AlertService {
     }
 
     private String hostAlertReason(String message) {
+        if (message != null && message.contains("MountStatus=ABNORMAL")) return safe(message);
         List<String> reasons = new ArrayList<String>();
         for (HostThreshold metric : exceededMetrics(message)) {
             String action = metric.value > metric.threshold ? "超过" : "达到";
@@ -1068,6 +1073,7 @@ public class AlertService {
     }
 
     private String hostRecoverReason(String message, String previousMessage) {
+        if (previousMessage != null && previousMessage.contains("MountStatus=ABNORMAL")) return "挂载点及主机资源已恢复正常：" + safe(message);
         List<String> reasons = new ArrayList<String>();
         Map<String, HostThreshold> current = metricMap(hostThresholds(message));
         for (HostThreshold previous : exceededMetrics(previousMessage)) {
@@ -1086,6 +1092,7 @@ public class AlertService {
 
     private String hostAlertItems(String message) {
         List<String> items = new ArrayList<String>();
+        if (message != null && message.contains("MountStatus=ABNORMAL")) items.add(message.substring(message.indexOf("MountStatus=")));
         for (HostThreshold metric : exceededMetrics(message)) {
             items.add(metric.label + "\n当前值：" + metric.valueText + "%\n阈值：" + metric.thresholdText
                 + "\n超限幅度：" + signedPercent(metric.value - metric.threshold));
@@ -1095,6 +1102,7 @@ public class AlertService {
 
     private String hostRecoverItems(String message, String previousMessage) {
         List<String> items = new ArrayList<String>();
+        if (previousMessage != null && previousMessage.contains("MountStatus=ABNORMAL")) items.add("挂载点恢复状态：" + safe(message));
         Map<String, HostThreshold> current = metricMap(hostThresholds(message));
         for (HostThreshold previous : exceededMetrics(previousMessage)) {
             HostThreshold metric = current.get(previous.label);
@@ -1122,6 +1130,7 @@ public class AlertService {
     }
 
     private String hostAlertSummary(String message) {
+        if (message != null && message.contains("MountStatus=ABNORMAL")) return "挂载点异常";
         int count = exceededMetrics(message).size();
         return count <= 0 ? "-" : count + "项指标超过阈值";
     }

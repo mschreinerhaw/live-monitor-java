@@ -94,6 +94,7 @@
               <th>CPU 利用率</th>
               <th>内存利用率</th>
               <th>磁盘利用率</th>
+              <th>挂载点</th>
               <th>最近检查 / 采集周期</th>
               <th>采集状态</th>
               <th>操作</th>
@@ -101,7 +102,7 @@
           </thead>
           <tbody>
             <tr v-if="!pagedHosts.length">
-              <td colspan="10" class="text-center text-muted" style="padding: 32px;">
+              <td colspan="11" class="text-center text-muted" style="padding: 32px;">
                 暂无服务器主机数据
               </td>
             </tr>
@@ -132,6 +133,7 @@
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
+              <td><span :class="['badge', mountState(h).tone]" :title="mountState(h).reason">{{ mountState(h).label }}</span></td>
               <td style="font-size: 12px; color: #64748b;">
                 {{ h.last_checked_at || h.metric_checked_at || h.checked_at || '尚未检查' }}<div class="form-hint">每 {{ h.check_interval || 60 }} 秒</div>
               </td>
@@ -253,6 +255,13 @@
 
             <div class="form-row"><label v-for="field in resourceFields" :key="field.key" class="form-group">{{ field.label }}<input v-model.number="modalForm[field.key]" type="number" :min="field.min" :max="field.max" class="form-control"></label></div>
             <div class="form-row"><label v-for="field in resourceToggles" :key="field.key"><input v-model="modalForm[field.key]" type="checkbox">{{ field.label }}</label></div>
+            <div v-if="modalForm.mount_monitor_enabled" class="mount-config">
+              <label class="form-group">监控挂载点<textarea v-model="mountPointsText" class="form-control" rows="3" required placeholder="每行一个绝对路径，例如：&#10;/&#10;/data&#10;/backup"></textarea></label>
+              <p class="form-hint">必须为实际挂载点，普通目录不算挂载。检查挂载丢失、只读及空间使用率，空间阈值沿用磁盘阈值（{{ modalForm.disk_threshold_percent }}%）；告警沿用本主机的确认时长、恢复及冷却策略。</p>
+              <button type="button" class="btn btn-ghost btn-sm" :disabled="previewingMounts" @click="previewMounts">{{ previewingMounts ? '检测中…' : '预览挂载点' }}</button><p class="form-hint">只读检测，不保存配置、不发送告警。</p>
+              <p v-if="mountPreviewError" class="inline-error" role="alert">{{ mountPreviewError }}</p>
+              <MountPointTable v-if="mountPreview" :host="modalForm" :metrics="{ disk_metrics: mountPreview }" />
+            </div>
             <label class="form-group">主机分组<input v-model="modalForm.cluster_name" class="form-control"></label><label class="form-group">备注<textarea v-model="modalForm.remark" class="form-control"></textarea></label>
             <fieldset><legend>多个告警组</legend><label v-for="group in alertGroups" :key="group.id" style="margin-right:16px"><input type="checkbox" v-model="modalForm.alert_group_ids" :value="group.id">{{ group.group_name }}</label><p v-if="!modalForm.alert_group_ids.length">未绑定告警组，资源异常无法向外部渠道通知。</p></fieldset>
 
@@ -277,8 +286,9 @@ import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
 import PaginationControls from '../components/PaginationControls.vue'
+import MountPointTable from '../components/MountPointTable.vue'
 import { usePagination } from '../composables/usePagination'
-import { hostState, resourceWarnings } from '../utils/assets'
+import { hostState, resourceWarnings, mountState } from '../utils/assets'
 
 const route = useRoute()
 const loading = ref(false)
@@ -294,6 +304,15 @@ watch([keyword, statusFilter, pageSize], () => { currentPage.value = 1 })
 const showModal = ref(false)
 const editingHostId = ref(null)
 const testingSsh = ref(false)
+const previewingMounts = ref(false), mountPreview = ref(null), mountPreviewError = ref('')
+let mountPreviewRequest = 0
+async function previewMounts() {
+  const requestId = ++mountPreviewRequest
+  previewingMounts.value = true; mountPreviewError.value = ''; mountPreview.value = null
+  try { const rows = await api.previewHostMounts(modalForm, editingHostId.value); if (requestId === mountPreviewRequest) mountPreview.value = rows }
+  catch (e) { if (requestId === mountPreviewRequest) mountPreviewError.value = e.message }
+  finally { if (requestId === mountPreviewRequest) previewingMounts.value = false }
+}
 const selectedHost = ref(null)
 
 const resourceFields = [
@@ -306,6 +325,7 @@ const resourceFields = [
 const resourceToggles = [
   {key:'enabled',label:'启用主机'}, {key:'cpu_alert_enabled',label:'CPU 告警'},
   {key:'memory_alert_enabled',label:'内存告警'}, {key:'disk_alert_enabled',label:'磁盘告警'},
+  {key:'mount_monitor_enabled',label:'挂载点监控'},
   {key:'resource_alert_duration_enabled',label:'异常持续确认'}, {key:'resource_recover_duration_enabled',label:'恢复持续确认'},
   {key:'resource_alert_cooldown_enabled',label:'资源冷却配置'}
 ]
@@ -313,6 +333,7 @@ const resourceDefaults = () => ({
   disk_threshold_percent:85,check_interval:60,resource_alert_duration_seconds:180,
   resource_recover_duration_seconds:180,resource_alert_cooldown_seconds:600,
   enabled:true,cpu_alert_enabled:true,memory_alert_enabled:true,disk_alert_enabled:true,
+  mount_monitor_enabled:false,mount_points:[],
   resource_alert_duration_enabled:true,resource_recover_duration_enabled:true,resource_alert_cooldown_enabled:true,
   alert_group_ids:[],cluster_name:'',remark:''
 })
@@ -332,6 +353,8 @@ const modalForm = reactive({ ...resourceDefaults(),
 const getCpu = (h) => h.cpu_usage_percent ?? h.metrics?.cpu_usage_percent
 const getMem = (h) => h.memory_used_percent ?? h.metrics?.memory_used_percent
 const getDisk = (h) => h.disk_used_percent ?? h.metrics?.disk_used_percent
+const mountPointsText = computed({ get: () => (modalForm.mount_points || []).join('\n'), set: value => { modalForm.mount_points = [...new Set(value.split(/\r?\n/).map(path => path.trim()).filter(Boolean))] } })
+watch(() => [showModal.value, modalForm.mount_points, modalForm.disk_threshold_percent, modalForm.ip, modalForm.ssh_port, modalForm.ssh_user, modalForm.ssh_password, modalForm.private_key, modalForm.mount_monitor_enabled], () => { mountPreviewRequest++; mountPreview.value = null; mountPreviewError.value = ''; previewingMounts.value = false }, { deep: true })
 
 const filteredHosts = computed(() => {
   return hostsList.value.filter((h) => {

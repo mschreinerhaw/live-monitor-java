@@ -30,6 +30,8 @@ public class HostPayload {
     public Boolean cpuAlertEnabled = true;
     public Boolean memoryAlertEnabled = true;
     public Boolean diskAlertEnabled = true;
+    public Boolean mountMonitorEnabled;
+    public List<String> mountPoints;
     public Boolean resourceAlertDurationEnabled = true;
     public Boolean resourceRecoverDurationEnabled = true;
     public Boolean resourceAlertCooldownEnabled = true;

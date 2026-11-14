@@ -757,6 +757,48 @@ test('host state follows scheduled check results and distinguishes partial, stal
   await expect.poll(() => fetches).toBeGreaterThan(1)
 })
 
+test('host mount configuration saves and reloads, and details expose missing, readonly, space and unknown states', async ({ page }) => {
+  let saved
+  let host = { id: 1, host_name: 'mount-host', ip: '192.0.2.1', enabled: true, last_status: 'UP', mount_monitor_enabled: false, mount_points: [], disk_metrics: [] }
+  const disks = [
+    { mount: '/data', monitored_mount: true, mount_state: 'MISSING', mount_reason: '挂载丢失：路径不是独立挂载点' },
+    { mount: '/backup', monitored_mount: true, mount_state: 'READ_ONLY', mount_reason: '挂载点处于只读状态', filesystem: '/dev/sdb1', total_bytes: 1073741824, available_bytes: 536870912, used_percent: 50 },
+    { mount: '/archive', monitored_mount: true, mount_state: 'HIGH_USAGE', mount_reason: '空间使用率 90.0% 超过阈值 85.0%', used_percent: 90 },
+    { mount: '/remote', monitored_mount: true, mount_state: 'UNKNOWN', mount_reason: '挂载表采集失败，无法判断挂载状态' }
+  ]
+  const errors = await backend(page, (request, path) => {
+    if (path === '/api/hosts') return [host]
+    if (path === '/api/hosts/mount-preview') return disks
+    if (path === '/api/hosts/1' && request.method() === 'PUT') { saved = request.postDataJSON(); host = { ...host, ...saved, disk_metrics: disks }; return host }
+    if (path === '/api/hosts/1') return host
+    if (path === '/api/hosts/1/metrics') return { disk_metrics: disks }
+  })
+  await page.goto('/#/hosts')
+  await expect(page.getByRole('cell', { name: '未启用', exact: true })).toBeVisible()
+  await page.getByTitle('编辑主机', { exact: true }).click()
+  await page.getByLabel('挂载点监控', { exact: true }).check()
+  await page.getByLabel('监控挂载点', { exact: true }).fill('/data\n/backup\n/archive\n/remote\n/data')
+  await page.getByRole('button', { name: '预览挂载点', exact: true }).click()
+  await expect(page.getByRole('region', { name: '挂载点监控', exact: true }).getByRole('cell', { name: '挂载丢失', exact: true })).toBeVisible()
+  expect(saved).toBeUndefined()
+  await page.getByRole('button', { name: '保存主机', exact: true }).click()
+  await expect.poll(() => saved?.mount_points).toEqual(['/data', '/backup', '/archive', '/remote'])
+  expect(saved.mount_monitor_enabled).toBe(true)
+  await expect(page.getByRole('cell', { name: '挂载异常', exact: true })).toBeVisible()
+  await page.getByTitle('编辑主机', { exact: true }).click()
+  await expect(page.getByLabel('挂载点监控', { exact: true })).toBeChecked()
+  await expect(page.getByLabel('监控挂载点', { exact: true })).toHaveValue('/data\n/backup\n/archive\n/remote')
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+  await page.getByRole('link', { name: '指标 / 进程', exact: true }).click()
+  const table = page.getByRole('region', { name: '挂载点监控', exact: true })
+  await expect(table.getByRole('cell', { name: '挂载丢失', exact: true })).toBeVisible()
+  await expect(table.getByRole('cell', { name: '只读', exact: true })).toBeVisible()
+  await expect(table.getByRole('cell', { name: '空间超阈', exact: true })).toBeVisible()
+  await expect(table.getByRole('cell', { name: '未知', exact: true })).toBeVisible()
+  await expect(table.locator('tbody tr').first().locator('td').nth(4)).toHaveText('—')
+  expect(errors).toEqual([])
+})
+
 test('database assets use monitor types instead of host names and keep a dedicated creation flow', async ({ page }) => {
   await backend(page, (_, path) => path === '/api/services' ? [
     { id: 1, service_type: 'host', service_name: 'MySQL服务器', last_status: 'UP', enabled: true },

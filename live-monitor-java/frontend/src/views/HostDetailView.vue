@@ -5,6 +5,7 @@
 <PaginationControls v-model:page="diskPager.page" v-model:page-size="diskPager.pageSize" :total="diskPager.total" label="磁盘分区" />
 
     </section>
+    <MountPointTable v-if="host" :host="host" :metrics="metrics" />
     <section class="card"><h2>资源趋势</h2><label>时间范围<select v-model="days" class="form-control" @change="loadHistory"><option :value="1">最近一天</option><option :value="7">最近七天</option><option :value="30">最近三十天</option></select></label><div ref="chartElement" style="height:300px"></div><p v-if="!history.length">暂无历史指标</p></section>
     <section class="card"><h2>进程配置与检测</h2><button class="btn btn-ghost" :disabled="busy" @click="checkProcesses">检测进程状态</button><p v-if="!processes.length">尚未配置进程</p>
       <div class="table-wrap"><table class="table"><thead><tr><th>进程</th><th>匹配关键字</th><th>检查命令</th><th>启用</th><th>检测结果</th><th>操作</th></tr></thead><tbody><tr v-for="process in processPager.items" :key="process.id"><td>{{ process.process_name }}</td><td>{{ process.match_keyword }}</td><td>{{ process.check_command }}</td><td>{{ process.enabled ? '是' : '否' }}</td><td>{{ states[process.id]?.running === true ? '运行中' : states[process.id]?.running === false ? '未运行' : '未检测' }}<pre style="white-space:pre-wrap">{{ states[process.id]?.output }}</pre></td><td><button class="btn btn-ghost btn-sm" @click="editProcess(process)">编辑</button><button class="btn btn-ghost btn-sm" @click="removeProcess(process)">删除</button></td></tr></tbody></table></div>
@@ -27,6 +28,7 @@
 </style>
 <script setup>
 import PaginationControls from '../components/PaginationControls.vue'
+import MountPointTable from '../components/MountPointTable.vue'
 import { usePagination } from '../composables/usePagination'
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'

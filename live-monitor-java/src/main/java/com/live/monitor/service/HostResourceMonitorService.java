@@ -77,6 +77,11 @@ public class HostResourceMonitorService {
             thresholdText(diskAlertEnabled, diskThreshold)
         );
         List<String> missingMetrics = new ArrayList<String>();
+        List<Map<String, Object>> mountMetrics = MountPointMonitor.monitored((List<Map<String, Object>>) metrics.get("disk_metrics"));
+        if (Boolean.TRUE.equals(host.mountMonitorEnabled)) {
+            message += "; " + MountPointMonitor.summary(mountMetrics);
+            if (mountMetrics.isEmpty() || mountMetrics.stream().anyMatch(row -> "UNKNOWN".equals(row.get("mount_state")))) missingMetrics.add("mount");
+        }
         if (cpuAlertEnabled && cpu == null) {
             missingMetrics.add("CPU");
         }
@@ -85,6 +90,12 @@ public class HostResourceMonitorService {
         }
         if (diskAlertEnabled && disk == null) {
             missingMetrics.add("disk");
+        }
+        if (Boolean.TRUE.equals(host.mountMonitorEnabled)) {
+            int samples = alertEnabled(host.resourceAlertDurationEnabled) ? requiredSamples(host.resourceAlertDurationSeconds, host.checkInterval) : 1;
+            if (MountPointMonitor.confirmed(mountMetrics, recentHostMetrics(host.id, samples), samples)) {
+                return hostResourceResult("UP", elapsedMillis(start), message, EventType.HOST_MOUNT_ABNORMAL.name(), HOST_RESOURCE_THRESHOLD_ALERT);
+            }
         }
         if (!missingMetrics.isEmpty()) {
             return hostResourceResult(
@@ -147,11 +158,12 @@ public class HostResourceMonitorService {
         Double memory = parseNumber(sshService.exec(host, memoryCommand(), timeoutMillis));
         Integer cpuCoreCount = parseInteger(sshService.exec(host, cpuCoreCommand(), timeoutMillis));
         Double memoryTotalMb = parseNumber(sshService.exec(host, memoryTotalCommand(), timeoutMillis));
-        List<Map<String, Object>> mountDisks = parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis));
+        String diskOutput = sshService.exec(host, diskCommand(), timeoutMillis);
+        List<Map<String, Object>> mountDisks = new ArrayList<>(parseDiskMetrics(diskOutput));
         String physicalDiskOutput = sshService.exec(host, physicalDiskCommand(), timeoutMillis);
         List<Map<String, Object>> physicalDisks = parsePhysicalDiskMetrics(physicalDiskOutput);
         attachPhysicalDiskDetails(mountDisks, physicalDisks);
-        Integer diskDeviceCount = physicalDisks.isEmpty() ? parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis)) : physicalDisks.size();
+        Integer diskDeviceCount = physicalDisks.isEmpty() ? parseLsblkDiskCount(sshService.exec(host, diskDeviceCommand(), timeoutMillis)) : Integer.valueOf(physicalDisks.size());
         if (diskDeviceCount == null) {
             diskDeviceCount = parseProcPartitionsDiskCount(sshService.exec(host, procPartitionsDiskCommand(), timeoutMillis));
         }
@@ -160,6 +172,12 @@ public class HostResourceMonitorService {
         }
         Double disk = maxDiskUsage(mountDisks);
         Integer mountPointCount = mountDisks.size();
+        if (Boolean.TRUE.equals(host.mountMonitorEnabled)) {
+            List<Map<String, Object>> monitored = MountPointMonitor.collect(host, parseDiskMetrics(diskOutput, true),
+                sshService.exec(host, "cat /proc/self/mountinfo", timeoutMillis));
+            mountDisks.removeIf(row -> monitored.stream().anyMatch(mount -> java.util.Objects.equals(mount.get("mount"), row.get("mount"))));
+            mountDisks.addAll(monitored);
+        }
         String diskMetricsJson = toJson(mountDisks);
         String physicalDiskMetricsJson = toJson(physicalDisks);
         String checkedAt = MonitorTime.nowText();
@@ -198,6 +216,11 @@ public class HostResourceMonitorService {
     private Double metricValue(Map<String, Object> metrics, String key) {
         Object value = metrics.get(key);
         return value instanceof Number ? ((Number) value).doubleValue() : null;
+    }
+
+    public List<Map<String, Object>> previewMounts(HostConfig host, int timeoutMillis) {
+        return MountPointMonitor.collect(host, parseDiskMetrics(sshService.exec(host, diskCommand(), timeoutMillis), true),
+            sshService.exec(host, "cat /proc/self/mountinfo", timeoutMillis));
     }
 
     private boolean alertEnabled(Boolean value) {
@@ -363,6 +386,10 @@ public class HostResourceMonitorService {
     }
 
     List<Map<String, Object>> parseDiskMetrics(String output) {
+        return parseDiskMetrics(output, false);
+    }
+
+    private List<Map<String, Object>> parseDiskMetrics(String output, boolean allMounts) {
         if (!StringUtils.hasText(output) || output.contains("Exception:")) {
             return Collections.emptyList();
         }
@@ -373,7 +400,7 @@ public class HostResourceMonitorService {
             if (!StringUtils.hasText(trimmed) || trimmed.startsWith("Filesystem ")) {
                 continue;
             }
-            String[] parts = trimmed.split("\\s+");
+            String[] parts = trimmed.split("\\s+", 7);
             if (parts.length < 7) {
                 continue;
             }
@@ -383,11 +410,11 @@ public class HostResourceMonitorService {
             Long usedBytes = parseLong(parts[3]);
             Long availableBytes = parseLong(parts[4]);
             Double usedPercent = parseNumber(parts[5]);
-            String mountPoint = parts[6];
+            String mountPoint = MountPointMonitor.decode(parts[6]);
             if (totalBytes == null || usedBytes == null || availableBytes == null || usedPercent == null) {
                 continue;
             }
-            if (!isValidDiskFs(fsType) || isIgnoredFilesystem(filesystem) || isIgnoredMountPoint(mountPoint)) {
+            if (!allMounts && (!isValidDiskFs(fsType) || isIgnoredFilesystem(filesystem) || isIgnoredMountPoint(mountPoint))) {
                 continue;
             }
             Map<String, Object> disk = new LinkedHashMap<String, Object>();

@@ -38,12 +38,12 @@ public interface HostMapper {
         "monitor_service_id, cluster_name, remark, cpu_threshold_percent, memory_threshold_percent, disk_threshold_percent, " +
         "cpu_alert_enabled, memory_alert_enabled, disk_alert_enabled, resource_alert_duration_seconds, " +
         "resource_alert_duration_enabled, resource_recover_duration_enabled, resource_alert_cooldown_enabled, " +
-        "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, enabled) " +
+        "resource_recover_duration_seconds, resource_alert_cooldown_seconds, check_interval, mount_monitor_enabled, mount_points_json, enabled) " +
         "VALUES (#{hostName}, #{ip}, #{sshPort}, #{sshUser}, #{sshPasswordCipher}, #{privateKeyCipher}, " +
         "#{monitorServiceId}, #{clusterName}, #{remark}, #{cpuThresholdPercent}, #{memoryThresholdPercent}, #{diskThresholdPercent}, " +
         "#{cpuAlertEnabled}, #{memoryAlertEnabled}, #{diskAlertEnabled}, #{resourceAlertDurationSeconds}, " +
         "#{resourceAlertDurationEnabled}, #{resourceRecoverDurationEnabled}, #{resourceAlertCooldownEnabled}, " +
-        "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{enabled})")
+        "#{resourceRecoverDurationSeconds}, #{resourceAlertCooldownSeconds}, #{checkInterval}, #{mountMonitorEnabled}, #{mountPointsJson}, #{enabled})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertHost(HostConfig host);
 
@@ -59,7 +59,7 @@ public interface HostMapper {
         "resource_alert_cooldown_enabled = #{resourceAlertCooldownEnabled}, " +
         "resource_recover_duration_seconds = #{resourceRecoverDurationSeconds}, " +
         "resource_alert_cooldown_seconds = #{resourceAlertCooldownSeconds}, check_interval = #{checkInterval}, " +
-        "enabled = #{enabled} WHERE id = #{id}")
+        "mount_monitor_enabled = #{mountMonitorEnabled}, mount_points_json = #{mountPointsJson}, enabled = #{enabled} WHERE id = #{id}")
     int updateHost(HostConfig host);
 
     @Update("UPDATE host_config SET monitor_service_id = #{monitorServiceId} WHERE id = #{id}")

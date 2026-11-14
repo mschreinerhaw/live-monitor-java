@@ -97,6 +97,7 @@ async function auditRequest(endpoint, options = {}) {
 }
 
 export const api = {
+  previewHostMounts: (data, hostId) => request(`/api/hosts/mount-preview${hostId ? '?host_id=' + encodeURIComponent(hostId) : ''}`, { method: 'POST', body: JSON.stringify(data) }),
   dolphinEnterprise: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/enterprise${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
   dolphinMonitor: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/monitor${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
   dolphinConnections: () => request('/api/dolphinscheduler/connections'),

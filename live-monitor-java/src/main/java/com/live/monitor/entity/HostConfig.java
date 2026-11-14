@@ -21,6 +21,9 @@ public class HostConfig {
     public Boolean cpuAlertEnabled;
     public Boolean memoryAlertEnabled;
     public Boolean diskAlertEnabled;
+    public Boolean mountMonitorEnabled;
+    public String mountPointsJson;
+    public List<String> mountPoints;
     public Boolean resourceAlertDurationEnabled;
     public Boolean resourceRecoverDurationEnabled;
     public Boolean resourceAlertCooldownEnabled;

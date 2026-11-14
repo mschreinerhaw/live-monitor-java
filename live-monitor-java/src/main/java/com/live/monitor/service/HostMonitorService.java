@@ -94,6 +94,17 @@ public class HostMonitorService {
         return host;
     }
 
+    public List<Map<String, Object>> previewMounts(HostPayload payload, Long existingId) {
+        HostConfig host = fromPayload(payload);
+        if (MountPointMonitor.paths(host.mountPointsJson).isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先填写监控挂载点");
+        if (existingId != null) {
+            HostConfig existing = requireHost(existingId);
+            if (!StringUtils.hasText(payload.sshPassword)) host.sshPasswordCipher = existing.sshPasswordCipher;
+            if (!StringUtils.hasText(payload.privateKey)) host.privateKeyCipher = existing.privateKeyCipher;
+        }
+        return hostResourceMonitorService.previewMounts(host, 10000);
+    }
+
     @Transactional
     public HostConfig createHost(HostPayload payload) {
         HostConfig host = fromPayload(payload);
@@ -105,6 +116,8 @@ public class HostMonitorService {
     @Transactional
     public HostConfig updateHost(Long id, HostPayload payload) {
         HostConfig existing = requireHost(id);
+        if (payload.mountMonitorEnabled == null) payload.mountMonitorEnabled = existing.mountMonitorEnabled;
+        if (payload.mountPoints == null) payload.mountPoints = MountPointMonitor.paths(existing.mountPointsJson);
         HostConfig host = fromPayload(payload);
         host.id = id;
         host.monitorServiceId = existing.monitorServiceId;
@@ -253,7 +266,8 @@ public class HostMonitorService {
             double diskThreshold = host.diskThresholdPercent == null ? 85D : host.diskThresholdPercent;
             if ((alertEnabled(host.cpuAlertEnabled) && host.cpuUsagePercent != null && host.cpuUsagePercent > cpuThreshold)
                 || (alertEnabled(host.memoryAlertEnabled) && host.memoryUsedPercent != null && host.memoryUsedPercent > memoryThreshold)
-                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent > diskThreshold)) {
+                || (alertEnabled(host.diskAlertEnabled) && host.diskUsedPercent != null && host.diskUsedPercent > diskThreshold)
+                || (Boolean.TRUE.equals(host.mountMonitorEnabled) && MountPointMonitor.monitored(host.diskMetrics).stream().anyMatch(MountPointMonitor::abnormal))) {
                 warning++;
             }
         }
@@ -269,6 +283,7 @@ public class HostMonitorService {
     }
 
     private void attachDiskMetrics(HostConfig host) {
+        host.mountPoints = MountPointMonitor.paths(host.mountPointsJson);
         host.diskMetrics = parseDiskMetrics(host.diskMetricsJson);
         host.physicalDiskMetrics = parseDiskMetrics(host.physicalDiskMetricsJson);
     }
@@ -329,6 +344,21 @@ public class HostMonitorService {
         host.cpuAlertEnabled = payload.cpuAlertEnabled == null || payload.cpuAlertEnabled;
         host.memoryAlertEnabled = payload.memoryAlertEnabled == null || payload.memoryAlertEnabled;
         host.diskAlertEnabled = payload.diskAlertEnabled == null || payload.diskAlertEnabled;
+        host.mountMonitorEnabled = Boolean.TRUE.equals(payload.mountMonitorEnabled);
+        java.util.Set<String> paths = new java.util.LinkedHashSet<>();
+        if (payload.mountPoints != null) for (String raw : payload.mountPoints) {
+            String path = MountPointMonitor.normalize(raw);
+            if (!path.startsWith("/") || path.length() > 512 || path.chars().anyMatch(Character::isISOControl)
+                || java.util.Arrays.asList(path.split("/")).contains("..")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "挂载点须为绝对路径，不能含控制字符或 ..");
+            }
+            paths.add(path);
+        }
+        if (paths.size() > 64 || (host.mountMonitorEnabled && paths.isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "启用挂载点监控须配置 1 至 64 个挂载点");
+        }
+        try { host.mountPointsJson = objectMapper.writeValueAsString(paths); }
+        catch (Exception e) { throw new IllegalArgumentException("Invalid mount points", e); }
         host.resourceAlertDurationEnabled = payload.resourceAlertDurationEnabled == null || payload.resourceAlertDurationEnabled;
         host.resourceRecoverDurationEnabled = payload.resourceRecoverDurationEnabled == null || payload.resourceRecoverDurationEnabled;
         host.resourceAlertCooldownEnabled = payload.resourceAlertCooldownEnabled == null || payload.resourceAlertCooldownEnabled;
@@ -444,6 +474,8 @@ public class HostMonitorService {
             config.put("cpu_alert_enabled", alertEnabled(host.cpuAlertEnabled));
             config.put("memory_alert_enabled", alertEnabled(host.memoryAlertEnabled));
             config.put("disk_alert_enabled", alertEnabled(host.diskAlertEnabled));
+            config.put("mount_monitor_enabled", Boolean.TRUE.equals(host.mountMonitorEnabled));
+            config.put("mount_points", MountPointMonitor.paths(host.mountPointsJson));
             config.put("resource_alert_duration_enabled", alertEnabled(host.resourceAlertDurationEnabled));
             config.put("resource_recover_duration_enabled", alertEnabled(host.resourceRecoverDurationEnabled));
             config.put("resource_alert_cooldown_enabled", alertEnabled(host.resourceAlertCooldownEnabled));

@@ -1,6 +1,7 @@
 package com.live.monitor.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -295,6 +296,25 @@ class HostResourceMonitorServiceTest {
         monitorService.hostId = 1L;
         monitorService.serviceType = "host";
         return monitorService;
+    }
+
+    @Test void configuredMountFaultsUseResourceAlertAndFailedCollectionStaysUnknown() {
+        HostConfig host = new HostConfig(); host.id=1L; host.enabled=true; host.mountMonitorEnabled=true;
+        host.mountPointsJson="[\"/data\"]"; host.resourceAlertDurationEnabled=false;
+        HostMapper mapper=mock(HostMapper.class); when(mapper.findHost(1L)).thenReturn(host);
+        SshService ssh=mock(SshService.class);
+        when(ssh.exec(any(),anyString(),anyInt())).thenAnswer(call->{String cmd=call.getArgument(1);
+            if(cmd.contains("mountinfo"))return "24 1 8:1 / / rw - xfs /dev/sda1 rw";
+            if(cmd.startsWith("df "))return "/dev/sda1 xfs 1000 200 800 20% /";
+            if(cmd.contains("/proc/stat"))return "10 100\n20 200";
+            if(cmd.contains("MemAvailable"))return "10";
+            return "1";});
+        HostResourceMonitorService monitor=new HostResourceMonitorService(mapper,mock(RocksDbHistoryRepository.class),ssh,new ObjectMapper());
+        CheckResult result=monitor.check(hostMonitorService(),10);
+        assertEquals(EventType.HOST_MOUNT_ABNORMAL.name(),result.eventType);
+        assertEquals("host_resource_threshold",result.alertType); assertTrue(result.message.contains("/data"));
+        when(ssh.exec(any(),org.mockito.ArgumentMatchers.eq("cat /proc/self/mountinfo"),anyInt())).thenReturn("");
+        result=monitor.check(hostMonitorService(),10); assertEquals("UNKNOWN",result.status); assertNull(result.alertType);
     }
 
     private HostResourceMonitorService monitorWithMetrics(

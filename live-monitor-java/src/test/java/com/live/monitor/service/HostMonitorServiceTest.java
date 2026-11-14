@@ -19,6 +19,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 class HostMonitorServiceTest {
+    @Test void mountPreviewUsesStoredCredentialsWithoutSavingOrPublishingAlerts() {
+        HostMapper mapper=mock(HostMapper.class); HostConfig existing=new HostConfig();existing.id=1L;existing.sshPasswordCipher="stored";
+        when(mapper.findHost(1L)).thenReturn(existing);
+        HostResourceMonitorService resources=mock(HostResourceMonitorService.class);
+        when(resources.previewMounts(any(),org.mockito.ArgumentMatchers.eq(10000))).thenAnswer(call->{
+            HostConfig candidate=call.getArgument(0);assertEquals("stored",candidate.sshPasswordCipher);assertEquals("[\"/data\"]",candidate.mountPointsJson);
+            return java.util.Collections.emptyList();});
+        HostMonitorService service=new HostMonitorService(mapper,mock(MonitorServiceMapper.class),mock(CryptoService.class),mock(SshService.class),resources,mock(RocksDbHistoryRepository.class),new ObjectMapper());
+        HostPayload payload=new HostPayload();payload.hostName="preview";payload.ip="127.0.0.1";payload.mountMonitorEnabled=true;payload.mountPoints=Arrays.asList("/data");
+        assertEquals(0,service.previewMounts(payload,1L).size());
+        org.mockito.Mockito.verify(mapper,org.mockito.Mockito.never()).insertHost(any());
+        org.mockito.Mockito.verify(mapper,org.mockito.Mockito.never()).updateHost(any());
+    }
     @Test
     void hostApiKeepsActualCheckStatusAndExposesAnUnambiguousTimestamp() {
         HostMapper hosts = mock(HostMapper.class);

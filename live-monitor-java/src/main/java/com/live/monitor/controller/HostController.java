@@ -44,6 +44,12 @@ public class HostController {
         return hostMonitorService.summary();
     }
 
+    @PostMapping("/api/hosts/mount-preview")
+    public List<Map<String, Object>> previewMounts(@Valid @RequestBody HostPayload payload,
+        @RequestParam(name = "host_id", required = false) Long hostId) {
+        return hostMonitorService.previewMounts(payload, hostId);
+    }
+
     @PostMapping("/api/hosts")
     @ResponseStatus(HttpStatus.CREATED)
     public HostConfig createHost(@Valid @RequestBody HostPayload payload) {

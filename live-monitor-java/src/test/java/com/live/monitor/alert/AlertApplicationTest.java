@@ -33,6 +33,34 @@ class AlertApplicationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired LiveMonitorService monitors;
     @Autowired RocksDbHistoryRepository history;
+    @Autowired com.live.monitor.service.HostMonitorService hosts;
+
+    @Test void mountConfigurationPersistsNormalizesAndPreservesOmittedUpdateFields() {
+        com.live.monitor.dto.HostPayload payload = new com.live.monitor.dto.HostPayload();
+        payload.hostName="mount-persistence-test"; payload.ip="127.0.0.1"; payload.enabled=false;
+        payload.mountMonitorEnabled=true; payload.mountPoints=java.util.Arrays.asList("/data/", "/data", "/backup");
+        com.live.monitor.entity.HostConfig created=hosts.createHost(payload);
+        try {
+            assertEquals(java.util.Arrays.asList("/data", "/backup"),created.mountPoints);
+            assertEquals(Boolean.TRUE,created.mountMonitorEnabled);
+            assertEquals(1,jdbc.queryForObject("SELECT mount_monitor_enabled FROM host_config WHERE id=?",Integer.class,created.id));
+            com.live.monitor.dto.HostPayload update=new com.live.monitor.dto.HostPayload();
+            update.hostName=created.hostName; update.ip=created.ip; update.enabled=false;
+            com.live.monitor.entity.HostConfig saved=hosts.updateHost(created.id,update);
+            assertEquals(Boolean.TRUE,saved.mountMonitorEnabled); assertEquals(created.mountPoints,saved.mountPoints);
+            payload.mountMonitorEnabled=false;
+            assertEquals(Boolean.FALSE,hosts.updateHost(created.id,payload).mountMonitorEnabled);
+        } finally { hosts.deleteHost(created.id); }
+    }
+
+    @Test void invalidMountConfigurationIsRejectedBeforeCreatingHost() {
+        com.live.monitor.dto.HostPayload payload=new com.live.monitor.dto.HostPayload(); payload.hostName="invalid-mount";payload.ip="127.0.0.1";payload.mountMonitorEnabled=true;
+        for(java.util.List<String> paths:java.util.Arrays.asList(java.util.Collections.<String>emptyList(),java.util.Arrays.asList("data"),java.util.Arrays.asList("/data/../etc"),java.util.Arrays.asList("/data\n/backup"))) {
+            payload.mountPoints=paths;
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->hosts.createHost(payload));
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM host_config WHERE host_name='invalid-mount'",Integer.class));
+    }
     @org.springframework.boot.web.server.LocalServerPort int port;
 
     @Test void spaDeepLinksReturnVueEntryAndApiStillRequiresLogin() {

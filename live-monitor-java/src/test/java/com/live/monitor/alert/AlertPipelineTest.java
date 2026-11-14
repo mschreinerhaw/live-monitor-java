@@ -48,6 +48,34 @@ class AlertPipelineTest {
         dolphinStore=new com.live.monitor.dolphin.DolphinStore(jdbc,new ObjectMapper(),tx.getTransactionManager());dolphinStore.migrate();
     }
 
+    @Test void mountFaultIsDurableDeduplicatedAndUnknownCannotRecoverIt() {
+        jdbc.update("INSERT INTO alert_policy(id,policy_name,trigger_type,enabled) VALUES(93,'mount recovery','recovered',1)");
+        jdbc.update("INSERT INTO group_policy_rel(group_id,policy_id) VALUES(2,93)");
+        MonitorService service=service(920); service.serviceType="host"; service.checkInterval=60;
+        service.configJson="{\"resource_recover_duration_enabled\":false}";
+        MonitorResult result=new MonitorResult(); result.serviceId=service.id; result.status="UP";
+        result.eventType="HOST_MOUNT_ABNORMAL"; result.alertType="host_resource_threshold";
+        result.message="CPU 1.0% / 85.0%, Memory 2.0% / 85.0%, Disk 3.0% / 85.0%; MountStatus=ABNORMAL; 挂载点 /data：挂载丢失";
+        result.checkedAt="2026-11-14 10:00:00";
+        tx.execute(status->{alerts.publishCheckEvent(service,result);return null;});
+        result.checkedAt="2026-11-14 10:01:00";
+        tx.execute(status->{alerts.publishCheckEvent(service,result);return null;});
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=920",Integer.class));
+        String content=jdbc.queryForObject("SELECT alert_content FROM alert_delivery_task WHERE service_id=920 LIMIT 1",String.class);
+        assertTrue(content.contains("/data")); assertTrue(content.contains("挂载丢失"));
+        result.alertType=null; result.eventType="METRIC_FLUCTUATION";
+        result.message="CPU 1.0% / 85.0%, Memory 2.0% / 85.0%, Disk 3.0% / 85.0%; MountStatus=UNKNOWN";
+        result.checkedAt="2026-11-14 10:02:00";
+        tx.execute(status->{alerts.publishCheckEvent(service,result);return null;});
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=920",Integer.class));
+        result.eventType="SERVICE_RECOVERED";
+        result.message="CPU 1.0% / 85.0%, Memory 2.0% / 85.0%, Disk 3.0% / 85.0%; MountStatus=OK; 挂载点 /data：正常";
+        result.checkedAt="2026-11-14 10:03:00";
+        tx.execute(status->{alerts.publishCheckEvent(service,result);return null;});
+        assertEquals("RECOVERED",jdbc.queryForObject("SELECT state FROM alert_state WHERE service_id=920 AND alert_key='host_resource_threshold'",String.class));
+        assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM alert_delivery_task WHERE service_id=920",Integer.class));
+    }
+
     MonitorService service(long id) {
         jdbc.update("INSERT INTO monitor_service(id,service_name,service_type) VALUES(?,?,'api')",id,"service-"+id);
         MonitorService service = new MonitorService(); service.id=id; service.serviceName="service-"+id;

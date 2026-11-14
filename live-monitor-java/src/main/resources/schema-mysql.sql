@@ -205,6 +205,8 @@ CREATE TABLE IF NOT EXISTS host_config (
     cpu_alert_enabled INT DEFAULT 1,
     memory_alert_enabled INT DEFAULT 1,
     disk_alert_enabled INT DEFAULT 1,
+    mount_monitor_enabled INT DEFAULT 0,
+    mount_points_json TEXT,
     resource_alert_duration_enabled INT DEFAULT 1,
     resource_recover_duration_enabled INT DEFAULT 1,
     resource_alert_cooldown_enabled INT DEFAULT 1,
