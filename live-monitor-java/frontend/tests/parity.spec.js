@@ -64,6 +64,16 @@ async function backend(page, override = () => undefined) {
   return errors
 }
 
+test('account section starts collapsed and navigation scrolls without a visible scrollbar', async ({page}) => {
+  await backend(page);await page.setViewportSize({width:1280,height:500});await page.goto('/#/data-send');
+  const group=page.getByRole('button',{name:'账号与安全',exact:true});await expect(group).toHaveAttribute('aria-expanded','false');
+  await expect(page.locator('aside').getByRole('link',{name:'个人密码',exact:true})).toHaveCount(0);
+  await group.click();await expect(group).toHaveAttribute('aria-expanded','true');await expect(page.locator('aside').getByRole('link',{name:'个人密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'告警中心',exact:true}).click();await page.getByRole('button',{name:'资产基础设施',exact:true}).click();
+  const area=page.locator('.sidebar-menu-wrapper');const result=await area.evaluate(el=>{el.scrollTop=el.scrollHeight;return {scrollable:el.scrollHeight>el.clientHeight,moved:el.scrollTop>0,overflow:getComputedStyle(el).overflowY,bar:getComputedStyle(el,'::-webkit-scrollbar').display}});
+  expect(result).toEqual({scrollable:true,moved:true,overflow:'auto',bar:'none'});
+})
+
 test('unauthenticated session cannot open protected page', async ({ page }) => {
   await backend(page, (_, path) => path === '/api/auth/me' ? { authenticated: false } : undefined)
   await page.goto('/#/alerts/tasks')

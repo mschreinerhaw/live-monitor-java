@@ -68,7 +68,7 @@ const route = useRoute()
 const isCollapsed = ref(localStorage.getItem('lm_sidebar_collapsed') === 'true')
 const isMobile = ref(window.matchMedia('(max-width: 900px)').matches)
 const navigation = ref(null)
-const collapsedGroups = ref({ assets: true, alerts: true })
+const collapsedGroups = ref({ assets: true, alerts: true, account: true })
 const media = window.matchMedia('(max-width: 900px)')
 let returnFocus = null, previousOverflow = ''
 const resize = event => { isMobile.value = event.matches; if (!event.matches) store.navigationOpen = false }
@@ -147,7 +147,7 @@ const menuGroups = [
     ]
   },
   {
-    title: '账号与安全', items: [
+    title: '账号与安全', id: 'account', collapsible: true, icon: 'lock', items: [
       { label: '个人密码', path: '/account', icon: 'lock' },
       { label: '用户安全管理', path: '/admin', icon: 'users', adminOnly: true }
     ]
@@ -228,12 +228,23 @@ const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items:
 }
 
 .sidebar-menu-wrapper {
+  min-height: 0;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   flex: 1;
   overflow-y: auto;
   padding: 14px 10px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.sidebar-menu-wrapper::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .menu-group {
