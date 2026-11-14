@@ -1,4 +1,5 @@
-Live Monitor 1.1.0 分阶段验证及验收报告
+Live Monitor 1.1.0 历史分阶段验证及验收报告
+后续按用户要求整合为唯一 DolphinScheduler 监控菜单；当前 1.1.1 结果以 DOLPHIN_MONITOR_REVISION.txt 为准。
 日期：2026-11-14
 
 最终发布：1.1.0，http://192.168.195.221:8000/#/dolphinscheduler/enterprise。

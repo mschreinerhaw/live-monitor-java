@@ -69,6 +69,7 @@ async function request(endpoint, options = {}) {
 
 export const api = {
   dolphinEnterprise: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/enterprise${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
+  dolphinMonitor: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/monitor${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
   dolphinConnections: () => request('/api/dolphinscheduler/connections'),
   saveDolphinConnection: (id,data) => request('/api/dolphinscheduler/connections' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }),
   dolphinProjects: id => request(`/api/dolphinscheduler/${id}/projects`),

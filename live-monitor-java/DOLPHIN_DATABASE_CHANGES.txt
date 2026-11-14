@@ -1,5 +1,7 @@
 Live Monitor 1.1.0 数据库变更
 
+1.1.1 补充：不新增表或字段。ds_collection 增加 runtime_coverage:{projectCode} 记录成功采集的起点；首次补采与运行游标同事务，未覆盖范围不计算“未执行”。汇总读接口使用 /monitor/summary，原 /enterprise 路径兼容。
+
 迁移源文件：src/main/resources/db/dolphin-enterprise.sql 及 alert-delivery-dedup.sql。
 DolphinStore 初始化时执行幂等 CREATE TABLE IF NOT EXISTS，并创建 ds_entity_project_idx；兼容现有 H2/MySQL 配置库。
 不修改 DolphinScheduler 数据库，不写入调度生产元数据。

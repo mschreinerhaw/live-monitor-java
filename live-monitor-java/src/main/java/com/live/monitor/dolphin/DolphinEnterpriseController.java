@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import javax.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/api/dolphinscheduler/{id}/enterprise")
+@RequestMapping({"/api/dolphinscheduler/{id}/enterprise", "/api/dolphinscheduler/{id}/monitor"})
 public class DolphinEnterpriseController {
     final DolphinStore store;
     final DolphinSchedulerService api;
@@ -149,6 +149,150 @@ public class DolphinEnterpriseController {
 
     boolean hasSuccess(long id, String lane) {
         return store.collection(id, lane).get("last_success") != null;
+    }
+
+    @GetMapping("/summary")
+    public Object summary(
+            @PathVariable long id,
+            @RequestParam(required = false) String project,
+            @RequestParam(name = "etl_date", required = false) String date,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        project(id, project);
+        DolphinRunSummary.validate(date, start, end);
+        Map<String, Object> result = (Map<String, Object>) dashboard(id);
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) result.get("projects");
+        result.put(
+                "project_options",
+                rows.stream()
+                        .map(
+                                p -> {
+                                    Map<String, Object> option = new LinkedHashMap<>();
+                                    option.put("id", p.get("id"));
+                                    option.put("name", p.get("name"));
+                                    option.put("description", p.get("description"));
+                                    return option;
+                                })
+                        .collect(Collectors.toList()));
+        if (!empty(project))
+            rows =
+                    rows.stream()
+                            .filter(p -> project.equals(p.get("id")))
+                            .collect(Collectors.toList());
+        List<Map<String, Object>> definitions = scoped(id, "workflow_definition", project),
+                runs = scoped(id, "workflow_instance", project),
+                tasks = scoped(id, "task_instance", project);
+        List<Map<String, Object>> collection = (List<Map<String, Object>>) result.get("collection");
+        Map<String, Boolean> fresh = new HashMap<>();
+        for (Map<String, Object> lane : collection)
+            fresh.put(lane.get("lane").toString(), Boolean.TRUE.equals(lane.get("fresh")));
+        boolean reliable = true, inventoryKnown = true, runtimeKnown = true;
+        long online = 0, missing = 0, unknown = 0, taskDefinitions = 0;
+        for (Map<String, Object> row : rows) {
+            String code = row.get("id").toString();
+            List<Map<String, Object>> projectRuns =
+                    runs.stream()
+                            .filter(r -> code.equals(r.get("project_code")))
+                            .collect(Collectors.toList());
+            List<Map<String, Object>> defs =
+                    definitions.stream()
+                            .filter(r -> code.equals(r.get("project_code")))
+                            .collect(Collectors.toList());
+            boolean inventory = row.get("online_count") != null,
+                    runtime = row.get("workflow_statistics") != null;
+            boolean complete =
+                    fresh.getOrDefault("inventory:" + code, false)
+                            && fresh.getOrDefault("runtime:" + code, false);
+            String coverage =
+                    Objects.toString(
+                            store.collection(id, "runtime_coverage:" + code).get("watermark"), "");
+            String until =
+                    Objects.toString(store.collection(id, "runtime:" + code).get("watermark"), "");
+            String retainedSince =
+                    MonitorTime.now()
+                            .minusDays(
+                                    DolphinCollector.setting(
+                                            api.config(api.require(id)),
+                                            "retention_days",
+                                            90,
+                                            1,
+                                            3650))
+                            .format(MonitorTime.TEXT_TIME);
+            if (!coverage.isEmpty()
+                    && DolphinCollector.parse(coverage)
+                            .isBefore(DolphinCollector.parse(retainedSince)))
+                coverage = retainedSince;
+            complete &=
+                    !coverage.isEmpty()
+                            && (empty(end) || !empty(start))
+                            && (empty(end)
+                                    || !DolphinCollector.parse(end)
+                                            .isBefore(DolphinCollector.parse(coverage)))
+                            && (empty(start)
+                                    || DolphinCollector.parse(start)
+                                                    .compareTo(DolphinCollector.parse(coverage))
+                                            >= 0)
+                            && (empty(start)
+                                    || !until.isEmpty()
+                                            && DolphinCollector.parse(start)
+                                                            .compareTo(
+                                                                    DolphinCollector.parse(until))
+                                                    <= 0);
+            row.put("coverage_start", coverage);
+            row.put("collected_until", until);
+            Map<String, Object> accounting =
+                    DolphinRunSummary.missing(defs, projectRuns, date, start, end, complete);
+            row.putAll(accounting);
+            row.put(
+                    "workflow_statistics",
+                    runtime
+                            ? statistics(DolphinRunSummary.filter(projectRuns, date, start, end))
+                            : null);
+            row.put(
+                    "task_statistics",
+                    runtime
+                            ? statistics(
+                                    DolphinRunSummary.filter(
+                                            tasks.stream()
+                                                    .filter(r -> code.equals(r.get("project_code")))
+                                                    .collect(Collectors.toList()),
+                                            date,
+                                            start,
+                                            end))
+                            : null);
+            inventoryKnown &= inventory;
+            runtimeKnown &= runtime;
+            reliable &= complete;
+            if (inventory) {
+                online += ((Number) row.get("online_count")).longValue();
+                taskDefinitions += ((Number) row.get("task_definition_count")).longValue();
+            }
+            if (accounting.get("not_executed_workflows") instanceof Number)
+                missing += ((Number) accounting.get("not_executed_workflows")).longValue();
+            unknown += ((Number) accounting.get("unclassified_workflows")).longValue();
+        }
+        boolean known = hasSuccess(id, "inventory");
+        result.put("projects", rows);
+        result.put("project_count", known ? rows.size() : null);
+        result.put("online_workflows", known && inventoryKnown ? online : null);
+        result.put("task_definitions", known && inventoryKnown ? taskDefinitions : null);
+        result.put(
+                "workflow_statistics",
+                hasSuccess(id, "runtime") && runtimeKnown
+                        ? statistics(DolphinRunSummary.filter(runs, date, start, end))
+                        : null);
+        result.put(
+                "task_statistics",
+                hasSuccess(id, "runtime") && runtimeKnown
+                        ? statistics(DolphinRunSummary.filter(tasks, date, start, end))
+                        : null);
+        result.put("not_executed_workflows", known && reliable ? missing : null);
+        result.put("unclassified_workflows", known ? unknown : null);
+        result.put("execution_coverage_reliable", known && reliable);
+        result.put("etl_date", date);
+        result.put("start", start);
+        result.put("end", end);
+        return result;
     }
 
     List<Map<String, Object>> collectionStates(long id) {

@@ -22,6 +22,46 @@ import java.util.*;
 
 class DolphinEnterpriseTest {
     @Test
+    void monitorSummaryUsesBusinessDateAndMarksIncompleteCoverageUnknown() {
+        collector.collect(service, "inventory");
+        collector.collect(service, "runtime");
+        DolphinEnterpriseController controller =
+                new DolphinEnterpriseController(
+                        store, api, collector, mock(com.live.monitor.mapper.AlertMapper.class));
+        Map<?, ?> matched = (Map<?, ?>) controller.summary(7, "123", "2026-11-13", null, null);
+        assertEquals(0L, matched.get("not_executed_workflows"));
+        Map<?, ?> other = (Map<?, ?>) controller.summary(7, "123", "2026-11-14", null, null);
+        assertEquals(1L, other.get("not_executed_workflows"));
+        String lower = store.collection(7, "runtime_coverage:123").get("watermark").toString();
+        assertNull(
+                ((Map<?, ?>)
+                                controller.summary(
+                                        7,
+                                        "123",
+                                        null,
+                                        DolphinCollector.parse(lower).minusSeconds(1).toString(),
+                                        null))
+                        .get("not_executed_workflows"));
+        store.failure(7, "runtime:123", "HTTP 503");
+        assertNull(
+                ((Map<?, ?>) controller.summary(7, "123", "2026-11-14", null, null))
+                        .get("not_executed_workflows"));
+        assertEquals(
+                1,
+                ((Map<?, ?>)
+                                ((Map<?, ?>) controller.summary(7, "123", "2026-11-13", null, null))
+                                        .get("workflow_statistics"))
+                        .get("total"));
+        store.success(7, "runtime:123", com.live.monitor.util.MonitorTime.nowText());
+        Map<String, Object> workflow = store.entity(7, "workflow_instance", "10");
+        workflow.put("etl_date", "");
+        store.save(7, "workflow_instance", workflow);
+        Map<?, ?> unknown = (Map<?, ?>) controller.summary(7, "123", "2026-11-13", null, null);
+        assertEquals(1L, unknown.get("unclassified_workflows"));
+        assertEquals(0L, unknown.get("not_executed_workflows"));
+    }
+
+    @Test
     void transientFailureRetriesEntireSnapshotAndRollsBackNestedWrites() {
         java.util.concurrent.atomic.AtomicInteger attempts =
                 new java.util.concurrent.atomic.AtomicInteger();

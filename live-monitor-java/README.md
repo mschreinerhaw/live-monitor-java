@@ -1,10 +1,12 @@
 # Live Monitor Java
 
-面向内部监控与调度运维的 Java Maven 工程。1.1.0 在现有平台上增加 DolphinScheduler 企业监控，由 Spring Boot 托管 Vue3/ECharts 页面，保留原有服务、主机和告警接口。
+面向内部监控与调度运维的 Java Maven 工程。1.1.1 将项目执行统计与集群资源统一到唯一的 DolphinScheduler 监控菜单，由 Spring Boot 托管 Vue3/ECharts 页面，保留原有服务、主机和告警接口。
 
-企业监控入口：`/#/dolphinscheduler/enterprise`。支持持久化项目与定义同步、增量实例采集、ETL_Date、Master/Worker/JVM、项目责任人与告警组、独立异常去重与恢复，以及历史资源趋势。现场核验版本为定制 `ld-2.0.8`；其他版本需要核对接口及数据口径。
+监控入口：`/#/dolphinscheduler`，不再提供独立企业驾驶舱菜单。首页按项目展示上线工作流、执行实例、运行中、成功、失败、待执行和未执行工作流，并直接展示 Master/Worker 资源。支持执行时间及 ETL_Date 筛选；连接、采集和告警配置均在同一监控入口内。原驾驶舱链接自动跳转至此。现场核验版本为定制 `ld-2.0.8`；其他版本需要核对接口及数据口径。
 
 完整使用与 API 清单见 [DOLPHIN_ENTERPRISE_GUIDE.txt](DOLPHIN_ENTERPRISE_GUIDE.txt)，迁移和归档说明见 [DOLPHIN_DATABASE_CHANGES.txt](DOLPHIN_DATABASE_CHANGES.txt)。认证沿用服务端加密 Token；所有调度侧请求均只读，不控制生产任务。未采集、失败、过期和未知业务日期明确区分，不用模拟值补齐。
+
+单菜单整合、统计口径与当前验证结果见 [DOLPHIN_MONITOR_REVISION.txt](DOLPHIN_MONITOR_REVISION.txt)。
 
 ## 技术栈
 

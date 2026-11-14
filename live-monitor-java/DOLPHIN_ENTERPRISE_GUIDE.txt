@@ -1,8 +1,9 @@
-Live Monitor 1.1.0：DolphinScheduler 企业监控使用及接口说明
+Live Monitor 1.1.1：DolphinScheduler 监控使用及接口说明
 
 入口
-/#/dolphinscheduler/enterprise：驾驶舱、项目、运行明细、集群资源、项目告警和采集配置。
-/#/dolphinscheduler：沿用原连接管理、Token 管理和实时查询页面。
+/#/dolphinscheduler：唯一监控菜单。首页展示每个项目的上线工作流、任务定义、执行实例、运行中、成功、失败、待执行实例与未执行工作流，直接展示 Master/Worker 资源。
+工作流定义、运行明细、项目告警、连接、Token 及采集配置在同页查看和维护。
+旧 /#/dolphinscheduler/enterprise 链接自动跳转，不再显示独立驾驶舱菜单。
 原服务、主机、告警渠道、通知审计、用户管理入口保留。
 
 现场核验
@@ -83,7 +84,12 @@ TIMEOUT 按项目聚合；TASK_FAILURE/WORKFLOW_FAILURE 默认同项目至少 10
 开启企业告警后原连接汇总告警交由企业事件处理，原服务状态继续显示采集健康，避免同一采集故障重复通知。
 
 Live Monitor 新 API
-根路径：/api/dolphinscheduler/{connectionId}/enterprise
+根路径：/api/dolphinscheduler/{connectionId}/monitor；旧 /enterprise 根路径兼容保留。
+GET /summary?project=...&etl_date=...&start=...&end=...：按项目、业务日期与实例开始时间筛选的统计。project_options 保留所有可见项目供切换。
+上线数是当前上线工作流定义数量；运行/成功/失败/待执行为实例次数，重跑可以重复产生实例，不能用上线数直接减实例数。
+not_executed_workflows 为当前上线且筛选范围内未发现实例的工作流数，按稳定定义 ID 去重；不是未来计划次数或未生成的实例数量。unclassified_workflows 单列日期/采集范围无法确认的工作流。
+默认查询“今天”的执行开始时间，可切换最近 24 小时、已采集全部或自定义；ETL_Date 来自真实参数，不默认使用今天。
+第一次升级会成功补采一次 initial_window_hours 范围，事务中保存 runtime_coverage:{projectCode} 起点及运行游标。失败不推进覆盖；采集异常、超出覆盖或保留范围时未执行返回 null，页面显示未知。
 GET /dashboard：总览、项目摘要、节点、数据库、采集状态、待发送任务。
 GET /projects、/users、/projects/{code}/authorizations。
 GET /definitions?project=...&kind=workflow_definition|task_definition。
@@ -102,7 +108,7 @@ PUT /rules：管理员保存 scope_type、scope_id、rule_type、enabled、thres
 发送与重试继续使用 /api/alert-tasks、/api/alert-tasks/{id}/attempts、/api/alert-notifications。
 
 配置键
-enterprise_enabled、enterprise_alerts_enabled、collect_jvm 默认关闭，以便先核对数据和接收组再启用。
+配置兼容保留 enterprise_enabled、enterprise_alerts_enabled、collect_jvm 键。未指定时服务端默认关闭；1.1.1 新建连接表单启用周期采集与项目告警，接收人通过用户选择的既有告警组配置，JVM 需单独启用。
 api_profile：generic 或已经现场核验的 ld-2.0.8。
 etl_date_keys：逗号分隔字段名；resolve_verified_system_dates：是否按已核验逻辑日期解析系统变量。
 source_timezone：源时间字段的时区，默认 Asia/Shanghai。

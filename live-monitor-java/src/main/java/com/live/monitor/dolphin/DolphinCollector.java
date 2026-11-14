@@ -357,6 +357,13 @@ public class DolphinCollector {
             Map<String, Object> checkpoint = store.collection(s.id, lane);
             LocalDateTime until = api.sourceNow(s);
             String watermark = Objects.toString(checkpoint.get("watermark"), "");
+            String coverageStart =
+                    Objects.toString(
+                            store.collection(s.id, "runtime_coverage:" + code).get("watermark"),
+                            "");
+            // Existing installations get one successful full initial-window pass before absence
+            // can be counted. A saved cursor alone does not prove the lower coverage boundary.
+            if (coverageStart.isEmpty()) watermark = "";
             LocalDateTime since =
                     watermark.isEmpty()
                             ? until.minusHours(setting(config, "initial_window_hours", 24, 1, 744))
@@ -364,6 +371,7 @@ public class DolphinCollector {
             if (!watermark.isEmpty() && since.plusHours(6).isBefore(until))
                 until = since.plusHours(6);
             final LocalDateTime collectedUntil = until;
+            final String coveredFrom = coverageStart.isEmpty() ? TIME.format(since) : coverageStart;
             Map<String, String> filters = new LinkedHashMap<>();
             filters.put("startDate", TIME.format(since));
             filters.put("endDate", TIME.format(until));
@@ -519,6 +527,7 @@ public class DolphinCollector {
                                     for (Map<String, Object> row : tasks)
                                         store.save(s.id, "task_instance", row);
                                     store.success(s.id, lane, TIME.format(collectedUntil));
+                                    store.success(s.id, "runtime_coverage:" + code, coveredFrom);
                                     return null;
                                 });
             } catch (Exception ex) {

@@ -1,12 +1,14 @@
 # Live Monitor Java 生产发布说明
 
-## 1.1.0 DolphinScheduler 企业监控
+## 1.1.1 DolphinScheduler 监控
 
-执行 `mvn verify` 构建、测试与打包。发布包为 `target/live-monitor-java-1.1.0-release.tar.gz` 和 `.zip`，包含构建后的 Vue 页面，运行端不需要 Node。当前配置库为 H2 或 MySQL，历史为 RocksDB；下文旧版本 SQLite 示例仅用于历史迁移参考。
+执行 `mvn verify` 构建、测试与打包。发布包为 `target/live-monitor-java-1.1.1-release.tar.gz` 和 `.zip`，包含构建后的 Vue 页面，运行端不需要 Node。当前配置库为 H2 或 MySQL，历史为 RocksDB；下文旧版本 SQLite 示例仅用于历史迁移参考。
 
 停机备份完整 `data/`、配置库、`config/`、`templates/`、固定密钥和旧 JAR。保留原配置与密钥，替换 `lib/live-monitor-java.jar` 后启动。新增企业监控表由 `src/main/resources/db/dolphin-enterprise.sql` 自动幂等创建；不对 DolphinScheduler 数据库执行迁移或写操作。
 
-管理员进入 `/#/dolphinscheduler/enterprise`，核验集群数据后配置采样周期、业务日期参数名、JVM 主机映射和默认运维告警组，再启用企业采集与通知。连接管理仍在原 DolphinScheduler 页面。各项目主要/备用责任人及接收组需使用实际运维资料配置，不能把调度所有者自动当作业务负责人。
+管理员进入唯一入口 `/#/dolphinscheduler`，核验项目执行统计和资源后，在同页配置连接、采样周期、业务日期参数名、JVM 主机映射和默认运维告警组。原 `/#/dolphinscheduler/enterprise` 自动跳转，不增加第二个监控菜单。各项目主要/备用责任人及接收组需使用实际运维资料配置，不能把调度所有者自动当作业务负责人。
+
+首次升级到 1.1.1 会按配置的初始窗口补采一次实例，确认完整起点后才统计“未执行工作流”。未改动数据库表结构，覆盖起点保存在 ds_collection 的 runtime_coverage:{projectCode}；补采失败保留旧数据，不推进覆盖范围。
 
 现场为定制 `ld-2.0.8`，已核验只读 API、状态、系统日期变量和资源口径。JVM 使用已有 SSH 主机凭据与目标 JDK 的 jstat/jcmd；不可用指标显示未知。现场时钟偏差用 HTTP Date 校正心跳及运行时长判断，同时显示源时钟偏差，不主动修改服务器时钟。
 
