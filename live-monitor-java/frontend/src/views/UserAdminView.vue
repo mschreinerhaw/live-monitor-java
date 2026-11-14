@@ -2,11 +2,11 @@
   <div class="page-container user-admin-page">
     <div class="page-header">
       <div class="page-header-title">
-        <h1>用户账号与安全审计</h1>
-        <p>系统运维人员与管理员账号权限管理，提供用户登录安全审计日志</p>
+        <h1>用户安全管理</h1>
+        <p>统一管理当前账号、系统用户、个人密码与登录安全审计。</p>
       </div>
       <div>
-        <button v-if="currentTab === 'users'" class="btn btn-primary" @click="showCreateModal = true">
+        <button v-if="store.user?.admin && currentTab === 'users'" class="btn btn-primary" @click="showCreateModal = true">
           <IconSvg name="plus" size="14" />
           <span>新建用户</span>
         </button>
@@ -14,24 +14,34 @@
     </div>
 
     <!-- 选项卡切换 -->
-    <div class="tabs-nav" style="margin-bottom: 20px;">
-      <button class="tab-btn" :class="{ active: currentTab === 'users' }" @click="currentTab = 'users'">
-        用户账号列表 ({{ users.length }})
-      </button>
-      <button class="tab-btn" :class="{ active: currentTab === 'logs' }" @click="currentTab = 'logs'; fetchAuditLogs()">
-        登录审计日志
-      </button>
+    <div class="tabs-nav" role="tablist" aria-label="用户安全管理" @keydown="handleTabKey">
+      <button v-for="tab in tabs" :id="'security-tab-' + tab.id" :key="tab.id" type="button" role="tab" :aria-selected="currentTab === tab.id" :aria-controls="'security-panel-' + tab.id" :tabindex="currentTab === tab.id ? 0 : -1" class="tab-btn" :class="{ active: currentTab === tab.id }" @click="selectTab(tab.id)">{{ tab.name }}</button>
     </div>
 
+    <section :id="'security-panel-' + currentTab" role="tabpanel" :aria-labelledby="'security-tab-' + currentTab">
+    <section v-if="currentTab === 'users'" class="card current-account" aria-label="当前登录用户">
+      <div class="card-header"><h2 class="card-title"><IconSvg name="users" size="16" />当前登录用户</h2><span class="badge badge-info">当前账号</span></div>
+      <dl class="account-details">
+        <div><dt>登录账号</dt><dd>{{ store.user?.user_id }}</dd></div>
+        <div><dt>姓名 / 昵称</dt><dd>{{ store.user?.name || '-' }}</dd></div>
+        <div><dt>账号角色</dt><dd>{{ store.user?.admin ? '超级管理员' : '普通用户' }}</dd></div>
+      </dl>
+      <button class="btn btn-ghost btn-sm" @click="selectTab('password')"><IconSvg name="lock" size="14" />个人密码</button>
+    </section>
+    <PersonalPasswordForm v-if="currentTab === 'password'" />
+    <p v-if="currentTab === 'users' && !store.user?.admin" class="text-muted">仅管理员可查看和管理系统用户列表。</p>
+
     <!-- 1. 用户列表 Tab -->
-    <div v-if="currentTab === 'users'" class="card">
+    <div v-if="currentTab === 'users' && store.user?.admin" class="card" :aria-busy="usersLoading">
       <div class="card-header">
         <div class="card-title">
           <IconSvg name="users" size="16" />
-          <span>用户列表</span>
+          <span>系统用户列表<span v-if="!usersLoading && !usersError">（{{ users.length }}）</span></span>
         </div>
+        <button class="btn btn-ghost btn-sm" :disabled="usersLoading" @click="fetchUsers">刷新列表</button>
       </div>
 
+      <p v-if="usersError" role="alert" class="inline-error">{{ usersError }}，请刷新列表重试。</p>
       <div class="table-wrap">
         <table class="table">
           <thead>
@@ -45,13 +55,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="u in userPager.items" :key="u.id">
+            <tr v-if="usersLoading && !users.length"><td colspan="6" class="text-center text-muted">正在加载系统用户…</td></tr>
+            <tr v-else-if="!usersLoading && !usersError && !users.length"><td colspan="6" class="text-center text-muted">暂无系统用户</td></tr>
+            <tr v-for="u in userPager.items" :key="u.id || u.user_id || u.userid" :class="{ 'current-user-row': isCurrentUser(u) }">
               <td>{{ u.id }}</td>
-              <td><strong>{{ u.user_id || u.userid }}</strong></td>
+              <td><strong>{{ u.user_id || u.userid }}</strong> <span v-if="isCurrentUser(u)" class="badge badge-info">当前用户</span></td>
               <td>{{ u.name || '-' }}</td>
               <td>
-                <span class="badge" :class="u.grade === 1 ? 'badge-info' : ''">
-                  {{ u.grade === 1 ? '超级管理员' : '普通用户' }}
+                <span class="badge" :class="isAdminUser(u) ? 'badge-info' : ''">
+                  {{ isAdminUser(u) ? '超级管理员' : '普通用户' }}
                 </span>
               </td>
               <td>
@@ -62,13 +74,13 @@
               <td>
                 <div style="display: flex; gap: 8px;">
                   <button
-                    v-if="u.user_id !== 'admin' && u.userid !== 'admin'"
+                    v-if="!isAdminUser(u)"
                     class="btn btn-ghost btn-sm"
                     @click="toggleStatus(u)"
                   >
                     {{ u.status === 1 ? '禁用' : '启用' }}
                   </button>
-                  <button v-if="(u.user_id || u.userid) !== 'admin'" class="btn btn-ghost btn-sm" @click="removeUser(u)">删除</button><button class="btn btn-ghost btn-sm" @click="openResetPwdModal(u)">
+                  <button v-if="!isAdminUser(u)" class="btn btn-ghost btn-sm" @click="removeUser(u)">删除</button><button v-if="isCurrentUser(u)" class="btn btn-ghost btn-sm" @click="selectTab('password')">修改密码</button><button v-else class="btn btn-ghost btn-sm" @click="openResetPwdModal(u)">
                     重置密码
                   </button>
                 </div>
@@ -119,6 +131,7 @@
     </div>
 
     <section v-if="currentTab === 'logs'" class="card"><form class="toolbar" @submit.prevent="auditPage = 1; fetchAuditLogs()"><input v-model="auditQuery" class="form-control" placeholder="搜索登录用户 / IP"><button class="btn btn-ghost">查询登录审计</button></form><PaginationControls v-model:page="auditPage" v-model:page-size="auditPageSize" :total="auditTotal" label="登录审计" @change="fetchAuditLogs" /></section>
+    </section>
     <!-- 新建用户模态框 -->
     <div v-if="showCreateModal" class="modal-overlay">
       <div class="modal-dialog">
@@ -182,14 +195,32 @@
 
 <script setup>
 import PaginationControls from '../components/PaginationControls.vue'
+import PersonalPasswordForm from '../components/PersonalPasswordForm.vue'
 import { usePagination } from '../composables/usePagination'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { store } from '../store'
 
-const currentTab = ref('users')
+const route = useRoute(), router = useRouter()
+const tabs = computed(() => [{ id: 'users', name: '用户管理' }, { id: 'password', name: '个人密码' }, ...(store.user?.admin ? [{ id: 'logs', name: '登录审计' }] : [])])
+const currentTab = computed(() => tabs.value.some(tab => tab.id === route.query.tab) ? route.query.tab : 'users')
+function selectTab(tab) { router.push({ path: '/admin', query: { ...route.query, tab } }) }
+async function handleTabKey(event) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const index = tabs.value.findIndex(tab => tab.id === currentTab.value)
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.value.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.value.length) % tabs.value.length
+  await router.push({ path: '/admin', query: { ...route.query, tab: tabs.value[next].id } })
+  await nextTick()
+  document.getElementById('security-tab-' + currentTab.value)?.focus()
+}
+const isCurrentUser = user => (user.user_id || user.userid) === store.user?.user_id
+const isAdminUser = user => String(user.user_id || user.userid).toLowerCase() === 'admin'
 const users = ref([])
-const userPager = usePagination(users)
+const sortedUsers = computed(() => [...users.value].sort((a, b) => Number(isCurrentUser(b)) - Number(isCurrentUser(a))))
+const userPager = usePagination(sortedUsers)
+const usersLoading = ref(false), usersError = ref('')
 const auditLogs = ref([])
 const auditPageSize = ref(10)
 const auditPage = ref(1), auditTotal = ref(0), auditQuery = ref('')
@@ -206,12 +237,15 @@ const createForm = reactive({
 })
 
 const fetchUsers = async () => {
+  if (!store.user?.admin) return
+  usersLoading.value = true
+  usersError.value = ''
   try {
     const list = await api.listUsers()
     users.value = list || []
   } catch (err) {
-    store.showToast('加载用户列表失败：' + err.message, 'error')
-  }
+    usersError.value = '加载用户列表失败：' + err.message
+  } finally { usersLoading.value = false }
 }
 
 const fetchAuditLogs = async () => {
@@ -273,7 +307,9 @@ const handleResetPassword = async () => {
 
 onMounted(() => {
   fetchUsers()
+  if (currentTab.value === 'logs') fetchAuditLogs()
 })
+watch(currentTab, tab => { if (tab === 'logs') fetchAuditLogs() })
 </script>
 
 <style scoped>
@@ -281,7 +317,14 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
+.account-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 16px; }
+.account-details dt { color: #64748b; font-size: 13px; margin-bottom: 6px; }
+.account-details dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.current-user-row { background: #f0f9ff; }
+@media (max-width: 600px) { .account-details { grid-template-columns: 1fr; } }
 .tab-btn {
   background: none;
   border: none;

@@ -148,8 +148,7 @@ const menuGroups = [
   },
   {
     title: '账号与安全', id: 'account', collapsible: true, icon: 'lock', items: [
-      { label: '个人密码', path: '/account', icon: 'lock' },
-      { label: '用户安全管理', path: '/admin', icon: 'users', adminOnly: true }
+      { label: '用户安全管理', path: '/admin', icon: 'users' }
     ]
   }
 ]

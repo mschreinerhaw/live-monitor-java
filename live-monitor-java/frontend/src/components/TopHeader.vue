@@ -63,10 +63,10 @@
         </button>
 
         <div v-if="showUserMenu" id="account-menu" class="user-popover-menu">
-          <router-link to="/account" class="popover-item"><IconSvg name="lock" size="14" /><span>修改个人密码</span></router-link>
-          <router-link v-if="store.user?.admin" to="/admin" class="popover-item" @click="showUserMenu = false">
+          <router-link to="/admin?tab=password" class="popover-item" @click="showUserMenu = false"><IconSvg name="lock" size="14" /><span>修改个人密码</span></router-link>
+          <router-link to="/admin" class="popover-item" @click="showUserMenu = false">
             <IconSvg name="users" size="14" />
-            <span>用户维护</span>
+            <span>用户安全管理</span>
           </router-link>
           <button class="popover-item logout" @click="handleLogout">
             <IconSvg name="logout" size="14" />

@@ -10,7 +10,7 @@ const routes = [
   { path: '/alerts/tasks', component: () => import('../views/AlertTasksView.vue') },
   { path: '/external-projects', component: () => import('../views/ExternalProjectsView.vue') },
   { path: '/hosts/:id', component: () => import('../views/HostDetailView.vue') },
-  { path: '/account', component: () => import('../views/AccountView.vue') },
+  { path: '/account', redirect: to => ({ path: '/admin', query: { ...to.query, tab: 'password' } }) },
   {
     path: '/',
     redirect: '/dashboard'
@@ -100,7 +100,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  if (to.path === '/admin' && !store.user?.admin) { next('/account'); return }
   next()
 })
 

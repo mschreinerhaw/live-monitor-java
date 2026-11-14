@@ -67,11 +67,80 @@ async function backend(page, override = () => undefined) {
 test('account section starts collapsed and navigation scrolls without a visible scrollbar', async ({page}) => {
   await backend(page);await page.setViewportSize({width:1280,height:500});await page.goto('/#/data-send');
   const group=page.getByRole('button',{name:'账号与安全',exact:true});await expect(group).toHaveAttribute('aria-expanded','false');
-  await expect(page.locator('aside').getByRole('link',{name:'个人密码',exact:true})).toHaveCount(0);
-  await group.click();await expect(group).toHaveAttribute('aria-expanded','true');await expect(page.locator('aside').getByRole('link',{name:'个人密码',exact:true})).toBeVisible();
+  await expect(page.locator('aside').getByRole('link',{name:'用户安全管理',exact:true})).toHaveCount(0);
+  await group.click();await expect(group).toHaveAttribute('aria-expanded','true');await expect(page.locator('aside').getByRole('link',{name:'用户安全管理',exact:true})).toBeVisible();
+  await expect(page.locator('aside a[href="#/account"]')).toHaveCount(0);
   await page.getByRole('button',{name:'告警中心',exact:true}).click();await page.getByRole('button',{name:'资产基础设施',exact:true}).click();
   const area=page.locator('.sidebar-menu-wrapper');const result=await area.evaluate(el=>{el.scrollTop=el.scrollHeight;return {scrollable:el.scrollHeight>el.clientHeight,moved:el.scrollTop>0,overflow:getComputedStyle(el).overflowY,bar:getComputedStyle(el,'::-webkit-scrollbar').display}});
   expect(result).toEqual({scrollable:true,moved:true,overflow:'auto',bar:'none'});
+})
+
+test('unified security tabs show current user, created users and preserve password validation and audit', async ({ page }) => {
+  const users = [{ id: 2, user_id: 'john', name: 'John', status: 1 }, { id: 1, user_id: 'admin', name: '管理员', status: 1, grade: 0 }]
+  let password, created
+  const errors = await backend(page, (request, path) => {
+    if (path === '/api/admin/users' && request.method() === 'POST') { created = request.postDataJSON(); users.push({ id: 3, ...created, status: 1 }); return { status: 201, body: users[2] } }
+    if (path === '/api/admin/users') return users
+    if (path === '/api/admin/password') { password = request.postDataJSON(); return {} }
+    if (path === '/api/admin/audit-logs') return { records: [{ id: 1, user_id: 'john', action: 'LOGIN', event_time: '2026-11-14 10:00:00', ip_address: '127.0.0.1' }], total: 1 }
+  })
+  await page.goto('/#/admin')
+  await expect(page.getByRole('tab', { name: '用户管理', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('region', { name: '当前登录用户' })).toContainText('admin')
+  await expect(page.locator('tbody tr').first()).toContainText('当前用户')
+  await expect(page.locator('tbody tr').first()).toContainText('超级管理员')
+  await expect(page.locator('tbody tr').nth(1)).toContainText('john')
+  await page.getByRole('button', { name: '新建用户', exact: true }).click()
+  await page.getByPlaceholder('英文小写或数字').fill('alice')
+  await page.getByPlaceholder('例如：张三').fill('Alice')
+  await page.getByPlaceholder('至少 6 位密码').fill('temporary-password')
+  await page.getByRole('button', { name: '立即创建' }).click()
+  await expect(page.locator('tbody tr')).toHaveCount(3)
+  await expect(page.locator('tbody')).toContainText('alice')
+  expect(created.user_id).toBe('alice')
+  await page.getByRole('tab', { name: '个人密码', exact: true }).click()
+  await page.getByLabel('当前密码', { exact: true }).fill('current')
+  await page.getByLabel('新密码', { exact: true }).fill('new-password')
+  await page.getByLabel('确认新密码', { exact: true }).fill('mismatch')
+  await page.getByRole('button', { name: '修改密码', exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('两次新密码不一致')
+  expect(password).toBeUndefined()
+  await page.getByLabel('确认新密码', { exact: true }).fill('new-password')
+  await page.getByRole('button', { name: '修改密码', exact: true }).click()
+  await expect.poll(() => password).toEqual({ current_password: 'current', new_password: 'new-password' })
+  await expect(page.getByLabel('当前密码', { exact: true })).toHaveValue('')
+  await page.getByRole('tab', { name: '个人密码', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: '登录审计', exact: true })).toBeFocused()
+  await expect(page.locator('tbody')).toContainText('127.0.0.1')
+  await page.reload()
+  await expect(page.getByRole('tab', { name: '登录审计', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await page.goto('/#/account')
+  await expect(page).toHaveURL(/#\/admin\?tab=password/)
+  await expect(page.getByRole('tab', { name: '个人密码', exact: true })).toHaveAttribute('aria-selected', 'true')
+  expect(errors).toEqual([])
+})
+
+test('security users failure is visible and retry restores list; read-only users cannot access admin controls', async ({ page }) => {
+  let fail = true, admin = true, protectedRequests = 0
+  await backend(page, (_, path) => {
+    if (path === '/api/auth/me') return { authenticated: true, user_id: admin ? 'admin' : 'viewer', admin }
+    if (path.startsWith('/api/admin/')) { protectedRequests++; return fail ? { status: 503, body: { detail: '用户服务不可用' } } : [{ id: 1, user_id: 'admin', status: 1 }] }
+  })
+  await page.goto('/#/admin')
+  await expect(page.getByRole('alert')).toContainText('加载用户列表失败')
+  fail = false
+  await page.getByRole('button', { name: '刷新列表', exact: true }).click()
+  await expect(page.locator('tbody tr')).toHaveCount(1)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  admin = false; protectedRequests = 0
+  await page.reload()
+  await expect(page.getByRole('region', { name: '当前登录用户' })).toContainText('viewer')
+  await expect(page.getByRole('button', { name: '新建用户', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: '登录审计', exact: true })).toHaveCount(0)
+  await page.getByRole('tab', { name: '个人密码', exact: true }).click()
+  await expect(page.getByText('当前账号为只读用户，请联系管理员修改密码。')).toBeVisible()
+  expect(protectedRequests).toBe(0)
 })
 
 test('unauthenticated session cannot open protected page', async ({ page }) => {
@@ -250,7 +319,7 @@ test('all page routes render without runtime errors and direct links keep the pa
     if (path === '/api/hosts/1/metrics') return { cpu_usage_percent: 10 }
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户账号与安全审计'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/alerts/tasks','告警任务与重试管理']]) {
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户安全管理'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/alerts/tasks','告警任务与重试管理']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
   }
@@ -435,7 +504,7 @@ test('all workspace pages retain usable content width on a phone', async ({ page
     if (path === '/api/hosts/1/metrics') return {}
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/account','修改个人密码'],['/admin','用户账号与安全审计'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
+  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/account','用户安全管理'],['/admin','用户安全管理'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
     const main = await page.locator('main').boundingBox()
@@ -492,7 +561,7 @@ test('notification previews remove HTML and menus dismiss without losing focus',
   await page.getByRole('link', { name: '跳到主要内容' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.locator('main')).toBeFocused()
-  await expect(page).toHaveURL(/#\/account/)
+  await expect(page).toHaveURL(/#\/admin\?tab=password/)
   await page.goto('/#/alerts/recent?service_id=11')
   await expect(page.getByRole('heading', { name: '最近告警记录', exact: true })).toBeVisible()
   const nextService = page.waitForRequest(request => request.url().includes('/api/services/12/alerts'))
