@@ -1,10 +1,11 @@
-Live Monitor 1.1.1：DolphinScheduler 监控使用及接口说明
+Live Monitor 1.1.2：DolphinScheduler 监控使用及接口说明
 
 入口
 /#/dolphinscheduler：唯一监控菜单。首页展示每个项目的上线工作流、任务定义、执行实例、运行中、成功、失败、待执行实例与未执行工作流，直接展示 Master/Worker 资源。
 工作流定义、运行明细、项目告警、连接、Token 及采集配置在同页查看和维护。
 旧 /#/dolphinscheduler/enterprise 链接自动跳转，不再显示独立驾驶舱菜单。
 原服务、主机、告警渠道、通知审计、用户管理入口保留。
+1.1.2 中连接与通知操作收进顶部“管理”；项目列表默认异常优先，可搜索并点击状态数量进入明细。资源摘要在首页，手机以项目状态卡片展示。
 
 现场核验
 2026-11-14 通过现有加密连接及已维护 SSH 主机映射读取部署包，确认现场版本为 ld-2.0.8。
@@ -95,6 +96,7 @@ GET /projects、/users、/projects/{code}/authorizations。
 GET /definitions?project=...&kind=workflow_definition|task_definition。
 last_collected_run 是持久化实例采集范围内最近开始时间；未取得历史实例则未知，不用定义上线/修改时间冒充运行时间。
 GET /instances?kind=workflow_instance|task_instance&project=...&workflow=...&task=...&state=...&etl_date=...&start=...&end=...&page=1&page_size=20。
+1.1.2 扩展 state=success（成功及强制成功）、state=waiting（与统计一致的等待/延迟/准备状态）。原有大写执行状态仍精确匹配，保证卡片数量与下钻范围一致。
 实例响应包含 duration_seconds（运行中按源时钟计算）和工作流 running_nodes（关联已采集活动任务，保留各自状态），不把等待状态当作操作系统执行进程。
 GET /business-dates?project=...：实例次数及最新尝试统计。
 GET /nodes/{encodedNodeKey}/history?hours=1|24|168：源值或有来源标记的小时均值。

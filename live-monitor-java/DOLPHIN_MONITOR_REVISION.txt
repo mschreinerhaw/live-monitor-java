@@ -1,4 +1,5 @@
 Live Monitor 1.1.1：DolphinScheduler 单菜单监控修正
+后续 1.1.2 产品体验优化见 DOLPHIN_PRODUCT_DESIGN_20261114.txt；本文件保留单菜单与统计口径修正记录。
 日期：2026-11-14
 
 按用户更正，不建设独立企业驾驶舱。唯一菜单和访问入口为 DolphinScheduler 监控，/#/dolphinscheduler。

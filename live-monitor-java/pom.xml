@@ -13,7 +13,7 @@
 
     <groupId>com.live</groupId>
     <artifactId>live-monitor-java</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
     <name>live-monitor-java</name>
     <description>Internal monitoring platform based on Spring Boot, H2, RocksDB, MyBatis and SSH.</description>
 

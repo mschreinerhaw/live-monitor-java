@@ -22,6 +22,92 @@ import java.util.*;
 
 class DolphinEnterpriseTest {
     @Test
+    void statusDrilldownIncludesForcedSuccessAndAllWaitingStatesWithoutRunning() {
+        String[] states = {
+            "SUCCESS",
+            "FORCED_SUCCESS",
+            "WAITING_DEPEND",
+            "SUBMITTED_SUCCESS",
+            "RUNNING_EXECUTION",
+            "FAILURE"
+        };
+        for (int i = 0; i < states.length; i++) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("id", Integer.toString(i));
+            row.put("state", states[i]);
+            row.put("project_code", "123");
+            store.save(7, "workflow_instance", row);
+        }
+        DolphinEnterpriseController controller =
+                new DolphinEnterpriseController(
+                        store, api, collector, mock(com.live.monitor.mapper.AlertMapper.class));
+        assertEquals(
+                2,
+                ((Map<?, ?>)
+                                controller.instances(
+                                        7,
+                                        "workflow_instance",
+                                        "123",
+                                        null,
+                                        null,
+                                        "success",
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                        .get("total"));
+        assertEquals(
+                2,
+                ((Map<?, ?>)
+                                controller.instances(
+                                        7,
+                                        "workflow_instance",
+                                        "123",
+                                        null,
+                                        null,
+                                        "waiting",
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                        .get("total"));
+        assertEquals(
+                1,
+                ((Map<?, ?>)
+                                controller.instances(
+                                        7,
+                                        "workflow_instance",
+                                        "123",
+                                        null,
+                                        null,
+                                        "SUCCESS",
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                        .get("total"));
+        assertEquals(
+                1,
+                ((Map<?, ?>)
+                                controller.instances(
+                                        7,
+                                        "workflow_instance",
+                                        "123",
+                                        null,
+                                        null,
+                                        "RUNNING_EXECUTION",
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                        .get("total"));
+    }
+
+    @Test
     void monitorSummaryUsesBusinessDateAndMarksIncompleteCoverageUnknown() {
         collector.collect(service, "inventory");
         collector.collect(service, "runtime");

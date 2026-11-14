@@ -467,7 +467,7 @@ public class DolphinEnterpriseController {
                 scoped(id, kind, project).stream()
                         .filter(r -> empty(workflow) || workflow.equals(r.get("definition_code")))
                         .filter(r -> empty(task) || task.equals(r.get("task_code")))
-                        .filter(r -> empty(state) || state.equals(r.get("state")))
+                        .filter(r -> matchesState(r, state))
                         .filter(r -> empty(date) || date.equals(r.get("etl_date")))
                         .filter(
                                 r ->
@@ -723,6 +723,15 @@ public class DolphinEnterpriseController {
 
     static boolean empty(String value) {
         return value == null || value.isEmpty();
+    }
+
+    static boolean matchesState(Map<String, Object> row, String state) {
+        if (empty(state)) return true;
+        if ("success".equals(state)) return DolphinAlerts.success(row);
+        if ("waiting".equals(state))
+            return DolphinCollector.ACTIVE.contains(row.get("state"))
+                    && !"RUNNING_EXECUTION".equals(row.get("state"));
+        return state.equals(row.get("state"));
     }
 
     public static Map<String, Object> statistics(List<Map<String, Object>> rows) {

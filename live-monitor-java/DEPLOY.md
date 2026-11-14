@@ -1,8 +1,8 @@
 # Live Monitor Java 生产发布说明
 
-## 1.1.1 DolphinScheduler 监控
+## 1.1.2 DolphinScheduler 监控
 
-执行 `mvn verify` 构建、测试与打包。发布包为 `target/live-monitor-java-1.1.1-release.tar.gz` 和 `.zip`，包含构建后的 Vue 页面，运行端不需要 Node。当前配置库为 H2 或 MySQL，历史为 RocksDB；下文旧版本 SQLite 示例仅用于历史迁移参考。
+执行 `mvn verify` 构建、测试与打包。发布包为 `target/live-monitor-java-1.1.2-release.tar.gz` 和 `.zip`，包含构建后的 Vue 页面，运行端不需要 Node。当前配置库为 H2 或 MySQL，历史为 RocksDB；下文旧版本 SQLite 示例仅用于历史迁移参考。
 
 停机备份完整 `data/`、配置库、`config/`、`templates/`、固定密钥和旧 JAR。保留原配置与密钥，替换 `lib/live-monitor-java.jar` 后启动。新增企业监控表由 `src/main/resources/db/dolphin-enterprise.sql` 自动幂等创建；不对 DolphinScheduler 数据库执行迁移或写操作。
 
