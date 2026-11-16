@@ -51,3 +51,5 @@ POST /api/calendars/import/apply：{ "sql": "...", "preview_hash": "..." }。
 迁移脚本：src/main/resources/db/business-calendars.sql（H2/MySQL兼容、仅增量建表）。
 
 兼容迁移：将 login_audit_log.action 从旧版20字符扩展为1024字符，保留既有记录与非空约束，支持记录日历操作范围与数量。
+
+页面采用三个Tab：日历查询维护（默认）、SQL导入更新（仅管理员）、ETL_Date映射查询。切换保留筛选条件、SQL文件及预览；支持方向键和Home/End切换。
