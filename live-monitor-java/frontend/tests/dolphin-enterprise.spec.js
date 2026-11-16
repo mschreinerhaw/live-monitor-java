@@ -20,6 +20,7 @@ async function backend(page,options={}){
   else if(p.endsWith('/monitor/sync'))body={status:'queued'};
   else if(p==='/api/dashboard')body={summary:{}};
   else if(p==='/api/system-metrics')body={};
+  if(p.endsWith('/monitor/summary')&&options.projectNoRuns)body.projects[0].workflow_statistics={total:0,running:0,success:0,failed:0,waiting:0};
   if(p.endsWith('/monitor/summary')&&options.incomplete){body.not_executed_workflows=null;body.execution_coverage_reliable=false;body.projects[0].not_executed_workflows=null;}
   if(options.multiple&&(p.endsWith('/monitor/summary')||p.endsWith('/monitor/projects'))){const rows=[project,{...project,id:'456',name:'第二项目',workflow_statistics:{total:4,running:1,success:0,failed:3,waiting:0}}];if(p.endsWith('/monitor/projects'))body=rows;else{body.projects=rows.filter(r=>!u.searchParams.get('project')||u.searchParams.get('project')===r.id);body.project_count=body.projects.length;}}
   if(options.events&&p.endsWith('/monitor/incidents'))body=[{incident_key:'active',project_code:'123',category:'TASK_FAILURE',message:'active-issue',active:1},{incident_key:'suppressed',project_code:'123',category:'AGGREGATED_TIMEOUT',message:'suppressed-issue',active:2},{incident_key:'recovered',project_code:'123',category:'TASK_FAILURE',message:'recovered-issue',active:0}];
@@ -49,8 +50,10 @@ test('first screen fits key health and opens details on a separate screen',async
 
 test('overview keeps project monitoring cards and card status opens details',async({page})=>{
  const {requests,errors}=await backend(page,{multiple:true});await page.goto('/#/dolphinscheduler');
+ await expect(page.locator('.project-health-card').first().locator('.state-failed .state-percentage')).toHaveText('75.0%');
  await expect(page.locator('.project-health-card').first()).toContainText('第二项目');await page.getByRole('button',{name:/仅看异常/}).click();await expect(page.getByRole('button',{name:/仅看异常/})).toHaveAttribute('aria-pressed','true');
  await page.getByLabel('搜索概览项目').fill('123');await expect(page.locator('.project-health-card')).toHaveCount(1);
+ await expect(page.locator('.project-health-card .state-failed .state-percentage')).toHaveText('33.3%');
  await page.getByRole('button',{name:'业务项目的失败实例 1',exact:true}).click();await expect(page).toHaveURL(/view=details/);
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.project==='123'&&r.query.state==='FAILURE')).toBe(true);
  await page.getByRole('button',{name:'← 返回监控总览',exact:true}).click();await page.getByRole('button',{name:'查看全部项目',exact:true}).click();
@@ -197,4 +200,13 @@ test('execution overview charts use instance counts and drill down without inven
  await overview.locator('.bar-total').click();await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.kind==='workflow_instance'&&!r.query.state)).toBe(true);
  await page.getByRole('button',{name:'← 返回监控总览',exact:true}).click();await page.getByRole('navigation',{name:'定位排查路径'}).getByRole('button',{name:/任务实例/}).click();await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.kind==='task_instance')).toBe(true);
  await page.getByRole('button',{name:'← 返回监控总览',exact:true}).click();await page.setViewportSize({width:390,height:844});await expect(page.locator('.project-health-card')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'../../tmp/dolphin-execution-mobile.png',fullPage:true});expect(errors).toEqual([]);
+})
+
+test('project bar percentages keep zero execution unknown and assets sit above project charts',async({page})=>{
+ const {errors}=await backend(page,{projectNoRuns:true});await page.goto('/#/dolphinscheduler');
+ await expect(page.locator('.project-health-card')).toBeVisible();await expect(page.locator('.project-health-card .state-percentage')).toHaveText(['—','—','—','—']);
+ const assets=await page.locator('.overview-assets').boundingBox(),projects=await page.locator('.project-health-grid').boundingBox(),execution=await page.locator('.execution-layout').boundingBox();
+ expect(assets.y).toBeGreaterThanOrEqual(execution.y+execution.height);expect(assets.y+assets.height).toBeLessThan(projects.y);
+ await page.screenshot({path:'../../tmp/project-execution-bars-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 })
