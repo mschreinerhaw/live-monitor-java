@@ -97,6 +97,10 @@ async function auditRequest(endpoint, options = {}) {
 }
 
 export const api = {
+  listAlertContacts: async () => (await request('/api/alert-contacts')).map(c=>({...c,id:Number(c.id),enabled:c.enabled===true || Number(c.enabled)===1})),
+  createAlertContact: data => request('/api/alert-contacts',{method:'POST',body:JSON.stringify(data)}),
+  updateAlertContact: (id,data) => request('/api/alert-contacts/'+id,{method:'PUT',body:JSON.stringify(data)}),
+  deleteAlertContact: id => request('/api/alert-contacts/'+id,{method:'DELETE'}),
   previewHostMounts: (data, hostId) => request(`/api/hosts/mount-preview${hostId ? '?host_id=' + encodeURIComponent(hostId) : ''}`, { method: 'POST', body: JSON.stringify(data) }),
   dolphinEnterprise: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/enterprise${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),
   dolphinMonitor: (id,path,params={},method='GET',body) => request(`/api/dolphinscheduler/${id}/monitor${path}${query(params)}`,{method,...(body===undefined?{}:{body:JSON.stringify(body)})}),

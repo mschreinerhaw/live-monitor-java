@@ -32,10 +32,16 @@ public class AlertOutbox {
     public void enqueue(Long eventId, Long serviceId, AlertChannel channel, String content, String alertKey) {
         String key=alertKey==null?"":alertKey;
         try{jdbc.update("INSERT INTO alert_delivery_dedup(event_id,channel_id,alert_key) VALUES(?,?,?)",eventId,channel.id,key);}
-        catch(org.springframework.dao.DuplicateKeyException duplicate){return;}
+        catch(org.springframework.dao.DuplicateKeyException duplicate){
+            for(Map<String,Object> task:jdbc.queryForList("SELECT id,recipient_context_json FROM alert_delivery_task WHERE event_id=? AND channel_id=? AND alert_key=? AND delivery_status='PENDING' FOR UPDATE",eventId,channel.id,key)){
+                String merged=com.live.monitor.service.AlertContactService.mergeContexts((String)task.get("recipient_context_json"),channel.recipientContextJson);
+                jdbc.update("UPDATE alert_delivery_task SET recipient_context_json=? WHERE id=?",merged,task.get("id"));
+            }
+            return;
+        }
         // No INSERT ... SELECT / gap-lock scan. Manual retry tasks deliberately bypass this ledger.
-        jdbc.update("INSERT INTO alert_delivery_task (id, event_id, service_id, channel_id, alert_content, alert_key, delivery_status, retry_count, max_retries, next_retry_at) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, 0)",
-            UUID.randomUUID().toString(), eventId, serviceId, channel.id, content, key, maxRetries);
+        jdbc.update("INSERT INTO alert_delivery_task (id, event_id, service_id, channel_id, alert_content, alert_key, recipient_context_json, delivery_status, retry_count, max_retries, next_retry_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, 0)",
+            UUID.randomUUID().toString(), eventId, serviceId, channel.id, content, key, channel.recipientContextJson, maxRetries);
     }
 
     public void enqueueHistory(Long eventId) {

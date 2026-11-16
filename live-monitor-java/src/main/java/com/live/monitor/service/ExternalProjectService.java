@@ -22,6 +22,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ExternalProjectService {
+    private AlertContactService contacts;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setContacts(AlertContactService contacts){this.contacts=contacts;}
+
     private final ExternalProjectMapper mapper;
     private final AlertMapper alertMapper;
 
@@ -42,6 +46,7 @@ public class ExternalProjectService {
         ensureUnique(project.projectName, -1L);
         mapper.insert(project);
         replaceGroups(project.id, payload.alertGroupIds);
+        if(contacts!=null)contacts.replace("PROJECT",String.valueOf(project.id),payload.contactIds);
         return toMap(mapper.findById(project.id));
     }
 
@@ -52,12 +57,14 @@ public class ExternalProjectService {
         ensureUnique(project.projectName, id);
         mapper.update(project);
         replaceGroups(id, payload.alertGroupIds);
+        if(contacts!=null)contacts.replace("PROJECT",String.valueOf(id),payload.contactIds);
         return toMap(mapper.findById(id));
     }
 
     @Transactional
     public void delete(Long id) {
         if (mapper.findById(id) == null) throw notFound();
+        if(contacts!=null)contacts.clear("PROJECT",String.valueOf(id));
         mapper.deleteAlertGroups(id);
         mapper.delete(id);
     }
@@ -72,6 +79,7 @@ public class ExternalProjectService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "matched project has no alert group bound: " + project.projectName);
         }
         MonitorService routed = routingCopy(source);
+        if(contacts!=null)routed.alertContactIds=contacts.ids("PROJECT",String.valueOf(project.id));
         routed.alertGroupIds = new ArrayList<Long>();
         routed.alertGroupNames = new ArrayList<String>();
         boolean enabled = false;
@@ -131,6 +139,7 @@ public class ExternalProjectService {
             names.add(binding.groupName);
         }
         Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("contact_ids",contacts==null?Collections.emptyList():contacts.ids("PROJECT",String.valueOf(project.id)));
         result.put("id", project.id);
         result.put("project_name", project.projectName);
         result.put("match_keyword", project.matchKeyword);

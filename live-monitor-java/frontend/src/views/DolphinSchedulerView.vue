@@ -1093,9 +1093,9 @@
           >接收告警组<select multiple v-model="projectForm.group_ids" class="form-control">
             <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.group_name }}</option>
           </select></label
-        ><label><input v-model="projectForm.alert_enabled" type="checkbox" />启用项目告警</label>
+        ><ContactSelector v-model="projectForm.contact_ids" label="项目专属联系人" hint="选择后优先使用项目联系人；未选择时沿用接收告警组的默认联系人。仅填写责任人姓名不会新增接收地址。" /><label><input v-model="projectForm.alert_enabled" type="checkbox" />启用项目告警</label>
         <p class="form-hint">
-          告警组内已有渠道定义实际接收对象，请确保组内接收人包含责任人。仅设置姓名不会新增邮件或短信接收人。
+          通讯录维护联系方式，告警组提供发送渠道；项目专属联系人优先于告警组默认联系人。
         </p>
         <button class="btn btn-primary">保存</button>
       </form></DetailDrawer
@@ -1192,6 +1192,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconSvg from '../components/IconSvg.vue'
 import DolphinProjectCards from '../components/DolphinProjectCards.vue'
+import ContactSelector from '../components/ContactSelector.vue'
 import DolphinExecutionOverview from '../components/DolphinExecutionOverview.vue'
 import DolphinOverview from '../components/DolphinOverview.vue'
 import DolphinProjectTable from '../components/DolphinProjectTable.vue'
@@ -1715,6 +1716,7 @@ function editProject() {
   const c = currentProject.value?.config || {}
   projectForm.value = {
     primary_owner: c.primary_owner || '',
+    contact_ids: (c.contact_ids || []).map(Number),
     backup_owner: c.backup_owner || '',
     group_ids: JSON.parse(c.group_ids || '[]'),
     alert_enabled: c.alert_enabled !== 0,

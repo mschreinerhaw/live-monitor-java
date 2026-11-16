@@ -84,6 +84,8 @@ public class MonitorService {
     @javax.validation.constraints.Min(0)
     @javax.validation.constraints.Max(31536000)
     public Integer alertRepeatIntervalSeconds = 0;
+    /** Project-level recipient selection, loaded from the independent address book. */
+    public List<Long> alertContactIds;
     public Long alertConfigId;
     public Long alertGroupId;
     public String alertGroupName;

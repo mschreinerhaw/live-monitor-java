@@ -25,6 +25,10 @@ public class AlertAdminService {
         "smtp_password", "sms_api_token", "sms_password", "sms_password_md5", "dingtalk_secret", "proxy_password"
     };
 
+    private AlertContactService contacts;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setContacts(AlertContactService contacts){this.contacts=contacts;}
+
     private final AlertMapper alertMapper;
     private final ObjectMapper objectMapper;
     private final AlertDeliveryService alertDeliveryService;
@@ -163,6 +167,7 @@ public class AlertAdminService {
         List<AlertChannel> channels = alertMapper.listChannelsByGroup(id);
         alertMapper.deleteGroupPolicies(id);
         alertMapper.deleteGroupChannels(id);
+        if(contacts!=null)contacts.clear("GROUP",String.valueOf(id));
         boolean deleted = alertMapper.deleteGroup(id) > 0;
         for (AlertChannel channel : channels) {
             if (alertMapper.countGroupsByChannel(channel.id) == 0) {
@@ -173,6 +178,7 @@ public class AlertAdminService {
     }
 
     private void syncGroupRelations(Long groupId, AlertGroupPayload payload) {
+        if(contacts!=null)contacts.replace("GROUP",String.valueOf(groupId),payload.contactIds);
         alertMapper.deleteGroupPolicies(groupId);
         alertMapper.deleteGroupChannels(groupId);
         for (Long policyId : payload.policyIds == null ? new ArrayList<Long>() : payload.policyIds) {
@@ -207,6 +213,7 @@ public class AlertAdminService {
             channelIds.add(channel.id);
             channels.add(channelToMap(channel, includeSecrets));
         }
+        item.put("contact_ids", contacts==null?java.util.Collections.emptyList():contacts.ids("GROUP",String.valueOf(group.id)));
         item.put("policy_ids", policyIds);
         item.put("channel_ids", channelIds);
         item.put("policies", policies);

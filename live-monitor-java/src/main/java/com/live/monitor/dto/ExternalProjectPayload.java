@@ -6,6 +6,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Size;
 
 public class ExternalProjectPayload {
+    public List<Long> contactIds;
     @NotBlank(message = "project_name is required")
     @Size(max = 255, message = "project_name must not exceed 255 characters")
     public String projectName;

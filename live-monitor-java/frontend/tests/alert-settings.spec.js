@@ -31,13 +31,13 @@ test('restored project routing selects groups and exposes actual recipients in t
  const editor=page.locator('.project-editor');await editor.getByLabel('项目运维',{exact:true}).uncheck();await editor.getByLabel('短信值班',{exact:true}).check();await editor.getByRole('button',{name:'保存项目',exact:true}).click()
  await expect.poll(()=>writes.find(r=>r.path==='/api/external-projects/55')?.body.alert_group_ids).toEqual([2])
  await expect(row).not.toContainText('ops@example.com');await expect(row).toContainText('13800000000')
- await page.getByRole('button',{name:'告警联系人',exact:true}).click();await page.getByLabel('搜索联系人').fill('IDS项目')
+ await page.getByRole('button',{name:'告警联系人',exact:true}).click();await page.locator('.legacy-recipients>summary').click();await page.getByLabel('搜索联系人').fill('IDS项目')
  await expect(page.locator('.contacts-panel tbody tr')).toHaveCount(1);await expect(page.locator('.contacts-panel tbody tr')).toContainText('短信通知')
  await page.screenshot({path:'../../tmp/alert-contacts-list.png',fullPage:true});expect(errors).toEqual([])
 })
 
 test('recipient lists edit multiple addresses without overwriting credentials or other delivery settings',async({page})=>{
- const {errors,writes}=await backend(page);await page.goto('/#/alerts/settings');await page.getByRole('button',{name:'告警联系人',exact:true}).click()
+ const {errors,writes}=await backend(page);await page.goto('/#/alerts/settings');await page.getByRole('button',{name:'告警联系人',exact:true}).click();await page.locator('.legacy-recipients>summary').click()
  await page.getByLabel('搜索联系人').fill('ops@example.com');await page.getByRole('button',{name:'维护联系人',exact:true}).click()
  const dialog=page.getByRole('dialog',{name:'编辑通知渠道',exact:true});await expect(dialog).toBeVisible()
  await dialog.getByLabel('渠道名称',{exact:true}).fill('邮件值班联系人')

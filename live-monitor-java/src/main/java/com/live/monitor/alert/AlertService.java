@@ -57,6 +57,9 @@ public class AlertService {
     private final ThreadLocal<Long> groupScope = new ThreadLocal<Long>();
     private final ThreadLocal<String> incidentScope = new ThreadLocal<String>();
     private AlertOutbox outbox;
+    private com.live.monitor.service.AlertContactService contacts;
+    @Autowired public void setContacts(com.live.monitor.service.AlertContactService contacts){this.contacts=contacts;}
+
 
     @Autowired
     public void setOutbox(AlertOutbox outbox) {
@@ -856,10 +859,13 @@ public class AlertService {
             List<AlertChannel> channels = alertMapper.listChannelsByGroup(groupId);
             for (AlertChannel channel : channels) {
                 if (channel == null) continue;
+                if(contacts!=null)channel=contacts.bind(channel,java.util.Collections.singletonList(groupId),service.alertContactIds);
                 if (channel.id == null) {
                     if (!channelsWithoutId.contains(channel)) channelsWithoutId.add(channel);
                 } else {
-                    deduped.putIfAbsent(channel.id, channel);
+                    AlertChannel prior=deduped.get(channel.id);
+                    if(prior!=null)channel.recipientContextJson=com.live.monitor.service.AlertContactService.mergeContexts(prior.recipientContextJson,channel.recipientContextJson);
+                    deduped.put(channel.id,channel);
                 }
             }
         }

@@ -77,10 +77,11 @@ public class AlertTaskAdmin {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Manual retry already active");
         AlertChannel channel = mapper.findChannel(((Number) task.get("channel_id")).longValue());
         if (channel == null || !Boolean.TRUE.equals(channel.enabled)) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Channel missing or disabled; repair channel configuration first");
+        channel.recipientContextJson=(String)task.get("recipient_context_json");
         String configurationError = delivery.configurationError(channel);
         if (configurationError != null) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, configurationError);
         String next = UUID.randomUUID().toString();
-        jdbc.update("INSERT INTO alert_delivery_task(id,event_id,service_id,channel_id,alert_content,alert_key,delivery_status,retry_count,max_retries,next_retry_at) SELECT ?,event_id,service_id,channel_id,alert_content,alert_key,'PENDING',0,max_retries,0 FROM alert_delivery_task WHERE id=?", next, id);
+        jdbc.update("INSERT INTO alert_delivery_task(id,event_id,service_id,channel_id,alert_content,alert_key,recipient_context_json,delivery_status,retry_count,max_retries,next_retry_at) SELECT ?,event_id,service_id,channel_id,alert_content,alert_key,recipient_context_json,'PENDING',0,max_retries,0 FROM alert_delivery_task WHERE id=?", next, id);
         jdbc.update("INSERT INTO alert_manual_retry(original_task_id,new_task_id,actor) VALUES (?,?,?)", id, next, actor);
         return next;
     }

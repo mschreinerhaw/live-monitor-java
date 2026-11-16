@@ -32,6 +32,9 @@ public class DataSendService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE =
         new TypeReference<Map<String, Object>>() {};
 
+    private AlertContactService contacts;
+    @org.springframework.beans.factory.annotation.Autowired public void setContacts(AlertContactService contacts){this.contacts=contacts;}
+
     private final LiveMonitorService liveMonitorService;
     private final DatabaseMonitorService databaseMonitorService;
     private final AlertDeliveryService alertDeliveryService;
@@ -209,6 +212,7 @@ public class DataSendService {
                 for (AlertChannel channel : channels) {
                     if (channel.enabled == null || channel.enabled) {
                         AlertChannel sendChannel = cloneChannelWithMobiles(channel, payload.mobiles);
+                        if(contacts!=null&&!StringUtils.hasText(payload.mobiles))sendChannel=contacts.bind(sendChannel,java.util.Collections.singletonList(payload.alertGroupId),null);
                         AlertDeliveryService.DeliveryResult res = alertDeliveryService.send(sendChannel, content);
                         if (res.success) {
                             successCount++;

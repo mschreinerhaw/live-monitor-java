@@ -56,11 +56,11 @@
       </div>
       <ExternalProjectsView embedded :channels="channelsList" @saved="fetchData" />
     </div>
-    <section v-if="currentTab === 'contacts'" class="card contacts-panel">
+    <div v-if="currentTab === 'contacts'" class="contacts-tab"><AlertContactsPanel @changed="fetchData" /><details class="legacy-recipients"><summary>查看已有渠道接收地址（兼容旧配置）</summary><p class="form-hint">下方地址保留在渠道中，仅在项目和告警组未指定通讯录联系人时沿用。</p><section  class="card contacts-panel">
       <div class="card-header">
         <div>
           <h2 class="card-title">
-            告警联系人 <span class="badge badge-info">{{ contacts.length }}</span>
+            渠道接收地址 <span class="badge badge-info">{{ contacts.length }}</span>
           </h2>
           <p class="form-hint">
             按接收地址列出归属渠道、告警组和项目；同一地址在不同渠道中分别维护。
@@ -122,6 +122,7 @@
       />
     </section>
 
+</details></div>
     <!-- 1. 服务绑定与测试 Tab -->
     <div v-if="currentTab === 'bindings'" class="card">
       <div class="card-header" style="flex-wrap: wrap; gap: 10px">
@@ -605,7 +606,8 @@
                 · {{ policy.trigger_type }} · {{ policy.trigger_value }}</label
               >
             </fieldset>
-            <label class="option-switch"
+            <ContactSelector v-model="groupForm.contactIds" label="告警组默认联系人" hint="从通讯录选择默认接收人；项目未单独选择联系人时使用本组联系人。未选择时兼容渠道旧地址。" />
+<label class="option-switch"
               ><input v-model="groupForm.enabled" type="checkbox" />启用告警组</label
             >
             <p v-if="groupError" role="alert" class="settings-error">{{ groupError }}</p>
@@ -637,6 +639,8 @@ import { api } from '../api'
 import { store } from '../store'
 import ChannelAdvancedFields from '../components/ChannelAdvancedFields.vue'
 import RecipientListEditor from '../components/RecipientListEditor.vue'
+import ContactSelector from '../components/ContactSelector.vue'
+import AlertContactsPanel from '../components/AlertContactsPanel.vue'
 import ExternalProjectsView from './ExternalProjectsView.vue'
 import { channelRecipients, groupChannelIds } from '../utils/alertRecipients'
 
@@ -763,6 +767,7 @@ const groupForm = reactive({
   groupName: '',
   description: '',
   channelIds: [],
+  contactIds: [],
   policyIds: [],
   enabled: true,
 })
@@ -976,6 +981,7 @@ const openCreateGroupModal = () => {
     groupName: '',
     description: '',
     channelIds: [],
+  contactIds: [],
     policyIds: [],
     enabled: true,
   })
@@ -990,6 +996,7 @@ const openEditGroup = async (group) => {
     editingGroupId.value = group.id
     Object.assign(groupForm, {
       groupName: detail.group_name,
+      contactIds: (detail.contact_ids || []).map(Number),
       description: detail.description || '',
       channelIds: detail.channel_ids || detail.channels?.map((c) => c.id) || [],
       policyIds: detail.policy_ids || detail.policies?.map((p) => p.id) || [],
@@ -1340,3 +1347,5 @@ onMounted(() => {
 <style scoped>
 .channel-choice-recipients{display:block;margin-top:4px;color:#7a8fa3;font-size:11px;font-weight:400;line-height:1.5;overflow-wrap:anywhere}
 </style>
+
+<style scoped>.legacy-recipients{margin-top:18px;border:1px solid #dce7f4;border-radius:7px;background:#fff;padding:14px}.legacy-recipients>summary{cursor:pointer;color:#53718d;font-size:12px}.legacy-recipients>p{margin:10px 0}.contacts-tab :deep(.contacts-book){margin-bottom:0}</style>

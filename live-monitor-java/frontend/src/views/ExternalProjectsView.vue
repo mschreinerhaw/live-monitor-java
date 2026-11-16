@@ -20,7 +20,7 @@
             项目列表 <span class="badge badge-info">{{ projects.length }}</span>
           </h2>
           <p class="form-hint">
-            项目 → 告警组 → 通知渠道 → 接收人；修改告警组绑定即可调整项目告警对象。
+            项目可指定专属联系人，也可沿用告警组默认联系人；告警组提供通知渠道。
           </p>
         </div>
         <div class="toolbar">
@@ -123,7 +123,8 @@
             }}{{ group.enabled ? '' : '（已禁用）' }}</label
           >
         </fieldset>
-        <label class="project-enabled"
+        <ContactSelector v-model="form.contact_ids" label="项目专属联系人" hint="选择后优先发送给项目联系人；未选择时沿用所绑定告警组的默认联系人。渠道仍由告警组决定。" />
+      <label class="project-enabled"
           ><input v-model="form.enabled" type="checkbox" />启用项目</label
         >
         <div class="page-actions">
@@ -144,9 +145,11 @@ import PaginationControls from '../components/PaginationControls.vue'
 import { usePagination } from '../composables/usePagination'
 import ExternalIntegrationGuide from '../components/ExternalIntegrationGuide.vue'
 import { projectRecipients } from '../utils/alertRecipients'
+import ContactSelector from '../components/ContactSelector.vue'
 const props = defineProps({ embedded: Boolean, channels: { type: Array, default: () => [] } })
 const emit = defineEmits(['saved'])
-const recipients = (project) => projectRecipients(project, groups.value, props.channels)
+const addressBook=ref([])
+const recipients = (project) => projectRecipients(project, groups.value, props.channels, addressBook.value)
 const projects = ref([]),
   groups = ref([]),
   search = ref(''),
@@ -162,6 +165,7 @@ const blank = () => ({
   match_keyword: '',
   description: '',
   alert_group_ids: [],
+  contact_ids: [],
   enabled: true,
 })
 const form = reactive(blank())
@@ -177,11 +181,13 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [items, bindings, services] = await Promise.all([
+    const [items, bindings, services, contacts] = await Promise.all([
       api.externalProjects(),
       api.listAlertGroups(true),
       api.listServices(true),
+      api.listAlertContacts(),
     ])
+    addressBook.value=contacts
     projects.value = items
     groups.value = bindings
     relayEnabled.value =
@@ -195,6 +201,7 @@ async function load() {
 async function edit(project) {
   Object.assign(form, blank(), project || {}, {
     alert_group_ids: [...(project?.alert_group_ids || [])],
+    contact_ids: [...(project?.contact_ids || [])],
   })
   editing.value = true
   await nextTick()

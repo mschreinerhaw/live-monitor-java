@@ -39,6 +39,10 @@ public class DolphinAlerts {
         this.json = json;
     }
 
+    private com.live.monitor.service.AlertContactService contacts;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setContacts(com.live.monitor.service.AlertContactService contacts){this.contacts=contacts;}
+
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 10000)
     public void watchdog() {
         for (MonitorService cluster : services.list(0))
@@ -580,7 +584,8 @@ public class DolphinAlerts {
         if (active && !pc.isEmpty() && integer(pc, "alert_enabled") == 0) return;
         List<Long> targets = new ArrayList<>();
         boolean ownerKnown = !text(pc, "primary_owner").trim().isEmpty();
-        if (ownerKnown) targets.addAll(store.groups(text(pc, "group_ids")));
+        List<Long> projectContacts=contacts==null?Collections.emptyList():contacts.ids("DS_PROJECT",cluster.id+":"+project);
+        if (ownerKnown || !projectContacts.isEmpty()) targets.addAll(store.groups(text(pc, "group_ids")));
         if (targets.isEmpty()) {
             Object configured = api.config(cluster).get("default_ops_group_ids");
             if (configured instanceof List)
@@ -608,6 +613,7 @@ public class DolphinAlerts {
                             scoped.serviceConsecutiveFailures = 1;
                             scoped.serviceRecoverSuccesses = 1;
                             scoped.alertGroupIds = route;
+                            scoped.alertContactIds=projectContacts;
                             scoped.alertGroupId = route.isEmpty() ? null : route.get(0);
                             scoped.alertGroupEnabled =
                                     scoped.alertGroupId != null

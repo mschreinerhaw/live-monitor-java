@@ -5,6 +5,7 @@ import java.util.List;
 import javax.validation.constraints.NotBlank;
 
 public class AlertGroupPayload {
+    public List<Long> contactIds;
     @NotBlank
     public String groupName;
     public String description;

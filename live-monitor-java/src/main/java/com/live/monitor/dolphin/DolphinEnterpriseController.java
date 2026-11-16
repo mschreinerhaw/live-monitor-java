@@ -393,7 +393,9 @@ public class DolphinEnterpriseController {
                             .map(r -> Objects.toString(r.get("start_time"), ""))
                             .max(String::compareTo)
                             .orElse(""));
-            row.put("config", store.config(id, code));
+            Map<String,Object> projectConfig=new LinkedHashMap<>(store.config(id,code));
+            projectConfig.put("contact_ids",contacts==null?Collections.emptyList():contacts.ids("DS_PROJECT",id+":"+code));
+            row.put("config",projectConfig);
             row.put("inventory_status", checkpoint);
             row.put("runtime_status", store.collection(id, "runtime:" + code));
         }
@@ -660,6 +662,11 @@ public class DolphinEnterpriseController {
         return store.incidents(id);
     }
 
+    private com.live.monitor.service.AlertContactService contacts;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setContacts(com.live.monitor.service.AlertContactService contacts){this.contacts=contacts;}
+
+    @org.springframework.transaction.annotation.Transactional
     @PutMapping("/projects/{project}/config")
     public Object config(
             @PathVariable long id,
@@ -677,6 +684,13 @@ public class DolphinEnterpriseController {
         for (Long group : ids)
             if (groups.findGroup(group) == null)
                 throw new IllegalArgumentException("Alert group not found");
+        if(contacts!=null&&body.containsKey("contact_ids")) {
+            if(!(body.get("contact_ids") instanceof List))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"contact_ids must be a list");
+            List<Long> contactIds=new ArrayList<>();
+            try{for(Object value:(List<?>)body.get("contact_ids"))contactIds.add(Long.valueOf(value.toString()));}
+            catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid contact ID");}
+            contacts.replace("DS_PROJECT",id+":"+project,contactIds);
+        }
         store.saveConfig(
                 id,
                 project,
@@ -684,7 +698,9 @@ public class DolphinEnterpriseController {
                 backup,
                 ids,
                 !Boolean.FALSE.equals(body.get("alert_enabled")));
-        return store.config(id, project);
+        Map<String,Object> response=new LinkedHashMap<>(store.config(id,project));
+        response.put("contact_ids",contacts==null?Collections.emptyList():contacts.ids("DS_PROJECT",id+":"+project));
+        return response;
     }
 
     @PutMapping("/rules")

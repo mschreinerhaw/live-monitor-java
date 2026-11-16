@@ -89,6 +89,7 @@ public class AlertWorker {
                     if (channel == null || !Boolean.TRUE.equals(channel.enabled)) {
                         error = "Alert channel missing or disabled";
                     } else {
+                        channel.recipientContextJson=(String)task.get("recipient_context_json");
                         AlertDeliveryService.DeliveryResult result = delivery.send(channel, (String) task.get("alert_content"));
                         success = result.success;
                         error = result.message;

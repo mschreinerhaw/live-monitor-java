@@ -4,6 +4,7 @@ async function backend(page,options={}){
  const project={id:'123',name:'业务项目',owner:'scheduler-owner',online_count:2,workflow_count:3,task_definition_count:12,etl_dates:['2026-11-13'],not_executed_workflows:0,unclassified_workflows:0,workflow_statistics:{total:3,running:1,success:1,waiting:0,failed:1},config:{primary_owner:'alice',group_ids:'[2]',alert_enabled:1}};
  await page.route('**/api/**',async route=>{const r=route.request(),u=new URL(r.url()),p=u.pathname;requests.push({path:p,query:Object.fromEntries(u.searchParams),method:r.method(),body:r.postDataJSON?.()});let body=[];
   if(p.startsWith('/api/calendars/')){if(options.calendarFailure)return route.fulfill({status:503,json:{message:'calendar offline'}});if(options.calendarDelay && u.searchParams.get('natural_date')==='20260101')await new Promise(resolve=>setTimeout(resolve,500));const natural=u.searchParams.get('natural_date')||'';body=options.calendarAmbiguous?{status:'AMBIGUOUS',values:[20251230,20251231]}:options.calendarMissing?{status:'MISSING',values:[]}:{status:'RESOLVED',etl_date:options.calendarMapped || (natural==='20260101'?'2025-12-31':natural.slice(0,4)+'-'+natural.slice(4,6)+'-'+natural.slice(6)),values:[]};}
+  else if(p==='/api/alert-contacts')body=options.contacts||[];
   else if(p==='/api/auth/me')body={authenticated:true,user_id:'admin',admin:true,name:'admin'};
   else if(p==='/api/dolphinscheduler/connections')body=[{id:7,service_name:'测试集群',config_json:JSON.stringify(options.config || {}),check_interval:60}];
   else if(p==='/api/dolphinscheduler/connections/7'&&r.method()==='PUT'){options.config=r.postDataJSON().config;body={id:7};}
@@ -209,4 +210,10 @@ test('project bar percentages keep zero execution unknown and assets sit above p
  expect(assets.y).toBeGreaterThanOrEqual(execution.y+execution.height);expect(assets.y+assets.height).toBeLessThan(projects.y);
  await page.screenshot({path:'../../tmp/project-execution-bars-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+})
+
+test('DolphinScheduler project can select independent address-book contacts',async({page})=>{
+ const {requests,errors}=await backend(page,{contacts:[{id:42,name:'值班工程师',email:'duty@example.com',mobile:'13800000000',enabled:true}]});await page.goto('/#/dolphinscheduler');await details(page);await page.getByRole('button',{name:'业务项目',exact:true}).click();
+ await page.getByRole('button',{name:'配置责任人',exact:true}).click();await page.getByLabel('选择联系人 值班工程师',{exact:true}).check();await page.getByRole('dialog',{name:'项目责任人与告警组',exact:true}).getByRole('button',{name:'保存',exact:true}).click();
+ await expect.poll(()=>requests.find(r=>r.path.endsWith('/projects/123/config')&&r.method==='PUT')?.body.contact_ids).toEqual([42]);expect(errors).toEqual([]);
 })

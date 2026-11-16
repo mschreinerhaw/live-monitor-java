@@ -84,6 +84,9 @@ public class AlertDeliveryService {
             return thread;
         });
     private final ObjectMapper objectMapper;
+    private com.live.monitor.service.AlertContactService contacts;
+    @Autowired(required=false) public void setContacts(com.live.monitor.service.AlertContactService contacts){this.contacts=contacts;}
+    private Map<String,Object> contactConfig(AlertChannel channel,Map<String,Object> config){if(channel.recipientContextJson==null)return config;if(contacts==null)throw new IllegalStateException("Contact routing unavailable");return contacts.apply(channel,config);}
     private CryptoService cryptoService;
     private final OkHttpClient httpClient;
     private Path templateDirectory;
@@ -135,6 +138,7 @@ public class AlertDeliveryService {
         String type = normalize(channel.channelType);
         Map<String, Object> config = parseJson(channel.configJson);
         try {
+            config=contactConfig(channel,config);
             if ("email".equals(type)) {
                 sendEmail(config, content);
                 return DeliveryResult.success();
@@ -159,7 +163,8 @@ public class AlertDeliveryService {
 
     public String configurationError(AlertChannel channel) {
         if (channel == null || !Boolean.TRUE.equals(channel.enabled)) return "Channel missing or disabled";
-        Map<String, Object> config = parseJson(channel.configJson);
+        Map<String, Object> config;
+        try{config=contactConfig(channel,parseJson(channel.configJson));}catch(Exception e){return "Contact selection has no active recipient for this channel";}
         String type = normalize(channel.channelType);
         if ("email".equals(type)) {
             if (!StringUtils.hasText(stringValue(config, "smtp_host"))) return "SMTP host is empty";

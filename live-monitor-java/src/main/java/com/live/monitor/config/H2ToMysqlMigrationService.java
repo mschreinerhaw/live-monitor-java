@@ -50,6 +50,8 @@ public class H2ToMysqlMigrationService {
         {"alert_policy", "id"},
         {"alert_channel", "id"},
         {"alert_group", "id"},
+        {"alert_contact", "id"},
+        {"alert_contact_binding", "owner_type,owner_key,contact_id"},
         {"group_policy_rel", "group_id,policy_id"},
         {"group_channel_rel", "group_id,channel_id"},
         {"service_alert_group", "service_id,group_id"},
@@ -68,7 +70,7 @@ public class H2ToMysqlMigrationService {
     };
 
     private static final String[] AUTO_INCREMENT_TABLES = {
-        "monitor_service", "alert_policy", "alert_channel", "alert_group",
+        "monitor_service", "alert_policy", "alert_channel", "alert_group", "alert_contact",
         "external_project", "host_config", "host_process_config", "monitor_check_event", "alert_notify_record"
     };
 

@@ -24,12 +24,14 @@ public class SchemaMigrationService {
         if (!tableExists("monitor_service")) {
             return;
         }
+        createContactTables();
         createCalendarTables();
         createLoginAuditLogTable();
         ensureCalendarAuditCapacity();
         createExternalMessageAuditTable();
         createExternalProjectTables();
         createEventDrivenAlertTables();
+        addColumnIfMissing("alert_delivery_task", "recipient_context_json", "TEXT");
         widenColumnIfPresent("tuser", "password", "VARCHAR(512)");
         addColumnIfMissing("monitor_service", "service_category", "VARCHAR(64) NOT NULL DEFAULT 'middleware'");
         addColumnIfMissing("monitor_service", "monitor_reason", "VARCHAR(1000)");
@@ -67,6 +69,11 @@ public class SchemaMigrationService {
         migrateServiceAlertGroupCompositePrimaryKey();
         createCommonIndexes();
         ensureExternalMessageService();
+    }
+
+    private void createContactTables() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS alert_contact ("+identityColumn("id")+", name VARCHAR(120) NOT NULL, email VARCHAR(255), mobile VARCHAR(32), wecom_user VARCHAR(120), description VARCHAR(1000), enabled INT NOT NULL DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"+primaryKeySuffix()+")");
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS alert_contact_binding(owner_type VARCHAR(16) NOT NULL,owner_key VARCHAR(128) NOT NULL,contact_id BIGINT NOT NULL,PRIMARY KEY(owner_type,owner_key,contact_id),FOREIGN KEY(contact_id) REFERENCES alert_contact(id))");
     }
 
     private void ensureCalendarAuditCapacity() {
