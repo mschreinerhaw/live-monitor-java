@@ -77,7 +77,7 @@
       >
     </div>
 
-    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
+    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="overview-etl">ETL_Date <input v-model="date" type="date" aria-label="概览 ETL_Date" @change="applyFilters" /></label><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
     <section v-if="tab !== 'overview'" class="card scope-card" aria-label="监控范围">
       <div class="filters scope-filters">
         <label
@@ -213,9 +213,9 @@
             ><i>·</i>任务定义 {{ number(dashboard.task_definitions) }}</span
           ><span>当前筛选范围</span>
         </div>
-        <div class="metrics">
+        <div class="ds-stat-groups"><section class="ds-stat-group"><h2>工作流资产</h2><div class="asset-metrics"><button class="asset-card" :disabled="busy || filtersDirty" @click="selectTab('project-list')"><span>项目</span><strong>{{ number(dashboard.project_count) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>工作流定义总量</span><strong>{{ number(dashboard.workflow_definitions) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>上线工作流</span><strong>{{ number(dashboard.online_workflows) }}</strong></button></div></section><section class="ds-stat-group execution-group"><h2>业务执行 <small>按当前执行时间 / ETL_Date 范围</small></h2><div class="execution-scope"><span>已执行实例 <strong>{{ number(dashboard.workflow_statistics?.total) }}</strong></span><span title="当前接口没有可靠的业务应执行计划，不能用上线定义数代替">应执行工作流 <strong>{{ number(dashboard.expected_workflows) }}</strong></span></div><div class="metrics">
           <button
-            v-for="m in metricCards"
+            v-for="m in metricCards.filter(m => m.key !== 'online')"
             :key="m.key"
             type="button"
             :class="['card', 'metric', 'metric-' + m.tone]"
@@ -229,6 +229,7 @@
             /></span>
           </button>
         </div>
+        </section></div>
         <DolphinOverview :projects="dashboard.projects || []" :nodes="dashboard.nodes || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :fresh="collectionFresh(resourceCollection)" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" @resources="selectTab('resources')" @alerts="selectTab('alerts')" />
         <DolphinResourceSummary
           :nodes="dashboard.nodes || []"

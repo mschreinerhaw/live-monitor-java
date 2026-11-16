@@ -15,6 +15,9 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface AlertMapper {
+    @Select("SELECT COUNT(*) FROM alert_state a JOIN monitor_service s ON s.id = a.service_id WHERE a.state = 'ALERTING' AND s.enabled = 1")
+    int countActiveServiceAlerts();
+
     @Select("SELECT * FROM alert_policy WHERE (#{includeDisabled} = 1 OR enabled = 1) ORDER BY enabled DESC, id")
     List<AlertPolicy> listPolicies(@Param("includeDisabled") int includeDisabled);
 

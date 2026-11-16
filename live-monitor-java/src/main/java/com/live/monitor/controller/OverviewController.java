@@ -4,6 +4,7 @@ import com.live.monitor.service.LiveMonitorService;
 import com.live.monitor.service.HostMonitorService;
 import com.live.monitor.entity.MonitorService;
 import com.live.monitor.entity.HostConfig;
+import com.live.monitor.mapper.AlertMapper;
 import java.util.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,8 +13,9 @@ import org.springframework.web.bind.annotation.*;
 public class OverviewController {
     private final LiveMonitorService services;
     private final HostMonitorService hosts;
-    public OverviewController(LiveMonitorService services, HostMonitorService hosts) {
-        this.services = services; this.hosts = hosts;
+    private final AlertMapper alerts;
+    public OverviewController(LiveMonitorService services, HostMonitorService hosts, AlertMapper alerts) {
+        this.services = services; this.hosts = hosts; this.alerts = alerts;
     }
     @GetMapping("/api/overview/summary")
     public Map<String, Object> summary() {
@@ -30,7 +32,7 @@ public class OverviewController {
                 row.put("id", s.id); row.put("service_name", s.serviceName);
                 row.put("cluster_name", s.clusterName); row.put("service_type", s.serviceType);
                 row.put("host_id", s.hostId); row.put("enabled", s.enabled);
-                row.put("last_status", s.lastStatus); row.put("last_checked_at", s.lastCheckedAt);
+                row.put("last_message", s.lastMessage); row.put("last_status", s.lastStatus); row.put("last_checked_at", s.lastCheckedAt);
                 rows.add(row);
             }
             result.put("services", rows);
@@ -50,6 +52,8 @@ public class OverviewController {
             }
             result.put("hosts", rows);
         } catch (Exception ex) { errors.put("hosts", "主机快照暂不可用"); }
+        try { result.put("active_service_alerts", alerts.countActiveServiceAlerts()); }
+        catch (Exception ex) { errors.put("alerts", "活动服务告警暂不可用"); }
         result.put("errors", errors);
         return result;
     }

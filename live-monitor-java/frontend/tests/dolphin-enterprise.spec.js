@@ -48,7 +48,7 @@ test('first screen fits key health and opens details on a separate screen',async
 
 test('overview keeps project monitoring cards and card status opens details',async({page})=>{
  const {requests,errors}=await backend(page,{multiple:true});await page.goto('/#/dolphinscheduler');
- await expect(page.locator('.project-health-card').first()).toContainText('第二项目');
+ await expect(page.locator('.project-health-card').first()).toContainText('第二项目');await page.getByRole('button',{name:/仅看异常/}).click();await expect(page.getByRole('button',{name:/仅看异常/})).toHaveAttribute('aria-pressed','true');
  await page.getByLabel('搜索概览项目').fill('123');await expect(page.locator('.project-health-card')).toHaveCount(1);
  await page.getByRole('button',{name:'业务项目的失败实例 1',exact:true}).click();await expect(page).toHaveURL(/view=details/);
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.project==='123'&&r.query.state==='FAILURE')).toBe(true);
@@ -63,7 +63,7 @@ test('historical cockpit link redirects to one monitor and incomplete counts rem
  await expect(page.getByRole('tab',{name:'企业驾驶舱'})).toHaveCount(0);
  const card=page.locator('.metric').filter({hasText:'未执行工作流'});await expect(card.locator('strong')).toHaveText('未知');
  await expect(page.getByText(/当前查询范围尚未完整采集/)).toBeVisible();
- await expect(page.getByRole('heading',{name:'集群资源概览',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Master / Worker 运行状态',exact:true})).toBeVisible();
  expect(errors).toEqual([]);
 })
 
@@ -150,7 +150,7 @@ test('empty connections use onboarding instead of fabricated zero metrics',async
 
 test('unavailable node metrics show unknown instead of zero percent',async({page})=>{
  const {errors}=await backend(page,{unavailable:true});await page.goto('/#/dolphinscheduler');const master=page.locator('.role-summary').filter({hasText:'Master'});
- await expect(master).toContainText('0 / 1 在线');await expect(master.locator('.role-values strong')).toHaveText(['未知','未知']);expect(errors).toEqual([]);
+ await expect(master).toContainText('0 / 1 在线');await expect(master.locator('.role-values strong')).toHaveText(['未知','未知','不可用','未知']);expect(errors).toEqual([]);
 })
 
 test('default operation groups use shared checkbox styling and preserve numeric selections',async({page})=>{

@@ -1,10 +1,10 @@
 <template>
-  <section class="resource-summary" aria-label="集群资源概览">
+  <section class="resource-summary" aria-label="Master / Worker 运行状态">
     <div class="resource-intro">
       <span class="resource-icon"><IconSvg name="server" size="20" /></span>
       <div>
-        <h2>集群资源概览</h2>
-        <p>在线节点最高使用率</p>
+        <h2>Master / Worker 运行状态</h2>
+        <p>各角色在线节点的最高有效使用率与系统负载</p>
       </div>
       <button type="button" class="resource-detail" @click="$emit('details')">
         资源详情<IconSvg name="chevron-right" size="14" />
@@ -26,12 +26,14 @@
           v-for="m in [
             { label: 'CPU', key: 'cpu_percent' },
             { label: '主机内存', key: 'host_memory_percent' },
+            { label: 'JVM 已提交堆', key: 'heap_committed_percent' },
+            { label: '系统负载', key: 'load_average' },
           ]"
           :key="m.key"
         >
           <span>{{ m.label }}</span
-          ><strong>{{ pct(r[m.key]) }}</strong>
-          <div class="resource-track" aria-hidden="true">
+          ><strong>{{ m.key === 'load_average' ? (r[m.key] == null ? '未知' : Number(r[m.key]).toFixed(2)) : m.key === 'heap_committed_percent' && r[m.key] == null ? '不可用' : pct(r[m.key]) }}</strong>
+          <div v-if="m.key !== 'load_average'" class="resource-track" aria-hidden="true">
             <span
               :class="{ high: r[m.key] >= 85 }"
               :style="{ width: Math.min(100, r[m.key] || 0) + '%' }"
@@ -55,10 +57,10 @@ const roles = computed(() =>
   ].map((r) => {
     const nodes = props.nodes.filter((n) => n.role === r.role),
       row = { ...r, total: nodes.length, online: nodes.filter((n) => n.online).length }
-    for (const key of ['cpu_percent', 'host_memory_percent']) {
+    for (const key of ['cpu_percent', 'host_memory_percent', 'heap_committed_percent', 'load_average']) {
       const values = nodes
         .filter(
-          (n) => n.online && !n.metrics_stale && n[key] != null && Number.isFinite(Number(n[key]))
+          (n) => props.fresh && n.online && !n.metrics_stale && (key !== 'heap_committed_percent' || n.jvm_available) && n[key] != null && Number.isFinite(Number(n[key]))
         )
         .map((n) => Number(n[key]))
       row[key] = values.length ? Math.max(...values) : null
@@ -226,4 +228,8 @@ const roles = computed(() =>
     gap: 9px;
   }
 }
+</style>
+
+<style scoped>
+.resource-summary{display:block;margin-bottom:12px;border-radius:5px;border-color:#dce7f4}.resource-intro{padding:10px 14px;gap:8px;background:#f6faff;border-bottom:1px solid #e2ebf5}.resource-icon{width:26px;height:26px;border-radius:4px}.resource-intro p{display:none}.resource-intro h2{font-size:14px;color:#173958}.role-summary{display:grid;grid-template-columns:155px 1fr;align-items:center;padding:11px 14px;border-left:0;border-bottom:1px solid #edf2f7;gap:16px}.role-summary:last-child{border-bottom:0}.role-title{justify-content:flex-start;gap:8px}.role-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.role-values>div{min-width:0}.role-values strong{font-size:12px}.role-values span{font-size:10px}.resource-track{height:4px;margin-top:5px}.role-status{font-size:10px}@media(max-width:600px){.role-summary{grid-template-columns:1fr;gap:8px}.role-values{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
 </style>
