@@ -11,6 +11,9 @@
     </div>
 
     <div class="navbar-right">
+      <form class="resource-search" role="search" @submit.prevent="router.push({ path: '/clusters', query: { q: resourceSearch } })">
+        <input v-model="resourceSearch" type="search" aria-label="全局资源搜索" placeholder="搜索集群、服务、主机" />
+      </form>
       <!-- 快捷入口 -->
       <router-link to="/services/new" class="quick-action-btn">
         <IconSvg name="plus" size="14" />
@@ -90,6 +93,7 @@ import { usePagination } from '../composables/usePagination'
 
 const router = useRouter()
 const route = useRoute()
+const resourceSearch = ref('')
 const showNotificationPanel = ref(false)
 const showUserMenu = ref(false)
 const notificationPager = usePagination(() => store.notifications.list)
@@ -106,7 +110,9 @@ watch(() => route.fullPath, () => { showNotificationPanel.value = false; showUse
 
 const currentRouteTitle = computed(() => {
   const map = {
-    '/dashboard': '监控总览',
+    '/dashboard': '全局监控',
+    '/clusters': '集群健康与热力图',
+    '/services': '服务列表与健康检查',
     '/hosts': '服务器主机',
     '/databases': '数据库监控',
     '/services/new': '添加服务',
@@ -165,6 +171,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.resource-search input { width: 190px; padding: 7px 10px; border: 1px solid #dce4e9; border-radius: 4px; font-size: 12px; }
+@media(max-width: 1100px) { .resource-search { display: none; } }
 .top-navbar {
   height: 56px;
   background: #ffffff;

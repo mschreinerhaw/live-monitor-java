@@ -2,6 +2,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { store } from '../store'
 
 const routes = [
+  { path: '/clusters', component: () => import('../views/OverviewView.vue') },
+  { path: '/services', component: () => import('../views/DashboardView.vue') },
   { path: '/dolphinscheduler/enterprise', redirect: to => ({path:'/dolphinscheduler',query:to.query}) },
   { path: '/dolphinscheduler', component: () => import('../views/DolphinSchedulerView.vue') },
   { path: '/external-requests', component: () => import('../views/ExternalRequestsView.vue') },
@@ -18,7 +20,7 @@ const routes = [
   {
     path: '/dashboard',
     name: 'Dashboard',
-    component: () => import('../views/DashboardView.vue')
+    component: () => import('../views/OverviewView.vue')
   },
   {
     path: '/hosts',

@@ -8,6 +8,8 @@ public class PageController {
     @GetMapping({
         "/",
         "/dashboard",
+        "/clusters",
+        "/services",
         "/hosts",
         "/hosts/**",
         "/databases",

@@ -1,0 +1,57 @@
+Live Monitor 统一资源监控改版（2026-11-16）
+分支：feat/ambari-monitor-console
+
+现状审查
+Vue3 + Vue Router + ECharts，Spring Boot 2.7 / Java 8 兼容源码。
+服务探测由 LiveMonitorService 与原检查器执行；主机由 HostMonitorService、HostResourceMonitorService 收集并存储历史。
+告警沿用事务状态机、持久化 Outbox、独立投递 Worker 与重试审计。
+DolphinScheduler 已具备企业监控采集、项目汇总、责任人映射、实例分页、业务参数 ETL_Date、Master/Worker 资源及关联告警。
+配置持久化在 H2/MySQL，历史在 RocksDB/Lucene。本次无需数据库迁移。
+
+实施与功能对应
+旧 /dashboard 服务工作台 -> /services，原表格、筛选、导出、手工探测、编辑删除均保留。
+/dashboard -> 新全局监控；/clusters -> 集群健康与主机热力图，同一快照和筛选逻辑。
+顶部资源搜索 -> /clusters?q=关键词；移动端可用页面内搜索。
+原 hosts、databases、dolphinscheduler、alerts、data-send、external-projects、admin 路由全部保留。
+侧栏按监控总览、集群与服务、调度与基础设施、告警中心、系统管理组织。
+当前页面所属分组自动展开，整体折叠和手机导航保持原交互。
+主机资源下钻到 /hosts/{id}，服务异常下钻到 /services/{id}，告警下钻使用 service_id。
+
+接口与统计
+新增 GET /api/overview/summary；仅聚合现存数据库/历史快照，不触发 SSH 或 DolphinScheduler 网络请求。
+服务/主机部分分别降级，前端请求限制 20 秒，支持暂停、30/60 秒刷新。
+仅显式投影安全字段，不返回 SSH 或数据库认证配置。
+服务总量采用启用实例数，今日告警沿用现有 dashboard 口径，最近告警不冒充活动告警。
+集群延用现有 cluster_name 作为配置分组键，未分组资源单列，不自动推断真实集群身份。
+资源关联使用 service.id / host_id / host.id，不通过主机名模糊匹配。共享主机可在多个集群展示。
+热力图缺失指标不填零，停用、采集异常、过期均显示文字，70/85 分档仅为可视化不改告警阈值。
+
+兼容限制与后续
+本次不新增独立集群持久化实体及人工关系维护；未来需要稳定集群 ID 时应通过增量迁移配置映射。
+尚未新增全局活动告警跨引擎汇总、全局历史趋势或自定义首页模块，继续使用资源详情与告警中心。
+环境切换采用现有集群范围筛选，没有虚构未配置的环境列表。
+未重新开发 DolphinScheduler 工作流/ETL_Date 底座，业务日期与执行时间继续严格区分。
+无计划依据时不将无实例工作流判为未执行，无 JVM 数据时显示未知。
+真实外部短信/邮件的最终收件结果需要对应渠道回执，自动化投递测试不能代替收件验证。
+
+验证
+本地既有 Java 测试 201 项通过；新增 OverviewControllerTest 2 项通过。
+新增接口验证敏感字段隔离、只读调用、服务快照失败时主机仍可用。
+浏览器测试覆盖真实 Vue 构建：空指标、过期数据、ID 筛选、资源链接、请求失败和手机布局。
+完整浏览器回归 52 项全部通过（含项目、ETL_Date、节点指标、告警、服务接入、数据发送、用户权限、手机导航）。
+服务器构建、发布结果见后续部署记录。
+
+服务器部署结果
+访问：http://192.168.195.221:8000/#/dashboard
+服务器源码目录：/opt/live-monitor-source-20261116-105249
+Node 构建使用服务器已有 node:24-bookworm-slim 容器；Java 使用服务器 Maven 3.9.16 和 JDK17 编译（目标 Java8）。
+最终执行 mvn -DskipFrontend=true verify（此前已在服务器构建 Vue），203 项测试全部通过，含告警触发、Outbox、投递、重试和恢复测试。
+初次源码传输漏带根目录 templates，3 项模板测试失败；补齐源模板后完整重跑通过。
+部署备份：/opt/live-monitor-backups/20261116-110146，含 mysql.sql（约426M）、application.tar（约2G）与 previous.jar。
+JAR SHA256：ae1d40477b1ed22c9ad5621da66db2a0cb3619cff063023778dd3d9dc3ed75d6
+发布后 30 服务、11 主机、2 告警组、1 DolphinScheduler 连接，数量与发布前一致。
+DolphinScheduler 监控汇总 HTTP200，读取55个项目；采集状态有有效刷新数据。
+线上桌面与手机路由核验无 JavaScript 运行异常；未登录访问聚合 API 返回401。
+生产告警成功投递列表可读，查询到505条成功任务；这是渠道受理记录，不证明最终短信/邮件收件。
+本次没有向实际收件人额外发送测试消息；告警完整链路由服务器自动化测试及线上成功投递历史核验。
+本次启动约253秒；应在后续维护中评估已有历史初始化耗时，发布预留启动窗口。

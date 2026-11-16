@@ -107,6 +107,7 @@ const isRouteActive = (item) => {
   if (item.path === '/dashboard') {
     return route.path === '/dashboard' || route.path === '/'
   }
+  if (item.path === '/services') return route.path === '/services'
   if (item.path === '/services/new') {
     return route.path === '/services/new' && route.query.from !== 'databases'
   }
@@ -118,41 +119,17 @@ const isRouteActive = (item) => {
 }
 
 const menuGroups = [
-  {
-    title: '监控中心',
-    items: [
-      { label: '监控总览', path: '/dashboard', icon: 'activity' },
-      { label: 'DolphinScheduler 监控', path: '/dolphinscheduler', icon: 'activity' },
-      { label: '服务接入', path: '/services/new', icon: 'plus' },
-      { label: '数据发送', path: '/data-send', icon: 'send' }
-    ]
-  },
-  {
-    title: '资产基础设施',
-    id: 'assets', collapsible: true, icon: 'server',
-    items: [
-      { label: '服务器主机', path: '/hosts', icon: 'server' },
-      { label: '数据库监控', path: '/databases', icon: 'database' }
-    ]
-  },
-  {
-    title: '告警中心',
-    id: 'alerts', collapsible: true, icon: 'bell',
-    items: [
-      { label: '告警规则配置', path: '/alerts/settings', icon: 'settings' },
-      { label: '最近告警记录', path: '/alerts/recent', icon: 'bell' },
-      { label: '告警任务与重试', path: '/alerts/tasks', icon: 'bell' },
-      { label: '外部项目与消息', path: '/external-projects', icon: 'send', children: [{ label: '外部消息请求', path: '/external-requests', icon: 'file' }] },
-      { label: '通知审计流水', path: '/alerts/audit', icon: 'file' }
-    ]
-  },
-  {
-    title: '账号与安全', id: 'account', collapsible: true, icon: 'lock', items: [
-      { label: '用户安全管理', path: '/admin', icon: 'users' }
-    ]
-  }
+ {title:'监控总览',items:[{label:'全局监控',path:'/dashboard',icon:'activity'}]},
+ {title:'集群与服务',id:'resources',collapsible:true,icon:'server',items:[{label:'集群健康与热力图',path:'/clusters',icon:'server'},{label:'服务列表与健康检查',path:'/services',icon:'activity'}]},
+ {title:'调度与基础设施',id:'assets',collapsible:true,icon:'database',items:[{label:'DolphinScheduler 监控',path:'/dolphinscheduler',icon:'activity'},{label:'服务器主机',path:'/hosts',icon:'server'},{label:'数据库监控',path:'/databases',icon:'database'}]},
+ {title:'告警中心',id:'alerts',collapsible:true,icon:'bell',items:[{label:'最近告警记录',path:'/alerts/recent',icon:'bell'},{label:'告警规则配置',path:'/alerts/settings',icon:'settings'},{label:'告警任务与重试',path:'/alerts/tasks',icon:'bell'},{label:'通知审计流水',path:'/alerts/audit',icon:'file'}]},
+ {title:'系统管理',id:'account',collapsible:true,icon:'settings',items:[{label:'服务接入',path:'/services/new',icon:'plus'},{label:'数据发送',path:'/data-send',icon:'send'},{label:'外部项目与消息',path:'/external-projects',icon:'send',children:[{label:'外部消息请求',path:'/external-requests',icon:'file'}]},{label:'用户安全管理',path:'/admin',icon:'users'}]}
 ]
 const visibleGroups = computed(() => menuGroups.map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || store.user?.admin) })))
+watch(() => route.path, path => {
+  const group = menuGroups.find(group => group.collapsible && group.items.some(item => item.path === path || (item.children || []).some(child => child.path === path)))
+  if (group) collapsedGroups.value[group.id] = false
+}, { immediate: true })
 </script>
 
 <style scoped>

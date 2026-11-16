@@ -64,13 +64,12 @@ async function backend(page, override = () => undefined) {
   return errors
 }
 
-test('account section starts collapsed and navigation scrolls without a visible scrollbar', async ({page}) => {
+test('active system section expands and navigation scrolls without a visible scrollbar', async ({page}) => {
   await backend(page);await page.setViewportSize({width:1280,height:500});await page.goto('/#/data-send');
-  const group=page.getByRole('button',{name:'账号与安全',exact:true});await expect(group).toHaveAttribute('aria-expanded','false');
-  await expect(page.locator('aside').getByRole('link',{name:'用户安全管理',exact:true})).toHaveCount(0);
-  await group.click();await expect(group).toHaveAttribute('aria-expanded','true');await expect(page.locator('aside').getByRole('link',{name:'用户安全管理',exact:true})).toBeVisible();
+  const group=page.getByRole('button',{name:'系统管理',exact:true});await expect(group).toHaveAttribute('aria-expanded','true');
+  await expect(page.locator('aside').getByRole('link',{name:'用户安全管理',exact:true})).toBeVisible();
   await expect(page.locator('aside a[href="#/account"]')).toHaveCount(0);
-  await page.getByRole('button',{name:'告警中心',exact:true}).click();await page.getByRole('button',{name:'资产基础设施',exact:true}).click();
+  await page.getByRole('button',{name:'告警中心',exact:true}).click();await page.getByRole('button',{name:'调度与基础设施',exact:true}).click();
   const area=page.locator('.sidebar-menu-wrapper');const result=await area.evaluate(el=>{el.scrollTop=el.scrollHeight;return {scrollable:el.scrollHeight>el.clientHeight,moved:el.scrollTop>0,overflow:getComputedStyle(el).overflowY,bar:getComputedStyle(el,'::-webkit-scrollbar').display}});
   expect(result).toEqual({scrollable:true,moved:true,overflow:'auto',bar:'none'});
 })
@@ -415,13 +414,12 @@ test('all page routes render without runtime errors and direct links keep the pa
     if (path === '/api/hosts/1/metrics') return { cpu_usage_percent: 10 }
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户安全管理'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/alerts/tasks','告警任务与重试管理']]) {
+  for (const [path, heading] of [['/services','监控服务总览'],['/services/1','应用监控'],['/hosts/1','应用主机'],['/data-send','数据发送功能'],['/admin','用户安全管理'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/alerts/tasks','告警任务与重试管理']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
   }
   await page.goto('/external-projects')
   await expect(page.getByRole('heading', { name: '外部项目与消息转发', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: '告警中心', exact: true }).click()
   await expect(page.getByRole('link', { name: '外部项目与消息', exact: true })).toHaveClass(/active/)
   await page.screenshot({ path: 'test-results/vue3-external-projects.png', fullPage: true })
   expect(errors).toEqual([])
@@ -432,11 +430,11 @@ test('dashboard renders service status and keeps history in a separate menu', as
     if (path === '/api/services') return [{ id: 1, service_name: '支付接口', service_type: 'web', last_status: 'DOWN', last_response_time_ms: 123, last_message: 'HTTP 503', enabled: true }]
     if (path === '/api/dashboard') return { summary: { total: 1, instances: 1, down: 1, today_alerts: 1 }, recent_alerts: [{ id: 1, service_name: '支付接口', alert_type: 'email', alert_status: 'failed', alert_content: '邮件网关暂时不可用', created_at: '2026-11-13' }] }
   })
-  await page.goto('/#/dashboard')
+  await page.goto('/#/services')
   await expect(page.getByText('运行异常', { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('heading', { name: '告警消息列表', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '告警中心', exact: true })).toHaveAttribute('aria-expanded','false')
-  await expect(page.getByRole('button', { name: '资产基础设施', exact: true })).toHaveAttribute('aria-expanded','false')
+  await expect(page.getByRole('button', { name: '调度与基础设施', exact: true })).toHaveAttribute('aria-expanded','false')
   await expect(page.locator('#menu-group-assets')).toBeHidden()
   await expect(page.locator('#menu-group-alerts')).toBeHidden()
   await page.getByRole('button', { name: '告警中心', exact: true }).click()
@@ -499,7 +497,7 @@ test('recent alerts has an independent page with safe HTML and expandable conten
   const errors = await backend(page, (_, path) => {
     if (path === '/api/alerts') return [{ id: 1, service_name: '应用主机', alert_type: 'email', alert_status: 'success', created_at: '2026-11-13 14:15:01', alert_content: '<div style="position:fixed">主机资源告警</div><script>window.alertExecuted=true</script><img src="https://invalid.example/tracker" onerror="window.alertExecuted=true"><div>' + 'CPU：0.9%，内存：82.0%<br>'.repeat(15) + '</div>' }]
   })
-  await page.goto('/#/dashboard')
+  await page.goto('/#/services')
   await page.getByRole('button', { name: '告警中心', exact: true }).click()
   await page.getByRole('link', { name: '最近告警记录', exact: true }).click()
   await expect(page.getByRole('heading', { name: '最近告警记录', exact: true })).toBeVisible()
@@ -543,7 +541,7 @@ test('service table paginates filtered results and keeps a valid page across ref
   const errors = await backend(page, (_, path) => {
     if (path === '/api/services') { fetches++; return services }
   })
-  await page.goto('/#/dashboard')
+  await page.goto('/#/services')
   const rows = page.locator('.cm-table tbody .cm-table-row')
   const pagination = page.getByRole('navigation', { name: '服务表格分页' })
   await expect(rows).toHaveCount(10)
@@ -600,7 +598,7 @@ test('all workspace pages retain usable content width on a phone', async ({ page
     if (path === '/api/hosts/1/metrics') return {}
     if (path === '/api/alert-tasks') return { items: [], total: 0, counts: [] }
   })
-  for (const [path, heading] of [['/dashboard','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/account','用户安全管理'],['/admin','用户安全管理'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
+  for (const [path, heading] of [['/services','监控服务总览'],['/databases','数据库监控维护'],['/hosts','服务器主机维护'],['/services/new','添加监控服务'],['/data-send','数据发送功能'],['/alerts/settings','告警配置与通知管理'],['/alerts/tasks','告警任务与重试管理'],['/alerts/recent','最近告警记录'],['/alerts/audit','告警通知审计流水'],['/external-projects','外部项目与消息转发'],['/external-requests','外部消息请求'],['/account','用户安全管理'],['/admin','用户安全管理'],['/services/1','应用监控'],['/hosts/1','应用主机']]) {
     await page.goto('/#' + path)
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
     const main = await page.locator('main').boundingBox()
@@ -618,7 +616,7 @@ test('all workspace pages retain usable content width on a phone', async ({ page
 test('mobile navigation traps focus, dismisses with Escape and closes after navigation', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await backend(page)
-  await page.goto('/#/dashboard')
+  await page.goto('/#/services')
   await expect(page.getByRole('heading', { name: '监控服务总览', exact: true })).toBeVisible()
   const toggle = page.getByRole('button', { name: '打开导航菜单' })
   await toggle.click()
@@ -638,7 +636,7 @@ test('mobile navigation traps focus, dismisses with Escape and closes after navi
 
 test('notification previews remove HTML and menus dismiss without losing focus', async ({ page }) => {
   await backend(page, (_, path) => path === '/api/alerts' ? [{ id: 7, service_id: 11, service_name: '应用主机', alert_status: 'success', alert_content: '<div>主机资源告警</div><script>window.productXss=true</script><img src="https://invalid.example/image" onerror="window.productXss=true">' }] : undefined)
-  await page.goto('/#/dashboard')
+  await page.goto('/#/services')
   await expect(page.getByRole('heading', { name: '监控服务总览', exact: true })).toBeVisible()
   const bell = page.getByRole('button', { name: '告警通知', exact: true })
   await bell.click()
@@ -817,7 +815,6 @@ test('database assets use monitor types instead of host names and keep a dedicat
   await expect(page.getByRole('heading', { name: '添加数据库监控', exact: true })).toBeVisible()
   await expect(page.getByLabel('服务类型', { exact: true })).toHaveValue('mysql')
   await expect(page.getByLabel('服务类型', { exact: true }).locator('option')).toHaveCount(4)
-  await page.getByRole('button', { name: '资产基础设施', exact: true }).click()
   await expect(page.getByRole('link', { name: '数据库监控', exact: true })).toHaveAttribute('aria-current','page')
   await page.getByRole('link', { name: '取消', exact: true }).click()
   await expect(page).toHaveURL(/#\/databases/)
