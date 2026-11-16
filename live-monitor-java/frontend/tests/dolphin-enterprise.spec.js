@@ -69,6 +69,7 @@ test('historical cockpit link redirects to one monitor and incomplete counts rem
 
 test('project and business date apply to summary and instances together',async({page})=>{
  const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');
+ await page.getByLabel('概览 ETL_Date',{exact:true}).fill('2026-11-13');await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.etl_date==='2026-11-13')).toBe(true);
  await details(page);await page.getByLabel('项目',{exact:true}).selectOption('123');
  await page.getByLabel('业务日期',{exact:true}).fill('2026-11-13');
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.project==='123'&&r.query.etl_date==='2026-11-13')).toBe(true);

@@ -55,5 +55,5 @@ test('host trend cancels obsolete host history and keeps the selected host isola
  await page.goto('/#/dashboard');await page.getByLabel('趋势主机').selectOption('12');
  await expect(page.locator('.host-trend-panel .range')).toContainText('12:20:00');
  await expect(page.locator('.host-trend-panel .range')).not.toContainText('12:10:00');
- await expect(page.locator('.trend-chart')).toBeVisible();expect(errors).toEqual([]);
+ await expect(page.locator('.trend-chart canvas')).toBeVisible();expect(errors).toEqual([]);
 })
