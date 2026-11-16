@@ -1260,3 +1260,14 @@
 .dolphin-product .scope-card,.dolphin-product .resource-summary{border-radius:5px;border-color:#dce4e9}
 .dolphin-product .scope-card{margin-bottom:14px}
 .dolphin-product .product-tabs{margin-bottom:16px}
+
+.overview-scope{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;color:#687b89}
+.overview-scope>label:first-child{display:flex;align-items:center;gap:10px;color:#334155}
+.overview-scope select{width:280px;max-width:100%;height:32px;font-size:12px}
+.overview-scope .refresh-toggle{margin-left:auto}
+.ds-back{font-size:12px;margin-bottom:6px}
+.overview-screen .product-header{margin-bottom:14px}
+.overview-screen .metrics{margin-bottom:16px}
+.overview-screen .resource-summary{margin-bottom:0}
+.overview-screen .section-context{margin-bottom:10px}
+@media(max-width:600px){.overview-scope{gap:10px}.overview-scope>label:first-child{width:100%;min-width:0}.overview-scope select{flex:1;min-width:0}.overview-scope .refresh-toggle{margin-left:0}.overview-screen .product-header{gap:12px}}

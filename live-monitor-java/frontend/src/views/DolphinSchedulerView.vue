@@ -1,16 +1,16 @@
 <template>
-  <div class="page-container enterprise-page dolphin-product">
+  <div class="page-container enterprise-page dolphin-product" :class="{ 'overview-screen': tab === 'overview' }">
     <header class="product-header">
       <div class="product-title">
         <div>
-          <small class="ds-overview-caption">监控总览</small><div class="title-line">
-            <h1>DolphinScheduler 监控</h1>
+          <small v-if="tab === 'overview'" class="ds-overview-caption">监控总览</small><button v-else class="link-button ds-back" @click="selectTab('overview')">← 返回监控总览</button><div class="title-line">
+            <h1 tabindex="-1">DolphinScheduler 监控</h1>
             <span :class="['freshness-pill', healthTone]"><i></i>{{ healthLabel }}</span>
           </div>
           <p>掌握执行全貌，优先定位失败项目与异常节点，点击查看明细。</p>
         </div>
       </div>
-      <div class="header-actions">
+      <div class="header-actions"><button v-if="tab === 'overview'" class="btn btn-ghost" @click="selectTab('project-list')">查看明细 →</button>
         <span
           v-if="runtimeCollection?.last_success"
           class="updated-at"
@@ -77,7 +77,8 @@
       >
     </div>
 
-    <section class="card scope-card" aria-label="监控范围">
+    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
+    <section v-if="tab !== 'overview'" class="card scope-card" aria-label="监控范围">
       <div class="filters scope-filters">
         <label
           >监控集群<select v-model="cluster" class="form-control" @change="changeCluster">
@@ -142,7 +143,7 @@
       </div>
     </section>
 
-    <nav class="tabs product-tabs" role="tablist" aria-label="集群监控页面">
+    <nav v-if="tab !== 'overview'" class="tabs product-tabs" role="tablist" aria-label="集群监控页面">
       <button
         v-for="(t, index) in tabs"
         :id="'ds-tab-' + t.key"
@@ -166,7 +167,7 @@
     </nav>
 
     <div
-      v-if="failures.length"
+      v-if="failures.length && tab !== 'overview'"
       class="product-notice notice-warning collection-notice"
       role="status"
     >
@@ -234,7 +235,10 @@
           :fresh="collectionFresh(resourceCollection)"
           @details="selectTab('resources')"
         />
-        <details class="collection-details">
+
+      </template>
+
+        <details v-if="tab !== 'overview'" class="collection-details">
           <summary><IconSvg name="database" size="14" />采集状态</summary>
           <div class="table-wrap">
             <table class="table">
@@ -261,8 +265,6 @@
             </table>
           </div>
         </details>
-      </template>
-
       <template v-if="tab === 'project-list' && dashboard">
         <DolphinProjectTable
           v-model:filter="projectFocus"
@@ -1197,7 +1199,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import IconSvg from '../components/IconSvg.vue'
 import DolphinOverview from '../components/DolphinOverview.vue'
 import DolphinProjectTable from '../components/DolphinProjectTable.vue'
@@ -1208,6 +1210,7 @@ import { api } from '../api'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import PaginationControls from '../components/PaginationControls.vue'
 import { usePagination } from '../composables/usePagination'
+const router = useRouter()
 const route = useRoute(),
   connectionOpen = ref(false),
   connectionForm = ref(null),
@@ -1232,7 +1235,7 @@ const connections = ref([]),
   cluster = ref(''),
   project = ref(''),
   date = ref(''),
-  tab = ref('overview'),
+  tab = ref(route.query.view === 'details' ? (['project-list','projects','instances','resources','alerts','settings'].includes(route.query.tab) ? route.query.tab : 'project-list') : 'overview'),
   dashboard = ref(null),
   busy = ref(false),
   error = ref(''),
@@ -1279,6 +1282,17 @@ const tabs = [
   { key: 'alerts', name: '项目告警' },
   { key: 'settings', name: '采集配置' },
 ]
+watch(tab, key => {
+  const query = { ...route.query }
+  if (key === 'overview') { delete query.view; delete query.tab }
+  else { query.view = 'details'; query.tab = key }
+  if (route.query.view !== query.view || route.query.tab !== query.tab) router.push({ path: route.path, query })
+  nextTick(() => { window.scrollTo({ top: 0, behavior: 'instant' }); if (key === 'overview') document.querySelector('.overview-screen h1')?.focus() })
+})
+watch(() => [route.query.view, route.query.tab], ([view, target]) => {
+  const key = view === 'details' ? (tabs.some(t => t.key === target && t.key !== 'overview') ? target : 'project-list') : 'overview'
+  if (tab.value !== key) selectTab(key)
+})
 const stateOptions = [
   'success',
   'waiting',
