@@ -77,7 +77,7 @@
       >
     </div>
 
-    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="overview-etl">ETL_Date <input v-model="date" type="date" aria-label="概览 ETL_Date" @change="applyFilters" /></label><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
+    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="overview-etl">ETL_Date <input v-model="date" type="date" aria-label="概览 ETL_Date" @change="applyFilters" /><button class="link-button" @click="calendarOpen=true">按日历选择</button></label><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
     <section v-if="tab !== 'overview'" class="card scope-card" aria-label="监控范围">
       <div class="filters scope-filters">
         <label
@@ -1196,6 +1196,7 @@
         </p></template
       ></DetailDrawer
     >
+    <div v-if="calendarOpen" class="modal-backdrop" @keydown.esc="calendarOpen=false"><section class="modal-panel" role="dialog" aria-modal="true" aria-label="按业务日历选择 ETL_Date" style="max-width:540px"><h2>按业务日历选择 ETL_Date</h2><p class="calendar-hint">按自然日精确查询交易日或工作日映射，不覆盖实例中已采集的业务参数。</p><label class="calendar-field">日历来源<select v-model="calendarKind" class="form-control"><option value="trading">交易日历</option><option value="working">工作日历</option></select></label><label class="calendar-field">自然日<input v-model="calendarNatural" type="date" class="form-control" /></label><button class="btn btn-primary" :disabled="calendarBusy || !calendarNatural" @click="resolveCalendar">查询 ETL_Date</button><p v-if="calendarError" role="alert">{{ calendarError }}</p><p v-if="calendarResult?.status==='RESOLVED'">ETL_Date：<strong>{{ calendarResult.etl_date }}</strong></p><p v-else-if="calendarResult">{{ calendarResult.status==='MISSING' ? '该自然日尚未配置映射，请先维护日历数据。' : calendarResult.status==='AMBIGUOUS' ? '同一自然日存在多条不同映射，无法自动确定。' : '映射不是有效业务日期，请修正日历数据。' }}</p><router-link to="/system/calendars">查询与维护业务日历 →</router-link><footer class="calendar-dialog-actions"><button class="btn btn-ghost" @click="calendarOpen=false">取消</button><button class="btn btn-primary" :disabled="calendarBusy || calendarResult?.status!=='RESOLVED'" @click="applyCalendar">应用到监控</button></footer></section></div>
   </div>
 </template>
 
@@ -1214,6 +1215,13 @@ import DetailDrawer from '../components/DetailDrawer.vue'
 import PaginationControls from '../components/PaginationControls.vue'
 import { usePagination } from '../composables/usePagination'
 const router = useRouter()
+const calendarOpen=ref(false),calendarKind=ref('trading'),calendarNatural=ref(new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'})),calendarResult=ref(null),calendarError=ref(''),calendarBusy=ref(false)
+let calendarController,calendarVersion=0
+watch([calendarKind,calendarNatural],()=>{calendarResult.value=null;calendarError.value='';calendarVersion++;calendarController?.abort();calendarBusy.value=false})
+watch(calendarOpen,open=>{if(!open){calendarVersion++;calendarController?.abort();calendarBusy.value=false}})
+async function resolveCalendar(){const version=++calendarVersion;calendarController?.abort();const abort=new AbortController();calendarController=abort;calendarResult.value=null;calendarError.value='';calendarBusy.value=true;const timeout=setTimeout(()=>abort.abort(),15000);try{const response=await fetch(`/api/calendars/${calendarKind.value}/resolve?natural_date=${calendarNatural.value.replaceAll('-','')}`,{credentials:'same-origin',signal:abort.signal});const result=await response.json();if(!response.ok)throw Error(result.message||result.error||'日历查询失败');if(version===calendarVersion)calendarResult.value=result}catch(e){if(version===calendarVersion)calendarError.value=e.name==='AbortError'?'日历查询超时，请重试':e.message}finally{clearTimeout(timeout);if(version===calendarVersion)calendarBusy.value=false}}
+async function applyCalendar(){if(calendarResult.value?.status!=='RESOLVED')return;date.value=calendarResult.value.etl_date;calendarOpen.value=false;await applyFilters()}
+onBeforeUnmount(()=>{calendarVersion++;calendarController?.abort()})
 const route = useRoute(),
   connectionOpen = ref(false),
   connectionForm = ref(null),

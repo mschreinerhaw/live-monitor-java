@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { store } from '../store'
 
 const routes = [
+  { path: '/system/calendars', component: () => import('../views/CalendarView.vue') },
   { path: '/clusters', redirect: to => ({ path: '/dashboard', query: to.query }) },
   { path: '/services', component: () => import('../views/DashboardView.vue') },
   { path: '/dolphinscheduler/enterprise', redirect: to => ({path:'/dolphinscheduler',query:to.query}) },

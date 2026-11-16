@@ -110,7 +110,7 @@ watch(() => route.fullPath, () => { showNotificationPanel.value = false; showUse
 
 const currentRouteTitle = computed(() => {
   const map = {
-    '/dashboard': '全局监控',
+    '/dashboard': '全局监控', '/system/calendars': '业务日历管理',
     '/clusters': '集群健康与热力图',
     '/services': '服务列表与健康检查',
     '/hosts': '服务器主机',

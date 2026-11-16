@@ -24,6 +24,7 @@ public class SchemaMigrationService {
         if (!tableExists("monitor_service")) {
             return;
         }
+        createCalendarTables();
         createLoginAuditLogTable();
         createExternalMessageAuditTable();
         createExternalProjectTables();
@@ -65,6 +66,13 @@ public class SchemaMigrationService {
         migrateServiceAlertGroupCompositePrimaryKey();
         createCommonIndexes();
         ensureExternalMessageService();
+    }
+
+    private void createCalendarTables() {
+        for (String kind : new String[]{"trading", "working"}) {
+            String business = "trading".equals(kind) ? "JYR" : "GZR";
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS t_ld_" + kind + "_calendar (ZRR INT NOT NULL, " + business + " INT NOT NULL, ND INT, JD INT, YF_XH INT, XQ INT, NY INT, NZ INT, XQ_XH INT, PRIMARY KEY (ZRR," + business + "))");
+        }
     }
 
     private void ensureExternalMessageService() {

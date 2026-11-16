@@ -3,7 +3,8 @@ async function backend(page,options={}){
  const requests=[],errors=[];page.on('pageerror',e=>errors.push(e.message));const now=new Date().toLocaleString('sv-SE',{timeZone:'Asia/Shanghai'});
  const project={id:'123',name:'业务项目',owner:'scheduler-owner',online_count:2,workflow_count:3,task_definition_count:12,etl_dates:['2026-11-13'],not_executed_workflows:0,unclassified_workflows:0,workflow_statistics:{total:3,running:1,success:1,waiting:0,failed:1},config:{primary_owner:'alice',group_ids:'[2]',alert_enabled:1}};
  await page.route('**/api/**',async route=>{const r=route.request(),u=new URL(r.url()),p=u.pathname;requests.push({path:p,query:Object.fromEntries(u.searchParams),method:r.method(),body:r.postDataJSON?.()});let body=[];
-  if(p==='/api/auth/me')body={authenticated:true,user_id:'admin',admin:true,name:'admin'};
+  if(p.startsWith('/api/calendars/'))body=options.calendarMissing?{status:'MISSING',values:[]}:{status:'RESOLVED',etl_date:'2025-12-31',values:[20251231]};
+  else if(p==='/api/auth/me')body={authenticated:true,user_id:'admin',admin:true,name:'admin'};
   else if(p==='/api/dolphinscheduler/connections')body=[{id:7,service_name:'测试集群',config_json:JSON.stringify(options.config || {}),check_interval:60}];
   else if(p==='/api/dolphinscheduler/connections/7'&&r.method()==='PUT'){options.config=r.postDataJSON().config;body={id:7};}
   else if(p==='/api/alert-groups')body=options.groups || [{id:2,group_name:'业务运维'}];
@@ -169,3 +170,8 @@ test('default operation groups use shared checkbox styling and preserve numeric 
 async function details(page) {
  await page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true}).waitFor();const entry=page.getByRole('button',{name:'查看明细 →',exact:true});if(await entry.count())await entry.click();
 }
+
+test('calendar mapping supplies ETL_Date without using the natural day as business date',async({page})=>{
+ const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');await page.getByRole('button',{name:'按日历选择',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'按业务日历选择 ETL_Date',exact:true});await dialog.getByLabel('日历来源').selectOption('working');await dialog.getByLabel('自然日',{exact:true}).fill('2026-01-01');await dialog.getByRole('button',{name:'查询 ETL_Date',exact:true}).click();await expect(dialog.getByText('2025-12-31',{exact:true})).toBeVisible();await dialog.getByRole('button',{name:'应用到监控',exact:true}).click();await expect(page.getByLabel('概览 ETL_Date')).toHaveValue('2025-12-31');await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.etl_date==='2025-12-31')).toBe(true);expect(errors).toEqual([]);
+})

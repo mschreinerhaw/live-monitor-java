@@ -1,0 +1,51 @@
+业务日历与 ETL_Date
+
+入口：系统管理 -> 业务日历管理（/#/system/calendars）。
+系统配置数据库保存 t_ld_trading_calendar 与 t_ld_working_calendar；启动时增量建表，不修改已有记录。
+两表字段与提供的定义保持一致，复合主键分别为 (ZRR,JYR) 与 (ZRR,GZR)。
+ZRR 是自然日 YYYYMMDD，JYR/GZR 是对应业务日期 YYYYMMDD；例如 20260101 -> 20251231。
+ND 是自然日所属年度，可为空，提供时必须与 ZRR 年度一致。其他整数属性按上传数据保留，不根据星期猜测工作日或交易日。
+
+查询维护
+登录用户可按日历类型、自然日起止日期查询，分页20/50/100条。
+管理员可新增或更新、删除单条映射；删除严格匹配复合主键。
+同一自然日存在多个业务日期时展示多义，不自动选择某条记录。
+所有写入通过管理员权限检查，并写入现有用户操作审计。
+
+SQL 更新
+上传 UTF-8 .sql 文件，最大2MB，每张表单次最多20000条INSERT记录；可同时包含两张日历表。
+预览 -> 核对删除年度、预计删除数量、写入数量及样本 -> 勾选确认 -> 导入。
+支持 CREATE TABLE（只识别、不执行）、INSERT INTO ... VALUES（可多行、可指定列）及 DELETE FROM 对应日历表 WHERE ND=2026。
+仅参数化更新所选日历数据，不执行上传的任意SQL；不支持 DROP/TRUNCATE/无条件DELETE/其他表/函数表达式。
+按年度删除必须位于该表全部INSERT之前；除删除年度外的其他记录保留。
+INSERT按复合主键新增或更新整行，未提供的可空属性设NULL；文件内重复复合主键会拒绝。
+同一文件两张表在一个事务中更新，解析、写入或审计失败均回滚。
+预计删除数量按预览时统计，提交时执行当时的年度删除；预览后文件改变必须重新预览。
+删除本地 .sql 文件不会删除系统数据，导入不在服务器保存原始文件。
+不自动导入示例数据；请准备完整年度数据后通过页面上传。
+
+示例（该示例只演示一条跨年映射，不是2026全年日历）
+-- delete data
+DELETE FROM t_ld_working_calendar WHERE ND=2026;
+INSERT INTO t_ld_working_calendar (ZRR,GZR,ND,JD,YF_XH,XQ,NY,NZ,XQ_XH)
+VALUES (20260101,20251231,2026,1,1,4,202601,202601,1);
+DELETE FROM t_ld_trading_calendar WHERE ND=2026;
+INSERT INTO t_ld_trading_calendar (ZRR,JYR,ND,JD,YF_XH,XQ,NY,NZ,XQ_XH)
+VALUES (20260101,20251231,2026,1,1,4,202601,202601,1);
+
+ETL_Date 使用
+DolphinScheduler 总览 ETL_Date 旁点击“按日历选择”，指定日历来源与自然日，查询映射后应用到监控筛选。
+业务日期来源是所选自然日对应的唯一映射；缺失、多义、非法日期不允许应用。
+不会把自然日、启动日期或工作日推断冒充业务日期。
+DolphinScheduler 实例已经采集到的实际 ETL_Date 仍由工作流/任务业务参数识别，日历不会回写调度任务或覆盖历史实例。
+
+API（沿用系统登录会话）
+GET /api/calendars/{trading|working}?from=20260101&to=20261231&page=1&page_size=20
+GET /api/calendars/{kind}/resolve?natural_date=20260101
+POST /api/calendars/{kind}：保存单条，JSON字段使用小写或原始大写字段名。
+DELETE /api/calendars/{kind}/{ZRR}/{JYR或GZR}
+POST /api/calendars/import/preview：{ "sql": "..." }，返回按表预览与 preview_hash。
+POST /api/calendars/import/apply：{ "sql": "...", "preview_hash": "..." }。
+后四个写入/导入接口仅管理员可用。
+
+迁移脚本：src/main/resources/db/business-calendars.sql（H2/MySQL兼容、仅增量建表）。
