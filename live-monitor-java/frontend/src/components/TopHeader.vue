@@ -11,7 +11,7 @@
     </div>
 
     <div class="navbar-right">
-      <form class="resource-search" role="search" @submit.prevent="router.push({ path: '/clusters', query: { q: resourceSearch } })">
+      <form class="resource-search" role="search" @submit.prevent="router.push({ path: '/dashboard', query: { q: resourceSearch } })">
         <input v-model="resourceSearch" type="search" aria-label="全局资源搜索" placeholder="搜索集群、服务、主机" />
       </form>
       <!-- 快捷入口 -->
