@@ -26,6 +26,7 @@ public class SchemaMigrationService {
         }
         createCalendarTables();
         createLoginAuditLogTable();
+        ensureCalendarAuditCapacity();
         createExternalMessageAuditTable();
         createExternalProjectTables();
         createEventDrivenAlertTables();
@@ -66,6 +67,10 @@ public class SchemaMigrationService {
         migrateServiceAlertGroupCompositePrimaryKey();
         createCommonIndexes();
         ensureExternalMessageService();
+    }
+
+    private void ensureCalendarAuditCapacity() {
+        widenColumnIfPresent("login_audit_log", "action", "VARCHAR(1024) NOT NULL");
     }
 
     private void createCalendarTables() {

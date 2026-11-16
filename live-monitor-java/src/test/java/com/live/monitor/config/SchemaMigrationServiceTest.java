@@ -11,6 +11,22 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 class SchemaMigrationServiceTest {
     @Test
+    void calendarAuditMigrationPreservesLongOperationDetails() throws Exception {
+        JdbcDataSource dataSource = new JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:calendar-audit-capacity;MODE=LEGACY;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE login_audit_log (action VARCHAR(20) NOT NULL)");
+        jdbc.update("INSERT INTO login_audit_log(action) VALUES ('LOGIN')");
+        SchemaMigrationService migration = new SchemaMigrationService(jdbc,new DatabaseDialect(jdbc));
+        Method method = SchemaMigrationService.class.getDeclaredMethod("ensureCalendarAuditCapacity");
+        method.setAccessible(true);method.invoke(migration);method.invoke(migration);
+        String detail="CALENDAR_IMPORT working rows=365 replace_years=[2026]";
+        jdbc.update("INSERT INTO login_audit_log(action) VALUES (?)",detail);
+        assertEquals(detail,jdbc.queryForObject("SELECT action FROM login_audit_log WHERE action <> 'LOGIN'",String.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM login_audit_log",Integer.class));
+    }
+
+    @Test
     void createsExternalProjectTablesAndMatchesMostSpecificKeyword() throws Exception {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:external-project-routing;MODE=LEGACY;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
