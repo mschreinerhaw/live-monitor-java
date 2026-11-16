@@ -6,7 +6,7 @@
     <div class="overview-stats"><article v-for="item in stats" :key="item.label"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.note }}</small></article></div>
     <div class="overview-filters"><input v-model="search" type="search" placeholder="搜索集群、服务或主机" aria-label="搜索资源" /><select v-model="selected" aria-label="集群范围"><option value="">全部集群</option><option v-for="c in clusters" :key="c.key" :value="c.key">{{ c.name }}</option></select><span>图表与异常列表按当前范围展示</span></div>
     <section class="overview-panel attention-panel"><div class="panel-heading"><div><h2>待处理异常 <span class="attention-count">{{ abnormal.length }}</span></h2><p class="scope-note">当前范围内最近探测失败的服务，点击查看原因与关联资源</p></div><router-link to="/services">服务明细 →</router-link></div><div class="attention-list"><router-link v-for="s in abnormal.slice(0,3)" :key="s.id" :to="'/services/' + s.id" class="exception-row"><span class="resource-status down">异常</span><strong>{{ s.service_name }}</strong><span class="issue-reason" :title="s.last_message">{{ s.last_message || '最近探测失败，查看详情定位原因' }}</span><small>{{ s.last_checked_at || '暂无探测时间' }}</small></router-link><p v-if="abnormal.length>3" class="scope-note">另有 {{ abnormal.length-3 }} 个异常服务，请进入服务明细查看。</p><p v-if="!abnormal.length" class="attention-empty">当前范围暂无已知异常服务</p></div></section>
-    <section class="overview-panel heatmap-panel"><div class="panel-heading"><h2>主机资源热力图</h2><div class="heat-tabs" role="group" aria-label="热力图指标"><button v-for="m in heatMetrics" :key="m.key" :aria-pressed="metric === m.key" :class="{active:metric===m.key}" @click="metric=m.key">{{ m.label }}</button></div></div><p class="scope-note">颜色表示使用率：绿色 &lt;70%，橙色 70–85%，红色 ≥85%；灰色为停用、采集异常、过期或缺失。</p><div class="heatmap"><router-link v-for="h in visibleHosts" :key="h.id" :to="'/hosts/' + h.id" :class="['heat-cell', heatTone(h)]" :title="`${h.host_name} / ${h.ip}\n${h.metric_checked_at || '暂无采集时间'}\n${h.last_message || ''}`"><strong>{{ h.host_name || h.ip }}</strong><span>{{ hostValue(h) }}</span><span class="heat-blocks" aria-hidden="true"><i v-for="n in 10" :key="n" :class="{filled:!hostState(h) && validMetric(h) && n <= Math.ceil(h[metric]/10)}"></i></span><small class="heat-updated">{{ h.metric_checked_at || '暂无采集时间' }}</small></router-link></div><p v-if="!visibleHosts.length">暂无关联主机数据</p><router-link to="/hosts">查看主机详情与历史趋势 →</router-link></section>
+    <section class="overview-panel heatmap-panel"><div class="panel-heading"><h2 aria-label="主机资源热力图">主机资源热力图 <small class="heat-count">展示 {{ heatHosts.length }} / {{ visibleHosts.length }} 台</small></h2><div class="heat-actions"><select v-model.number="heatLimit" aria-label="热力图主机数量"><option :value="10">Top 10 主机</option><option :value="20">Top 20 主机</option><option :value="0">全部主机</option></select><div class="heat-tabs" role="group" aria-label="热力图指标"><button v-for="m in heatMetrics" :key="m.key" :aria-pressed="metric === m.key" :class="{active:metric===m.key}" @click="metric=m.key">{{ m.label }}</button></div></div></div><p class="scope-note">按当前指标使用率降序展示，默认 Top 10。颜色表示使用率：绿色 &lt;70%，橙色 70–85%，红色 ≥85%；灰色为停用、采集异常、过期或缺失。</p><div class="heatmap"><router-link v-for="h in heatHosts" :key="h.id" :to="'/hosts/' + h.id" :class="['heat-cell', heatTone(h)]" :title="`${h.host_name} / ${h.ip}\n${h.metric_checked_at || '暂无采集时间'}\n${h.last_message || ''}`"><strong>{{ h.host_name || h.ip }}</strong><span>{{ hostValue(h) }}</span><span class="heat-blocks" aria-hidden="true"><i v-for="n in 10" :key="n" :class="{filled:!hostState(h) && validMetric(h) && n <= Math.ceil(h[metric]/10)}"></i></span><small class="heat-updated">{{ h.metric_checked_at || '暂无采集时间' }}</small></router-link></div><p v-if="!visibleHosts.length">暂无关联主机数据</p><router-link to="/hosts">查看主机详情与历史趋势 →</router-link></section>
     <OverviewCharts :services="chartServices" :hosts="chartHosts" :services-known="Array.isArray(data.services)" :hosts-known="Array.isArray(data.hosts)" />
   </div>
 </template>
@@ -16,6 +16,7 @@ import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import OverviewCharts from '../components/OverviewCharts.vue'
 const route = useRoute(), data = ref({}), loading = ref(false), error = ref(''), updated = ref('')
+const heatLimit=ref(10)
 const search = ref(String(route.query.q || '')), selected = ref(''), metric = ref('cpu_usage_percent'), interval = ref(30)
 watch(() => route.query.q, value => { search.value = String(value || '') })
 const heatMetrics=[{key:'cpu_usage_percent',label:'CPU'},{key:'memory_used_percent',label:'内存'},{key:'disk_used_percent',label:'磁盘'}]
@@ -45,6 +46,13 @@ function hostState(h) {
   return ''
 }
 const validMetric = h => h[metric.value] != null && Number.isFinite(Number(h[metric.value])) && Number(h[metric.value]) >= 0 && Number(h[metric.value]) <= 100
+const heatHosts=computed(()=>{
+ const rows=visibleHosts.value.slice().sort((a,b)=>{
+  const av=!hostState(a)&&validMetric(a)?Number(a[metric.value]):-1,bv=!hostState(b)&&validMetric(b)?Number(b[metric.value]):-1
+  return bv-av || String(a.host_name||a.ip||a.id).localeCompare(String(b.host_name||b.ip||b.id),'zh-CN')
+ })
+ return heatLimit.value ? rows.slice(0,heatLimit.value) : rows
+})
 const hostValue = h => hostState(h) || (!validMetric(h) ? '暂无数据' : Number(h[metric.value]).toFixed(1) + '%')
 const heatTone = h => hostState(h) || !validMetric(h) ? 'unknown' : h[metric.value] >= 85 ? 'down' : h[metric.value] >= 70 ? 'warn' : 'up'
 const stats = computed(() => {const summary = data.value.summary; return [
@@ -78,4 +86,8 @@ onBeforeUnmount(()=>{clearInterval(timer);controller?.abort()})
 
 <style scoped>
 .heatmap-panel .panel-heading{margin-bottom:8px}.heatmap{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:14px 0}.heat-cell{min-width:0;min-height:145px;padding:14px;gap:9px;border-radius:7px;box-sizing:border-box;transition:box-shadow .15s,transform .15s}.heat-cell:hover{transform:translateY(-2px);box-shadow:0 4px 12px #24466914}.heat-cell strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:34px;font-size:12px;line-height:17px}.heat-cell>span:not(.heat-blocks){font-size:26px;font-variant-numeric:tabular-nums;line-height:30px}.heat-cell.unknown>span:not(.heat-blocks){font-size:14px}.heat-cell .heat-blocks{margin-top:auto}.heat-cell .heat-updated{font-size:10px;line-height:16px;white-space:nowrap;color:inherit;opacity:.8}.heat-blocks i{height:8px}.heatmap-panel>a{display:inline-block;margin-top:2px}@media(max-width:1250px){.heatmap{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(max-width:950px){.heatmap{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){.heatmap{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.heat-cell{padding:11px;min-height:140px}.heat-cell .heat-updated{font-size:9px}}@media(max-width:350px){.heatmap{grid-template-columns:1fr}}
+</style>
+
+<style scoped>
+.heat-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.heat-actions select{padding:6px 8px;font-size:11px;background:#f8fbff;border-color:#dce7f4}.heat-count{font-size:11px;font-weight:400;color:#7a8fa4;margin-left:8px}.heatmap{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1250px){.heatmap{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(max-width:950px){.heatmap{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){.heatmap{grid-template-columns:repeat(2,minmax(0,1fr))}.heat-actions{gap:8px}.heat-count{display:block;margin:5px 0 0}}@media(max-width:350px){.heatmap{grid-template-columns:1fr}}
 </style>
