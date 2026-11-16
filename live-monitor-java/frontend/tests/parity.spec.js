@@ -16,7 +16,7 @@ test('DolphinScheduler single monitor keeps project filters, instance/task pagin
     if(path.endsWith('/tasks'))return Array.from({length:21},(_,i)=>({id:String(i+1),name:'task_'+i,state:'SUCCESS'}))
   })
   await page.goto('/#/dolphinscheduler')
-  await expect(page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'DolphinScheduler 运行监控中心',exact:true})).toBeVisible()
   await expect(page.locator('aside').getByRole('link',{name:/驾驶舱/})).toHaveCount(0)
   await page.getByRole('button',{name:'查看明细 →',exact:true}).click()
   await page.getByLabel('项目',{exact:true}).selectOption('2')

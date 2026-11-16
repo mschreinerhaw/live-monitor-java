@@ -4,10 +4,10 @@
       <div class="product-title">
         <div>
           <small v-if="tab === 'overview'" class="ds-overview-caption">监控总览</small><button v-else class="link-button ds-back" @click="selectTab('overview')">← 返回监控总览</button><div class="title-line">
-            <h1 tabindex="-1">DolphinScheduler 监控</h1>
+            <h1 tabindex="-1">DolphinScheduler 运行监控中心</h1>
             <span :class="['freshness-pill', healthTone]"><i></i>{{ healthLabel }}</span>
           </div>
-          <p>掌握执行全貌，优先定位失败项目与异常节点，点击查看明细。</p>
+          <p>按集群与 ETL_Date 查看执行情况，先发现问题，再定位项目、实例与节点。</p>
         </div>
       </div>
       <div class="header-actions"><button v-if="tab === 'overview'" class="btn btn-ghost" @click="selectTab('project-list')">查看明细 →</button>
@@ -78,14 +78,14 @@
       >
     </div>
 
-    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="overview-etl">ETL_Date <input v-model="calendarNatural" type="date" aria-label="概览 ETL_Date" @change="resolveCalendarDate" /><small v-if="calendarBusy" role="status">查询交易日历…</small><small v-else-if="calendarMeta" class="etl-date-source">{{ calendarMeta.source==='trading' ? '交易日历' : calendarMeta.source==='instance' ? '实例日期' : '默认日历' }} → {{ date }}</small></label><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
+    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ connectionLabel(c) }}</option></select></label><button class="btn btn-ghost cluster-manage" :disabled="!selected" @click="editConnection(selected)"><IconSvg name="settings" size="14" />集群管理</button><span>{{ scopeDescription }}</span><label class="overview-etl">ETL_Date <input v-model="calendarNatural" type="date" aria-label="概览 ETL_Date" @change="resolveCalendarDate" /><small v-if="calendarBusy" role="status">查询交易日历…</small><small v-else-if="calendarMeta" class="etl-date-source">{{ calendarMeta.source==='trading' ? '交易日历' : calendarMeta.source==='instance' ? '实例日期' : '默认日历' }} → {{ date }}</small></label><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
     <section v-if="tab !== 'overview'" class="card scope-card" aria-label="监控范围">
       <div class="filters scope-filters">
         <label
           >监控集群<select v-model="cluster" class="form-control" @change="changeCluster">
             <option value="">请选择集群</option>
             <option v-for="c in connections" :key="c.id" :value="String(c.id)">
-              {{ c.service_name }}
+              {{ connectionLabel(c) }}
             </option>
           </select></label
         >
@@ -213,30 +213,16 @@
             ><i>·</i>任务定义 {{ number(dashboard.task_definitions) }}</span
           ><span>当前筛选范围</span>
         </div>
-        <div class="ds-stat-groups"><section class="ds-stat-group"><h2>工作流资产</h2><div class="asset-metrics"><button class="asset-card" :disabled="busy || filtersDirty" @click="selectTab('project-list')"><span>项目</span><strong>{{ number(dashboard.project_count) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>工作流定义总量</span><strong>{{ number(dashboard.workflow_definitions) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>上线工作流</span><strong>{{ number(dashboard.online_workflows) }}</strong></button></div></section><section class="ds-stat-group execution-group"><h2>业务执行 <small>按当前执行时间 / ETL_Date 范围</small></h2><div class="execution-scope"><span>已执行实例 <strong>{{ number(dashboard.workflow_statistics?.total) }}</strong></span><span title="当前接口没有可靠的业务应执行计划，不能用上线定义数代替">应执行工作流 <strong>{{ number(dashboard.expected_workflows) }}</strong></span></div><div class="metrics">
-          <button
-            v-for="m in metricCards.filter(m => m.key !== 'online')"
-            :key="m.key"
-            type="button"
-            :class="['card', 'metric', 'metric-' + m.tone]"
-            :disabled="busy || filtersDirty || m.value == null"
-            @click="openMetric(m)"
-          >
-            <span class="metric-label">{{ m.label }}<IconSvg :name="m.icon" size="16" /></span
-            ><strong>{{ number(m.value) }}</strong
-            ><span class="metric-footer"
-              >{{ m.hint }}<IconSvg name="chevron-right" size="13"
-            /></span>
-          </button>
-        </div>
-        </section></div>
         <DolphinOverview :projects="dashboard.projects || []" :nodes="dashboard.nodes || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :fresh="collectionFresh(resourceCollection)" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" @resources="selectTab('resources')" @alerts="selectTab('alerts')" />
-        <DolphinResourceSummary
+        <div class="execution-layout"><DolphinExecutionOverview :dashboard="dashboard" :metrics="metricCards" :pending="busy || filtersDirty" @metric="openMetric" /><div class="overview-side"><section class="ds-stat-group overview-assets"><h2>工作流资产 <small>静态配置</small></h2><div class="asset-metrics"><button class="asset-card" :disabled="busy || filtersDirty" @click="selectTab('project-list')"><span>项目数</span><strong>{{ number(dashboard.project_count) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>工作流定义总量</span><strong>{{ number(dashboard.workflow_definitions) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>上线工作流</span><strong>{{ number(dashboard.online_workflows) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})" title="已启用的调度配置数量，不代表当日应执行数量"><span>启用调度</span><strong>{{ number(enabledSchedules) }}</strong></button></div></section>        <DolphinResourceSummary
           :nodes="dashboard.nodes || []"
           :fresh="collectionFresh(resourceCollection)"
           @details="selectTab('resources')"
         />
+</div></div>
         <DolphinProjectCards :projects="dashboard.projects || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :scope-key="projectScopeKey" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" />
+
+        <nav class="diagnosis-path" aria-label="定位排查路径"><strong>定位排查路径</strong><button :disabled="!selected" @click="editConnection(selected)">集群<small>连接与采集</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="selectTab('project-list')">项目<small>定位异常项目</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="kind='workflow_instance'; selectTab('instances')">工作流实例<small>查看当日执行</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="kind='task_instance'; selectTab('instances')">任务实例<small>查看状态与日志</small></button><span>→</span><span class="diagnosis-log">日志<small>从任务实例进入</small></span></nav>
 
       </template>
 
@@ -1205,6 +1191,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconSvg from '../components/IconSvg.vue'
 import DolphinProjectCards from '../components/DolphinProjectCards.vue'
+import DolphinExecutionOverview from '../components/DolphinExecutionOverview.vue'
 import DolphinOverview from '../components/DolphinOverview.vue'
 import DolphinProjectTable from '../components/DolphinProjectTable.vue'
 import DolphinResourceSummary from '../components/DolphinResourceSummary.vue'
@@ -1364,6 +1351,18 @@ const ruleTypes = [
 ]
 const selected = computed(() => connections.value.find((c) => String(c.id) === cluster.value))
 const currentProject = computed(() => dashboard.value?.projects.find((p) => p.id === project.value))
+function connectionLabel(connection) {
+  try {
+    const config = typeof connection.config_json === 'string' ? JSON.parse(connection.config_json) : connection.config_json
+    const host = new URL(config?.base_url).host
+    return connection.service_name?.includes(host) ? connection.service_name : `${connection.service_name || 'DolphinScheduler'} · ${host}`
+  } catch { return connection.service_name || 'DolphinScheduler' }
+}
+const enabledSchedules = computed(() => {
+  const rows = dashboard.value?.projects
+  if (!rows?.length || rows.some(p => p.schedule_count == null || p.unknown_schedule_count == null || p.unknown_schedule_count > 0)) return null
+  return rows.reduce((total, p) => total + Number(p.schedule_count), 0)
+})
 const metricCards = computed(() => [
   {
     key: 'online',
