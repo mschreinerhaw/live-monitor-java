@@ -22,6 +22,7 @@ async function backend(page,options={}){
   else if(p==='/api/dashboard')body={summary:{}};
   else if(p==='/api/system-metrics')body={};
   if(p.endsWith('/monitor/summary')&&options.projectNoRuns)body.projects[0].workflow_statistics={total:0,running:0,success:0,failed:0,waiting:0};
+  if(p.endsWith('/monitor/summary')&&options.manyProjects){body.projects=Array.from({length:19},(_,i)=>({...project,id:String(i+1),name:'项目'+(i+1),task_statistics:{failed:2}}));body.project_count=19;}
   if(p.endsWith('/monitor/summary')&&options.incomplete){body.not_executed_workflows=null;body.execution_coverage_reliable=false;body.projects[0].not_executed_workflows=null;}
   if(options.multiple&&(p.endsWith('/monitor/summary')||p.endsWith('/monitor/projects'))){const rows=[project,{...project,id:'456',name:'第二项目',workflow_statistics:{total:4,running:1,success:0,failed:3,waiting:0}}];if(p.endsWith('/monitor/projects'))body=rows;else{body.projects=rows.filter(r=>!u.searchParams.get('project')||u.searchParams.get('project')===r.id);body.project_count=body.projects.length;}}
   if(options.events&&p.endsWith('/monitor/incidents'))body=[{incident_key:'active',project_code:'123',category:'TASK_FAILURE',message:'active-issue',active:1},{incident_key:'suppressed',project_code:'123',category:'AGGREGATED_TIMEOUT',message:'suppressed-issue',active:2},{incident_key:'recovered',project_code:'123',category:'TASK_FAILURE',message:'recovered-issue',active:0}];
@@ -216,4 +217,10 @@ test('DolphinScheduler project can select independent address-book contacts',asy
  const {requests,errors}=await backend(page,{contacts:[{id:42,name:'值班工程师',email:'duty@example.com',mobile:'13800000000',enabled:true}]});await page.goto('/#/dolphinscheduler');await details(page);await page.getByRole('button',{name:'业务项目',exact:true}).click();
  await page.getByRole('button',{name:'配置责任人',exact:true}).click();await page.getByLabel('选择联系人 值班工程师',{exact:true}).check();await page.getByRole('dialog',{name:'项目责任人与告警组',exact:true}).getByRole('button',{name:'保存',exact:true}).click();
  await expect.poll(()=>requests.find(r=>r.path.endsWith('/projects/123/config')&&r.method==='PUT')?.body.contact_ids).toEqual([42]);expect(errors).toEqual([]);
+})
+
+test('project cards default to eight, fill the last row, and abnormal task badge opens task failures',async({page})=>{
+ const {requests,errors}=await backend(page,{manyProjects:true});await page.goto('/#/dolphinscheduler');await expect(page.locator('.project-health-card')).toHaveCount(8);await expect(page.getByLabel('项目健康每页条数')).toHaveValue('8');
+ await page.getByRole('navigation',{name:'项目健康分页'}).getByRole('button',{name:'末页',exact:true}).click();await expect(page.locator('.project-health-card')).toHaveCount(3);
+ await page.locator('.failure-indicator').first().click();await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.kind==='task_instance'&&r.query.state==='FAILURE')).toBe(true);expect(errors).toEqual([]);
 })

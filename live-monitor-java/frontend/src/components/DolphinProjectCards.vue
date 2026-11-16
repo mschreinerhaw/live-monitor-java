@@ -11,7 +11,7 @@
           :aria-pressed="onlyAbnormal"
           @click="onlyAbnormal = !onlyAbnormal"
         >
-          仅看异常 ({{ projects.filter((p) => p.workflow_statistics?.failed > 0).length }})</button
+          仅看异常 ({{ projects.filter((p) => (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0)).length }})</button
         ><button class="project-filter" :aria-pressed="!onlyAbnormal" @click="onlyAbnormal = false">
           查看全部</button
         ><input
@@ -27,13 +27,15 @@
         v-for="p in pager.items"
         :key="p.id"
         class="project-health-card"
-        :class="{ 'has-failure': p.workflow_statistics?.failed > 0 }"
+        :class="{ 'has-failure': (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0) }"
       >
         <div class="project-title">
           <button class="link-button" :disabled="pending" @click="$emit('definitions', p)">
             {{ label(p) }}</button
           ><span :class="['status', projectTone(p)]">{{ projectState(p) }}</span>
         </div>
+        <button v-if="p.task_statistics?.failed > 0" class="failure-indicator" :disabled="pending" @click="$emit('tasks',p)">异常任务 <strong>{{ number(p.task_statistics.failed) }}</strong><span> →</span></button>
+        <button v-else-if="(p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0)" class="failure-indicator" :disabled="pending" @click="$emit('instances',p,'FAILURE')">失败实例 <strong>{{ number(p.workflow_statistics.failed) }}</strong><span> →</span></button>
         <p>
           {{ number(p.online_count) }} 上线工作流 ·
           {{ number(p.workflow_statistics?.total) }} 次执行
@@ -55,7 +57,7 @@
             ><span class="state-track" aria-hidden="true"
               ><i :style="{ width: (ratio(p, s.key) ?? 0) + '%' }"></i></span
             ><strong
-              :class="s.key === 'failed' && p.workflow_statistics?.failed > 0 ? 'failed-count' : ''"
+              :class="s.key === 'failed' && (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0) ? 'failed-count' : ''"
               >{{ number(p.workflow_statistics?.[s.key]) }}</strong
             ><span class="state-percentage">{{ percentage(p, s.key) }}</span>
           </button>
@@ -67,7 +69,7 @@
       v-model:page="pager.page"
       v-model:page-size="pager.pageSize"
       :total="pager.total"
-      label="项目健康"
+      label="项目健康" :page-sizes="[8,16,32,64]"
     />
   </section>
 </template>
@@ -82,7 +84,7 @@ const props = defineProps({
   reliable: Boolean,
   scopeKey: String,
 })
-defineEmits(['instances', 'definitions', 'projects'])
+defineEmits(['instances', 'definitions', 'projects','tasks'])
 const onlyAbnormal = ref(false)
 const search = ref(''),
   label = (p) => p.description?.trim() || p.name || String(p.id),
@@ -116,19 +118,20 @@ const ordered = computed(() =>
   props.projects
     .filter(
       (p) =>
-        (!onlyAbnormal.value || p.workflow_statistics?.failed > 0) &&
+        (!onlyAbnormal.value || (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0)) &&
         `${label(p)} ${p.id}`.toLowerCase().includes(search.value.toLowerCase())
     )
     .slice()
     .sort(
       (a, b) =>
-        (b.workflow_statistics?.failed || 0) - (a.workflow_statistics?.failed || 0) ||
+        Math.max(b.workflow_statistics?.failed || 0,b.task_statistics?.failed || 0) - Math.max(a.workflow_statistics?.failed || 0,a.task_statistics?.failed || 0) ||
         (b.workflow_statistics?.running || 0) - (a.workflow_statistics?.running || 0)
     )
 )
 const pager = usePagination(ordered, [search, onlyAbnormal, () => props.scopeKey])
+pager.pageSize = 8
 const projectState = (p) =>
-  p.workflow_statistics?.failed > 0
+  (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0)
     ? '存在失败'
     : p.workflow_statistics?.running > 0
     ? '运行中'
@@ -138,7 +141,7 @@ const projectState = (p) =>
     ? '待执行'
     : '未发现失败'
 const projectTone = (p) =>
-  p.workflow_statistics?.failed > 0
+  (p.workflow_statistics?.failed > 0 || p.task_statistics?.failed > 0)
     ? 'down'
     : p.workflow_statistics?.running > 0
     ? 'running'
@@ -368,4 +371,8 @@ button:focus-visible {
     padding: 12px;
   }
 }
+</style>
+
+<style scoped>
+.project-health-grid{display:flex;flex-wrap:wrap;gap:12px}.project-health-card{flex:1 1 calc(25% - 12px);box-sizing:border-box;min-width:220px}.failure-indicator{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:4px;background:#fff0ef;color:#bd3935;font-size:10px;padding:4px 7px;margin-top:8px;cursor:pointer}.failure-indicator strong{color:#dc2626;font-size:12px}.failure-indicator:disabled{cursor:default}@media(max-width:950px){.project-health-card{flex-basis:calc(50% - 12px)}}@media(max-width:600px){.project-health-card{flex-basis:100%;min-width:0}}
 </style>

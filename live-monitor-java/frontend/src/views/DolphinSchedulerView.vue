@@ -221,7 +221,7 @@
         />
 </div></div>
         <section class="ds-stat-group overview-assets"><h2>工作流资产 <small>静态配置</small></h2><div class="asset-metrics"><button class="asset-card" :disabled="busy || filtersDirty" @click="selectTab('project-list')"><span>项目数</span><strong>{{ number(dashboard.project_count) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>工作流定义总量</span><strong>{{ number(dashboard.workflow_definitions) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})"><span>上线工作流</span><strong>{{ number(dashboard.online_workflows) }}</strong></button><button class="asset-card" :disabled="busy || filtersDirty" @click="openMetric({key:'online'})" title="已启用的调度配置数量，不代表当日应执行数量"><span>启用调度</span><strong>{{ number(enabledSchedules) }}</strong></button></div></section>
-        <DolphinProjectCards :projects="dashboard.projects || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :scope-key="projectScopeKey" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" />
+        <DolphinProjectCards :projects="dashboard.projects || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :scope-key="projectScopeKey" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" @tasks="p => openInstances(p, 'FAILURE', 'task_instance')" />
 
         <nav class="diagnosis-path" aria-label="定位排查路径"><strong>定位排查路径</strong><button :disabled="!selected" @click="editConnection(selected)">集群<small>连接与采集</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="selectTab('project-list')">项目<small>定位异常项目</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="kind='workflow_instance'; selectTab('instances')">工作流实例<small>查看当日执行</small></button><span>→</span><button :disabled="busy || filtersDirty" @click="kind='task_instance'; selectTab('instances')">任务实例<small>查看状态与日志</small></button><span>→</span><span class="diagnosis-log">日志<small>从任务实例进入</small></span></nav>
 
@@ -1600,11 +1600,11 @@ async function changePeriod() {
   updateRange()
   await applyFilters()
 }
-function openInstances(p, nextState = '') {
+function openInstances(p, nextState = '', instanceKind = 'workflow_instance') {
   project.value = p.id
   workflow.value = ''
   task.value = ''
-  kind.value = 'workflow_instance'
+  kind.value = instanceKind
   state.value = nextState
   tab.value = 'instances'
   applyFilters()

@@ -22,6 +22,7 @@ test('overview isolates missing metrics, filters clusters by IDs, and links reso
   })
   await page.goto('/#/dashboard')
   await expect(page.getByRole('heading', { name: '全局监控', exact: true })).toBeVisible()
+  await expect(page.locator('.overview-stat-details')).not.toHaveAttribute('open');await page.locator('.overview-stat-details>summary').click();await expect(page.locator('.stat-error-number').first()).toHaveCSS('color','rgb(220, 38, 38)');await page.locator('.overview-stat-details>summary').click();
   await expect(page.locator('.host-trend-panel')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '最近告警事件', exact: true })).toHaveCount(0)
   await expect(page.locator('aside').getByRole('link', { name: '集群健康与热力图', exact: true })).toHaveCount(0)
