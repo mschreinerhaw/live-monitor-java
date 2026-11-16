@@ -557,7 +557,8 @@ public class DolphinCollector {
 
     static LocalDateTime parse(String value) {
         String text = value.replace('T', ' ');
-        return LocalDateTime.parse(text.substring(0, Math.min(19, text.length())), TIME);
+        // datetime-local controls and LocalDateTime.toString() may omit zero seconds.
+        return LocalDateTime.parse(text.substring(0, Math.min(19, text.length())).replace(' ', 'T'));
     }
 
     @PreDestroy

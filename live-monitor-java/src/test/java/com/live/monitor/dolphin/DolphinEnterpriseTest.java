@@ -22,6 +22,13 @@ import java.util.*;
 
 class DolphinEnterpriseTest {
     @Test
+    void timestampParsingAcceptsMinutePrecisionAndKeepsSecondPrecisionCompatibility() {
+        assertEquals(java.time.LocalDateTime.of(2026,11,16,17,50),DolphinCollector.parse("2026-11-16 17:50"));
+        assertEquals(java.time.LocalDateTime.of(2026,11,16,17,50),DolphinCollector.parse("2026-11-16T17:50:00"));
+        assertEquals(java.time.LocalDateTime.of(2026,11,16,17,50,12),DolphinCollector.parse("2026-11-16 17:50:12.123"));
+    }
+
+    @Test
     void statusDrilldownIncludesForcedSuccessAndAllWaitingStatesWithoutRunning() {
         String[] states = {
             "SUCCESS",
