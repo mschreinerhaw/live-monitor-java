@@ -3,7 +3,7 @@ async function backend(page,options={}){
  const requests=[],errors=[];page.on('pageerror',e=>errors.push(e.message));const now=new Date().toLocaleString('sv-SE',{timeZone:'Asia/Shanghai'});
  const project={id:'123',name:'业务项目',owner:'scheduler-owner',online_count:2,workflow_count:3,task_definition_count:12,etl_dates:['2026-11-13'],not_executed_workflows:0,unclassified_workflows:0,workflow_statistics:{total:3,running:1,success:1,waiting:0,failed:1},config:{primary_owner:'alice',group_ids:'[2]',alert_enabled:1}};
  await page.route('**/api/**',async route=>{const r=route.request(),u=new URL(r.url()),p=u.pathname;requests.push({path:p,query:Object.fromEntries(u.searchParams),method:r.method(),body:r.postDataJSON?.()});let body=[];
-  if(p.startsWith('/api/calendars/'))body=options.calendarMissing?{status:'MISSING',values:[]}:{status:'RESOLVED',etl_date:'2025-12-31',values:[20251231]};
+  if(p.startsWith('/api/calendars/')){if(options.calendarFailure)return route.fulfill({status:503,json:{message:'calendar offline'}});if(options.calendarDelay && u.searchParams.get('natural_date')==='20260101')await new Promise(resolve=>setTimeout(resolve,500));const natural=u.searchParams.get('natural_date')||'';body=options.calendarAmbiguous?{status:'AMBIGUOUS',values:[20251230,20251231]}:options.calendarMissing?{status:'MISSING',values:[]}:{status:'RESOLVED',etl_date:options.calendarMapped || (natural==='20260101'?'2025-12-31':natural.slice(0,4)+'-'+natural.slice(4,6)+'-'+natural.slice(6)),values:[]};}
   else if(p==='/api/auth/me')body={authenticated:true,user_id:'admin',admin:true,name:'admin'};
   else if(p==='/api/dolphinscheduler/connections')body=[{id:7,service_name:'测试集群',config_json:JSON.stringify(options.config || {}),check_interval:60}];
   else if(p==='/api/dolphinscheduler/connections/7'&&r.method()==='PUT'){options.config=r.postDataJSON().config;body={id:7};}
@@ -171,7 +171,18 @@ async function details(page) {
  await page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true}).waitFor();const entry=page.getByRole('button',{name:'查看明细 →',exact:true});if(await entry.count())await entry.click();
 }
 
-test('calendar mapping supplies ETL_Date without using the natural day as business date',async({page})=>{
- const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');await page.getByRole('button',{name:'按日历选择',exact:true}).click();
- const dialog=page.getByRole('dialog',{name:'按业务日历选择 ETL_Date',exact:true});await dialog.getByLabel('日历来源').selectOption('working');await dialog.getByLabel('自然日',{exact:true}).fill('2026-01-01');await dialog.getByRole('button',{name:'查询 ETL_Date',exact:true}).click();await expect(dialog.getByText('2025-12-31',{exact:true})).toBeVisible();await dialog.getByRole('button',{name:'应用到监控',exact:true}).click();await expect(page.getByLabel('概览 ETL_Date')).toHaveValue('2025-12-31');await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.etl_date==='2025-12-31')).toBe(true);expect(errors).toEqual([]);
+test('ETL picker uses trading calendar automatically and preserves selected natural day',async({page})=>{
+ const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');await page.getByLabel('概览 ETL_Date').fill('2026-01-01');
+ await expect(page.locator('.etl-date-source')).toHaveText('交易日历 → 2025-12-31');await expect(page.getByLabel('概览 ETL_Date')).toHaveValue('2026-01-01');
+ await expect.poll(()=>requests.some(r=>r.path==='/api/calendars/trading/resolve'&&r.query.natural_date==='20260101')).toBe(true);await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.etl_date==='2025-12-31')).toBe(true);
+ await expect(page.getByRole('button',{name:'按日历选择',exact:true})).toHaveCount(0);expect(errors).toEqual([]);
+})
+test('missing trading date falls back to selected default calendar date and can be cleared',async({page})=>{
+ const {requests,errors}=await backend(page,{calendarMissing:true});await page.goto('/#/dolphinscheduler');await page.getByLabel('概览 ETL_Date').fill('2026-01-01');await expect(page.locator('.etl-date-source')).toHaveText('默认日历 → 2026-01-01');await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/summary')&&r.query.etl_date==='2026-01-01')).toBe(true);await page.getByLabel('概览 ETL_Date').fill('');await expect.poll(()=>requests.filter(r=>r.path.endsWith('/monitor/summary')).at(-1)?.query.etl_date || '').toBe('');expect(errors).toEqual([]);
+})
+test('calendar network errors and ambiguous mappings never silently fall back',async({page})=>{
+ for(const options of [{calendarFailure:true},{calendarAmbiguous:true}]){const {requests}=await backend(page,options);await page.goto('/#/dolphinscheduler');await page.reload();await expect(page.locator('.metric').first()).toBeEnabled();const before=requests.filter(r=>r.path.endsWith('/monitor/summary')).length;await page.getByLabel('概览 ETL_Date').fill('2026-01-01');await expect(page.getByRole('alert')).toContainText(options.calendarFailure?'calendar offline':'多条映射');await expect(page.locator('.metric').first()).toBeDisabled();expect(requests.filter(r=>r.path.endsWith('/monitor/summary')).length).toBe(before);}
+})
+test('rapid calendar selections keep only the latest mapping',async({page})=>{
+ const {requests,errors}=await backend(page,{calendarDelay:true});await page.goto('/#/dolphinscheduler');await page.getByLabel('概览 ETL_Date').fill('2026-01-01');await page.getByLabel('概览 ETL_Date').fill('2026-01-02');await expect(page.locator('.etl-date-source')).toHaveText('交易日历 → 2026-01-02');await expect.poll(()=>requests.filter(r=>r.path.endsWith('/monitor/summary')).at(-1)?.query.etl_date).toBe('2026-01-02');expect(errors).toEqual([]);
 })
