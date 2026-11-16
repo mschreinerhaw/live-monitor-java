@@ -28,10 +28,22 @@ async function backend(page,options={}){
  });return {requests,errors};
 }
 test('single DolphinScheduler monitor project drilldown preserves owner mapping and separate schedule state',async({page})=>{
- const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');await expect(page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true})).toBeVisible();await expect(page.locator('aside').getByRole('link',{name:'DolphinScheduler 监控',exact:true})).toHaveCount(1);await expect(page.locator('aside').getByRole('link',{name:/驾驶舱/})).toHaveCount(0);await expect(page.getByRole('columnheader',{name:'已成功',exact:true})).toBeVisible();
+ const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');await expect(page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true})).toBeVisible();await expect(page.locator('aside').getByRole('link',{name:'DolphinScheduler 监控',exact:true})).toHaveCount(1);await expect(page.locator('aside').getByRole('link',{name:/驾驶舱/})).toHaveCount(0);await expect(page.getByRole('heading',{name:'项目健康',exact:true})).toBeVisible();await expect(page.locator('.project-table')).toHaveCount(0);
  await page.getByRole('button',{name:'业务项目',exact:true}).click();await expect(page.getByText('业务工作流',{exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'未启用',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'配置责任人',exact:true}).click();const dialog=page.getByRole('dialog',{name:'项目责任人与告警组'});await dialog.getByLabel('主要责任人').fill('business-owner');await dialog.getByRole('button',{name:'保存',exact:true}).click();
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/projects/123/config')&&r.method==='PUT')).toBe(true);const saved=requests.find(r=>r.path.endsWith('/projects/123/config')&&r.method==='PUT');expect(saved.body.primary_owner).toBe('business-owner');expect(saved.body.group_ids).toEqual([2]);expect(errors).toEqual([]);
+})
+
+test('overview prioritizes failures and offers project and resource drilldowns',async({page})=>{
+ const {requests,errors}=await backend(page,{multiple:true});await page.goto('/#/dolphinscheduler');
+ await expect(page.locator('.project-table')).toHaveCount(0);
+ await expect(page.locator('.project-health-card').first()).toContainText('第二项目');
+ await page.getByLabel('搜索概览项目').fill('123');await expect(page.locator('.project-health-card')).toHaveCount(1);
+ await page.locator('.attention-item').filter({hasText:'业务项目'}).click();
+ await expect(page.getByRole('tab',{name:'任务运行明细',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.project==='123'&&r.query.state==='FAILURE')).toBe(true);
+ await page.getByRole('tab',{name:'监控总览',exact:true}).click();await page.getByRole('button',{name:/资源详情/}).click();
+ await expect(page.getByRole('tab',{name:'集群资源',exact:true})).toHaveAttribute('aria-selected','true');expect(errors).toEqual([]);
 })
 
 test('historical cockpit link redirects to one monitor and incomplete counts remain unknown',async({page})=>{
@@ -62,7 +74,7 @@ test('business date filters and missing JVM are explicit, including on mobile',a
 
 test('project list prioritizes failures, searches locally and restores empty filters',async({page})=>{
  const {errors}=await backend(page,{multiple:true});await page.goto('/#/dolphinscheduler');
- const rows=page.locator('.project-table tbody tr');await expect(rows.first()).toContainText('第二项目');
+ await page.getByRole('tab',{name:'项目明细',exact:true}).click();const rows=page.locator('.project-table tbody tr');await expect(rows.first()).toContainText('第二项目');
  await page.getByLabel('搜索项目名称或编码').fill('123');await expect(rows).toHaveCount(1);await expect(rows.first()).toContainText('业务项目');
  await page.getByLabel('清空项目搜索').click();await expect(rows).toHaveCount(2);
  await page.getByRole('button',{name:/有未执行/}).click();await expect(page.locator('.project-table').getByText('没有匹配的项目',{exact:true})).toBeVisible();
@@ -73,7 +85,7 @@ test('metric cards drill into complete success and waiting status groups',async(
  const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');
  await page.locator('.metric').filter({hasText:'已成功实例'}).click();
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.state==='success')).toBe(true);
- await page.getByRole('tab',{name:'项目运行',exact:true}).click();await page.locator('.metric').filter({hasText:'待执行实例'}).click();
+ await page.getByRole('tab',{name:'监控总览',exact:true}).click();await page.locator('.metric').filter({hasText:'待执行实例'}).click();
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.state==='waiting')).toBe(true);expect(errors).toEqual([]);
 })
 
@@ -96,7 +108,7 @@ test('alerts default to unrecovered events and retain aggregated history',async(
 })
 
 test('tabs support keyboard navigation and the management popover dismisses',async({page})=>{
- const {errors}=await backend(page);await page.goto('/#/dolphinscheduler');const home=page.getByRole('tab',{name:'项目运行',exact:true});await home.focus();await page.keyboard.press('ArrowRight');
+ const {errors}=await backend(page);await page.goto('/#/dolphinscheduler');const home=page.getByRole('tab',{name:'监控总览',exact:true});await home.focus();await page.keyboard.press('ArrowRight');await expect(page.getByRole('tab',{name:'项目明细',exact:true})).toBeFocused();await page.keyboard.press('ArrowRight');
  await expect(page.getByRole('tab',{name:'工作流定义',exact:true})).toBeFocused();await expect(page.getByText('选择项目，查看工作流定义',{exact:true})).toBeVisible();
  await page.keyboard.press('End');await expect(page.getByRole('tab',{name:'采集配置',exact:true})).toBeFocused();await page.keyboard.press('Home');await expect(home).toBeFocused();
  await page.getByRole('button',{name:'管理',exact:true}).click();await expect(page.getByRole('button',{name:'连接设置',exact:true})).toBeVisible();await page.getByRole('button',{name:'连接设置',exact:true}).focus();await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'管理',exact:true})).toBeFocused();
@@ -113,7 +125,7 @@ test('automatic refresh can be paused without changing collected counts',async({
 
 test('phone project cards expose failure actions without horizontal scrolling',async({page})=>{
  await page.setViewportSize({width:390,height:844});const {requests,errors}=await backend(page);await page.goto('/#/dolphinscheduler');
- await expect(page.locator('.mobile-projects')).toBeVisible();await expect(page.locator('.project-section>.table-wrap')).not.toBeVisible();
+ await expect(page.locator('.project-health-grid')).toBeVisible();await expect(page.locator('.project-table')).toHaveCount(0);
  await page.getByRole('button',{name:'业务项目的失败实例 1',exact:true}).click();
  await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.project==='123'&&r.query.state==='FAILURE')).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

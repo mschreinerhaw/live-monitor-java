@@ -2,13 +2,12 @@
   <div class="page-container enterprise-page dolphin-product">
     <header class="product-header">
       <div class="product-title">
-        <span class="product-mark"><IconSvg name="activity" size="23" /></span>
         <div>
-          <div class="title-line">
+          <small class="ds-overview-caption">监控总览</small><div class="title-line">
             <h1>DolphinScheduler 监控</h1>
             <span :class="['freshness-pill', healthTone]"><i></i>{{ healthLabel }}</span>
           </div>
-          <p>项目执行进度与集群健康，一处掌握</p>
+          <p>掌握执行全貌，优先定位失败项目与异常节点，点击查看明细。</p>
         </div>
       </div>
       <div class="header-actions">
@@ -229,19 +228,11 @@
             /></span>
           </button>
         </div>
+        <DolphinOverview :projects="dashboard.projects || []" :nodes="dashboard.nodes || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :fresh="collectionFresh(resourceCollection)" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" @resources="selectTab('resources')" @alerts="selectTab('alerts')" />
         <DolphinResourceSummary
           :nodes="dashboard.nodes || []"
           :fresh="collectionFresh(resourceCollection)"
           @details="selectTab('resources')"
-        />
-        <DolphinProjectTable
-          v-model:filter="projectFocus"
-          :projects="dashboard.projects || []"
-          :known="dashboard.project_count != null"
-          :pending="busy || filtersDirty"
-          :scope-key="projectScopeKey"
-          @definitions="openProject"
-          @instances="openInstances"
         />
         <details class="collection-details">
           <summary><IconSvg name="database" size="14" />采集状态</summary>
@@ -272,6 +263,17 @@
         </details>
       </template>
 
+      <template v-if="tab === 'project-list' && dashboard">
+        <DolphinProjectTable
+          v-model:filter="projectFocus"
+          :projects="dashboard.projects || []"
+          :known="dashboard.project_count != null"
+          :pending="busy || filtersDirty"
+          :scope-key="projectScopeKey"
+          @definitions="openProject"
+          @instances="openInstances"
+        />
+      </template>
       <section v-if="tab === 'projects'" class="card detail-section">
         <header class="detail-heading">
           <div>
@@ -296,7 +298,7 @@
         <div v-if="!project" class="empty-state">
           <IconSvg name="file" size="30" /><strong>选择项目，查看工作流定义</strong>
           <p>在上方项目筛选中选择一个项目，或从项目列表进入。</p>
-          <button class="btn btn-ghost" @click="selectTab('overview')">返回项目列表</button>
+          <button class="btn btn-ghost" @click="selectTab('project-list')">返回项目列表</button>
         </div>
         <template v-else
           ><div class="definition-facts">
@@ -1197,6 +1199,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import IconSvg from '../components/IconSvg.vue'
+import DolphinOverview from '../components/DolphinOverview.vue'
 import DolphinProjectTable from '../components/DolphinProjectTable.vue'
 import DolphinResourceSummary from '../components/DolphinResourceSummary.vue'
 import DolphinConnectionDialog from '../components/DolphinConnectionDialog.vue'
@@ -1268,7 +1271,8 @@ const definitionKind = ref('workflow_definition'),
   historyHours = ref(24),
   chartEl = ref(null)
 const tabs = [
-  { key: 'overview', name: '项目运行' },
+  { key: 'overview', name: '监控总览' },
+  { key: 'project-list', name: '项目明细' },
   { key: 'projects', name: '工作流定义' },
   { key: 'instances', name: '任务运行明细' },
   { key: 'resources', name: '集群资源' },
@@ -1931,7 +1935,7 @@ function openMetric(m) {
     return
   }
   if (m.key === 'unstarted') {
-    tab.value = 'overview'
+    tab.value = 'project-list'
     projectFocus.value = 'unstarted'
     nextTick(() =>
       document.getElementById('ds-project-title')?.scrollIntoView({

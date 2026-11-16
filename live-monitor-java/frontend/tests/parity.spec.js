@@ -19,7 +19,7 @@ test('DolphinScheduler single monitor keeps project filters, instance/task pagin
   await expect(page.getByRole('heading',{name:'DolphinScheduler 监控',exact:true})).toBeVisible()
   await expect(page.locator('aside').getByRole('link',{name:/驾驶舱/})).toHaveCount(0)
   await page.getByLabel('项目',{exact:true}).selectOption('2')
-  await expect.poll(()=>summaryParams.get('project')).toBe('2');await expect(page.getByRole('button',{name:'执行明细',exact:true})).toHaveCount(1)
+  await expect.poll(()=>summaryParams.get('project')).toBe('2');await page.getByRole('tab',{name:'项目明细',exact:true}).click();await expect(page.getByRole('button',{name:'执行明细',exact:true})).toHaveCount(1)
   await page.getByRole('button',{name:'执行明细',exact:true}).click()
   const rows=page.locator('section').filter({has:page.getByLabel('记录类型')}).locator('tbody tr')
   await expect(rows).toHaveCount(5)
