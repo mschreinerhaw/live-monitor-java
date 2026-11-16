@@ -36,7 +36,7 @@ test('single DolphinScheduler monitor project drilldown preserves owner mapping 
 
 test('first screen fits key health and opens details on a separate screen',async({page})=>{
  const {requests,errors}=await backend(page,{multiple:true});await page.setViewportSize({width:1366,height:768});await page.goto('/#/dolphinscheduler');
- await expect(page.locator('.metric').first()).toBeEnabled();await expect(page.locator('.project-health-grid,.project-table')).toHaveCount(0);
+ await expect(page.locator('.metric').first()).toBeEnabled();await expect(page.locator('.project-table')).toHaveCount(0);await expect(page.locator('.project-health-card')).toHaveCount(2);
  await expect(page.getByRole('tablist')).toHaveCount(0);await expect(page.getByLabel('项目',{exact:true})).toHaveCount(0);
  const bounds=await page.locator('.resource-summary').boundingBox();expect(bounds.y+bounds.height).toBeLessThanOrEqual(768);
  await page.locator('.attention-item').filter({hasText:'业务项目'}).click();await expect(page).toHaveURL(/view=details/);
@@ -44,6 +44,16 @@ test('first screen fits key health and opens details on a separate screen',async
  await page.getByRole('button',{name:'← 返回监控总览',exact:true}).click();await expect(page.locator('.overview-screen')).toBeVisible();
  await page.getByRole('button',{name:'查看明细 →',exact:true}).click();await expect(page.locator('.project-table')).toBeVisible();
  await page.goBack();await expect(page.locator('.overview-screen')).toBeVisible();expect(errors).toEqual([]);
+})
+
+test('overview keeps project monitoring cards and card status opens details',async({page})=>{
+ const {requests,errors}=await backend(page,{multiple:true});await page.goto('/#/dolphinscheduler');
+ await expect(page.locator('.project-health-card').first()).toContainText('第二项目');
+ await page.getByLabel('搜索概览项目').fill('123');await expect(page.locator('.project-health-card')).toHaveCount(1);
+ await page.getByRole('button',{name:'业务项目的失败实例 1',exact:true}).click();await expect(page).toHaveURL(/view=details/);
+ await expect.poll(()=>requests.some(r=>r.path.endsWith('/monitor/instances')&&r.query.project==='123'&&r.query.state==='FAILURE')).toBe(true);
+ await page.getByRole('button',{name:'← 返回监控总览',exact:true}).click();await page.getByRole('button',{name:'查看全部项目',exact:true}).click();
+ await expect.poll(()=>requests.filter(r=>r.path.endsWith('/monitor/summary')).at(-1)?.query.project || '').toBe('');expect(errors).toEqual([]);
 })
 
 test('historical cockpit link redirects to one monitor and incomplete counts remain unknown',async({page})=>{

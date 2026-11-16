@@ -77,7 +77,7 @@
       >
     </div>
 
-    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
+    <div v-if="tab === 'overview' && connections.length" class="overview-scope"><label>监控集群 <select v-model="cluster" class="form-control" @change="changeCluster"><option v-for="c in connections" :key="c.id" :value="String(c.id)">{{ c.service_name }}</option></select></label><span>{{ scopeDescription }}</span><button v-if="project" class="link-button" :disabled="busy" @click="project = ''; changeProject()">查看全部项目</button><label class="refresh-toggle"><input v-model="autoRefresh" type="checkbox" />每 30 秒自动刷新</label></div>
     <section v-if="tab !== 'overview'" class="card scope-card" aria-label="监控范围">
       <div class="filters scope-filters">
         <label
@@ -235,6 +235,7 @@
           :fresh="collectionFresh(resourceCollection)"
           @details="selectTab('resources')"
         />
+        <DolphinProjectCards :projects="dashboard.projects || []" :known="dashboard.project_count != null" :pending="busy || filtersDirty" :reliable="dashboard.execution_coverage_reliable === true" :scope-key="projectScopeKey" @definitions="openProject" @instances="openInstances" @projects="selectTab('project-list')" />
 
       </template>
 
@@ -1201,6 +1202,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconSvg from '../components/IconSvg.vue'
+import DolphinProjectCards from '../components/DolphinProjectCards.vue'
 import DolphinOverview from '../components/DolphinOverview.vue'
 import DolphinProjectTable from '../components/DolphinProjectTable.vue'
 import DolphinResourceSummary from '../components/DolphinResourceSummary.vue'
