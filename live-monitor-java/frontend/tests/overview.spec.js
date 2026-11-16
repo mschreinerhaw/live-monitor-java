@@ -22,14 +22,14 @@ test('overview isolates missing metrics, filters clusters by IDs, and links reso
   })
   await page.goto('/#/dashboard')
   await expect(page.getByRole('heading', { name: '全局监控', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading',{name:'主机趋势 最近 24 小时'})).toBeVisible()
+  await expect(page.locator('.host-trend-panel')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '最近告警事件', exact: true })).toHaveCount(0)
   await expect(page.locator('aside').getByRole('link', { name: '集群健康与热力图', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading',{name:'集群健康概览',exact:true})).toHaveCount(0)
   await expect(page.locator('.cluster-card')).toHaveCount(0)
   await expect(page.getByRole('heading',{name:'服务状态分布',exact:true})).toBeVisible()
   await expect(page.getByRole('heading',{name:'主机资源对比',exact:true})).toBeVisible()
-  await page.locator('.heatmap-details>summary').click()
+  await expect(page.getByRole('heading',{name:'主机资源热力图',exact:true})).toBeVisible()
   await expect(page.locator('.heat-cell').filter({ hasText: 'host-a' })).toContainText('暂无数据')
   await expect(page.locator('.heat-cell').filter({ hasText: 'host-b' })).toContainText('采集过期')
   await expect(page.locator('.status-legend')).toContainText('正常 1')
@@ -55,17 +55,23 @@ test('overview isolates missing metrics, filters clusters by IDs, and links reso
 })
 
 
-test('host trend cancels obsolete host history and keeps the selected host isolated',async({page})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));
+test('host comparison defaults to top ten while heatmap shows every host without history requests',async({page})=>{
+ const errors=[],history=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;let json=[];
   if(path==='/api/auth/me')json={authenticated:true,user_id:'admin',admin:true};
-  if(path==='/api/overview/summary')json={summary:{instances:0,up:0,down:0,unknown:0},services:[],hosts:[{id:11,host_name:'host-a'},{id:12,host_name:'host-b'}],errors:{},active_service_alerts:3};
-  if(path.endsWith('/metrics/history')){const first=path.includes('/11/');if(first)await new Promise(resolve=>setTimeout(resolve,700));json=[{checked_at:first?'2026-11-16 12:10:00':'2026-11-16 12:20:00',cpu_usage_percent:first?95:15,memory_used_percent:30,disk_used_percent:null}]}
-  try{await route.fulfill({json})}catch{}
+  if(path.endsWith('/metrics/history'))history.push(path);
+  if(path==='/api/overview/summary')json={summary:{instances:0,up:0,down:0,unknown:0},services:[],hosts:Array.from({length:15},(_,i)=>({id:i+1,host_name:'host-'+String(i+1).padStart(2,'0'),enabled:true,last_status:'UP',last_checked_at_epoch_ms:Date.now(),metric_checked_at:'2026-11-16 16:00:00',cpu_usage_percent:i+1,memory_used_percent:i+1,disk_used_percent:10})),errors:{},active_service_alerts:0};
+  await route.fulfill({json});
  });
- await page.goto('/#/dashboard');await page.getByLabel('趋势主机').selectOption('12');
- await expect(page.locator('.host-trend-panel .range')).toContainText('12:20:00');
- await expect(page.locator('.host-trend-panel .range')).not.toContainText('12:10:00');
- await expect(page.locator('.trend-chart canvas')).toBeVisible();expect(errors).toEqual([]);
+ await page.goto('/#/dashboard');await expect(page.locator('.host-chart canvas')).toBeVisible();
+ await expect(page.getByLabel('资源对比主机数量')).toHaveValue('10');await expect(page.locator('.heat-cell')).toHaveCount(15);await expect(page.locator('.heat-cell').first()).toBeVisible();
+ await page.locator('.metric-values summary').click();await expect(page.locator('.metric-values tbody tr')).toHaveCount(10);
+ await expect(page.locator('.metric-values tbody tr').first()).toContainText('host-15');
+ await page.getByLabel('资源对比主机数量').selectOption('0');await expect(page.locator('.metric-values tbody tr')).toHaveCount(15);
+ await page.getByLabel('资源对比主机数量').selectOption('10');await expect(page.locator('.metric-values tbody tr')).toHaveCount(10);
+ await page.getByRole('button',{name:'内存',exact:true}).click();await expect(page.locator('.heat-cell').first()).toContainText('1.0%');
+ await page.screenshot({path:'../../tmp/global-host-layout-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'../../tmp/global-host-layout-mobile.png',fullPage:true});
+ expect(history).toEqual([]);expect(errors).toEqual([]);
 })
